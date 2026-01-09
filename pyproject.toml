@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gwtc_analysis"
+version = "0.1.0"
+description = "GWTC analysis modes for Galaxy"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy",
+  "pandas",
+  "matplotlib",
+  "requests",
+]
+
+[project.scripts]
+gwtc_analysis = "gwtc_analysis.cli:main"

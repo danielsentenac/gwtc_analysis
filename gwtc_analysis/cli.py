@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+import argparse
+from typing import List
+
+from .catalogs import run_catalog_statistics
+
+def _split_csv(s: str) -> List[str]:
+    return [x.strip() for x in s.split(",") if x.strip()]
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="gwtc_analysis", description="GWTC analysis tool (Galaxy-friendly).")
+    p.add_argument("--mode", required=True, choices=["catalog_statistics"], help="Which analysis to run.")
+    p.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys (space-separated). Galaxy may pass multiple. Commas are also accepted.")
+
+    # Outputs
+    p.add_argument("--out-events", required=True, help="Output TSV with per-event data")
+    p.add_argument("--out-report", required=True, help="HTML report output")
+
+
+    # Options
+    p.add_argument("--include-detectors", action="store_true", help="Include detector network via GWOSC v2 calls")
+    p.add_argument("--include-a90", action="store_true", help="Compute A90 sky area if skymaps are available")
+    p.add_argument("--a90-cred", type=float, default=0.9, help="Credible level for sky area (default 0.9)")
+    p.add_argument("--skymaps-gwtc21", default=None, help="Directory for GWTC-2.1 skymaps collection (Galaxy collection input)")
+    p.add_argument("--skymaps-gwtc3", default=None, help="Directory for GWTC-3 skymaps collection (Galaxy collection input)")
+    p.add_argument("--skymaps-gwtc4", default=None, help="Directory for GWTC-4 skymaps collection (Galaxy collection input)")
+ 
+    p.add_argument("--events-json", default=None, help="Offline mode: path to jsonfull-like events JSON")
+   
+    return p
+
+def main(argv=None) -> int:
+    p = build_parser()
+    args = p.parse_args(argv)
+
+    raw_cats = []
+    for item in args.catalogs:
+        raw_cats.extend(_split_csv(item))
+    catalogs = raw_cats
+
+    if args.mode == "catalog_statistics":
+        run_catalog_statistics(
+            catalogs=catalogs,
+            out_events_tsv=args.out_events,
+            out_report_html=args.out_report,
+            include_detectors=args.include_detectors,
+            include_a90=args.include_a90,
+            a90_cred=args.a90_cred,
+            skymaps_dirs={'GWTC-2.1-confident': args.skymaps_gwtc21, 'GWTC-3-confident': args.skymaps_gwtc3, 'GWTC-4.0': args.skymaps_gwtc4},
+            events_json=args.events_json,
+        )
+        return 0
+
+    raise SystemExit(f"Unsupported mode {args.mode}")
+
+if __name__ == "__main__":
+    raise SystemExit(main())

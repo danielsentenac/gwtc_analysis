@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# Conda
+.conda/
+conda/
+miniforge*/
+
+# Planemo / Galaxy
+.planemo/
+.tool_test_output/
+tool_test_output.html
+tool_test_output.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/

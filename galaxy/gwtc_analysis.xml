@@ -1,0 +1,123 @@
+<tool id="gwtc_analysis" name="GWTC analysis" version="0.1.0" profile="22.05">
+  <description>Catalog statistics (initial mode)</description>
+
+ <requirements>
+  <requirement type="package">python</requirement>
+  <requirement type="package">numpy</requirement>
+  <requirement type="package">pandas</requirement>
+  <requirement type="package">matplotlib</requirement>
+  <requirement type="package">requests</requirement>
+</requirements>
+
+  <command detect_errors="exit_code"><![CDATA[
+PYTHONPATH="${__tool_directory__}/.." python -m gwtc_analysis.cli
+  --mode catalog_statistics
+  --catalogs ${' '.join($catalogs)}
+  --out-events '$out_events'
+  --out-report '$out_report'
+
+  #if $events_json:
+    --events-json '$events_json'
+  #end if
+
+  #if $include_detectors:
+    --include-detectors
+  #end if
+
+  #if $include_a90:
+    --include-a90
+    --a90-cred '$a90_cred'
+    #if $skymaps_gwtc21:
+      --skymaps-gwtc21 '$skymaps_gwtc21'
+    #end if
+    #if $skymaps_gwtc3:
+      --skymaps-gwtc3 '$skymaps_gwtc3'
+    #end if
+    #if $skymaps_gwtc4:
+      --skymaps-gwtc4 '$skymaps_gwtc4'
+    #end if
+  #end if
+]]></command>
+
+  <inputs>
+    <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
+      <option value="GWTC-2.1-confident" selected="true">GWTC-2.1-confident</option>
+      <option value="GWTC-3-confident" selected="true">GWTC-3-confident</option>
+      <option value="GWTC-4.0">GWTC-4.0</option>
+    </param>
+
+    <param name="events_json" type="data" format="json" optional="true"
+           label="Events JSON (offline mode)"
+           help="If provided, the tool reads events from this jsonfull-like file instead of calling GWOSC (useful for tests and offline runs)." />
+
+    <param name="include_detectors" type="boolean" label="Add detector network (GWOSC v2 calls)" checked="true" />
+    <param name="include_a90" type="boolean" label="Compute A90 from skymaps collections (optional)" checked="false" />
+    <param name="a90_cred" type="float" label="Credible level for A90" value="0.9" min="0.5" max="0.99" />
+
+    <param name="skymaps_gwtc21" type="data_collection" collection_type="list" optional="true"
+           label="Skymaps collection for GWTC-2.1-confident"
+           help="Collection of FITS skymaps for GWTC-2.1-confident." />
+    <param name="skymaps_gwtc3" type="data_collection" collection_type="list" optional="true"
+           label="Skymaps collection for GWTC-3-confident"
+           help="Collection of FITS skymaps for GWTC-3-confident." />
+    <param name="skymaps_gwtc4" type="data_collection" collection_type="list" optional="true"
+           label="Skymaps collection for GWTC-4.0"
+           help="Collection of FITS skymaps for GWTC-4.0." />
+  </inputs>
+
+  <outputs>
+    <data name="out_events" format="tabular" label="GWTC per-event table" />
+    <data name="out_report" format="html" label="GWTC catalog report" />
+  </outputs>
+
+  <tests>
+    <test>
+      <param name="catalogs" value="GWTC-2.1-confident"/>
+      <param name="include_detectors" value="false"/>
+      <param name="include_a90" value="false"/>
+      <param name="events_json" value="gwtc_small.json"/>
+
+      <output name="out_events" ftype="tabular">
+        <assert_contents>
+          <has_text text="event_id"/>
+          <has_n_lines min="2"/>
+        </assert_contents>
+      </output>
+
+      <output name="out_report" ftype="html">
+        <assert_contents>
+          <has_text text="GWTC catalog statistics"/>
+        </assert_contents>
+      </output>
+    </test>
+  </tests>
+
+  <help><![CDATA[
+This tool provides GWTC analysis modes in Galaxy.
+
+Current mode:
+- **Catalog statistics**: fetches events from GWOSC (or reads from an offline jsonfull-like file), derives a per-event table, and generates an HTML report.
+
+Notes:
+- For **offline mode** (tests, reproducibility), provide *Events JSON (offline mode)*.
+- A90 computation requires providing the relevant skymaps collection(s).
+]]></help>
+
+  <citations>
+    <citation type="bibtex">
+@misc{gwosc,
+  title        = {Gravitational Wave Open Science Center (GWOSC)},
+  howpublished = {\url{https://gwosc.org}},
+  note         = {Used via the GWOSC Event API}
+}
+    </citation>
+    <citation type="bibtex">
+@software{ligo_skymap,
+  title  = {ligo.skymap},
+  author = {Singer, Leo P. and others},
+  url    = {https://lscsoft.docs.ligo.org/ligo.skymap/}
+}
+    </citation>
+  </citations>
+</tool>
+

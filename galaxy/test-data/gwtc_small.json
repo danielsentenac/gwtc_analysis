@@ -1,0 +1,35 @@
+{
+  "events": {
+    "GW150914-v3": {
+      "commonName": "GW150914",
+      "GPS": 1126259462.4,
+      "catalog.shortName": "GWTC-1",
+      "version": 3,
+      "mass_1_source": 36.0,
+      "mass_2_source": 29.0,
+      "chirp_mass_source": 28.1,
+      "luminosity_distance": 410.0,
+      "redshift": 0.09,
+      "chi_eff": 0.0,
+      "network_matched_filter_snr": 25.0,
+      "far": 1e-7,
+      "p_astro": 1.0
+    },
+    "GW170817-v3": {
+      "commonName": "GW170817",
+      "GPS": 1187008882.4,
+      "catalog.shortName": "GWTC-1",
+      "version": 3,
+      "mass_1_source": 1.46,
+      "mass_2_source": 1.27,
+      "chirp_mass_source": 1.19,
+      "luminosity_distance": 40.0,
+      "redshift": 0.01,
+      "chi_eff": 0.0,
+      "network_matched_filter_snr": 32.0,
+      "far": 1e-8,
+      "p_astro": 1.0
+    }
+  }
+}
+
