@@ -1,106 +1,300 @@
-<tool id="gwtc_analysis" name="GWTC analysis" version="0.1.0" profile="22.05">
-  <description>Catalog statistics (initial mode)</description>
+<tool id="gwtc_analysis" name="GWTC analysis" version="0.2.2" profile="22.05">
+  <description>GWTC analysis (catalog statistics + event selection + skymap search)</description>
 
- <requirements>
-  <requirement type="package">python</requirement>
-  <requirement type="package">numpy</requirement>
-  <requirement type="package">pandas</requirement>
-  <requirement type="package">matplotlib</requirement>
-  <requirement type="package">requests</requirement>
-</requirements>
+  <requirements>
+     <requirement type="package" version="1.26">numpy</requirement>
+     <requirement type="package" version="2.2">pandas</requirement>
+     <requirement type="package" version="3.8">matplotlib</requirement>
+     <requirement type="package" version="2.32">requests</requirement>
+
+     <requirement type="package" version="6.0">astropy</requirement>
+     <requirement type="package" version="1.16.6">healpy</requirement>
+     <requirement type="package" version="2.2.2">ligo.skymap</requirement>
+     <requirement type="package" version="0.12.0">reproject</requirement>
+
+  </requirements>
 
   <command detect_errors="exit_code"><![CDATA[
-PYTHONPATH="${__tool_directory__}/.." python -m gwtc_analysis.cli
-  --mode catalog_statistics
-  --catalogs ${' '.join($catalogs)}
-  --out-events '$out_events'
-  --out-report '$out_report'
+  export MPLBACKEND=Agg
+  export PYTHONPATH="${__tool_directory__}/.."
+  python -m gwtc_analysis.cli
+  --mode '$mode.mode'
+  --catalogs ${' '.join($mode.catalogs)}
 
-  #if $events_json:
-    --events-json '$events_json'
+  #if str($mode.mode) == "catalog_statistics":
+    --out-events '$out_events'
+    --out-report '$out_report'
+
+    #if $mode.events_json:
+      --events-json '$mode.events_json'
+    #end if
+
+    #if $mode.include_detectors:
+      --include-detectors
+    #end if
+
+    #if $mode.include_a90:
+      --include-a90
+      --a90-cred '$mode.a90_cred'
+
+      #if $mode.skymaps_gwtc21:
+        --skymaps-gwtc21
+        #for $f in $mode.skymaps_gwtc21:
+          '$f'
+        #end for
+      #end if
+
+      #if $mode.skymaps_gwtc3:
+        --skymaps-gwtc3
+        #for $f in $mode.skymaps_gwtc3:
+          '$f'
+        #end for
+      #end if
+
+      #if $mode.skymaps_gwtc4:
+        --skymaps-gwtc4
+        #for $f in $mode.skymaps_gwtc4:
+          '$f'
+        #end for
+      #end if
+    #end if
   #end if
 
-  #if $include_detectors:
-    --include-detectors
+  #if str($mode.mode) == "event_selection":
+    --out-selection '$out_selection'
+
+    #if $mode.events_json:
+      --events-json '$mode.events_json'
+    #end if
+
+    #if str($mode.m1_min).strip():
+      --m1-min '$mode.m1_min'
+    #end if
+    #if str($mode.m1_max).strip():
+      --m1-max '$mode.m1_max'
+    #end if
+    #if str($mode.m2_min).strip():
+      --m2-min '$mode.m2_min'
+    #end if
+    #if str($mode.m2_max).strip():
+      --m2-max '$mode.m2_max'
+    #end if
+    #if str($mode.dl_min).strip():
+      --dl-min '$mode.dl_min'
+    #end if
+    #if str($mode.dl_max).strip():
+      --dl-max '$mode.dl_max'
+    #end if
   #end if
 
-  #if $include_a90:
-    --include-a90
-    --a90-cred '$a90_cred'
-    #if $skymaps_gwtc21:
-      --skymaps-gwtc21 '$skymaps_gwtc21'
+  #if str($mode.mode) == "search_skymaps":
+    --out-events '$out_events'
+
+    #if $mode.events_json:
+      --events-json '$mode.events_json'
     #end if
-    #if $skymaps_gwtc3:
-      --skymaps-gwtc3 '$skymaps_gwtc3'
-    #end if
-    #if $skymaps_gwtc4:
-      --skymaps-gwtc4 '$skymaps_gwtc4'
-    #end if
+
+    --ra '$mode.ra'
+    --dec '$mode.dec'
+    --prob '$mode.prob'
+    --make-plots '$mode.make_plots'
+
+    --skymaps
+    #for $f in $mode.skymaps:
+      '$f'
+    #end for
   #end if
 ]]></command>
 
   <inputs>
-    <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
-      <option value="GWTC-2.1-confident" selected="true">GWTC-2.1-confident</option>
-      <option value="GWTC-3-confident" selected="true">GWTC-3-confident</option>
-      <option value="GWTC-4.0">GWTC-4.0</option>
-    </param>
+    <conditional name="mode">
+      <param name="mode" type="select" label="Analysis mode">
+        <option value="catalog_statistics" selected="true">Catalog statistics</option>
+        <option value="event_selection">Event selection</option>
+        <option value="search_skymaps">Search skymaps</option>
+      </param>
 
-    <param name="events_json" type="data" format="json" optional="true"
-           label="Events JSON (offline mode)"
-           help="If provided, the tool reads events from this jsonfull-like file instead of calling GWOSC (useful for tests and offline runs)." />
+      <when value="catalog_statistics">
+        <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
+          <option value="GWTC-2.1-confident" selected="true">GWTC-2.1-confident</option>
+          <option value="GWTC-3-confident" selected="true">GWTC-3-confident</option>
+          <option value="GWTC-4.0">GWTC-4.0</option>
+        </param>
 
-    <param name="include_detectors" type="boolean" label="Add detector network (GWOSC v2 calls)" checked="true" />
-    <param name="include_a90" type="boolean" label="Compute A90 from skymaps collections (optional)" checked="false" />
-    <param name="a90_cred" type="float" label="Credible level for A90" value="0.9" min="0.5" max="0.99" />
+        <param name="events_json" type="data" format="json" optional="true"
+               label="Events JSON (offline mode)"
+               help="If provided, the tool reads events from this jsonfull-like file instead of calling GWOSC." />
 
-    <param name="skymaps_gwtc21" type="data_collection" collection_type="list" optional="true"
-           label="Skymaps collection for GWTC-2.1-confident"
-           help="Collection of FITS skymaps for GWTC-2.1-confident." />
-    <param name="skymaps_gwtc3" type="data_collection" collection_type="list" optional="true"
-           label="Skymaps collection for GWTC-3-confident"
-           help="Collection of FITS skymaps for GWTC-3-confident." />
-    <param name="skymaps_gwtc4" type="data_collection" collection_type="list" optional="true"
-           label="Skymaps collection for GWTC-4.0"
-           help="Collection of FITS skymaps for GWTC-4.0." />
+        <param name="include_detectors" type="boolean" label="Add detector network (GWOSC v2 calls)" checked="true" />
+        <param name="include_a90" type="boolean" label="Compute A90 from skymaps collections (optional)" checked="false" />
+        <param name="a90_cred" type="float" label="Credible level for A90" value="0.9" min="0.5" max="0.99" />
+
+        <!-- Now collections again (Galaxy-native) -->
+        <param name="skymaps_gwtc21" type="data_collection" collection_type="list" optional="true"
+               label="Skymaps collection for GWTC-2.1-confident"
+               help="Collection of FITS/FITS.GZ skymaps for GWTC-2.1-confident." />
+        <param name="skymaps_gwtc3" type="data_collection" collection_type="list" optional="true"
+               label="Skymaps collection for GWTC-3-confident"
+               help="Collection of FITS/FITS.GZ skymaps for GWTC-3-confident." />
+        <param name="skymaps_gwtc4" type="data_collection" collection_type="list" optional="true"
+               label="Skymaps collection for GWTC-4.0"
+               help="Collection of FITS/FITS.GZ skymaps for GWTC-4.0." />
+      </when>
+
+      <when value="event_selection">
+        <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
+          <option value="GWTC-2.1-confident" selected="true">GWTC-2.1-confident</option>
+          <option value="GWTC-3-confident" selected="true">GWTC-3-confident</option>
+          <option value="GWTC-4.0">GWTC-4.0</option>
+        </param>
+
+        <param name="events_json" type="data" format="json" optional="true"
+               label="Events JSON (offline mode)" />
+
+        <param name="m1_min" type="float" optional="true" label="m1 (source) min [Msun]" />
+        <param name="m1_max" type="float" optional="true" label="m1 (source) max [Msun]" />
+        <param name="m2_min" type="float" optional="true" label="m2 (source) min [Msun]" />
+        <param name="m2_max" type="float" optional="true" label="m2 (source) max [Msun]" />
+        <param name="dl_min" type="float" optional="true" label="Luminosity distance min [Mpc]" />
+        <param name="dl_max" type="float" optional="true" label="Luminosity distance max [Mpc]" />
+      </when>
+
+      <when value="search_skymaps">
+        <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
+          <option value="GWTC-2.1-confident" selected="true">GWTC-2.1-confident</option>
+          <option value="GWTC-3-confident" selected="true">GWTC-3-confident</option>
+          <option value="GWTC-4.0">GWTC-4.0</option>
+        </param>
+
+        <param name="events_json" type="data" format="json" optional="true"
+               label="Events JSON (offline mode)"
+               help="Optional. If provided, only those event IDs are considered." />
+
+        <param name="ra" type="float" label="RA (deg)"/>
+        <param name="dec" type="float" label="Dec (deg)"/>
+        <param name="prob" type="float" value="0.9" min="0.01" max="1.0" label="Credible region threshold (0..1)"/>
+
+        <param name="make_plots" type="select" label="Make plots">
+          <option value="hits" selected="true">hits only</option>
+          <option value="all">all</option>
+          <option value="none">none</option>
+        </param>
+
+        <param name="skymaps" type="data_collection" collection_type="list"
+               label="Skymap collection (fits/fits.gz)"
+               help="Collection of FITS/FITS.GZ skymaps to scan." />
+      </when>
+    </conditional>
   </inputs>
 
   <outputs>
-    <data name="out_events" format="tabular" label="GWTC per-event table" />
-    <data name="out_report" format="html" label="GWTC catalog report" />
+    <data name="out_events" format="tabular" label="GWTC output table (TSV)">
+      <filter>mode.mode == "catalog_statistics" or mode.mode == "search_skymaps"</filter>
+    </data>
+
+    <data name="out_report" format="html" label="GWTC catalog report">
+      <filter>mode.mode == "catalog_statistics"</filter>
+    </data>
+
+    <data name="out_selection" format="tabular" label="Selected events (TSV)">
+      <filter>mode.mode == "event_selection"</filter>
+    </data>
+
+    <collection name="plots" type="list" label="Skymap plots (PNG)">
+      <discover_datasets pattern="(?P&lt;name&gt;.+)\.png" directory="plots" ext="png"/>
+      <filter>mode.mode == "search_skymaps" and mode.make_plots != "none"</filter>
+    </collection>
   </outputs>
 
   <tests>
-    <test>
-      <param name="catalogs" value="GWTC-2.1-confident"/>
-      <param name="include_detectors" value="false"/>
-      <param name="include_a90" value="false"/>
-      <param name="events_json" value="gwtc_small.json"/>
 
-      <output name="out_events" ftype="tabular">
-        <assert_contents>
-          <has_text text="event_id"/>
-          <has_n_lines min="2"/>
-        </assert_contents>
-      </output>
+  <!-- catalog_statistics -->
+  <test expect_num_outputs="4">
+    <param name="mode|mode" value="catalog_statistics"/>
+    <param name="mode|catalogs" value="GWTC-2.1-confident"/>
+    <param name="mode|include_detectors" value="false"/>
+    <param name="mode|include_a90" value="false"/>
+    <param name="mode|events_json" value="gwtc_small.json"/>
 
-      <output name="out_report" ftype="html">
-        <assert_contents>
-          <has_text text="GWTC catalog statistics"/>
-        </assert_contents>
-      </output>
-    </test>
-  </tests>
+    <output name="out_events" ftype="tabular">
+      <assert_contents>
+        <has_text text="event_id"/>
+        <has_n_lines min="2"/>
+      </assert_contents>
+    </output>
+
+    <output name="out_report" ftype="html">
+      <assert_contents>
+        <has_text text="GWTC"/>
+      </assert_contents>
+    </output>
+
+    <!-- must exist but empty -->
+    <output name="out_selection"/>
+    <output_collection name="plots" count="0"/>
+  </test>
+
+  <!-- event_selection -->
+  <test expect_num_outputs="4">
+    <param name="mode|mode" value="event_selection"/>
+    <param name="mode|catalogs" value="GWTC-2.1-confident"/>
+    <param name="mode|events_json" value="gwtc_small.json"/>
+    <param name="mode|m1_min" value="10"/>
+
+    <output name="out_selection" ftype="tabular">
+      <assert_contents>
+        <has_text text="event_id"/>
+        <has_n_lines min="2"/>
+      </assert_contents>
+    </output>
+
+    <output name="out_events"/>
+    <output name="out_report"/>
+    <output_collection name="plots" count="0"/>
+  </test>
+
+  <!-- search_skymaps -->
+  <test expect_num_outputs="4">
+    <param name="mode|mode" value="search_skymaps"/>
+    <param name="mode|catalogs" value="GWTC-4.0"/>
+    <param name="mode|ra" value="120"/>
+    <param name="mode|dec" value="-63"/>
+    <param name="mode|prob" value="0.6"/>
+    <param name="mode|make_plots" value="all"/>
+
+    <param name="mode|skymaps">
+      <collection type="list">
+        <element name="skymap1"
+                 value="IGWN-GWTC4p0-0f954158d_720-GW231223_032836-NRSur7dq4_Skymap_PEDataRelease.fits.gz"/>
+      </collection>
+    </param>
+
+    <output name="out_events" ftype="tabular">
+      <assert_contents>
+        <has_text text="event_id"/>
+      </assert_contents>
+    </output>
+
+    <output name="out_report"/>
+    <output name="out_selection"/>
+    <output_collection name="plots" count="0"/>
+  </test>
+
+</tests>
+
+
 
   <help><![CDATA[
 This tool provides GWTC analysis modes in Galaxy.
 
-Current mode:
-- **Catalog statistics**: fetches events from GWOSC (or reads from an offline jsonfull-like file), derives a per-event table, and generates an HTML report.
+Modes:
+- **Catalog statistics**: per-event TSV + HTML report. Optional A90 uses skymaps collections (FITS/FITS.GZ).
+- **Event selection**: returns a TSV list of event IDs matching selection cuts.
+- **Search skymaps**: scans a skymap collection and returns events whose localization contains the input (RA, Dec) inside the requested credible region; optionally outputs PNG plots.
 
 Notes:
-- For **offline mode** (tests, reproducibility), provide *Events JSON (offline mode)*.
-- A90 computation requires providing the relevant skymaps collection(s).
+- For **offline mode**, provide *Events JSON (offline mode)*.
+- For A90 (catalog_statistics), provide the relevant skymaps collection(s) and enable **Compute A90**.
 ]]></help>
 
   <citations>

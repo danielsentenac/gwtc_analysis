@@ -41,7 +41,8 @@ def _format_area(area):
     else:
         return f'{np.round(area).astype(int):,d}'
         
-def plot_skymap_with_ra_dec(skymapFILE,title,ra,dec,color):
+def plot_skymap_with_ra_dec(skymapFILE, title, ra, dec, color, contour_levels=(50, 90)):
+
     """ Process the given sky map file and extract relevant data. """
     
     # Read HEALPix sky map  
@@ -71,7 +72,8 @@ def plot_skymap_with_ra_dec(skymapFILE,title,ra,dec,color):
     dA = moc.uniq2pixarea(hpx['UNIQ'])
     dP = hpx['PROBDENSITY'] * dA
     cls = 100 * find_greedy_credible_levels(dP, hpx['PROBDENSITY'])
-    contour = np.array([50, 90])
+    contour = np.array(sorted(set(contour_levels)))
+
     
     #Add in annotation
     i = np.flipud(np.argsort(hpx['PROBDENSITY']))
@@ -122,7 +124,6 @@ def plot_skymap_with_ra_dec(skymapFILE,title,ra,dec,color):
     cb.set_label(r'prob. per deg$^2$')
     plotname = f'plot_{title}'
     plt.savefig(plotname)
-    plt.show()
     
     return plotname
 

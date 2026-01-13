@@ -1,45 +1,124 @@
 from __future__ import annotations
 
 import argparse
-from typing import List
+from typing import List, Optional, Any
 
 from .catalogs import run_catalog_statistics
+from .event_selection import run_event_selection
+from .search_skymaps import run_search_skymaps
+
 
 def _split_csv(s: str) -> List[str]:
     return [x.strip() for x in s.split(",") if x.strip()]
 
+
+def _none_if_empty(x: Any) -> Any:
+    """Argparse with nargs can yield [] instead of None."""
+    if x is None:
+        return None
+    if isinstance(x, list) and len(x) == 0:
+        return None
+    return x
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="gwtc_analysis", description="GWTC analysis tool (Galaxy-friendly).")
-    p.add_argument("--mode", required=True, choices=["catalog_statistics"], help="Which analysis to run.")
-    p.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys (space-separated). Galaxy may pass multiple. Commas are also accepted.")
+    p.add_argument(
+        "--mode",
+        required=True,
+        choices=["catalog_statistics", "event_selection", "search_skymaps"],
+        help="Which analysis to run.",
+    )
+    p.add_argument(
+        "--catalogs",
+        required=True,
+        nargs="+",
+        help="Catalog keys (space-separated). Galaxy may pass multiple. Commas are also accepted.",
+    )
 
     # Outputs
-    p.add_argument("--out-events", required=True, help="Output TSV with per-event data")
-    p.add_argument("--out-report", required=True, help="HTML report output")
+    p.add_argument("--out-events", default=None, help="Output TSV (catalog_statistics/search_skymaps)")
+    p.add_argument("--out-report", default=None, help="Output HTML report (catalog_statistics optional)")
+    p.add_argument("--out-selection", default=None, help="Output TSV for event_selection")
 
-
-    # Options
+    # catalog_statistics options
     p.add_argument("--include-detectors", action="store_true", help="Include detector network via GWOSC v2 calls")
     p.add_argument("--include-a90", action="store_true", help="Compute A90 sky area if skymaps are available")
     p.add_argument("--a90-cred", type=float, default=0.9, help="Credible level for sky area (default 0.9)")
-    p.add_argument("--skymaps-gwtc21", default=None, help="Directory for GWTC-2.1 skymaps collection (Galaxy collection input)")
-    p.add_argument("--skymaps-gwtc3", default=None, help="Directory for GWTC-3 skymaps collection (Galaxy collection input)")
-    p.add_argument("--skymaps-gwtc4", default=None, help="Directory for GWTC-4 skymaps collection (Galaxy collection input)")
- 
+
+    # IMPORTANT:
+    # These accept either:
+    #  - a single directory path: --skymaps-gwtc4 /path/to/dir
+    #  - OR a Galaxy-expanded list of files: --skymaps-gwtc4 file1.fits.gz file2.fits.gz ...
+    p.add_argument(
+        "--skymaps-gwtc21",
+        nargs="*",
+        default=None,
+        help="GWTC-2.1 skymaps: directory path OR list of .fits/.fits.gz files (Galaxy collection)",
+    )
+    p.add_argument(
+        "--skymaps-gwtc3",
+        nargs="*",
+        default=None,
+        help="GWTC-3 skymaps: directory path OR list of .fits/.fits.gz files (Galaxy collection)",
+    )
+    p.add_argument(
+        "--skymaps-gwtc4",
+        nargs="*",
+        default=None,
+        help="GWTC-4 skymaps: directory path OR list of .fits/.fits.gz files (Galaxy collection)",
+    )
+
+    # event_selection filters
+    p.add_argument("--m1-min", type=float, default=None)
+    p.add_argument("--m1-max", type=float, default=None)
+    p.add_argument("--m2-min", type=float, default=None)
+    p.add_argument("--m2-max", type=float, default=None)
+    p.add_argument("--dl-min", type=float, default=None)
+    p.add_argument("--dl-max", type=float, default=None)
+
+    # search_skymaps args
+    p.add_argument("--ra", type=float, required=False)
+    p.add_argument("--dec", type=float, required=False)
+    p.add_argument("--prob", type=float, default=0.9)  # fraction 0..1
+    p.add_argument("--skymaps", nargs="+", required=False, help="Files or directories containing .fits/.fits.gz")
+    p.add_argument("--make-plots", choices=["hits", "all", "none"], default="hits")
+
+    # kept for compatibility (currently not used by run_search_skymaps)
+    p.add_argument("--rastd", type=float, default=1.0)
+    p.add_argument("--decstd", type=float, default=1.0)
+    p.add_argument("--outdir", default="skymap_search_out")
+    p.add_argument("--zoom-radius-deg", type=float, default=10.0)
+    p.add_argument("--use-grb", action="store_true")
+    p.add_argument("--grbdb", default=None)
+    p.add_argument("--use-glade", action="store_true")
+    p.add_argument("--glade-local", default=None)
+    p.add_argument("--max-galaxies", type=int, default=200)
+
     p.add_argument("--events-json", default=None, help="Offline mode: path to jsonfull-like events JSON")
-   
+
     return p
+
 
 def main(argv=None) -> int:
     p = build_parser()
     args = p.parse_args(argv)
 
-    raw_cats = []
+    raw_cats: List[str] = []
     for item in args.catalogs:
         raw_cats.extend(_split_csv(item))
     catalogs = raw_cats
 
+    skymaps_dirs = {
+        "GWTC-2.1-confident": _none_if_empty(args.skymaps_gwtc21),
+        "GWTC-3-confident": _none_if_empty(args.skymaps_gwtc3),
+        "GWTC-4.0": _none_if_empty(args.skymaps_gwtc4),
+    }
+
     if args.mode == "catalog_statistics":
+        if not args.out_events or not args.out_report:
+            raise SystemExit("--out-events and --out-report are required for mode=catalog_statistics")
+
         run_catalog_statistics(
             catalogs=catalogs,
             out_events_tsv=args.out_events,
@@ -47,12 +126,53 @@ def main(argv=None) -> int:
             include_detectors=args.include_detectors,
             include_a90=args.include_a90,
             a90_cred=args.a90_cred,
-            skymaps_dirs={'GWTC-2.1-confident': args.skymaps_gwtc21, 'GWTC-3-confident': args.skymaps_gwtc3, 'GWTC-4.0': args.skymaps_gwtc4},
+            skymaps_dirs=skymaps_dirs,
             events_json=args.events_json,
+        )
+        return 0
+
+    if args.mode == "event_selection":
+        if not args.out_selection:
+            raise SystemExit("--out-selection is required for mode=event_selection")
+
+        run_event_selection(
+            catalogs=catalogs,
+            out_tsv=args.out_selection,
+            events_json=args.events_json,
+            m1_min=args.m1_min,
+            m1_max=args.m1_max,
+            m2_min=args.m2_min,
+            m2_max=args.m2_max,
+            dl_min=args.dl_min,
+            dl_max=args.dl_max,
+        )
+        return 0
+
+    if args.mode == "search_skymaps":
+        if not args.out_events:
+            raise SystemExit("--out-events is required for mode=search_skymaps")
+        if args.ra is None or args.dec is None:
+            raise SystemExit("--ra and --dec are required for mode=search_skymaps")
+        if not args.skymaps:
+            raise SystemExit("--skymaps (collection/files) is required for mode=search_skymaps")
+
+        run_search_skymaps(
+            catalogs=catalogs,
+            out_events_tsv=args.out_events,
+            out_report_html=args.out_report,
+            skymaps_dirs=skymaps_dirs,     # optional fallback, mostly unused in Galaxy mode
+            skymaps=args.skymaps,          # the Galaxy collection/file list
+            events_json=args.events_json,
+            ra_deg=args.ra,
+            dec_deg=args.dec,
+            prob=args.prob,
+            make_plots=args.make_plots,
         )
         return 0
 
     raise SystemExit(f"Unsupported mode {args.mode}")
 
+
 if __name__ == "__main__":
     raise SystemExit(main())
+

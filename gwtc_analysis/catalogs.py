@@ -14,7 +14,14 @@ from .report import write_simple_html_report
 def _safe_mkdir(p: str | Path) -> None:
     Path(p).mkdir(parents=True, exist_ok=True)
 
+def _ensure_matplotlib():
+    import matplotlib
+    matplotlib.use("Agg", force=True)  # headless-safe
+    import matplotlib.pyplot as plt
+    return plt
+    
 def _plot_network_counts(df: pd.DataFrame, out_png: str | Path) -> Optional[str]:
+    plt = _ensure_matplotlib()
     if "n_det" not in df.columns:
         return None
     vc = df["n_det"].value_counts().sort_index()
@@ -31,6 +38,7 @@ def _plot_network_counts(df: pd.DataFrame, out_png: str | Path) -> Optional[str]
     return str(out_png)
 
 def _plot_a90_cdf(df: pd.DataFrame, out_png: str | Path, column: str = "A90_deg2") -> Optional[str]:
+    plt = _ensure_matplotlib()
     if column not in df.columns:
         return None
     x = df[column].dropna().astype(float).to_numpy()
@@ -58,7 +66,7 @@ def run_catalog_statistics(
     include_a90: bool = False,
     a90_cred: float = 0.9,
     a90_column: str = "A90_deg2",
-    skymaps_dirs: Optional[dict] = None,
+    skymaps_dirs: Optional[dict] = None,  # values can be str (dir) OR list[str] (files)
     ns_threshold: float = 3.0,
     events_json: Optional[str | Path] = None,
 ) -> None:
@@ -143,7 +151,21 @@ def run_catalog_statistics(
                 f"A90 requested but no skymaps directory was provided for {cat}. "
                 "Provide the corresponding skymaps collection input."
             )
-
+        
+        # --- NEW: accept either a directory path OR a list of files (Galaxy collection) ---
+        # Normalize: if Galaxy passed a 1-element list containing a directory, unwrap it
+        if isinstance(skydir, (list, tuple)):
+            if len(skydir) == 1 and Path(skydir[0]).is_dir():
+                skydir = skydir[0]
+        else:
+            # Materialize the collection into a local directory of symlinks/copies
+            workdir_for_links = Path(out_events_tsv).parent if Path(out_events_tsv).parent != Path("") else Path(".")
+            skydir = str(_materialize_skymap_collection_dir(list(skydir), workdir_for_links, tag=cat))
+        
+        # Now skydir must be a directory path
+        if not Path(skydir).exists():
+            raise RuntimeError(f"Skymaps directory does not exist for {cat}: {skydir}")
+    
         # Use the directory directly (collection directory)
         if hasattr(gw, "add_localization_area_from_directory"):
             tmp = gw.add_localization_area_from_directory(
@@ -220,3 +242,29 @@ def run_catalog_statistics(
         images=img_paths,
         tables=tables,
     )
+    
+def _materialize_skymap_collection_dir(files: list[str], workdir: Path, tag: str) -> Path:
+    """
+    Create a directory under workdir and symlink all skymap files into it.
+    This lets us reuse add_localization_area_from_directory().
+    """
+    out = workdir / f"skymaps_{tag}"
+    out.mkdir(parents=True, exist_ok=True)
+
+    for f in files:
+        src = Path(f)
+        if not src.exists():
+            continue
+        # keep original filename to preserve GW event id parsing
+        dst = out / src.name
+        if dst.exists():
+            continue
+        try:
+            dst.symlink_to(src)
+        except OSError:
+            # fallback: hardlink/copy if symlink not allowed
+            import shutil
+            shutil.copy2(src, dst)
+
+    return out
+
