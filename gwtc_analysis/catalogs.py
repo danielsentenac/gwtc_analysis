@@ -152,19 +152,28 @@ def run_catalog_statistics(
                 "Provide the corresponding skymaps collection input."
             )
         
-        # --- NEW: accept either a directory path OR a list of files (Galaxy collection) ---
-        # Normalize: if Galaxy passed a 1-element list containing a directory, unwrap it
-        if isinstance(skydir, (list, tuple)):
+        # --- Normalize skymaps input: directory path OR list of files (Galaxy collection) ---
+        skydir_path: Path
+        if isinstance(skydir, (str, Path)):
+            skydir_path = Path(skydir)
+        elif isinstance(skydir, (list, tuple)):
+            # Galaxy may pass a 1-element list containing a directory
             if len(skydir) == 1 and Path(skydir[0]).is_dir():
-                skydir = skydir[0]
+                skydir_path = Path(skydir[0])
+            else:
+                # Materialize the collection into a local directory of symlinks/copies
+                workdir_for_links = (
+                    Path(out_events_tsv).parent if Path(out_events_tsv).parent != Path("") else Path(".")
+                )
+                skydir_path = _materialize_skymap_collection_dir(list(skydir), workdir_for_links, tag=cat)
         else:
-            # Materialize the collection into a local directory of symlinks/copies
-            workdir_for_links = Path(out_events_tsv).parent if Path(out_events_tsv).parent != Path("") else Path(".")
-            skydir = str(_materialize_skymap_collection_dir(list(skydir), workdir_for_links, tag=cat))
-        
-        # Now skydir must be a directory path
-        if not Path(skydir).exists():
-            raise RuntimeError(f"Skymaps directory does not exist for {cat}: {skydir}")
+            raise RuntimeError(f"Unsupported skymaps_dirs entry for {cat}: {type(skydir)}")
+
+        if not skydir_path.exists():
+            raise RuntimeError(f"Skymaps directory does not exist for {cat}: {skydir_path}")
+
+        skydir = str(skydir_path)
+
     
         # Use the directory directly (collection directory)
         if hasattr(gw, "add_localization_area_from_directory"):
@@ -201,7 +210,10 @@ def run_catalog_statistics(
     keep = [c for c in keep if c in df_out.columns]
     df_out[keep].to_csv(out_events_tsv, sep="\t", index=False)
 
-    # Report
+    # Report (optional)
+    if not out_report_html:
+        return
+
     out_report_html = Path(out_report_html)
     _safe_mkdir(out_report_html.parent if out_report_html.parent != Path('') else ".")
 

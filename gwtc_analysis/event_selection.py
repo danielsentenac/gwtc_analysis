@@ -40,6 +40,9 @@ def run_event_selection(
     Writes TSV with selected events (at least event_id).
     """
 
+    out_tsv = Path(out_tsv)
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+
     dfs: list[pd.DataFrame] = []
 
     if events_json is not None:

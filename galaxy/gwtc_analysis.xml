@@ -8,103 +8,74 @@
      <requirement type="package" version="3.8">matplotlib</requirement>
      <requirement type="package" version="2.32">requests</requirement>
 
-     <requirement type="package" version="6.0">astropy</requirement>
-     <requirement type="package" version="1.16.6">healpy</requirement>
-     <requirement type="package" version="2.2.2">ligo.skymap</requirement>
-     <requirement type="package" version="0.12.0">reproject</requirement>
   </requirements>
-
   <command detect_errors="exit_code"><![CDATA[
-export MPLBACKEND=Agg
-export PYTHONPATH="${__tool_directory__}/.."
+    #set py_path = "%s/.." % $__tool_directory__
 
-python -m gwtc_analysis.cli \
-  --mode '$mode.mode' \
-  --catalogs ${' '.join($mode.catalogs)} \
+    mkdir -p "\$(dirname '$out_events')" "\$(dirname '$out_report')" "\$(dirname '$out_selection')" &&
 
-#if str($mode.mode) == "catalog_statistics":
-  --out-events '$out_events' \
-  --out-report '$out_report' \
-  #if $mode.events_json:
-    --events-json '$mode.events_json' \
-  #end if
-  #if $mode.include_detectors:
-    --include-detectors \
-  #end if
-  #if $mode.include_a90:
-    --include-a90 \
-    --a90-cred '$mode.a90_cred' \
+    PYTHONPATH="$py_path" python -m gwtc_analysis.cli
+        --mode '$mode.mode'
+        --catalogs ${' '.join($mode.catalogs)}
 
-    #if $mode.skymaps_gwtc21:
-      --skymaps-gwtc21 \
-      #for $f in $mode.skymaps_gwtc21:
-        '$f' \
-      #end for
-    #end if
+        #if $mode.events_json:
+            --events-json '$mode.events_json'
+        #end if
 
-    #if $mode.skymaps_gwtc3:
-      --skymaps-gwtc3 \
-      #for $f in $mode.skymaps_gwtc3:
-        '$f' \
-      #end for
-    #end if
+        #if str($mode.mode) == "catalog_statistics":
+            --out-events '$out_events'
+            --out-report '$out_report'
 
-    #if $mode.skymaps_gwtc4:
-      --skymaps-gwtc4 \
-      #for $f in $mode.skymaps_gwtc4:
-        '$f' \
-      #end for
-    #end if
-  #end if
-#end if
+            #if $mode.include_detectors:
+                --include-detectors
+            #end if
 
-#if str($mode.mode) == "event_selection":
-  --out-selection '$out_selection' \
-  #if $mode.events_json:
-    --events-json '$mode.events_json' \
-  #end if
-  #if str($mode.m1_min).strip():
-    --m1-min '$mode.m1_min' \
-  #end if
-  #if str($mode.m1_max).strip():
-    --m1-max '$mode.m1_max' \
-  #end if
-  #if str($mode.m2_min).strip():
-    --m2-min '$mode.m2_min' \
-  #end if
-  #if str($mode.m2_max).strip():
-    --m2-max '$mode.m2_max' \
-  #end if
-  #if str($mode.dl_min).strip():
-    --dl-min '$mode.dl_min' \
-  #end if
-  #if str($mode.dl_max).strip():
-    --dl-max '$mode.dl_max' \
-  #end if
-#end if
+            #if $mode.include_a90:
+                --include-a90
+                --a90-cred '$mode.a90_cred'
+            #end if
 
-#if str($mode.mode) == "search_skymaps":
-  --out-events '$out_events' \
-  #if $mode.events_json:
-    --events-json '$mode.events_json' \
-  #end if
-  --ra '$mode.ra' \
-  --dec '$mode.dec' \
-  --prob '$mode.prob' \
-  --make-plots '$mode.make_plots' \
-  --skymaps \
-  #for $f in $mode.skymaps:
-    '$f' \
-  #end for
-#end if
+            #if $mode.skymaps_gwtc21:
+                --skymaps-gwtc21 ${' '.join($mode.skymaps_gwtc21)}
+            #end if
+            #if $mode.skymaps_gwtc3:
+                --skymaps-gwtc3 ${' '.join($mode.skymaps_gwtc3)}
+            #end if
+            #if $mode.skymaps_gwtc4:
+                --skymaps-gwtc4 ${' '.join($mode.skymaps_gwtc4)}
+            #end if
+
+        #else if str($mode.mode) == "event_selection":
+            --out-selection '$out_selection'
+
+            #if $mode.m1_min and str($mode.m1_min).strip():
+                --m1-min '$mode.m1_min'
+            #end if
+            #if $mode.m1_max and str($mode.m1_max).strip():
+                --m1-max '$mode.m1_max'
+            #end if
+            #if $mode.m2_min and str($mode.m2_min).strip():
+                --m2-min '$mode.m2_min'
+            #end if
+            #if $mode.m2_max and str($mode.m2_max).strip():
+                --m2-max '$mode.m2_max'
+            #end if
+            #if $mode.dl_min and str($mode.dl_min).strip():
+                --dl-min '$mode.dl_min'
+            #end if
+            #if $mode.dl_max and str($mode.dl_max).strip():
+                --dl-max '$mode.dl_max'
+            #end if
+        #end if
 ]]></command>
+
 
   <inputs>
     <conditional name="mode">
       <param name="mode" type="select" label="Analysis mode">
         <option value="catalog_statistics" selected="true">Catalog statistics</option>
         <option value="event_selection">Event selection</option>
-        <option value="search_skymaps">Search skymaps</option>
+        
       </param>
 
       <when value="catalog_statistics">
@@ -146,30 +117,6 @@ python -m gwtc_analysis.cli \
         <param name="dl_min" type="float" optional="true" label="Luminosity distance min [Mpc]" />
         <param name="dl_max" type="float" optional="true" label="Luminosity distance max [Mpc]" />
       </when>
-
-      <when value="search_skymaps">
-        <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
-          <option value="GWTC-2.1-confident" selected="true">GWTC-2.1-confident</option>
-          <option value="GWTC-3-confident" selected="true">GWTC-3-confident</option>
-          <option value="GWTC-4.0">GWTC-4.0</option>
-        </param>
-
-        <param name="events_json" type="data" format="json" optional="true"
-               label="Events JSON (offline mode)"/>
-
-        <param name="ra" type="float" label="RA (deg)"/>
-        <param name="dec" type="float" label="Dec (deg)"/>
-        <param name="prob" type="float" value="0.9" min="0.01" max="1.0" label="Credible region threshold (0..1)"/>
-
-        <param name="make_plots" type="select" label="Make plots">
-          <option value="hits" selected="true">hits only</option>
-          <option value="all">all</option>
-          <option value="none">none</option>
-        </param>
-
-        <param name="skymaps" type="data_collection" collection_type="list"
-               label="Skymap collection (fits/fits.gz)"/>
-      </when>
     </conditional>
   </inputs>
 
@@ -186,16 +133,12 @@ python -m gwtc_analysis.cli \
       <filter>mode.mode == "event_selection"</filter>
     </data>
 
-    <collection name="plots" type="list" label="Skymap plots (PNG)">
-      <discover_datasets pattern="(?P&lt;name&gt;.+)\.png" directory="plots" ext="png"/>
-      <filter>mode.mode == "search_skymaps" and mode.make_plots != "none"</filter>
-    </collection>
   </outputs>
 
   <tests>
 
     <!-- catalog_statistics -->
-    <test expect_num_outputs="4">
+    <test expect_num_outputs="3">
       <param name="mode|mode" value="catalog_statistics"/>
       <param name="mode|catalogs" value="GWTC-2.1-confident"/>
       <param name="mode|include_detectors" value="false"/>
@@ -221,15 +164,16 @@ python -m gwtc_analysis.cli \
           <has_size value="0"/>
         </assert_contents>
       </output>
-      <output_collection name="plots" type="list" count="0"/>
+     
     </test>
 
     <!-- event_selection -->
-    <test expect_num_outputs="4">
+    <test expect_num_outputs="3">
       <param name="mode|mode" value="event_selection"/>
       <param name="mode|catalogs" value="GWTC-2.1-confident"/>
       <param name="mode|events_json" value="gwtc_small.json"/>
       <param name="mode|m1_min" value="10"/>
+      <param name="mode|m1_max" value="500"/>
 
       <output name="out_selection" ftype="tabular">
         <assert_contents>
@@ -249,46 +193,9 @@ python -m gwtc_analysis.cli \
           <has_size value="0"/>
         </assert_contents>
       </output>
-      <output_collection name="plots" type="list" count="0"/>
+    
     </test>
 
-    <!-- search_skymaps -->
-    <test expect_num_outputs="4">
-      <param name="mode|mode" value="search_skymaps"/>
-      <param name="mode|catalogs" value="GWTC-4.0"/>
-      <param name="mode|ra" value="120"/>
-      <param name="mode|dec" value="-63"/>
-      <param name="mode|prob" value="0.6"/>
-      <param name="mode|make_plots" value="all"/>
-
-      <param name="mode|skymaps">
-        <collection type="list">
-          <element name="skymap1" value="IGWN-GWTC4p0-0f954158d_720-GW231223_032836-NRSur7dq4_Skymap_PEDataRelease.fits.gz"/>
-        </collection>
-      </param>
-
-      <output name="out_events" ftype="tabular">
-        <assert_contents>
-          <has_text text="event_id"/>
-        </assert_contents>
-      </output>
-
-      <!-- inactive outputs: must still have a check -->
-      <output name="out_report" ftype="html">
-        <assert_contents>
-          <has_size value="0"/>
-        </assert_contents>
-      </output>
-      <output name="out_selection" ftype="tabular">
-        <assert_contents>
-          <has_size value="0"/>
-        </assert_contents>
-      </output>
-
-      <!-- if make_plots=all, you SHOULD get 1 plot from 1 input skymap,
-           but if your code plots only "hits", it could be 0. For stability, keep 0 unless you know it's a hit. -->
-      <output_collection name="plots" type="list" count="0"/>
-    </test>
 
   </tests>
 
