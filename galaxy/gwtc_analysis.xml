@@ -2,18 +2,15 @@
   <description>GWTC analysis (catalog statistics + event selection + skymap search)</description>
 
   <requirements>
-     <requirement type="package" version="3.9">python</requirement>
-     <requirement type="package" version="1.26">numpy</requirement>
-     <requirement type="package" version="2.2">pandas</requirement>
-     <requirement type="package" version="3.8">matplotlib</requirement>
-     <requirement type="package" version="2.32">requests</requirement>
-
+     <requirement type="package" version="3.11">python</requirement>
   </requirements>
   <command detect_errors="exit_code"><![CDATA[
     #set py_path = "%s/.." % $__tool_directory__
 
     mkdir -p "\$(dirname '$out_events')" "\$(dirname '$out_report')" "\$(dirname '$out_selection')" &&
 
+    pip install numpy>=2 pandas>=2.2.2 ligo.skymap==2.5.3 requests==2.32.0 &&
+    
     PYTHONPATH="$py_path" python -m gwtc_analysis.cli
         --mode '$mode.mode'
         --catalogs ${' '.join($mode.catalogs)}
@@ -66,6 +63,21 @@
             #if $mode.dl_max and str($mode.dl_max).strip():
                 --dl-max '$mode.dl_max'
             #end if
+            
+        #else if str($mode.mode) == "search_skymaps":
+            --out-events '$out_events'
+            --out-report '$out_report'
+            --ra-deg  '$mode.ra_deg'
+            --dec-deg '$mode.dec_deg'
+            --prob '$mode.prob'
+            --make-plots '$mode.make_plots'
+
+            #if $mode.events_json:
+                --events-json '$mode.events_json'
+            #end if
+            #if $mode.skymaps:
+                --skymaps #echo ' '.join([str($s) for $s in $mode.skymaps])
+            #end if
         #end if
 ]]></command>
 
@@ -75,7 +87,7 @@
       <param name="mode" type="select" label="Analysis mode">
         <option value="catalog_statistics" selected="true">Catalog statistics</option>
         <option value="event_selection">Event selection</option>
-        
+        <option value="search_skymaps">Search skymaps at RA/Dec</option>
       </param>
 
       <when value="catalog_statistics">
@@ -116,6 +128,27 @@
         <param name="m2_max" type="float" optional="true" label="m2 (source) max [Msun]" />
         <param name="dl_min" type="float" optional="true" label="Luminosity distance min [Mpc]" />
         <param name="dl_max" type="float" optional="true" label="Luminosity distance max [Mpc]" />
+      </when>
+      
+      <when value="search_skymaps">
+        <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
+          <option value="GWTC-2.1-confident" selected="true">GWTC-2.1-confident</option>
+          <option value="GWTC-3-confident">GWTC-3-confident</option>
+          <option value="GWTC-4.0">GWTC-4.0</option>
+        </param>
+
+        <param name="events_json" type="data" format="json" optional="true" label="Events JSON (offline mode)"/>
+        <param name="ra_deg"  type="float" value="30.0" label="Right ascension (deg)"/>
+        <param name="dec_deg" type="float" value="40.0" label="Declination (deg)"/>
+        <param name="prob"    type="float" value="0.5" min="0.01" max="1.0" label="Credible-level threshold"/>
+        <param name="make_plots" type="select" label="Generate skymap plots">
+          <option value="none">None</option>
+          <option value="hits" selected="true">Hits only</option>
+          <option value="all">All</option>
+        </param>
+
+        <!-- Galaxy collection input (list of FITS files) -->
+        <param name="skymaps" type="data" format="fits,txt" multiple="true" optional="false" label="Skymap files (FITS or FITS.gz)"/>
       </when>
     </conditional>
   </inputs>
@@ -193,9 +226,35 @@
           <has_size value="0"/>
         </assert_contents>
       </output>
-    
     </test>
 
+    <test expect_num_outputs="3">
+      <param name="mode|mode" value="search_skymaps"/>
+      <param name="mode|catalogs" value="GWTC-2.1-confident"/>
+      <param name="mode|ra_deg"  value="30"/>
+      <param name="mode|dec_deg" value="40"/>
+      <param name="mode|prob"    value="0.5"/>
+      <param name="mode|make_plots" value="none"/>
+      <param name="mode|skymaps" value="IGWN-GWTC4p0-0f954158d_720-GW240104_164932-SEOBNRv5PHM_Skymap_PEDataRelease.fits.gz"/>
+
+      <output name="out_events" ftype="tabular">
+        <assert_contents>
+          <has_text text="event_id"/>
+          <has_n_lines min="1"/>
+        </assert_contents>
+      </output>
+      <output name="out_report" ftype="html">
+        <assert_contents>
+          <has_text text="search_skymaps"/>
+        </assert_contents>
+      </output>
+      <!-- out_selection is inactive -->
+      <output name="out_selection" ftype="tabular">
+        <assert_contents>
+          <has_size value="0"/>
+        </assert_contents>
+      </output>
+    </test>
 
   </tests>
 

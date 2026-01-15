@@ -45,6 +45,9 @@ def run_search_skymaps(
                 skymap_paths.append(p)
         # In this mode, "catalog" is whatever user passed; we’ll record the first catalog (or empty)
         catalog_label = catalogs[0] if catalogs else ""
+        # normalize plots_dir -> plots_path
+        plots_path = Path(plots_dir) if plots_dir else Path("plots")
+        plots_path.mkdir(parents=True, exist_ok=True)
         for skymap_path in skymap_paths:
             _process_one_skymap(
                 rows=rows,
@@ -91,6 +94,8 @@ def run_search_skymaps(
                     plots_path=plots_path,
                 )
 
+ 
+    out_tsv_path = Path(out_events_tsv)
     _write_tsv(out_tsv_path, rows)
 
     if out_report_html:

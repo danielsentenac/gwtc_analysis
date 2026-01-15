@@ -5,6 +5,7 @@ from typing import List
 
 from .catalogs import run_catalog_statistics
 from .event_selection import run_event_selection
+from .search_skymaps import run_search_skymaps
 
 
 def _split_csv(s: str) -> List[str]:
@@ -25,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--mode",
         required=True,
-        choices=["catalog_statistics", "event_selection"],
+        choices=["catalog_statistics", "event_selection","search_skymaps"],
         help="Which analysis to run.",
     )
     p.add_argument(
@@ -57,6 +58,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--m2-max", type=float, default=None)
     p.add_argument("--dl-min", type=float, default=None)
     p.add_argument("--dl-max", type=float, default=None)
+    
+    # -----  new mode: search_skymaps  -----
+    p.add_argument("--ra-deg",  type=float, help="Right ascension (deg)")
+    p.add_argument("--dec-deg", type=float, help="Declination (deg)")
+    p.add_argument("--prob",    type=float, default=0.9, help="Credible-level threshold (0–1)")
+    p.add_argument("--make-plots", choices=["none", "hits", "all"], default="hits")
+    p.add_argument("--plots-dir", default=None, help="Directory for skymap plots (default: no plots)")
+    # allow Galaxy collections to be passed as a plain list
+    p.add_argument("--skymaps", nargs="*", default=None, help="List of skymap files (FITS or FITS.gz)")
 
     # Offline mode
     p.add_argument("--events-json", default=None, help="Offline mode: path to jsonfull-like events JSON")
@@ -107,6 +117,24 @@ def main(argv=None) -> int:
             m2_max=args.m2_max,
             dl_min=args.dl_min,
             dl_max=args.dl_max,
+        )
+        return 0
+        
+    if args.mode == "search_skymaps":
+        if args.ra_deg is None or args.dec_deg is None:
+            raise SystemExit("--ra-deg and --dec-deg are required for search_skymaps")
+        run_search_skymaps(
+            catalogs=catalogs,
+            out_events_tsv=args.out_events,
+            out_report_html=args.out_report,
+            skymaps_dirs={},          # not used when --skymaps list is given
+            events_json=args.events_json,
+            ra_deg=args.ra_deg,
+            dec_deg=args.dec_deg,
+            prob=args.prob,
+            make_plots=args.make_plots,
+            plots_dir=args.plots_dir,
+            skymaps=args.skymaps,     # single list from Galaxy
         )
         return 0
 
