@@ -183,6 +183,7 @@
           <param name="fs_low" type="float" label="Bandpass low (Hz)" value="20.0"/>
           <param name="fs_high" type="float" label="Bandpass high (Hz)" value="300.0"/>
 
+          <param name="events_json" type="data" format="json" optional="true" label="Events JSON (offline mode)"/>
       </when>
 
     </conditional>
@@ -295,7 +296,7 @@
 <!-- parameters_estimation (successful minimal run with a test PE file) -->
 
     <!-- parameters_estimation (requested command-line args; may require network/PE availability) -->
-	<test expect_failure="true">
+	<test expect_num_outputs="3">
 	  <param name="mode|mode" value="parameters_estimation"/>
 	  <param name="mode|src_name" value="GW150914"/>
 	  <param name="mode|sample_method" value="IMRPhenomXPHM"/>
