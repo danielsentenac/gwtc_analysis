@@ -33,7 +33,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--catalogs",
-        required=True,
+        required=False,
+        default=None,
         nargs="+",
         help="Catalog keys (space-separated). Galaxy may pass multiple. Commas are also accepted.",
     )
@@ -70,7 +71,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--skymaps", nargs="*", default=None, help="List of skymap files (FITS or FITS.gz)")
 
     # ----- parameters_estimation -----
-    p.add_argument("--event", default=None, help="Event name (e.g. GW231226_101520)")
+    # NOTE: parameters_estimation.run_parameters_estimation(args) expects these args:
+    #   src_name, sample_method, strain_approximant, start, stop, fs_low, fs_high
+    # Keep --event as a backwards-compatible alias for --src-name.
+    p.add_argument(
+        "--src-name",
+        dest="src_name",
+        default=None,
+        help="Source event name (e.g. GW231226_101520)",
+    )
+    p.add_argument(
+        "--event",
+        dest="src_name",
+        default=None,
+        help="(deprecated) Alias for --src-name",
+    )
     p.add_argument("--pe-collection-gwtc21", default=None, help="Path to Galaxy collection dir GWTC-2.1-PE")
     p.add_argument("--pe-collection-gwtc3",  default=None, help="Path to Galaxy collection dir GWTC-3-PE")
     p.add_argument("--pe-collection-gwtc4",  default=None, help="Path to Galaxy collection dir GWTC-4-PE")
@@ -92,13 +107,6 @@ def build_parser() -> argparse.ArgumentParser:
     
     p.add_argument("--sample-method", default="Mixed", help="Posterior sample label/model selector (e.g. Mixed, IMRPhenomXPHM, SEOBNRv4PHM)")
     p.add_argument("--strain-approximant", default="IMRPhenomXPHM", help="Waveform model used to generate time-domain waveform for strain overlay")
-    p.add_argument("--psd-mode", choices=["estimate", "file"], default="estimate", help="PSD source: estimate from open data or load from provided files")
-    p.add_argument("--psd-duration", type=float, default=32.0, help="Duration (s) of data used to estimate PSD (estimate mode)")
-    p.add_argument("--psd-offset", type=float, default=64.0, help="Offset (s) from t0 to place PSD estimation window (estimate mode)")
-    p.add_argument("--psd-h1", default=None, help="H1 PSD file path (file mode)")
-    p.add_argument("--psd-l1", default=None, help="L1 PSD file path (file mode)")
-    p.add_argument("--psd-v1", default=None, help="V1 PSD file path (file mode)")
-
 
 
     # Offline mode
@@ -111,10 +119,16 @@ def main(argv=None) -> int:
     p = build_parser()
     args = p.parse_args(argv)
 
-    raw_cats: List[str] = []
-    for item in args.catalogs:
-        raw_cats.extend(_split_csv(item))
-    catalogs = raw_cats
+    # Catalogs are required only for catalog-driven modes.
+    catalogs: List[str] = []
+    if args.mode != "parameters_estimation":
+        if not args.catalogs:
+            raise SystemExit("--catalogs is required for modes: catalog_statistics, event_selection, search_skymaps")
+
+        raw_cats: List[str] = []
+        for item in args.catalogs:
+            raw_cats.extend(_split_csv(item))
+        catalogs = raw_cats
 
     if args.mode == "catalog_statistics":
         if not args.out_events or not args.out_report:
@@ -176,40 +190,12 @@ def main(argv=None) -> int:
         return 0
         
     if args.mode == "parameters_estimation":
-        if not args.event:
-            raise SystemExit("--event is required for mode=parameters_estimation")
-        if not args.out_events or not args.out_report:
-            raise SystemExit("--out-events and --out-report are required for mode=parameters_estimation")
-        if args.make_plots not in ("none", "posteriors", "skymap", "strain", "psd", "all"):
-            raise SystemExit("--make-plots for parameters_estimation must be one of: none, posteriors, skymap, strain, psd, all")
-        
-        run_parameters_estimation(
-            catalogs=catalogs,
-            out_events_tsv=args.out_events,
-            out_report_html=args.out_report,
-            event=args.event,
-            events_json=args.events_json,
-            make_plots=args.make_plots,
-            plots_dir=args.plots_dir,
+        if not args.src_name:
+            raise SystemExit("--src-name is required for mode=parameters_estimation")
 
-            sample_method=args.sample_method,
-            strain_approximant=args.strain_approximant,
-
-            start=args.start,
-            stop=args.stop,
-            fs_low=args.fs_low,
-            fs_high=args.fs_high,
-
-            psd_mode=args.psd_mode,
-            psd_duration=args.psd_duration,
-            psd_offset=args.psd_offset,
-            psd_h1=args.psd_h1,
-            psd_l1=args.psd_l1,
-            psd_v1=args.psd_v1,
-            
-            pe_files=args.pe_files,
-        )    
-        return 0
+        # The PE module now owns the full workflow and expects to read its inputs directly
+        # from `args` (Galaxy-friendly).
+        return int(run_parameters_estimation(args))
         
     raise SystemExit(f"Unsupported mode {args.mode}")
 

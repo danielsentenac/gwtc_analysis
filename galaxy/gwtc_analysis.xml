@@ -13,11 +13,15 @@
       "numpy>=2" "pandas>=2.2.2" "requests==2.32.0" "ligo.skymap==2.5.3" \
       "scipy>=1.13,<1.14" \
       "gwpy>=3.0.9" \
+      "minio" \
       "pesummary" &&
 
     PYTHONPATH="$py_path" python -m gwtc_analysis.cli
         --mode '$mode.mode'
-        --catalogs ${' '.join($mode.catalogs)}
+
+        #if str($mode.mode) != "parameters_estimation":
+            --catalogs ${' '.join($mode.catalogs)}
+        #end if
 
         #if $mode.events_json:
             --events-json '$mode.events_json'
@@ -86,38 +90,15 @@
         #else if str($mode.mode) == "parameters_estimation":
             --out-events '$out_events'
             --out-report '$out_report'
-            --event '$mode.event'
-            --make-plots '$mode.make_plots'
+            --src-name '$mode.src_name'
             --sample-method '$mode.sample_method'
             --strain-approximant '$mode.strain_approximant'
-            --psd-mode '$mode.psd_mode'
-            --psd-duration '$mode.psd_duration'
-            --psd-offset '$mode.psd_offset'
             --fs-low '$mode.fs_low'
             --fs-high '$mode.fs_high'
             --start '$mode.start'
             --stop '$mode.stop'
 
-            #if $mode.events_json:
-                --events-json '$mode.events_json'
-            #end if
-            #if $mode.pe_collection_gwtc4:
-	    --pe-files
-	       #for $el in $mode.pe_collection_gwtc4:
-		 '$el'
-	       #end for
-	    #end if
-            #if $mode.psd_h1:
-                --psd-h1 '$mode.psd_h1'
-            #end if
-            #if $mode.psd_l1:
-                --psd-l1 '$mode.psd_l1'
-            #end if
-            #if $mode.psd_v1:
-                --psd-v1 '$mode.psd_v1'
-            #end if
-
-        #end if
+		#end if
 ]]></command>
 
 
@@ -190,59 +171,18 @@
         <!-- Galaxy collection input (list of FITS files) -->
         <param name="skymaps" type="data" format="fits,txt" multiple="true" optional="false" label="Skymap files (FITS or FITS.gz)"/>
       </when>
-      
       <when value="parameters_estimation">
-	  <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
-	    <option value="GWTC-2.1-confident">GWTC-2.1-confident</option>
-	    <option value="GWTC-3-confident">GWTC-3-confident</option>
-	    <option value="GWTC-4.0" selected="true">GWTC-4.0</option>
-	  </param>
 
-	  <param name="event" type="text" label="Event name" value="GW150914"/>
+          <param name="src_name" type="text" label="Source event name" value="GW150914"/>
 
-	  <param name="events_json" type="data" format="json" optional="true"
-		 label="Events JSON (offline mode, needed for strain/PSD plots)"/>
+          <param name="sample_method" type="text" label="sample_method" value="IMRPhenomXPHM"/>
+          <param name="strain_approximant" type="text" label="strain_approximant" value="IMRPhenomXPHM"/>
 
-	  <!-- PE collections -->
-	  <param name="pe_collection_gwtc21" type="data_collection" collection_type="list" optional="true"
-		 label="PE collection GWTC-2.1-PE (HDF5)"/>
-	  <param name="pe_collection_gwtc3" type="data_collection" collection_type="list" optional="true"
-		 label="PE collection GWTC-3-PE (HDF5)"/>
-	  <param name="pe_collection_gwtc4" type="data_collection" collection_type="list" optional="true"
-		 label="PE collection GWTC-4-PE (HDF5)"/>
+          <param name="start" type="float" label="Start (s)" value="0.2"/>
+          <param name="stop" type="float" label="Stop (s)" value="0.05"/>
+          <param name="fs_low" type="float" label="Bandpass low (Hz)" value="20.0"/>
+          <param name="fs_high" type="float" label="Bandpass high (Hz)" value="300.0"/>
 
-	  <!-- Plot selection -->
-	  <param name="make_plots" type="select" label="Generate PE plots">
-	    <option value="none" selected="true">None</option>
-	    <option value="posteriors">Posteriors (1D)</option>
-	    <option value="skymap">Skymap (RA/Dec)</option>
-	    <option value="strain">Strain</option>
-	    <option value="psd">PSD</option>
-	    <option value="all">All</option>
-	  </param>
-
-	  <!-- New propagated inputs -->
-	  <param name="sample_method" type="text" label="sample_method (posterior label selector)" value="Mixed"/>
-	  <param name="strain_approximant" type="text" label="strain_approximant (for overlay, future)" value="IMRPhenomXPHM"/>
-
-	  <!-- Strain window + bandpass -->
-	  <param name="start" type="float" label="Start (s before t0)" value="0.5"/>
-	  <param name="stop" type="float" label="Stop (s after t0)" value="0.1"/>
-	  <param name="fs_low" type="float" label="Bandpass low (Hz)" value="20.0"/>
-	  <param name="fs_high" type="float" label="Bandpass high (Hz)" value="300.0"/>
-
-	  <!-- PSD inputs -->
-	  <param name="psd_mode" type="select" label="PSD mode">
-	    <option value="estimate" selected="true">Estimate from off-source data</option>
-	    <option value="file">Provide PSD files</option>
-	  </param>
-
-	  <param name="psd_duration" type="float" label="PSD duration (s)" value="32.0"/>
-	  <param name="psd_offset" type="float" label="PSD offset (s before t0)" value="64.0"/>
-
-	  <param name="psd_h1" type="data" format="txt,dat" optional="true" label="PSD file for H1 (file mode)"/>
-	  <param name="psd_l1" type="data" format="txt,dat" optional="true" label="PSD file for L1 (file mode)"/>
-	  <param name="psd_v1" type="data" format="txt,dat" optional="true" label="PSD file for V1 (file mode)"/>
       </when>
 
     </conditional>
@@ -250,11 +190,11 @@
 
   <outputs>
     <data name="out_events" format="tabular" label="GWTC output table (TSV)">
-      <filter>mode.mode == "catalog_statistics" or mode.mode == "search_skymaps" or mode.mode == "parameters_estimation</filter>
+      <filter>mode.mode == "catalog_statistics" or mode.mode == "search_skymaps" or mode.mode == "parameters_estimation"</filter>
     </data>
 
     <data name="out_report" format="html" label="GWTC catalog report">
-      <filter>mode.mode == "catalog_statistics" or mode.mode == "parameters_estimation</filter>
+      <filter>mode.mode == "catalog_statistics" or mode.mode == "parameters_estimation"</filter>
     </data>
 
     <data name="out_selection" format="tabular" label="Selected events (TSV)">
@@ -352,76 +292,19 @@
     </test>
 
     <!-- parameters_estimation (smoke test: should fail without PE collections) -->
-	   
+<!-- parameters_estimation (successful minimal run with a test PE file) -->
+
+    <!-- parameters_estimation (requested command-line args; may require network/PE availability) -->
 	<test expect_failure="true">
 	  <param name="mode|mode" value="parameters_estimation"/>
-	  <param name="mode|catalogs" value="GWTC-4.0"/>
-	  <param name="mode|event" value="GW150914"/>
-	  <param name="mode|make_plots" value="none"/>
-	  <param name="mode|sample_method" value="Mixed"/>
+	  <param name="mode|src_name" value="GW150914"/>
+	  <param name="mode|sample_method" value="IMRPhenomXPHM"/>
 	  <param name="mode|strain_approximant" value="IMRPhenomXPHM"/>
-	  <param name="mode|psd_mode" value="estimate"/>
-	  <param name="mode|psd_duration" value="32.0"/>
-	  <param name="mode|psd_offset" value="64.0"/>
-	  <param name="mode|start" value="0.5"/>
-	  <param name="mode|stop" value="0.1"/>
-	  <param name="mode|fs_low" value="20.0"/>
-	  <param name="mode|fs_high" value="300.0"/>
+	  <param name="mode|start" value="0.2"/>
+	  <param name="mode|stop" value="0.05"/>
+	  <param name="mode|fs_low" value="20"/>
+	  <param name="mode|fs_high" value="300"/>
 	</test>
-
-	    <!-- parameters_estimation (successful minimal run with a test PE file) -->
-	<test expect_num_outputs="3">
-	  <param name="mode|mode" value="parameters_estimation"/>
-	  <param name="mode|catalogs" value="GWTC-4.0"/>
-
-	  <!-- IMPORTANT: pick an event token that appears in the filename -->
-	  <param name="mode|event" value="GW240107_013215"/>
-
-	  <!-- avoid gwpy/internet dependencies in CI -->
-	  <param name="mode|make_plots" value="posteriors"/>
-
-	  <!-- propagated knobs (should appear in TSV/report, but not used for plots here) -->
-	  <param name="mode|sample_method" value="Mixed"/>
-	  <param name="mode|strain_approximant" value="IMRPhenomXPHM"/>
-	  <param name="mode|psd_mode" value="estimate"/>
-	  <param name="mode|psd_duration" value="32.0"/>
-	  <param name="mode|psd_offset" value="64.0"/>
-	  <param name="mode|start" value="0.5"/>
-	  <param name="mode|stop" value="0.1"/>
-	  <param name="mode|fs_low" value="20.0"/>
-	  <param name="mode|fs_high" value="300.0"/>
-
-	  <!-- Provide PE HDF5 as a Galaxy list collection -->
-	  <param name="mode|pe_collection_gwtc4">
-	    <collection type="list">
-	      <element name="GW240107_013215" value="IGWN-GWTC4p0-1a206db3d_721-GW240107_013215-combined_PEDataRelease.hdf5"/>
-	    </collection>
-	  </param>
-
-	  <output name="out_events" ftype="tabular">
-	    <assert_contents>
-	      <has_text text="event"/>
-	      <has_text text="GW240107_013215"/>
-	      <has_text text="sample_method"/>
-	      <has_n_lines min="2"/>
-	    </assert_contents>
-	  </output>
-
-	  <output name="out_report" ftype="html">
-	    <assert_contents>
-	      <has_text text="Parameter estimation"/>
-	      <has_text text="GW240107_013215"/>
-	    </assert_contents>
-	  </output>
-
-	  <!-- out_selection inactive -->
-	  <output name="out_selection" ftype="tabular">
-	    <assert_contents>
-	      <has_size value="0"/>
-	    </assert_contents>
-	  </output>
-	</test>
-
 
   </tests>
 
