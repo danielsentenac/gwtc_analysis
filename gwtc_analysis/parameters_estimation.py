@@ -122,6 +122,46 @@ def _safe_import_pesummary_read():
         ) from e
 
 
+def _extract_t0_by_detector_from_pesummary(data: Any, logs: List[str], label: Optional[str] = None) -> Dict[str, float]:
+    """Best-effort extraction of detector-specific merger times from PE max-likelihood samples.
+
+    The Renku notebook uses e.g. posterior_samples_wave.maxL['H1_time'][0].
+    pesummary objects may expose ``maxL`` either as a dict of arrays, or nested by label.
+
+    Returns a dict like: {"H1": t0, "L1": t0, "V1": t0}. Missing detectors are omitted.
+    """
+    out: Dict[str, float] = {}
+    try:
+        maxl = getattr(data, "maxL", None)
+        if maxl is None:
+            logs.append("INFO: PE file has no maxL attribute -> cannot derive detector merger times.")
+            return {}
+
+        # If nested by label, select sub-dict
+        if isinstance(maxl, dict) and label and label in maxl and isinstance(maxl[label], dict):
+            maxl_dict = maxl[label]
+        else:
+            maxl_dict = maxl
+
+        for det in ("H1", "L1", "V1"):
+            key = f"{det}_time"
+            try:
+                if isinstance(maxl_dict, dict) and key in maxl_dict:
+                    t0 = float(maxl_dict[key][0])
+                    out[det] = t0
+                    logs.append(f"ℹ️ [INFO] Using maxL {key} = {t0} for {det}")
+            except Exception:
+                # ignore per-detector failures
+                pass
+
+        if not out:
+            logs.append("INFO: No detector *_time keys found in PE maxL samples.")
+        return out
+    except Exception as e:
+        logs.append(f"WARNING: Failed to extract detector merger times from PE: {e}")
+        return {}
+
+
 def _maybe_import_numpy():
     try:
         import numpy as np  # type: ignore
@@ -357,7 +397,8 @@ def _load_event_time_from_events_json(event: str, events_json: str, logs: List[s
     
 def _plot_strain_and_psd(
     *,
-    gps: float,
+    gps: Optional[float] = None,
+    t0_by_det: Optional[Dict[str, float]] = None,
     out_dir: Path,
     label: str,
     logs: List[str],
@@ -400,16 +441,10 @@ def _plot_strain_and_psd(
 
     dets = detectors or ["H1", "L1"]  # default guess
     out: List[Path] = []
-
-    # Event window [t0 - start, t0 + stop]
-    t0 = float(gps)
-    t1 = t0 - float(start)
-    t2 = t0 + float(stop)
-
-    # PSD off-source window, by default BEFORE the event:
-    # [t0 - psd_offset - psd_duration, t0 - psd_offset]
-    psd_t2 = t0 - float(psd_offset)
-    psd_t1 = psd_t2 - float(psd_duration)
+    # We can use either:
+    #   - detector-specific merger times (t0_by_det) derived from PE maxL samples, or
+    #   - a single gps time (gps) as a fallback.
+    # Windows are computed per-detector in the loop below.
 
     # ---- local helper: load PSD from file (simple 2-column text) ----
     def _load_psd_file_text(psd_path: Path) -> Tuple[Any, Any]:
@@ -439,6 +474,23 @@ def _plot_strain_and_psd(
         return freqs, vals
 
     for det in dets:
+        # Choose reference time for this detector
+        if t0_by_det and det in t0_by_det:
+            t0 = float(t0_by_det[det])
+        elif gps is not None:
+            t0 = float(gps)
+        else:
+            logs.append(f"WARNING: No t0 available for {det} (need PE maxL {det}_time or gps fallback) -> skipping")
+            continue
+
+        # Event window [t0 - start, t0 + stop]
+        t1 = t0 - float(start)
+        t2 = t0 + float(stop)
+
+        # PSD off-source window, by default BEFORE the event:
+        # [t0 - psd_offset - psd_duration, t0 - psd_offset]
+        psd_t2 = t0 - float(psd_offset)
+        psd_t1 = psd_t2 - float(psd_duration)
         try:
             # 1) Fetch event-window strain
             logs.append(f"Fetching open data (event window): {det} [{t1}, {t2}]")
@@ -706,17 +758,17 @@ def run_parameters_estimation(
     fs_high: float = 300.0,
 
     # PSD controls
-    psd_mode: str = "estimate",  # estimate|file
+    psd_mode: str = "estimate",      # estimate|file
     psd_duration: float = 32.0,
     psd_offset: float = 64.0,
     psd_h1: Optional[str] = None,
     psd_l1: Optional[str] = None,
     psd_v1: Optional[str] = None,
 
-    # Preferred Galaxy input (expanded from collections)
+    # NEW: preferred Galaxy input (expanded from collections)
     pe_files: Optional[List[str]] = None,
 
-    # OPTIONAL fallback (directory scanning; keep for non-Galaxy runs)
+    # OPTIONAL fallback (only if you still want directory scanning)
     pe_collection_gwtc21: Optional[str] = None,
     pe_collection_gwtc3: Optional[str] = None,
     pe_collection_gwtc4: Optional[str] = None,
@@ -747,7 +799,7 @@ def run_parameters_estimation(
     out_dir = out_report_path.parent
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ------------------------------------------------------------
+        # ------------------------------------------------------------
     # 1) Resolve PE file (prefer explicit pe_files from Galaxy)
     # ------------------------------------------------------------
     pe_file: Optional[Path] = None
@@ -757,34 +809,31 @@ def run_parameters_estimation(
         for x in pe_files:
             if not x:
                 continue
-            try:
-                p = Path(x).expanduser().resolve()
-            except Exception:
-                continue
+            p = Path(x).expanduser().resolve()
             if p.exists() and p.is_file():
                 candidates.append(p)
 
         logs.append(f"pe_files provided={len(pe_files)} existing_files={len(candidates)}")
 
-        # In Galaxy, staged datasets often end in .dat even if the original was .h5.
+        # In Galaxy, staged datasets typically end in .dat even if the original was .h5.
         # So do NOT filter by suffix here.
+
         if len(candidates) == 1:
             pe_file = candidates[0]
             logs.append(f"Selected the only PE file provided: {pe_file}")
         elif len(candidates) > 1:
-            # Best-effort: pick by event token if the original filename is preserved.
-            picked = _pick_best_match(event, candidates)
-            if picked is None:
-                # Galaxy often stages as dataset_*.dat; token matching will fail.
-                # Prefer to continue rather than hard fail: pick first, but log loudly.
-                pe_file = candidates[0]
-                logs.append(
-                    "WARNING: Multiple PE files provided, but none matched event token by filename. "
-                    f"Galaxy may stage as dataset_*.dat. Proceeding with the first candidate: {pe_file.name}"
+            # Try best-effort filename token match (may fail in Galaxy because filenames are dataset_*.dat)
+            pe_file = _pick_best_match(event, candidates)
+            if pe_file is None:
+                sample_names = ", ".join(p.name for p in candidates[:10])
+                raise FileNotFoundError(
+                    f"Multiple PE files were provided but none matched event='{event}' by filename token. "
+                    f"(Galaxy often stages files as dataset_*.dat.) "
+                    f"Candidates (first 10): {sample_names}. "
+                    "Tip: provide only one PE file for the event, or extend the tool to accept "
+                    "identifier:path pairs."
                 )
-            else:
-                pe_file = picked
-                logs.append(f"Selected PE file by best-match: {pe_file}")
+            logs.append(f"Selected PE file by best-match: {pe_file}")
 
     # Optional fallback: directory scanning (only if pe_file not resolved)
     if pe_file is None:
@@ -810,6 +859,7 @@ def run_parameters_estimation(
 
     assert pe_file is not None
 
+
     # Copy PE file next to outputs for provenance
     pe_copy = out_dir / pe_file.name
     if pe_copy.resolve() != pe_file.resolve():
@@ -818,34 +868,19 @@ def run_parameters_estimation(
     logs.append(f"PE file used (copied): {pe_file_used}")
 
     # ------------------------------------------------------------
-    # 2) Read with pesummary (robust to Galaxy .dat staging)
+    # 2) Read with pesummary
     # ------------------------------------------------------------
-    read_fn = _safe_import_pesummary_read()
+    read = _safe_import_pesummary_read()
 
-    def _is_hdf5(path: Path) -> bool:
-        try:
-            with path.open("rb") as f:
-                return f.read(4) == b"\x89HDF"
-        except Exception:
-            return False
+    def _read_pe_file(path: str):
+        # HDF5 magic number starts with 0x89 'H' 'D' 'F'
+        with open(path, "rb") as f:
+            magic = f.read(4)
+        if magic == b"\x89HDF":
+            return read(path, file_format="hdf5")
+        return read(path)
 
-    logs.append(f"Using PE file: {pe_file_used}")
-    try:
-        logs.append(f"File size: {os.path.getsize(pe_file_used)} bytes")
-    except Exception as e:
-        logs.append(f"WARNING: could not stat PE file size: {e}")
-
-    # If Galaxy staged as dataset_*.dat, pesummary may try text readers first.
-    # Rename to .h5 when the content is HDF5 to avoid extension-based dispatch.
-    if _is_hdf5(pe_file_used):
-        pe_h5 = out_dir / f"{event}.h5"
-        if pe_h5.resolve() != pe_file_used.resolve():
-            shutil.copy2(pe_file_used, pe_h5)
-        pe_file_used = pe_h5
-        logs.append(f"HDF5 detected; using renamed copy: {pe_file_used.name}")
-
-    data = read_fn(str(pe_file_used))
-
+    data = _read_pe_file(str(pe_file_used))
     labels = list(getattr(data, "labels", []) or [])
     label = labels[0] if labels else "analysis"
 
@@ -856,7 +891,8 @@ def run_parameters_estimation(
         if preferred:
             label = preferred[0]
 
-    logs.append(f"pesummary labels={labels} selected_label={label}")
+    logs\.append\(f"pesummary labels=\{labels\} selected_label=\{label\}"\)
+    t0_by_det = _extract_t0_by_detector_from_pesummary(data, logs, label=label)
 
     # Extract samples dict robustly
     samples_dict: Dict[str, Any] = {}
@@ -872,7 +908,7 @@ def run_parameters_estimation(
     logs.append(f"samples keys={list(samples_dict.keys())[:20]}")
 
     # ------------------------------------------------------------
-    # 3) Write out-events TSV (same output pattern as other modes)
+    # 3) Write out-events TSV
     # ------------------------------------------------------------
     _write_out_events_tsv(
         out_events_tsv,
@@ -928,15 +964,14 @@ def run_parameters_estimation(
             plots.extend(_plot_skymap_from_radec(samples_dict, plots_root, label=label_tag, logs=logs))
 
         if wants("strain") or wants("psd"):
-            if not events_json:
-                logs.append("INFO: --events-json not provided -> skipping strain/PSD.")
-            else:
+            gps = None
+            if events_json:
                 gps = _load_event_time_from_events_json(event, events_json, logs)
-                if gps is not None:
-                    psd_files_map = {"H1": psd_h1, "L1": psd_l1, "V1": psd_v1}
-                    plots.extend(
-                        _plot_strain_and_psd(
+            psd_files_map = {"H1": psd_h1, "L1": psd_l1, "V1": psd_v1}
+            plots.extend(
+                _plot_strain_and_psd(
                             gps=gps,
+                            t0_by_det=t0_by_det,
                             out_dir=plots_root,
                             label=label_tag,
                             logs=logs,
@@ -957,7 +992,7 @@ def run_parameters_estimation(
                     )
 
     # ------------------------------------------------------------
-    # 5) Write HTML report in the same style: summary + embedded plots + logs
+    # 5) Write HTML report
     # ------------------------------------------------------------
     report_dir = out_report_path.parent
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -994,4 +1029,5 @@ def run_parameters_estimation(
     )
 
     return 0
+
 
