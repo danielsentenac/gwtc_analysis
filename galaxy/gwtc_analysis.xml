@@ -2,19 +2,13 @@
   <description>GWTC analysis (catalog statistics + event selection + skymap search)</description>
 
   <requirements>
-     <requirement type="package" version="3.11">python</requirement>
   </requirements>
+  <container type="docker">danielsentenac/gwtc-tool:0.1.3</container>
   <command detect_errors="exit_code"><![CDATA[
     #set py_path = "%s/.." % $__tool_directory__
 
     mkdir -p "\$(dirname '$out_events')" "\$(dirname '$out_report')" "\$(dirname '$out_selection')" &&
-
-    pip install \
-      "numpy>=2" "pandas>=2.2.2" "requests==2.32.0" "ligo.skymap==2.5.3" \
-      "scipy>=1.13,<1.14" \
-      "gwpy>=3.0.9" \
-      "minio" \
-      "pesummary" &&
+    python -c "import sys; print('PYTHON:', sys.executable); import pandas; print('PANDAS:', pandas.__version__)" &> '$debug';
 
     PYTHONPATH="$py_path" python -m gwtc_analysis.cli
         --mode '$mode.mode'
@@ -199,6 +193,8 @@
     </data>
 
     <data name="out_selection" format="tabular" label="Selected events (TSV)">
+    
+    <data name="debug" format="txt" label="Debug info"/>
       <filter>mode.mode == "event_selection"</filter>
     </data>
 
@@ -273,6 +269,12 @@
       <param name="mode|make_plots" value="hits"/>
       <param name="mode|skymaps" value="IGWN-GWTC4p0-0f954158d_720-GW240104_164932-SEOBNRv5PHM_Skymap_PEDataRelease.fits.gz"/>
 
+      <output name="debug">
+       <assert_contents>
+        <has_text text="PYTHON:"/>
+        <has_text text="PANDAS:"/>
+       </assert_contents>
+    </output>
       <output name="out_events" ftype="tabular">
         <assert_contents>
           <has_text text="event_id"/>
