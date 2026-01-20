@@ -1,4 +1,4 @@
-name: igwn
+name: gwtc
 channels:
   - conda-forge
 dependencies:

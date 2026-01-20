@@ -16,3 +16,7 @@ dependencies = [
 
 [project.scripts]
 gwtc_analysis = "gwtc_analysis.cli:main"
+
+[tool.setuptools]
+packages = ["gwtc_analysis"]
+
