@@ -155,6 +155,32 @@ Plots are generated for all available detectors: **H1, L1, V1, K1**.
 
 ---
 
+## LIGO–Virgo–KAGRA (LVK)
+
+The LIGO–Virgo–KAGRA (LVK) Collaboration operates the global network of ground-based
+gravitational-wave detectors and produces the GWTC catalogs used by this tool.
+
+- LIGO Scientific Collaboration: https://www.ligo.org
+- Virgo Collaboration: https://www.virgo-gw.eu
+- KAGRA Collaboration: https://gwcenter.icrr.u-tokyo.ac.jp/en
+
+---
+
+## Software Stack
+
+This tool relies on open-source software developed and maintained by the LVK collaboration and the broader community:
+
+- **GWpy** – detector strain handling and time-series analysis  
+  https://gwpy.github.io
+- **GWOSC** – public access to gravitational-wave data and metadata  
+  https://www.gw-openscience.org
+- **pesummary** – parameter-estimation posteriors handling and visualization  
+  https://pesummary.readthedocs.io
+- **ligo.skymap** – sky-localization map I/O and plotting  
+  https://lscsoft.docs.ligo.org/ligo.skymap
+
+---
+
 ## Testing
 
 ```bash
@@ -163,12 +189,3 @@ python -m gwtc_analysis.cli event_selection --catalogs GWTC-4.0 --out-selection 
 python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-4.0 --out-events events.tsv --out-report report.html
 python -m gwtc_analysis.cli parameters_estimation --src-name GW231223_032836 --plots-dir plots
 ```
-
----
-
-## Software Stack
-
-- **gwpy**
-- **gwosc**
-- **pesummary**
-- **ligo.skymap**
