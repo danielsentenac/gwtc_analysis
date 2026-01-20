@@ -18,6 +18,20 @@ All gravitational-wave data products are retrieved from the
 
 ---
 
+## Containerized Distribution (Docker)
+
+`gwtc_analysis` is distributed as a ready-to-use **Docker container** named **`gwtc-tool`**.
+
+This container bundles the full software stack and runtime environment required to run all analysis modes without local installation of dependencies.
+
+- **Docker image name:** `gwtc-tool`
+- **Docker Hub repository:**  
+  https://hub.docker.com/r/danielsentenac/gwtc-tool/
+
+Using the Docker image is recommended for reproducibility, portability, and integration with workflow systems (e.g. Galaxy, CI pipelines).
+
+---
+
 ## Astrophysical Sources
 
 The GWTC catalogs contain compact binary merger events involving:
