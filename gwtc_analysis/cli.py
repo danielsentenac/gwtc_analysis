@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import List
+from typing import List, Optional
 
 from .catalogs import run_catalog_statistics
 from .event_selection import run_event_selection
@@ -9,9 +9,18 @@ from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
 
 
-
 def _split_csv(s: str) -> List[str]:
     return [x.strip() for x in s.split(",") if x.strip()]
+
+
+def _parse_catalogs(items: Optional[List[str]]) -> List[str]:
+    """Parse catalogs passed as space-separated items, each item optionally comma-separated."""
+    if not items:
+        return []
+    out: List[str] = []
+    for it in items:
+        out.extend(_split_csv(it))
+    return out
 
 
 def _none_if_empty(x):
@@ -24,93 +33,128 @@ def _none_if_empty(x):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="gwtc_analysis", description="GWTC analysis tool (Galaxy-friendly).")
-    p.add_argument(
-        "--mode",
-        required=True,
-        choices=["catalog_statistics", "event_selection", "search_skymaps", "parameters_estimation"],
-        help="Which analysis to run.",
+    fmt = argparse.ArgumentDefaultsHelpFormatter
+
+    p = argparse.ArgumentParser(
+        prog="gwtc_analysis",
+        description=(
+            "GWTC analysis tool.\n\n"
+            "Use one of the MODE subcommands below. Each mode has its own detailed help:\n"
+            "  gwtc_analysis catalog_statistics -h\n"
+            "  gwtc_analysis event_selection -h\n"
+            "  gwtc_analysis search_skymaps -h\n"
+            "  gwtc_analysis parameters_estimation -h\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
     )
-    p.add_argument(
+
+
+    sub = p.add_subparsers(dest="mode", required=True, metavar="MODE")
+
+    # ---------------------------------------------------------------------
+    # catalog_statistics
+    # ---------------------------------------------------------------------
+    p_cat = sub.add_parser(
+        "catalog_statistics",
+        help="Build per-event TSV table and HTML summary report (with PIE plots) from GW catalogs.",
+        description=(
+            "Fetch events for one or more catalogs and compute derived columns.\n"
+            "Outputs:\n"
+            "  --out-events : TSV table of events\n"
+            "  --out-report : HTML report (tables + plots)\n\n"
+            "Optional additions:\n"
+            "  --include-detectors : detector network via GWOSC calls\n"
+            "  --include-area      : sky localization area Axx (requires skymaps)\n"
+        ),
+        formatter_class=fmt,
+    )
+    p_cat.add_argument(
         "--catalogs",
-        required=False,
-        default=None,
+        required=True,
         nargs="+",
-        help="Catalog keys (space-separated). Galaxy may pass multiple. Commas are also accepted.",
+        help="Catalog keys. Space-separated; commas also accepted (e.g. GWTC-4.0,GWTC-3-confident).",
     )
+    p_cat.add_argument("--out-events", required=True, help="Output TSV path (per-event table).")
+    p_cat.add_argument("--out-report", required=True, help="Output HTML report path.")
 
-    # Outputs
-    p.add_argument("--out-events", default=None, help="Output TSV (catalog_statistics)")
-    p.add_argument("--out-report", default=None, help="Output HTML report (catalog_statistics)")
-    p.add_argument("--out-selection", default=None, help="Output TSV for event_selection")
+    p_cat.add_argument("--include-detectors", action="store_true", help="Include detector network via GWOSC v2 calls.")
+    p_cat.add_argument("--include-area", action="store_true", help="Compute sky localization area Axx if skymaps are available.")
+    p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
 
-    # ----- catalog_statistics -----
-    p.add_argument("--include-detectors", action="store_true", help="Include detector network via GWOSC v2 calls")
-    p.add_argument("--include-a90", action="store_true", help="Compute A90 sky area if skymaps are available")
-    p.add_argument("--a90-cred", type=float, default=0.9, help="Credible level for sky area (default 0.9)")
+    p_cat.add_argument("--skymaps-gwtc21", nargs="+", default=None, help="GWTC-2.1 skymaps collection/files (Galaxy may pass a list of file paths).")
+    p_cat.add_argument("--skymaps-gwtc3", nargs="+", default=None, help="GWTC-3 skymaps collection/files (Galaxy may pass a list of file paths).")
+    p_cat.add_argument("--skymaps-gwtc4", nargs="+", default=None, help="GWTC-4.0 skymaps collection/files (Galaxy may pass a list of file paths).")
 
-    # Skymaps inputs for A90 (Galaxy collections typically map to a list of files)
-    p.add_argument("--skymaps-gwtc21", nargs="+", default=None, help="GWTC-2.1 skymaps collection/files")
-    p.add_argument("--skymaps-gwtc3", nargs="+", default=None, help="GWTC-3 skymaps collection/files")
-    p.add_argument("--skymaps-gwtc4", nargs="+", default=None, help="GWTC-4 skymaps collection/files")
+    p_cat.add_argument("--events-json", default=None, help="Offline mode: path to local jsonfull-like events JSON (skip GWOSC network calls).")
 
-    # ----- event_selection -----
-    p.add_argument("--m1-min", type=float, default=None)
-    p.add_argument("--m1-max", type=float, default=None)
-    p.add_argument("--m2-min", type=float, default=None)
-    p.add_argument("--m2-max", type=float, default=None)
-    p.add_argument("--dl-min", type=float, default=None)
-    p.add_argument("--dl-max", type=float, default=None)
-    
-    # -----  search_skymaps  -----
-    p.add_argument("--ra-deg",  type=float, help="Right ascension (deg)")
-    p.add_argument("--dec-deg", type=float, help="Declination (deg)")
-    p.add_argument("--prob",    type=float, default=0.9, help="Credible-level threshold (0–1)")
-  
-    # allow Galaxy collections to be passed as a plain list
-    p.add_argument("--skymaps", nargs="*", default=None, help="List of skymap files (FITS or FITS.gz)")
-
-    # ----- parameters_estimation -----
-    # NOTE: parameters_estimation.run_parameters_estimation(args) expects these args:
-    #   src_name, sample_method, strain_approximant, start, stop, fs_low, fs_high
-    # Keep --event as a backwards-compatible alias for --src-name.
-    p.add_argument(
-        "--src-name",
-        dest="src_name",
-        default=None,
-        help="Source event name (e.g. GW231226_101520)",
+    # ---------------------------------------------------------------------
+    # event_selection
+    # ---------------------------------------------------------------------
+    p_sel = sub.add_parser(
+        "event_selection",
+        help="Select GW events based on physical criteria (mass, distance) and write a TSV.",
+        description=(
+            "Select events by simple cuts on source-frame masses and luminosity distance.\n"
+            "Cuts are optional; if a cut is not provided, it is not applied.\n"
+        ),
+        formatter_class=fmt,
     )
-    p.add_argument(
-        "--event",
-        dest="src_name",
-        default=None,
-        help="(deprecated) Alias for --src-name",
+    p_sel.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys. Space-separated; commas also accepted.")
+    p_sel.add_argument("--out-selection", required=True, help="Output TSV path for the selected events.")
+
+    p_sel.add_argument("--m1-min", type=float, default=None, help="Minimum primary mass (source frame).")
+    p_sel.add_argument("--m1-max", type=float, default=None, help="Maximum primary mass (source frame).")
+    p_sel.add_argument("--m2-min", type=float, default=None, help="Minimum secondary mass (source frame).")
+    p_sel.add_argument("--m2-max", type=float, default=None, help="Maximum secondary mass (source frame).")
+    p_sel.add_argument("--dl-min", type=float, default=None, help="Minimum luminosity distance (Mpc).")
+    p_sel.add_argument("--dl-max", type=float, default=None, help="Maximum luminosity distance (Mpc).")
+
+    p_sel.add_argument("--events-json", default=None, help="Offline mode: path to jsonfull-like events JSON (skip network calls).")
+
+    # ---------------------------------------------------------------------
+    # search_skymaps
+    # ---------------------------------------------------------------------
+    p_sky = sub.add_parser(
+        "search_skymaps",
+        help="Search GW sky localizations for a given sky position (RA/Dec).",
+        description=(
+            "Given a sky position (RA/Dec in degrees) and a list of skymap FITS files,\n"
+            "report which events contain that position above the requested credible level.\n\n"
+            "Plotting:\n"
+            "  Hit plots are produced. If --plots-dir is not given, plots are written to the current directory.\n"
+        ),
+        formatter_class=fmt,
     )
-    p.add_argument("--pe-collection-gwtc21", default=None, help="Path to Galaxy collection dir GWTC-2.1-PE")
-    p.add_argument("--pe-collection-gwtc3",  default=None, help="Path to Galaxy collection dir GWTC-3-PE")
-    p.add_argument("--pe-collection-gwtc4",  default=None, help="Path to Galaxy collection dir GWTC-4-PE")
-    p.add_argument("--pe-files", nargs="*", default=None,
-               help="PE sample files (.h5/.hdf5) from Galaxy collections (expanded elements).")
+    p_sky.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys. Space-separated; commas also accepted.")
+    p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
+    p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
+    p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
+    p_sky.add_argument("--skymaps", nargs="+", required=True, help="List of skymap files (FITS or FITS.gz). Galaxy collections may expand to a list of files.")
+    p_sky.add_argument("--out-events", default=None, help="Optional output TSV path for hits.")
+    p_sky.add_argument("--out-report", default=None, help="Optional output HTML report path for hits.")
+    p_sky.add_argument("--plots-dir", default=None, help="Directory for hit plots (default: current directory).")
+    p_sky.add_argument("--events-json", default=None, help="Offline mode: path to jsonfull-like events JSON (skip GWOSC network calls).")
 
-    # parameters_estimation plots (mirror search_skymaps style)
-    p.add_argument("--make-plots",
-        choices=["none", "hits", "all", "posteriors", "skymap", "strain", "psd"],
-        default="none",
-        help="Plot controls. For search_skymaps use: none|hits|all. For parameters_estimation use: none|posteriors|skymap|strain|psd."
+    # ---------------------------------------------------------------------
+    # parameters_estimation
+    # ---------------------------------------------------------------------
+    p_pe = sub.add_parser(
+        "parameters_estimation",
+        help="Generate parameter-estimation plots (posteriors, strain, waveforms) for one event.",
+        description=(
+            "Generate PE plots (posteriors, skymap, strain overlays, PSD) for a single event.\n"
+            "Plots are always produced. If --plots-dir is not given, plots are written to the current directory.\n"
+        ),
+        formatter_class=fmt,
     )
-
-    p.add_argument("--plots-dir", default=None, help="Directory for PE plots/ Skymaps plots (default: <report_dir>/plots)")
-    p.add_argument("--start", type=float, default=0.5, help="Seconds before GPS time for strain window")
-    p.add_argument("--stop",  type=float, default=0.1, help="Seconds after GPS time for strain window")
-    p.add_argument("--fs-low",  type=float, default=20.0, help="Bandpass low frequency (Hz)")
-    p.add_argument("--fs-high", type=float, default=300.0, help="Bandpass high frequency (Hz)")
-    
-    p.add_argument("--sample-method", default="Mixed", help="Posterior sample label/model selector (e.g. Mixed, IMRPhenomXPHM, SEOBNRv4PHM)")
-    p.add_argument("--strain-approximant", default="IMRPhenomXPHM", help="Waveform model used to generate time-domain waveform for strain overlay")
-
-
-    # Offline mode
-    p.add_argument("--events-json", default=None, help="Offline mode: path to jsonfull-like events JSON")
+    p_pe.add_argument("--src-name", dest="src_name", required=True, help="Source event name (e.g. GW231223_032836).")
+    p_pe.add_argument("--plots-dir", default=None, help="Directory for output PE plots (default: current directory).")
+    p_pe.add_argument("--start", type=float, default=0.2, help="Seconds before GPS time for strain window.")
+    p_pe.add_argument("--stop", type=float, default=0.1, help="Seconds after GPS time for strain window.")
+    p_pe.add_argument("--fs-low", type=float, default=20.0, help="Bandpass low frequency (Hz).")
+    p_pe.add_argument("--fs-high", type=float, default=300.0, help="Bandpass high frequency (Hz).")
+    p_pe.add_argument("--sample-method", default="Mixed", help="Posterior sample label/model selector (e.g. Mixed, IMRPhenomXPHM, SEOBNRv4PHM).")
+    p_pe.add_argument("--strain-approximant", default="IMRPhenomXPHM", help="Waveform model used to generate time-domain waveform for strain overlay.")
 
     return p
 
@@ -119,28 +163,15 @@ def main(argv=None) -> int:
     p = build_parser()
     args = p.parse_args(argv)
 
-    # Catalogs are required only for catalog-driven modes.
-    catalogs: List[str] = []
-    if args.mode != "parameters_estimation":
-        if not args.catalogs:
-            raise SystemExit("--catalogs is required for modes: catalog_statistics, event_selection, search_skymaps")
-
-        raw_cats: List[str] = []
-        for item in args.catalogs:
-            raw_cats.extend(_split_csv(item))
-        catalogs = raw_cats
-
     if args.mode == "catalog_statistics":
-        if not args.out_events or not args.out_report:
-            raise SystemExit("--out-events and --out-report are required for mode=catalog_statistics")
-
+        catalogs = _parse_catalogs(args.catalogs)
         run_catalog_statistics(
             catalogs=catalogs,
             out_events_tsv=args.out_events,
             out_report_html=args.out_report,
             include_detectors=args.include_detectors,
-            include_a90=args.include_a90,
-            a90_cred=args.a90_cred,
+            include_area=args.include_area,
+            area_cred=args.area_cred,
             skymaps_dirs={
                 "GWTC-2.1-confident": _none_if_empty(args.skymaps_gwtc21),
                 "GWTC-3-confident": _none_if_empty(args.skymaps_gwtc3),
@@ -151,9 +182,7 @@ def main(argv=None) -> int:
         return 0
 
     if args.mode == "event_selection":
-        if not args.out_selection:
-            raise SystemExit("--out-selection is required for mode=event_selection")
-
+        catalogs = _parse_catalogs(args.catalogs)
         run_event_selection(
             catalogs=catalogs,
             out_tsv=args.out_selection,
@@ -166,39 +195,45 @@ def main(argv=None) -> int:
             dl_max=args.dl_max,
         )
         return 0
-        
-    if args.mode == "search_skymaps":
-        if args.make_plots not in ("none", "hits", "all"):
-            raise SystemExit("--make-plots for search_skymaps must be one of: none, hits, all")
 
-        if args.ra_deg is None or args.dec_deg is None:
-            raise SystemExit("--ra-deg and --dec-deg are required for search_skymaps")
-            
+    if args.mode == "search_skymaps":
+        catalogs = _parse_catalogs(args.catalogs)
         run_search_skymaps(
             catalogs=catalogs,
             out_events_tsv=args.out_events,
             out_report_html=args.out_report,
-            skymaps_dirs={},          # not used when --skymaps list is given
+            skymaps_dirs={},  # not used when --skymaps list is given
             events_json=args.events_json,
             ra_deg=args.ra_deg,
             dec_deg=args.dec_deg,
             prob=args.prob,
-            make_plots=args.make_plots,
             plots_dir=args.plots_dir,
-            skymaps=args.skymaps,     # single list from Galaxy
+            skymaps=args.skymaps,
         )
         return 0
-        
-    if args.mode == "parameters_estimation":
-        if not args.src_name:
-            raise SystemExit("--src-name is required for mode=parameters_estimation")
 
-        # The PE module now owns the full workflow and expects to read its inputs directly
-        # from `args` (Galaxy-friendly).
-        return int(run_parameters_estimation(args))
-        
+    if args.mode == "parameters_estimation":
+        out = run_parameters_estimation(
+            src_name=args.src_name,
+            plots_dir=args.plots_dir,
+            start=args.start,
+            stop=args.stop,
+            fs_low=args.fs_low,
+            fs_high=args.fs_high,
+            sample_method=args.sample_method,
+            strain_approximant=args.strain_approximant,
+        )
+        # Small manifest (like your previous behavior)
+        for k, v in out.items():
+            if isinstance(v, list):
+                print(f"[pe] {k}: {len(v)} file(s)")
+            else:
+                print(f"[pe] {k}: {v}")
+        return 0
+
     raise SystemExit(f"Unsupported mode {args.mode}")
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

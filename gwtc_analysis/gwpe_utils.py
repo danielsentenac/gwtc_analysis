@@ -19,6 +19,7 @@ from gwpy.timeseries import TimeSeries
 from gwpy.frequencyseries import FrequencySeries
 from scipy.interpolate import interp1d
 from matplotlib.ticker import MaxNLocator
+from pathlib import Path
 
 __all__ = [
     "get_cache_dir",
@@ -735,7 +736,7 @@ def plot_whitened_overlay(
     crop_temp: TimeSeries,
     event: str,
     det: str,
-    outdir: str = ".",
+    outdir: str| Path,
     approximant: Optional[str] = None,
     t0: Optional[float] = None,
 ) -> str:
@@ -744,6 +745,7 @@ def plot_whitened_overlay(
     Save overlay plot: whitened data + projected waveform.
     Shows time relative to referenced merger t0, and puts GPS t0 in the title.
     """
+    outdir = Path(outdir)  # normalize
     ensure_outdir(outdir)
     print(f"ℹ️ [INFO] Plotting whitened overlay for {det} at t0={t0}...")
 
@@ -805,9 +807,10 @@ def plot_time_frequency(
     t0: float,
     event: str,
     det: str,
+    *,
+    outdir: str | Path,
     outseg: Tuple[float, float] = (-2.0, 2.0),
     frange: Tuple[float, float] = (20.0, 512.0),
-    outdir: str = ".",
     approximant: Optional[str] = None,
 ) -> str:
     """
@@ -816,6 +819,7 @@ def plot_time_frequency(
     - X-axis: time relative to t0 (seconds), centered around 0.
     - GPS reference t0 is shown in the title.
     """
+    outdir = Path(outdir)  # normalize
     ensure_outdir(outdir)
     print(f"ℹ️ [INFO] Computing q-transform for {det} ...")
 
@@ -883,7 +887,7 @@ def plot_time_frequency(
 def plot_basic_posteriors(
     posterior_samples,
     src_name: str,
-    outdir: str = ".",
+    outdir: str | Path,
     plot_specs: Optional[list] = None,
     approximant: Optional[str] = None,
 ) -> Dict[str, str]:
@@ -891,7 +895,7 @@ def plot_basic_posteriors(
     Produce simple 1D posterior histograms for a set of parameters using matplotlib,
     with median ± 68% CI shown in a small inset box inside the plot.
     """
-
+    outdir = Path(outdir)  # normalize
     ensure_outdir(outdir)
 
     # Default parameters to plot if not provided
@@ -974,9 +978,11 @@ def compare_spectrogram_vs_qtransform(
     t0: float,
     event: str,
     det: str,
+    *,
+    outdir: str | Path,
     outseg: Tuple[float, float] = (-2.0, 2.0),
     frange: Tuple[float, float] = (20.0, 512.0),
-    outdir: str = ".",
+    
 ) -> str:
     """
     Compare:
@@ -987,6 +993,7 @@ def compare_spectrogram_vs_qtransform(
     (You said you don't need this in the notebook anymore, but the function
     is kept here for possible debugging or future use.)
     """
+    outdir = Path(outdir)  # normalize
     ensure_outdir(outdir)
 
     t_start = float(t0) + outseg[0]

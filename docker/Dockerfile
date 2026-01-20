@@ -10,5 +10,7 @@ RUN micromamba create -y -n gwtc -f /tmp/environment.yml \
 # Make the env binaries (python, pip, etc.) available without activation
 ENV PATH=/opt/conda/envs/gwtc/bin:$PATH
 
+ENTRYPOINT ["micromamba", "run", "-n", "gwtc"]
+
 CMD ["python", "-c", "import pesummary; print('pesummary ok')"]
 

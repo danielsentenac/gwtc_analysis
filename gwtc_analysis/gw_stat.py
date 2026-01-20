@@ -4,7 +4,7 @@
 gw_stat_zenodo.py
 =================
 
-Extension of gw_stat to compute A90 for *all* confident-catalog events by using the
+Extension of gw_stat to compute credible area for *all* confident-catalog events by using the
 official Zenodo tarballs that contain skymap FITS files.
 
 Why this exists
@@ -18,13 +18,13 @@ catalog PE releases on Zenodo include comprehensive skymap tarballs, e.g.:
 
 This module provides:
 - download + cache of the tarball once per catalog
-- per-event A90 extraction by reading the event's FITS from the tarball
+- per-event credible area extraction by reading the event's FITS from the tarball
 
 Notes
 -----
 - Requires: `pip install ligo.skymap astropy healpy`
 - The tarballs are large; caching avoids repeated downloads.
-- A90 is computed by integrating the 90% credible region on the HEALPix map.
+- credible area is computed by integrating the % credible region on the HEALPix map.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def _require_ligo_skymap():
         import ligo.skymap  # noqa: F401
     except ModuleNotFoundError as e:
         raise ModuleNotFoundError(
-            "ligo.skymap is required for skymap/A90 functionality. "
+            "ligo.skymap is required for skymap/credible area functionality. "
             "Install the 'ligo.skymap' dependency (and its stack: astropy/healpy/scipy)."
         ) from e
 
@@ -378,7 +378,7 @@ def add_detectors_and_virgo_flag(
 
 
 # ---------------------------------------------------------------------
-# A90 from Zenodo tarballs
+# Credible area from Zenodo tarballs
 # ---------------------------------------------------------------------
 
 # ---------------------------------------------------------------------
@@ -419,20 +419,24 @@ def build_skymap_index_from_directory(skymap_dir: str | Path, verbose: bool = Fa
         p = link_path
 
         if p.is_symlink():
+            # First try to use the symlink target directly (local runs / staged symlinks)
             try:
                 t = p.readlink()
-                tname = Path(t).name  # dataset_<uuid>.dat
+                target = (p.parent / t) if not Path(t).is_absolute() else Path(t)
+                if target.exists() and target.is_file():
+                    p = target
+                else:
+                    # Fall back to Galaxy redirection: target name is dataset_<uuid>.dat
+                    tname = Path(t).name
+                    real = blob_map.get(tname)
+                    if real is None or not real.exists():
+                        broken += 1
+                        continue
+                    p = real
+                    redirected += 1
             except Exception:
                 broken += 1
                 continue
-
-            real = blob_map.get(tname)
-            if real is None or not real.exists():
-                broken += 1
-                continue
-
-            p = real
-            redirected += 1
         else:
             if not p.exists():
                 continue
@@ -464,6 +468,7 @@ def build_skymap_index_from_directory(skymap_dir: str | Path, verbose: bool = Fa
 
     return index
 
+
 def select_skymap_path(index: dict, ev_key: str, prefer: str = "Mixed") -> Path | None:
     if (ev_key, prefer) in index:
         return index[(ev_key, prefer)]
@@ -477,7 +482,7 @@ def add_localization_area_from_directory(
     *,
     skymap_dir: str | Path,
     cred: float = 0.9,
-    column: str = "A90_deg2",
+    column: Optional[str] = None,
     progress: bool = True,
     verbose: bool = False,
 ) -> pd.DataFrame:
@@ -539,6 +544,9 @@ def add_localization_area_from_directory(
                 pass
 
     print(f"[gw_stat] A{int(cred*100)} summary (directory): found={found} ok={ok} miss={miss} errors={errors}")
+    if column is None:
+        level = int(round(100 * cred))
+        column = f"A{level}_deg2"
     out[column] = areas
     return out
 
@@ -748,15 +756,15 @@ def add_localization_area_from_zenodo(
     *,
     catalog_key: str,
     cred: float = 0.9,
-    column: str = "A90_deg2",
+    column: str | None = None,
     cache_dir: str = ".cache_gwosc",
     progress: bool = True,
     verbose: bool = False,
 ) -> pd.DataFrame:
     """
-    Compute A90 for events by reading the official Zenodo skymap tarball for the given confident catalog.
+    Compute credible area for events by reading the official Zenodo skymap tarball for the given confident catalog.
 
-    This bypasses the GWOSC v2 parameters endpoint entirely and should yield A90 for (almost) all events
+    This bypasses the GWOSC v2 parameters endpoint entirely and should yield credible area for (almost) all events
     whose skymap FITS is included in the tarball.
 
     Returns a copy of df with `column` filled where possible.
@@ -767,6 +775,10 @@ def add_localization_area_from_zenodo(
     index = build_skymap_index_from_tar(tar_path, verbose=verbose)
 
     out = df.copy()
+    if column is None:
+        level = int(round(100 * cred))
+        column = f"A{level}_deg2"
+
     areas = [np.nan] * len(out)
 
     try:

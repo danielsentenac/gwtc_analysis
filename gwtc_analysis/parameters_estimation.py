@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+from pathlib import Path
 
 @dataclass
 class PEResult:
@@ -84,7 +84,17 @@ def _set_output(args: Any, name: str, value: Any) -> None:
         pass
 
 
-def run_parameters_estimation(args: Any) -> int:
+def run_parameters_estimation(
+    *,
+    src_name: str,
+    plots_dir: str | None = None,
+    start: float = 0.5,
+    stop: float = 0.1,
+    fs_low: float = 20.0,
+    fs_high: float = 300.0,
+    sample_method: str = "Mixed",
+    strain_approximant: str = "IMRPhenomXPHM",
+) -> int:
     """Entry point: run the PE plotting pipeline.
 
     Parameters
@@ -98,18 +108,13 @@ def run_parameters_estimation(args: Any) -> int:
     int
         0 on success, non-zero on failure.
     """
-
+    
     global LAST_RESULT
-
-    # --- read inputs (exactly those defined at the top of the notebook) ---
-    src_name = _get_arg(args, "src_name")
-    sample_method = _get_arg(args, "sample_method")
-    strain_approximant = _get_arg(args, "strain_approximant")
-    start = float(_get_arg(args, "start"))
-    stop = float(_get_arg(args, "stop"))
-    fs_low = float(_get_arg(args, "fs_low"))
-    fs_high = float(_get_arg(args, "fs_high"))
-
+    
+    # default plots_dir to current directory
+    outdir = Path(plots_dir) if plots_dir else Path(".")
+    outdir.mkdir(parents=True, exist_ok=True)
+    
     # --- imports kept inside to make module import cheap and Galaxy-friendly ---
     import os
     import json
@@ -292,7 +297,7 @@ def run_parameters_estimation(args: Any) -> int:
                 posterior_files = plot_basic_posteriors(
                     posterior_samples,
                     src_name,
-                    outdir=".",
+                    outdir,
                     approximant=approximant_for_title,
                 )
 
@@ -400,7 +405,7 @@ def run_parameters_estimation(args: Any) -> int:
                         crop_temp,
                         src_name,
                         det,
-                        outdir=".",
+                        outdir,
                         approximant=used_aprx,
                         t0=t0,
                     )
@@ -416,9 +421,9 @@ def run_parameters_estimation(args: Any) -> int:
                         t0=t0,
                         event=src_name,
                         det=det,
+                        outdir=outdir,
                         outseg=(-start_before, stop_after),
                         frange=(fs_low, fs_high),
-                        outdir=".",
                         approximant=used_aprx,
                     )
                     result.files_strain.append(fname_q)
@@ -444,7 +449,7 @@ def run_parameters_estimation(args: Any) -> int:
             plt.tight_layout()
 
             waveform = label_waveform.split(":", 1)[1] if ":" in label_waveform else label_waveform
-            fname_psd = os.path.join(".", f"{src_name}_{waveform}_psd.png")
+            fname_psd = os.path.join(outdir, f"{src_name}_{waveform}_psd.png")
             fig.savefig(fname_psd, dpi=150)
             plt.close(fig)
 
@@ -480,7 +485,7 @@ def run_parameters_estimation(args: Any) -> int:
                         obj.ax.yaxis.label.set_fontsize(7)
 
             waveform = label_waveform.split(":", 1)[1] if ":" in label_waveform else label_waveform
-            fname_sky = os.path.join(".", f"{src_name}_{waveform}_skymap.png")
+            fname_sky = os.path.join(outdir, f"{src_name}_{waveform}_skymap.png")
             fig.savefig(fname_sky, dpi=150)
             plt.close(fig)
 
@@ -505,11 +510,12 @@ def run_parameters_estimation(args: Any) -> int:
 
     LAST_RESULT = result
 
-    # Attach outputs back to args (Galaxy/MMODA pattern)
-    _set_output(args, "fig_distribution", fig_distributionList if oda_available else result.files_distribution)
-    _set_output(args, "fig_strain", fig_strainList if oda_available else result.files_strain)
-    _set_output(args, "fig_psd", fig_psdList if oda_available else result.files_psd)
-    _set_output(args, "fig_skymap", fig_skymapList if oda_available else result.files_skymap)
-    _set_output(args, "tool_log", event_logs)
-
-    return 0 if go_next_cell else 1
+    # Return a plain dict so callers can see exactly what was produced
+    return {
+        "fig_distribution": result.files_distribution,
+        "fig_strain": result.files_strain,
+        "fig_psd": result.files_psd,
+        "fig_skymap": result.files_skymap,
+        "tool_log": event_logs,
+    }
+   

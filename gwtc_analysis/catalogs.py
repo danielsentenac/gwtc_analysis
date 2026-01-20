@@ -37,7 +37,7 @@ def _plot_network_counts(df: pd.DataFrame, out_png: str | Path) -> Optional[str]
     plt.close(fig)
     return str(out_png)
 
-def _plot_a90_cdf(df: pd.DataFrame, out_png: str | Path, column: str = "A90_deg2") -> Optional[str]:
+def _plot_area_cdf(df: pd.DataFrame, out_png: str | Path, column: str) -> Optional[str]:
     plt = _ensure_matplotlib()
     if column not in df.columns:
         return None
@@ -49,7 +49,11 @@ def _plot_a90_cdf(df: pd.DataFrame, out_png: str | Path, column: str = "A90_deg2
     fig, ax = plt.subplots(figsize=(6,4))
     ax.plot(x, y, lw=1.6)
     ax.set_xscale("log")
-    ax.set_xlabel(r"$A_{90}$ [deg$^2$]")
+    # column is like "A50_deg2" → extract "50"
+    import re
+    level = re.search(r"^A(\d+)_", column).group(1)
+    ax.set_xlabel(fr"$A_{{{level}}}$ [deg$^2$]")
+
     ax.set_ylabel("Cumulative fraction")
     ax.set_title("Sky localization (CDF)")
     ax.grid(True, which="both", alpha=0.35)
@@ -63,9 +67,9 @@ def run_catalog_statistics(
     out_events_tsv: str | Path,
     out_report_html: Optional[str | Path] = None,
     include_detectors: bool = True,
-    include_a90: bool = False,
-    a90_cred: float = 0.9,
-    a90_column: str = "A90_deg2",
+    include_area: bool = False,
+    area_cred: float = 0.9,
+    area_column: str | None = None,
     skymaps_dirs: Optional[dict] = None,  # values can be str (dir) OR list[str] (files)
     ns_threshold: float = 3.0,
     events_json: Optional[str | Path] = None,
@@ -76,13 +80,21 @@ def run_catalog_statistics(
     Outputs
     -------
     out_events_tsv : TSV
-        Per-event table with masses, distance, detector network (optional), and A90 (optional).
+        Per-event table with masses, distance, detector network (optional), and creadible area (optional).
     out_report_html : HTML (optional)
         Single-file HTML report with summary tables and embedded plots.
     """
+    if area_column is None:
+        level = int(round(100 * area_cred))
+        area_column = f"A{level}_deg2"
+
     if not catalogs:
         raise ValueError("No catalogs selected")
+    
+    level = int(round(100 * area_cred))
+    area_column = f"A{level}_deg2"
 
+    
     import json
 
     dfs = []
@@ -105,7 +117,7 @@ def run_catalog_statistics(
     # In offline mode, network calls are not available.
     if events_json is not None:
         include_detectors = False
-        include_a90 = False
+        include_area = False
 
     # Detectors network (requires GWOSC v2 calls)
     fig_network = None
@@ -117,10 +129,10 @@ def run_catalog_statistics(
         df["n_det"] = np.nan
         df["has_V1"] = np.nan
 
-    # A90 (optional): use explicit Galaxy collection directories if provided.
+    # Credible area (optional): use explicit Galaxy collection directories if provided.
     # For pure Galaxy tools, we expect skymaps collections to be passed as directory paths.
-    if include_a90:
-        df[a90_column] = np.nan
+    if include_area:
+        df[area_column] = np.nan
 
     skymaps_dirs = skymaps_dirs or {}
 
@@ -138,17 +150,17 @@ def run_catalog_statistics(
                 tmp = gw.add_localization_area_from_galaxy_inputs(
                     df.loc[m],
                     catalog_key=cat,
-                    cred=a90_cred,
-                    column=a90_column,
+                    cred=area_cred,
+                    column=area_column,
                     base_dir="galaxy_inputs",
                     progress=True,
                     verbose=False,
                 )
-                df.loc[m, a90_column] = tmp[a90_column].values
+                df.loc[m, area_column] = tmp[area_column].values
                 continue
 
             raise RuntimeError(
-                f"A90 requested but no skymaps directory was provided for {cat}. "
+                f"Creadible area requested but no skymaps directory was provided for {cat}. "
                 "Provide the corresponding skymaps collection input."
             )
         
@@ -180,12 +192,12 @@ def run_catalog_statistics(
             tmp = gw.add_localization_area_from_directory(
                 df.loc[m],
                 skymap_dir=skydir,
-                cred=a90_cred,
-                column=a90_column,
+                cred=area_cred,
+                column=area_column,
                 progress=True,
                 verbose=False,
             )
-            df.loc[m, a90_column] = tmp[a90_column].values
+            df.loc[m, area_column] = tmp[area_column].values
         else:
             raise RuntimeError("gw_stat missing add_localization_area_from_directory()")
 
@@ -205,8 +217,8 @@ def run_catalog_statistics(
         "luminosity_distance","redshift","chi_eff","chi_p","snr","far","p_astro",
         "binary_type","detectors","n_det","has_V1",
     ]
-    if include_a90:
-        keep.append(a90_column)
+    if include_area:
+        keep.append(area_column)
     keep = [c for c in keep if c in df_out.columns]
     df_out[keep].to_csv(out_events_tsv, sep="\t", index=False)
 
@@ -234,8 +246,8 @@ def run_catalog_statistics(
     workdir = out_report_html.parent
     p1 = _plot_network_counts(df_out, workdir/"network_counts.png")
     if p1: img_paths.append(p1)
-    if include_a90:
-        p2 = _plot_a90_cdf(df_out, workdir/"a90_cdf.png", column=a90_column)
+    if include_area:
+        p2 = _plot_area_cdf(df_out, workdir/"area_cdf.png", column=area_column)
         if p2: img_paths.append(p2)
 
     paragraphs = [
@@ -243,9 +255,9 @@ def run_catalog_statistics(
         f"Total events after basic cleaning: {n_total}",
         f"Per-event table written to: {out_events_tsv.name}",
     ]
-    if include_a90:
-        got = int(pd.notna(df_out[a90_column]).sum())
-        paragraphs.append(f"A90 computed at cred={a90_cred}: {got}/{n_total} events.")
+    if include_area:
+        got = int(pd.notna(df_out[area_column]).sum())
+        paragraphs.append(f"Creadible area computed at cred={area_cred}: {got}/{n_total} events.")
 
     write_simple_html_report(
         out_report_html,

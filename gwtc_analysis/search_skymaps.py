@@ -23,7 +23,6 @@ def run_search_skymaps(
     ra_deg: float,
     dec_deg: float,
     prob: float,
-    make_plots: str = "hits",
     plots_dir: Optional[str] = None,
     skymaps: Optional[list[str]] = None,   # NEW: Galaxy collection support
 ) -> None:
@@ -58,7 +57,6 @@ def run_search_skymaps(
                 dec_deg=dec_deg,
                 prob=prob,
                 requested_percent=requested_percent,
-                make_plots=make_plots,
                 plots_path=plots_path,
             )
     else:
@@ -90,7 +88,6 @@ def run_search_skymaps(
                     dec_deg=dec_deg,
                     prob=prob,
                     requested_percent=requested_percent,
-                    make_plots=make_plots,
                     plots_path=plots_path,
                 )
 
@@ -113,7 +110,6 @@ def _process_one_skymap(
     dec_deg: float,
     prob: float,
     requested_percent: float,
-    make_plots: str,
     plots_path: Path,
 ) -> None:
     event_id = _event_id_from_filename(skymap_path)
@@ -126,7 +122,7 @@ def _process_one_skymap(
         cls_at_point = credible_level_at_radec_percent(skymap_path, ra_deg, dec_deg)
         inside = cls_at_point <= requested_percent
 
-        do_plot = (make_plots == "all") or (make_plots == "hits" and inside)
+        do_plot = True
         if do_plot:
             safe_title = _safe_filename(event_id)
             produced = plot_skymap_with_ra_dec(

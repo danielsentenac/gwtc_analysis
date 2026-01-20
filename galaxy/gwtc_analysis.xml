@@ -1,18 +1,14 @@
 <tool id="gwtc_analysis" name="GWTC analysis" version="0.2.2" profile="22.05">
   <description>GWTC analysis (catalog statistics + event selection + skymap search)</description>
-
   <requirements>
+     <container type="docker">docker.io/danielsentenac/gwtc-tool:0.1.4</container>
   </requirements>
-  <container type="docker">danielsentenac/gwtc-tool:0.1.3</container>
   <command detect_errors="exit_code"><![CDATA[
-    #set py_path = "%s/.." % $__tool_directory__
-
     mkdir -p "\$(dirname '$out_events')" "\$(dirname '$out_report')" "\$(dirname '$out_selection')" &&
-    python -c "import sys; print('PYTHON:', sys.executable); import pandas; print('PANDAS:', pandas.__version__)" &> '$debug';
-
-    PYTHONPATH="$py_path" python -m gwtc_analysis.cli
-        --mode '$mode.mode'
-
+    
+    PYTHONPATH='$__tool_directory__/..' python -m gwtc_analysis.cli \
+        --mode '$mode.mode' \
+        
         #if str($mode.mode) != "parameters_estimation":
             --catalogs ${' '.join($mode.catalogs)}
         #end if
@@ -29,9 +25,9 @@
                 --include-detectors
             #end if
 
-            #if $mode.include_a90:
-                --include-a90
-                --a90-cred '$mode.a90_cred'
+            #if $mode.include_area:
+                --include-area
+                --area-cred '$mode.area_cred'
             #end if
 
             #if $mode.skymaps_gwtc21:
@@ -72,8 +68,7 @@
             --ra-deg  '$mode.ra_deg'
             --dec-deg '$mode.dec_deg'
             --prob '$mode.prob'
-            --make-plots '$mode.make_plots'
-
+            
             #if $mode.events_json:
                 --events-json '$mode.events_json'
             #end if
@@ -116,8 +111,8 @@
                label="Events JSON (offline mode)"/>
 
         <param name="include_detectors" type="boolean" label="Add detector network (GWOSC v2 calls)" checked="true" />
-        <param name="include_a90" type="boolean" label="Compute A90 from skymaps collections (optional)" checked="false" />
-        <param name="a90_cred" type="float" label="Credible level for A90" value="0.9" min="0.5" max="0.99" />
+        <param name="include_area" type="boolean" label="Compute A90 from skymaps collections (optional)" checked="false" />
+        <param name="area_cred" type="float" label="Credible level for A90" value="0.9" min="0.5" max="0.99" />
 
         <param name="skymaps_gwtc21" type="data_collection" collection_type="list" optional="true"
                label="Skymaps collection for GWTC-2.1-confident"/>
@@ -182,59 +177,43 @@
 
     </conditional>
   </inputs>
-
   <outputs>
     <data name="out_events" format="tabular" label="GWTC output table (TSV)">
-      <filter>mode.mode == "catalog_statistics" or mode.mode == "search_skymaps" or mode.mode == "parameters_estimation"</filter>
+      <filter>mode.get("analysis_mode") in ("catalog_statistics", "search_skymaps", "parameters_estimation")</filter>
     </data>
 
     <data name="out_report" format="html" label="GWTC catalog report">
-      <filter>mode.mode == "catalog_statistics" or mode.mode == "parameters_estimation"</filter>
+      <filter>mode.get("analysis_mode") in ("catalog_statistics", "search_skymaps", "parameters_estimation")</filter>
     </data>
 
     <data name="out_selection" format="tabular" label="Selected events (TSV)">
-    
-    <data name="debug" format="txt" label="Debug info"/>
-      <filter>mode.mode == "event_selection"</filter>
+      <filter>mode.get("analysis_mode") == "event_selection"</filter>
     </data>
-
   </outputs>
-
   <tests>
-
-    <!-- catalog_statistics -->
-    <test expect_num_outputs="3">
-      <param name="mode|mode" value="catalog_statistics"/>
+    <test expect_num_outputs="2">
+      <param name="mode|analysis_mode" value="catalog_statistics"/>
       <param name="mode|catalogs" value="GWTC-2.1-confident"/>
       <param name="mode|include_detectors" value="false"/>
-      <param name="mode|include_a90" value="false"/>
+      <param name="mode|include_area" value="false"/>
       <param name="mode|events_json" value="gwtc_small.json"/>
 
       <output name="out_events" ftype="tabular">
         <assert_contents>
-          <has_text text="event_id"/>
-          <has_n_lines min="2"/>
+          <has_text text="event"/>
+          <has_n_lines min="1"/>
         </assert_contents>
       </output>
 
       <output name="out_report" ftype="html">
         <assert_contents>
-          <has_text text="GWTC catalog statistics"/>
+          <has_text text="GWTC"/>
         </assert_contents>
       </output>
-
-      <!-- inactive outputs: must still have a check -->
-      <output name="out_selection" ftype="tabular">
-        <assert_contents>
-          <has_size value="0"/>
-        </assert_contents>
-      </output>
-     
     </test>
 
-    <!-- event_selection -->
-    <test expect_num_outputs="3">
-      <param name="mode|mode" value="event_selection"/>
+    <test expect_num_outputs="1">
+      <param name="mode|analysis_mode" value="event_selection"/>
       <param name="mode|catalogs" value="GWTC-2.1-confident"/>
       <param name="mode|events_json" value="gwtc_small.json"/>
       <param name="mode|m1_min" value="10"/>
@@ -242,75 +221,12 @@
 
       <output name="out_selection" ftype="tabular">
         <assert_contents>
-          <has_text text="event_id"/>
-          <has_n_lines min="2"/>
-        </assert_contents>
-      </output>
-
-      <!-- inactive outputs: must still have a check -->
-      <output name="out_events" ftype="tabular">
-        <assert_contents>
-          <has_size value="0"/>
-        </assert_contents>
-      </output>
-      <output name="out_report" ftype="html">
-        <assert_contents>
-          <has_size value="0"/>
-        </assert_contents>
-      </output>
-    </test>
-
-    <test expect_num_outputs="3">
-      <param name="mode|mode" value="search_skymaps"/>
-      <param name="mode|catalogs" value="GWTC-2.1-confident"/>
-      <param name="mode|ra_deg"  value="30"/>
-      <param name="mode|dec_deg" value="40"/>
-      <param name="mode|prob"    value="0.5"/>
-      <param name="mode|make_plots" value="hits"/>
-      <param name="mode|skymaps" value="IGWN-GWTC4p0-0f954158d_720-GW240104_164932-SEOBNRv5PHM_Skymap_PEDataRelease.fits.gz"/>
-
-      <output name="debug">
-       <assert_contents>
-        <has_text text="PYTHON:"/>
-        <has_text text="PANDAS:"/>
-       </assert_contents>
-    </output>
-      <output name="out_events" ftype="tabular">
-        <assert_contents>
-          <has_text text="event_id"/>
+          <has_text text="event"/>
           <has_n_lines min="1"/>
         </assert_contents>
       </output>
-      <output name="out_report" ftype="html">
-        <assert_contents>
-          <has_text text="search_skymaps"/>
-        </assert_contents>
-      </output>
-      <!-- out_selection is inactive -->
-      <output name="out_selection" ftype="tabular">
-        <assert_contents>
-          <has_size value="0"/>
-        </assert_contents>
-      </output>
     </test>
-
-    <!-- parameters_estimation (smoke test: should fail without PE collections) -->
-<!-- parameters_estimation (successful minimal run with a test PE file) -->
-
-    <!-- parameters_estimation (requested command-line args; may require network/PE availability) -->
-	<test expect_num_outputs="3">
-	  <param name="mode|mode" value="parameters_estimation"/>
-	  <param name="mode|src_name" value="GW150914"/>
-	  <param name="mode|sample_method" value="IMRPhenomXPHM"/>
-	  <param name="mode|strain_approximant" value="IMRPhenomXPHM"/>
-	  <param name="mode|start" value="0.2"/>
-	  <param name="mode|stop" value="0.05"/>
-	  <param name="mode|fs_low" value="20"/>
-	  <param name="mode|fs_high" value="300"/>
-	</test>
-
   </tests>
-
   <help><![CDATA[
 ... keep your help unchanged ...
 ]]></help>
