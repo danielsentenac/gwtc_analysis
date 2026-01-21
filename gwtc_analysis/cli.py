@@ -242,6 +242,7 @@ def main(argv=None) -> int:
                 sample_method=args.sample_method,
                 strain_approximant=args.strain_approximant,
                 out_report_html=args.out_report, 
+                data_repo=args.data_repo,
             )
             # Small manifest (like your previous behavior)
             for k, v in out.items():

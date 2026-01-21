@@ -154,6 +154,50 @@ def _download_url_to_path(url: str, out_path: Path, *, chunk_size: int = 1024 * 
                 if chunk:
                     f.write(chunk)
 
+
+def download_zenodo_pe_file(
+    chosen: dict[str, Any],
+    *,
+    outdir: Path,
+    progress_cb=None,
+    log_cb=None,
+) -> Path:
+    """Download a single PE file described by `chosen` into outdir (cached).
+
+    `chosen` must have keys: filename, url.
+    """
+    fname = str(chosen.get("filename") or "")
+    url = str(chosen.get("url") or "")
+    if not fname or not url:
+        raise ValueError("Invalid Zenodo PE descriptor: missing filename/url")
+
+    out_path = outdir / Path(fname).name
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if out_path.exists() and out_path.stat().st_size > 0:
+        if log_cb:
+            log_cb(f"ℹ️ [CACHE] Using existing Zenodo PE file: {out_path}")
+        return out_path
+
+    if log_cb:
+        log_cb(f"ℹ️ [DOWNLOAD] Zenodo PE: {fname}")
+    if progress_cb:
+        try:
+            progress_cb("Download data", 15, "Zenodo PE download")
+        except Exception:
+            pass
+
+    try:
+        _download_url_to_path(url, out_path)
+    except Exception as e:
+        try:
+            out_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise RuntimeError(f"Failed downloading Zenodo PE file {fname}: {e}") from e
+
+    return out_path
+
 def _is_skymap_plot(p: Path) -> bool:
     name = p.name.lower()
     return any(k in name for k in (
@@ -405,38 +449,6 @@ def _set_output(args: Any, name: str, value: Any) -> None:
     except Exception:
         # Non-fatal: outputs still available via LAST_RESULT
         pass
-
-def choose_best_pe_file(candidates: list[dict]) -> dict | None:
-    """
-    candidates: list of dicts like {"record_id": int, "filename": str, "url": str}
-    Rule:
-      - prefer 'mixed_cosmo' when exists
-      - otherwise 'recombined' (only choice)
-      - fallback: prefer .hdf5/.h5, else first
-    """
-    if not candidates:
-        return None
-
-    def norm(s: str) -> str:
-        return (s or "").lower()
-
-    # 1) preferred: mixed_cosmo
-    for c in candidates:
-        if "mixed_cosmo" in norm(c.get("filename", "")):
-            return c
-
-    # 2) fallback: recombined
-    for c in candidates:
-        if "recombined" in norm(c.get("filename", "")):
-            return c
-
-    # 3) safety: prefer hdf5/h5
-    for ext in (".hdf5", ".h5"):
-        for c in candidates:
-            if norm(c.get("filename", "")).endswith(ext):
-                return c
-
-    return candidates[0]
 def run_parameters_estimation(
     *,
     src_name: str,
@@ -571,13 +583,8 @@ def run_parameters_estimation(
         if data_repo == "zenodo":
             from difflib import get_close_matches
 
-            from .parameters_estimation_zenodo import (  # or inline these helpers
-                build_zenodo_pe_index,
-                choose_best_pe_file,
-                download_zenodo_pe_file,
-            )
-
             # 1) load cached index
+            index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
             index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
 
             # 2) if missing, refresh once (cache may be stale)
@@ -628,37 +635,46 @@ def run_parameters_estimation(
                 secret_key=credentials.get("secret_key"),
             )
 
-            found_file = False
-            remote_file: Optional[str] = None
+            bucket = "gwtc"
+            pe_prefixes = ["GWTC-2.1/PE/", "GWTC-3/PE/", "GWTC-4/PE/"]
+            candidates: List[str] = []
 
-            for obj in client.list_objects("gwtc", recursive=True):
-                file_name = obj.object_name
-                if (
-                    src_name in file_name
-                    and "PEDataRelease" in file_name
-                    and (file_name.endswith(".h5") or file_name.endswith(".hdf5"))
-                ):
-                    remote_file = file_name
-                    found_file = True
-                    _log(f"ℹ️ [INFO] Found remote PE file: {file_name}")
-                    break
+            for prefix in pe_prefixes:
+                for obj in client.list_objects(bucket, prefix=prefix, recursive=True):
+                    key = obj.object_name
+                    low = key.lower()
+                    if src_name not in key:
+                        continue
+                    if not (low.endswith(".h5") or low.endswith(".hdf5")):
+                        continue
+                    candidates.append(key)
 
-            if not found_file or remote_file is None:
-                msg = f"❌ [ERROR] Failed reading data. No such event name {src_name} found in catalogs"
+            if not candidates:
+                msg = (
+                    f"❌ [ERROR] No S3 PE file found for event {src_name} "
+                    f"under {', '.join(pe_prefixes)}"
+                )
                 _log(msg)
                 go_next_cell = False
             else:
-                local_pe_path = remote_file  # keep same relative structure
-                local_dir = os.path.dirname(local_pe_path)
-                if local_dir and not os.path.isdir(local_dir):
-                    os.makedirs(local_dir, exist_ok=True)
+                def _rank(k: str) -> Tuple[int, str]:
+                    kl = k.lower()
+                    if "mixed_cosmo" in kl:
+                        return (0, kl)
+                    if "recombined" in kl:
+                        return (1, kl)
+                    return (9, kl)
+
+                remote_file = sorted(candidates, key=_rank)[0]
+                _log(f"ℹ️ [INFO] Selected remote PE file: {remote_file}")
+
+                local_pe_path = str(outdir / Path(remote_file).name)
 
                 if os.path.isfile(local_pe_path):
                     _log(f"ℹ️ [CACHE] Using existing local PE file: {local_pe_path}")
                 else:
                     _log(f"ℹ️ [DOWNLOAD] Fetching from S3: {remote_file}")
-                    client.fget_object("gwtc", remote_file, local_pe_path)
-
+                    client.fget_object(bucket, remote_file, local_pe_path)
         else:
             # local (or galaxy): expect user already has the PE file locally or
             # implement your local discovery logic here.
@@ -919,10 +935,12 @@ def run_parameters_estimation(
 
     _progress("Finish", 100, "step 6")
 
+
     # ---------------------------------------------------------------------
     # HTML report
     # ---------------------------------------------------------------------
     if out_report_html:
+    
         out_path = Path(out_report_html)
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -958,7 +976,11 @@ def run_parameters_estimation(
     result.fig_skymap = fig_skymapList
 
     LAST_RESULT = result
-
+ 
+    if not go_next_cell or data is None:
+        # Stop pretending success: show the user the real reason
+        last_msg = event_logs[-1].strip()
+        raise ValueError(last_msg or "Parameter estimation failed before producing outputs.")
     # Return a plain dict so callers can see exactly what was produced
     return {
         "fig_distribution": result.files_distribution,
