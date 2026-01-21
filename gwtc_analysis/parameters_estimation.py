@@ -59,6 +59,137 @@ import requests
 
 ZENODO_PE_RECORD_IDS = [6513631, 8177023, 17014085]
 
+from pathlib import Path
+from typing import Callable, Optional
+
+def _tqdm_or_none():
+    try:
+        from tqdm.auto import tqdm  # type: ignore
+        return tqdm
+    except Exception:
+        return None
+
+
+def _download_http_with_progress(
+    url: str,
+    out_path: Path,
+    *,
+    desc: str = "download",
+    chunk_size: int = 1024 * 1024,
+) -> None:
+    import requests
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    headers = {
+        "User-Agent": "gwtc_analysis (https://github.com/danielsentenac/gwtc_analysis)",
+        "Accept": "*/*",
+    }
+
+    tqdm = _tqdm_or_none()
+
+    with requests.get(url, stream=True, headers=headers, allow_redirects=True, timeout=(10, 300)) as r:
+        r.raise_for_status()
+        total = r.headers.get("Content-Length")
+        total_size = int(total) if total and total.isdigit() else None
+
+        pbar = tqdm(total=total_size, unit="B", unit_scale=True, desc=desc) if tqdm else None
+        try:
+            with out_path.open("wb") as f:
+                for chunk in r.iter_content(chunk_size=chunk_size):
+                    if not chunk:
+                        continue
+                    f.write(chunk)
+                    if pbar:
+                        pbar.update(len(chunk))
+        finally:
+            if pbar:
+                pbar.close()
+
+
+def _download_s3_with_progress(
+    client,
+    *,
+    bucket: str,
+    object_name: str,
+    out_path: Path,
+    desc: str = "s3 download",
+    chunk_size: int = 1024 * 1024,
+) -> None:
+    """
+    Download from MinIO/S3 with a tqdm progress bar.
+    Uses streaming (get_object) so we can update progress.
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    tqdm = _tqdm_or_none()
+
+    # best-effort size
+    total_size = None
+    try:
+        st = client.stat_object(bucket, object_name)
+        total_size = int(getattr(st, "size", 0)) or None
+    except Exception:
+        total_size = None
+
+    pbar = tqdm(total=total_size, unit="B", unit_scale=True, desc=desc) if tqdm else None
+
+    resp = client.get_object(bucket, object_name)
+    try:
+        with out_path.open("wb") as f:
+            while True:
+                chunk = resp.read(chunk_size)
+                if not chunk:
+                    break
+                f.write(chunk)
+                if pbar:
+                    pbar.update(len(chunk))
+    finally:
+        try:
+            resp.close()
+            resp.release_conn()
+        except Exception:
+            pass
+        if pbar:
+            pbar.close()
+
+from pathlib import Path
+from typing import Any, Callable
+
+def download_zenodo_pe_file(
+    chosen: dict[str, Any],
+    *,
+    outdir: Path,
+    progress_cb: Callable[[str, int, str], None] | None = None,
+    log_cb: Callable[[str], None] | None = None,
+) -> Path:
+    """
+    Download a PE file from Zenodo using the *public* web URL:
+      https://zenodo.org/records/<rid>/files/<filename>?download=1
+
+    chosen must contain:
+      - 'filename'
+      - 'url'
+    """
+    fname = str(chosen["filename"])
+    url = str(chosen["url"])
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    out_path = outdir / fname
+
+    if out_path.exists() and out_path.stat().st_size > 0:
+        if log_cb:
+            log_cb(f"ℹ️ [CACHE] Using existing Zenodo PE file: {out_path}")
+        return out_path
+
+    if log_cb:
+        log_cb(f"ℹ️ [DOWNLOAD] Zenodo PE: {fname}")
+    if progress_cb:
+        progress_cb("Download data", 15, f"Zenodo download: {fname}")
+
+    _download_http_with_progress(url, out_path, desc=f"Zenodo: {fname}")
+    return out_path
+
 def _extract_event_id_from_filename(name: str) -> str | None:
     # Strong match used across GWTC releases
     m = re.search(r"(GW\d{6}_\d{6})", name)
@@ -95,18 +226,22 @@ def build_zenodo_pe_index(
     index: dict[str, list[dict[str, Any]]] = {}
 
     for rid in record_ids:
-        for f in _zenodo_record_files(rid):
+        try:
+            files = _zenodo_record_files(rid)
+        except Exception as e:
+            # Zenodo can transiently fail (503, etc.). Do not fail the whole run.
+            print(f"[pe][zenodo] WARN: could not fetch record {rid}: {type(e).__name__}: {e}")
+            continue
+
+        for f in files:
             # Zenodo API uses 'key' for filename
             fname = f.get("key") or f.get("filename") or ""
             ev = _extract_event_id_from_filename(fname)
             if not ev:
                 continue
 
-            links = f.get("links", {}) or {}
-            # Usually links.self is an API URL like .../api/records/<rid>/files/<fname>
-            url = links.get("self") or links.get("download") or ""
-            if url and "/api/" in url and "/files/" in url and not url.endswith("/content"):
-                url = url.rstrip("/") + "/content"
+            # IMPORTANT: prefer the public web download endpoint (works when API /content returns 403)
+            url = f"https://zenodo.org/records/{rid}/files/{fname}?download=1"
 
             index.setdefault(ev, []).append(
                 {"record_id": rid, "filename": fname, "url": url}
@@ -146,57 +281,26 @@ def choose_best_pe_file(candidates: list[dict[str, Any]]) -> dict[str, Any] | No
 
 
 def _download_url_to_path(url: str, out_path: Path, *, chunk_size: int = 1024 * 1024) -> None:
+    """Download URL to out_path with browser-like headers (Zenodo-friendly)."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(url, stream=True, timeout=(10, 300)) as r:
+
+    headers = {
+        "User-Agent": "gwtc_analysis (https://github.com/danielsentenac/gwtc_analysis)",
+        "Accept": "*/*",
+    }
+
+    with requests.get(
+        url,
+        stream=True,
+        headers=headers,
+        allow_redirects=True,
+        timeout=(10, 300),
+    ) as r:
         r.raise_for_status()
         with out_path.open("wb") as f:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 if chunk:
                     f.write(chunk)
-
-
-def download_zenodo_pe_file(
-    chosen: dict[str, Any],
-    *,
-    outdir: Path,
-    progress_cb=None,
-    log_cb=None,
-) -> Path:
-    """Download a single PE file described by `chosen` into outdir (cached).
-
-    `chosen` must have keys: filename, url.
-    """
-    fname = str(chosen.get("filename") or "")
-    url = str(chosen.get("url") or "")
-    if not fname or not url:
-        raise ValueError("Invalid Zenodo PE descriptor: missing filename/url")
-
-    out_path = outdir / Path(fname).name
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if out_path.exists() and out_path.stat().st_size > 0:
-        if log_cb:
-            log_cb(f"ℹ️ [CACHE] Using existing Zenodo PE file: {out_path}")
-        return out_path
-
-    if log_cb:
-        log_cb(f"ℹ️ [DOWNLOAD] Zenodo PE: {fname}")
-    if progress_cb:
-        try:
-            progress_cb("Download data", 15, "Zenodo PE download")
-        except Exception:
-            pass
-
-    try:
-        _download_url_to_path(url, out_path)
-    except Exception as e:
-        try:
-            out_path.unlink(missing_ok=True)
-        except Exception:
-            pass
-        raise RuntimeError(f"Failed downloading Zenodo PE file {fname}: {e}") from e
-
-    return out_path
 
 def _is_skymap_plot(p: Path) -> bool:
     name = p.name.lower()
@@ -449,6 +553,38 @@ def _set_output(args: Any, name: str, value: Any) -> None:
     except Exception:
         # Non-fatal: outputs still available via LAST_RESULT
         pass
+
+def choose_best_pe_file(candidates: list[dict]) -> dict | None:
+    """
+    candidates: list of dicts like {"record_id": int, "filename": str, "url": str}
+    Rule:
+      - prefer 'mixed_cosmo' when exists
+      - otherwise 'recombined' (only choice)
+      - fallback: prefer .hdf5/.h5, else first
+    """
+    if not candidates:
+        return None
+
+    def norm(s: str) -> str:
+        return (s or "").lower()
+
+    # 1) preferred: mixed_cosmo
+    for c in candidates:
+        if "mixed_cosmo" in norm(c.get("filename", "")):
+            return c
+
+    # 2) fallback: recombined
+    for c in candidates:
+        if "recombined" in norm(c.get("filename", "")):
+            return c
+
+    # 3) safety: prefer hdf5/h5
+    for ext in (".hdf5", ".h5"):
+        for c in candidates:
+            if norm(c.get("filename", "")).endswith(ext):
+                return c
+
+    return candidates[0]
 def run_parameters_estimation(
     *,
     src_name: str,
@@ -582,9 +718,7 @@ def run_parameters_estimation(
     try:
         if data_repo == "zenodo":
             from difflib import get_close_matches
-
             # 1) load cached index
-            index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
             index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
 
             # 2) if missing, refresh once (cache may be stale)
@@ -635,46 +769,37 @@ def run_parameters_estimation(
                 secret_key=credentials.get("secret_key"),
             )
 
-            bucket = "gwtc"
-            pe_prefixes = ["GWTC-2.1/PE/", "GWTC-3/PE/", "GWTC-4/PE/"]
-            candidates: List[str] = []
+            found_file = False
+            remote_file: Optional[str] = None
 
-            for prefix in pe_prefixes:
-                for obj in client.list_objects(bucket, prefix=prefix, recursive=True):
-                    key = obj.object_name
-                    low = key.lower()
-                    if src_name not in key:
-                        continue
-                    if not (low.endswith(".h5") or low.endswith(".hdf5")):
-                        continue
-                    candidates.append(key)
+            for obj in client.list_objects("gwtc", recursive=True):
+                file_name = obj.object_name
+                if (
+                    src_name in file_name
+                    and "PEDataRelease" in file_name
+                    and (file_name.endswith(".h5") or file_name.endswith(".hdf5"))
+                ):
+                    remote_file = file_name
+                    found_file = True
+                    _log(f"ℹ️ [INFO] Found remote PE file: {file_name}")
+                    break
 
-            if not candidates:
-                msg = (
-                    f"❌ [ERROR] No S3 PE file found for event {src_name} "
-                    f"under {', '.join(pe_prefixes)}"
-                )
+            if not found_file or remote_file is None:
+                msg = f"❌ [ERROR] Failed reading data. No such event name {src_name} found in catalogs"
                 _log(msg)
                 go_next_cell = False
             else:
-                def _rank(k: str) -> Tuple[int, str]:
-                    kl = k.lower()
-                    if "mixed_cosmo" in kl:
-                        return (0, kl)
-                    if "recombined" in kl:
-                        return (1, kl)
-                    return (9, kl)
-
-                remote_file = sorted(candidates, key=_rank)[0]
-                _log(f"ℹ️ [INFO] Selected remote PE file: {remote_file}")
-
-                local_pe_path = str(outdir / Path(remote_file).name)
+                local_pe_path = remote_file  # keep same relative structure
+                local_dir = os.path.dirname(local_pe_path)
+                if local_dir and not os.path.isdir(local_dir):
+                    os.makedirs(local_dir, exist_ok=True)
 
                 if os.path.isfile(local_pe_path):
                     _log(f"ℹ️ [CACHE] Using existing local PE file: {local_pe_path}")
                 else:
                     _log(f"ℹ️ [DOWNLOAD] Fetching from S3: {remote_file}")
-                    client.fget_object(bucket, remote_file, local_pe_path)
+                    _download_s3_with_progress(client, bucket="gwtc", object_name=remote_file, out_path=Path(local_pe_path), desc=f"S3: {Path(remote_file).name}",)
+
         else:
             # local (or galaxy): expect user already has the PE file locally or
             # implement your local discovery logic here.
