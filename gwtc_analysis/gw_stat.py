@@ -12,7 +12,7 @@ Why this exists
 The GWOSC v2 parameters endpoint often provides only a scalar `sky_area` for a subset
 of events and may not expose skymap links uniformly. However, the LVK "confident"
 catalog PE releases on Zenodo include comprehensive skymap tarballs, e.g.:
-- GWTC-4.0 archived skymaps tarball (Zenodo record 17014085) citeturn26search0
+- GWTC-4 archived skymaps tarball (Zenodo record 17014085) citeturn26search0
 - GWTC-3.0 PE skylocalizations tarball (Zenodo record 8177023) citeturn26search1
 - GWTC-2.1 PE skymaps tarball (Zenodo record 6513631) citeturn26search2
 
@@ -41,6 +41,8 @@ import numpy as np
 import pandas as pd
 import requests
 
+from .data_repo import zenodo_skymap_url, zenodo_cache_dir
+
 def _require_ligo_skymap():
     try:
         import ligo.skymap  # noqa: F401
@@ -55,21 +57,6 @@ logger = logging.getLogger(__name__)
 
 USER_AGENT = "gw-stat/1.1 (+https://gwosc.org/)"
 
-# ---------------------------------------------------------------------
-# Confident catalogs and their Zenodo skymap tarballs
-# ---------------------------------------------------------------------
-# These are the direct file-download links the user provided; they match the Zenodo records.
-# GWTC-4 record: 17014085 citeturn26search0
-# GWTC-3 record: 8177023 citeturn26search1
-# GWTC-2.1 record: 6513631 citeturn26search2
-ZENODO_SKYMAP_TARBALLS = {
-    "GWTC-4.0": "https://zenodo.org/records/17014085/files/IGWN-GWTC4p0-1a206db3d_721-Archived_Skymaps.tar.gz?download=1",
-    "GWTC-3-confident": "https://zenodo.org/records/8177023/files/IGWN-GWTC3p0-v2-PESkyLocalizations.tar.gz?download=1",
-    "GWTC-2.1-confident": "https://zenodo.org/records/6513631/files/IGWN-GWTC2p1-v2-PESkyMaps.tar.gz?download=1",
-    # GWTC-1 confident skymaps are available in the GWTC-1 release; URL may differ by version.
-    # Add here if/when you want full automation for GWTC-1.
-    # "GWTC-1-confident": "...",
-}
 
 # ---------------------------------------------------------------------
 # Basic GWOSC jsonfull download helpers (same as before)
@@ -104,11 +91,18 @@ def catalog_key_to_jsonfull_url(catalog: str) -> str:
         return cat if cat.endswith("/") else cat + "/"
     return f"https://gwosc.org/eventapi/jsonfull/{cat}/"
 
-def fetch_gwtc_events(url: str = GWTC_URL_DEFAULT, *, catalog: Optional[str] = None) -> Dict[str, Any]:
-    if catalog is not None:
-        url = catalog_key_to_jsonfull_url(catalog)
-    with requests.Session() as s:
+def fetch_gwtc_events(catalog: str):
+    url = f"https://gwosc.org/eventapi/jsonfull/{catalog}/"
+    s = requests.Session()
+    try:
         return _safe_get(s, url, timeout=(10, 120), retries=3).json()
+    except requests.HTTPError as e:
+        status = getattr(e.response, "status_code", None)
+        if status == 404:
+            raise ValueError(
+                f"Unknown catalog '{catalog}'. Allowed catalogs are: {', '.join(ALLOWED_CATALOGS)}"
+            ) from e
+        raise
 
 def events_to_dataframe(raw_events: Dict[str, Any]) -> pd.DataFrame:
     rows = []
@@ -605,11 +599,9 @@ def download_zenodo_skymaps_tarball(
 
     The file is cached on disk; if already present, it is not downloaded again.
     """
-    if catalog_key not in ZENODO_SKYMAP_TARBALLS:
-        raise ValueError(f"No Zenodo skymap tarball known for catalog '{catalog_key}'. "
-                         f"Known: {list(ZENODO_SKYMAP_TARBALLS)}")
 
-    url = ZENODO_SKYMAP_TARBALLS[catalog_key]
+    url = zenodo_skymap_url(catalog_key)
+    cache_dir = zenodo_cache_dir()
     os.makedirs(cache_dir, exist_ok=True)
 
     if dest_path is None:
@@ -750,6 +742,182 @@ def select_skymap_member(
     return None
 
     
+import re
+import json
+import numpy as np
+import pandas as pd
+from minio import Minio
+import os
+import json
+
+def _catalog_to_s3_prefix(catalog_key: str) -> str:
+    # catalogs are already canonical: GWTC-2.1, GWTC-3, GWTC-4
+    return f"{catalog_key.rstrip('/')}/"
+
+def _s3_client_from_env() -> Minio:
+    """
+    Connect to S3/MinIO.
+
+    - If S3_CREDENTIALS env var is set (JSON), use it.
+    - Otherwise use anonymous development endpoint (public).
+    """
+    credentials_env = os.environ.get("S3_CREDENTIALS")
+    if credentials_env:
+        credentials = json.loads(credentials_env)
+    else:
+        # anonymous development server
+        credentials = {
+            "endpoint": "minio-dev.odahub.fr",
+            "secure": True,
+        }
+
+    return Minio(
+        endpoint=credentials["endpoint"],
+        secure=credentials.get("secure", True),
+        access_key=credentials.get("access_key"),
+        secret_key=credentials.get("secret_key"),
+    )
+
+
+
+def _catalog_to_s3_prefix(catalog_key: str) -> str:
+    """
+    Map your CLI catalog keys to S3 folder names.
+    Adjust if you want GWTC-3 to point to GWTC-3/, etc.
+    """
+    if catalog_key.startswith("GWTC-2.1"):
+        return "GWTC-2.1/"
+    if catalog_key.startswith("GWTC-3"):
+        return "GWTC-3/"
+    if catalog_key.startswith("GWTC-4"):
+        return "GWTC-4/"
+    # fallback: try exact
+    return f"{catalog_key}/"
+
+
+def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False) -> dict[str, str]:
+    """
+    Return dict: ev_key ('GWYYYYMM_DDHHMM') -> object_name.
+    If multiple matches exist for same event, keep the first (or refine later).
+    """
+    index: dict[str, str] = {}
+    rx = re.compile(r"(GW\d{6}_\d{6})")
+
+    for obj in mc.list_objects(bucket, prefix=prefix, recursive=True):
+        name = obj.object_name
+        if not (name.endswith(".fits") or name.endswith(".fits.gz")):
+            continue
+
+        m = rx.search(name)
+        if not m:
+            continue
+
+        ev_key = m.group(1)
+        if ev_key not in index:
+            index[ev_key] = name
+            if verbose:
+                print(f"[gw_stat] S3 index: {ev_key} -> {name}")
+
+    return index
+
+
+def add_localization_area_from_s3(
+    df: pd.DataFrame,
+    *,
+    catalog_key: str,
+    cred: float = 0.9,
+    column: str | None = None,
+    bucket: str = "gwtc",
+    base_prefix: str = "",   # set to "gwtc/" if you want: odahub/gwtc/...
+    cache_index: bool = True,
+    progress: bool = True,
+    verbose: bool = False,
+) -> pd.DataFrame:
+    """
+    Compute credible area by reading per-event skymap FITS from S3 (recursive scan).
+
+    - Lists all .fits/.fits.gz under s3://bucket/<base_prefix>/<GWTC-*/...> recursively.
+    - Builds an event->object index from filenames containing GWYYYYMM_DDHHMM.
+    - Streams each FITS as bytes (no full download needed).
+    """
+    out = df.copy()
+    if column is None:
+        level = int(round(100 * cred))
+        column = f"A{level}_deg2"
+    out[column] = np.nan
+
+    mc = _s3_client_from_env()
+    cat_prefix = _catalog_to_s3_prefix(catalog_key)
+    prefix = f"{base_prefix}{cat_prefix}"
+
+    # build (or optionally cache) index
+    index = _build_s3_skymap_index(mc, bucket=bucket, prefix=prefix, verbose=verbose)
+
+    try:
+        from tqdm.auto import tqdm  # type: ignore
+    except Exception:
+        tqdm = None  # type: ignore
+
+    it = out.iterrows()
+    if progress and tqdm is not None:
+        it = tqdm(list(it), desc=f"A{int(cred*100)} from S3 {catalog_key}", total=len(out))
+
+    found = ok = miss = errors = 0
+    areas = [np.nan] * len(out)
+
+    for idx, row in it:
+        ev_id = row.get("event_id")
+        ev = _normalize_event_name(ev_id)
+        if ev is None:
+            miss += 1
+            continue
+
+        m = re.search(r"(GW\d{6}_\d{6})", str(ev))
+        if not m:
+            miss += 1
+            continue
+        ev_key = m.group(1)
+
+        obj_name = index.get(ev_key)
+        if obj_name is None:
+            miss += 1
+            continue
+
+        found += 1
+        try:
+            if verbose:
+                print(f"[gw_stat] fetching {ev_id} from s3://{bucket}/{obj_name}")
+
+            resp = mc.get_object(bucket, obj_name)
+            try:
+                data = resp.read()  # bytes
+            finally:
+                resp.close()
+                resp.release_conn()
+
+            prob = _read_sky_map_from_bytes(data)
+            area = _credible_area_from_probmap(prob, cred=cred)
+            areas[out.index.get_loc(idx)] = float(area)
+            ok += 1
+
+        except Exception as e:  # noqa: BLE001
+            errors += 1
+            print(f"[gw_stat] A{int(cred*100)} S3 error for {ev_id} using {obj_name}: {type(e).__name__}: {e}")
+
+        if tqdm is not None and progress:
+            try:
+                it.set_postfix(found=found, ok=ok, miss=miss, errors=errors)  # type: ignore[attr-defined]
+            except Exception:
+                pass
+
+    print(
+        f"[gw_stat] A{int(cred*100)} S3 summary: "
+        f"found={found} ok={ok} miss={miss} errors={errors}"
+    )
+
+    out[column] = areas
+    return out
+
 
 def add_localization_area_from_zenodo(
     df: pd.DataFrame,
@@ -870,7 +1038,7 @@ def add_localization_area_from_zenodo(
 
 if __name__ == "__main__":
     # tiny smoke test
-    raw = fetch_gwtc_events(catalog="GWTC-3-confident")
+    raw = fetch_gwtc_events(catalog="GWTC-3")
     df0 = events_to_dataframe(raw["events"])
     df = prepare_catalog_df(df0)
     print("rows:", len(df))

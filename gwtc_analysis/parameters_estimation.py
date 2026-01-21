@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 
+
 @dataclass
 class PEResult:
     """Collected outputs from a PE run."""
@@ -50,6 +51,328 @@ class PEResult:
 
 LAST_RESULT: Optional[PEResult] = None
 
+import html
+import json
+import re
+import requests
+
+
+ZENODO_PE_RECORD_IDS = [6513631, 8177023, 17014085]
+
+def _extract_event_id_from_filename(name: str) -> str | None:
+    # Strong match used across GWTC releases
+    m = re.search(r"(GW\d{6}_\d{6})", name)
+    return m.group(1) if m else None
+
+
+def _zenodo_record_files(record_id: int) -> list[dict[str, Any]]:
+    url = f"https://zenodo.org/api/records/{record_id}"
+    r = requests.get(url, timeout=(10, 120))
+    r.raise_for_status()
+    j = r.json()
+    return j.get("files", []) or []
+
+
+def build_zenodo_pe_index(
+    *,
+    cache_dir: str | Path = ".cache_gwosc",
+    record_ids: list[int] | None = None,
+    force_refresh: bool = False,
+) -> dict[str, list[dict[str, Any]]]:
+    """
+    Returns:
+      index[event_id] = [{record_id, filename, url}, ...]
+    Cached in: <cache_dir>/zenodo_pe_index.json
+    """
+    record_ids = record_ids or ZENODO_PE_RECORD_IDS
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / "zenodo_pe_index.json"
+
+    if (not force_refresh) and cache_path.exists() and cache_path.stat().st_size > 0:
+        return json.loads(cache_path.read_text(encoding="utf-8"))
+
+    index: dict[str, list[dict[str, Any]]] = {}
+
+    for rid in record_ids:
+        for f in _zenodo_record_files(rid):
+            # Zenodo API uses 'key' for filename
+            fname = f.get("key") or f.get("filename") or ""
+            ev = _extract_event_id_from_filename(fname)
+            if not ev:
+                continue
+
+            links = f.get("links", {}) or {}
+            # Usually links.self is an API URL like .../api/records/<rid>/files/<fname>
+            url = links.get("self") or links.get("download") or ""
+            if url and "/api/" in url and "/files/" in url and not url.endswith("/content"):
+                url = url.rstrip("/") + "/content"
+
+            index.setdefault(ev, []).append(
+                {"record_id": rid, "filename": fname, "url": url}
+            )
+
+    cache_path.write_text(json.dumps(index, indent=2), encoding="utf-8")
+    return index
+
+
+def choose_best_pe_file(candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """
+    Rule:
+      - prefer 'mixed_cosmo' when exists
+      - otherwise 'recombined'
+      - fallback: prefer .hdf5/.h5, else first
+    """
+    if not candidates:
+        return None
+
+    def n(s: str) -> str:
+        return (s or "").lower()
+
+    for c in candidates:
+        if "mixed_cosmo" in n(c.get("filename", "")):
+            return c
+
+    for c in candidates:
+        if "recombined" in n(c.get("filename", "")):
+            return c
+
+    for ext in (".hdf5", ".h5"):
+        for c in candidates:
+            if n(c.get("filename", "")).endswith(ext):
+                return c
+
+    return candidates[0]
+
+
+def _download_url_to_path(url: str, out_path: Path, *, chunk_size: int = 1024 * 1024) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with requests.get(url, stream=True, timeout=(10, 300)) as r:
+        r.raise_for_status()
+        with out_path.open("wb") as f:
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    f.write(chunk)
+
+def _is_skymap_plot(p: Path) -> bool:
+    name = p.name.lower()
+    return any(k in name for k in (
+        "skymap", "localization", "allsky", "radec", "ra_dec", "sky"
+    ))
+
+def _pe_plot_sort_key(p: Path) -> tuple[int, int, str]:
+    """
+    PE report plot ordering:
+
+      0) Posteriors (corner/posterior, etc.)
+      1) PSD
+      2) Strain + waveform + Q-transform (grouped by detector)
+      3) Skymaps / localization / RA-Dec (last)
+      9) Everything else
+    """
+    name = p.name.lower()
+
+    # 0) Posteriors
+    if any(k in name for k in (
+        "corner", "posterior", "posteriors",
+        "credible", "ci", "marginal"
+    )):
+        group = 0
+
+    # 1) PSD
+    elif any(k in name for k in ("psd", "noise", "spectrum", "asd")):
+        group = 1
+
+    # 2) Strain / waveform / time-frequency
+    elif any(k in name for k in (
+        "strain", "waveform",
+        "qtransform", "q-transform", "q_transform",
+        "spectrogram", "timefreq", "time-freq", "tf"
+    )):
+        group = 2
+
+    # 3) Skymaps / localization (last)
+    elif any(k in name for k in (
+        "skymap", "localization", "allsky", "sky", "radec", "ra_dec"
+    )):
+        group = 3
+
+    else:
+        group = 9
+
+    # Secondary ordering: keep per-detector plots grouped (H1, L1, V1, K1)
+    det_order = 9
+    for i, det in enumerate(("h1", "l1", "v1", "k1")):
+        if det in name:
+            det_order = i
+            break
+
+    return (group, det_order, name)
+
+
+def _write_parameters_estimation_report(
+    *,
+    out_path: Path,
+    title: str,
+    plots: list[Path],
+    files: list[Path],
+    params: dict[str, Any],
+) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def rel(p: Path) -> str:
+        try:
+            return str(p.relative_to(out_path.parent))
+        except Exception:
+            return str(p)
+
+    def _norm_key_for_pairing(stem: str) -> str:
+        """
+        Build a pairing key by removing common RA/DEC tokens.
+        Example:
+          "event_ra"  -> "event"
+          "event_dec" -> "event"
+          "ra_event"  -> "event"
+        """
+        s = stem.lower()
+        for tok in ("_ra", "_dec", "ra_", "dec_", "-ra", "-dec", "ra-", "dec-"):
+            s = s.replace(tok, "_")
+        # remove standalone ra/dec tokens
+        parts = [p for p in s.replace("-", "_").split("_") if p and p not in ("ra", "dec")]
+        return "_".join(parts) if parts else s
+
+    def _is_ra_plot(p: Path) -> bool:
+        n = p.name.lower()
+        return ("_ra" in n) or n.startswith("ra_") or n.endswith("_ra.png") or (n == "ra.png")
+
+    def _is_dec_plot(p: Path) -> bool:
+        n = p.name.lower()
+        return ("_dec" in n) or n.startswith("dec_") or n.endswith("_dec.png") or (n == "dec.png")
+
+    def _is_skymap_plot(p: Path) -> bool:
+        name = p.name.lower()
+        return any(k in name for k in ("skymap", "localization", "allsky", "sky"))
+
+    lines: list[str] = []
+    lines.append("<html><head><meta charset='utf-8'>")
+    lines.append(f"<title>{html.escape(title)}</title>")
+    lines.append("</head><body>")
+    lines.append(f"<h1>{html.escape(title)}</h1>")
+
+    # Parameters block
+    lines.append("<h2>Run parameters</h2>")
+    lines.append("<table border='1' cellspacing='0' cellpadding='6'>")
+    lines.append("<tr><th>Parameter</th><th>Value</th></tr>")
+    for k, v in params.items():
+        lines.append(
+            f"<tr><td><code>{html.escape(str(k))}</code></td><td>{html.escape(str(v))}</td></tr>"
+        )
+    lines.append("</table>")
+
+    # Output summary
+    lines.append("<h2>Outputs</h2>")
+    lines.append("<ul>")
+    lines.append(f"<li>Plots: {len(plots)}</li>")
+    lines.append(f"<li>Other files: {len(files)}</li>")
+    lines.append("</ul>")
+
+    if files:
+        lines.append("<h3>Files</h3>")
+        lines.append("<ul>")
+        for p in files:
+            rp = html.escape(rel(p))
+            lines.append(f"<li><a href='{rp}'><code>{rp}</code></a></li>")
+        lines.append("</ul>")
+
+    if not plots:
+        lines.append("<p><b>No plots found</b> in the plots directory.</p>")
+        lines.append("</body></html>\n")
+        out_path.write_text("\n".join(lines), encoding="utf-8")
+        return
+
+    # -----------------------
+    # Plots
+    # -----------------------
+    lines.append("<h2>Plots</h2>")
+
+    # 1) Pair RA/DEC plots explicitly and show them on the same row
+    ra_plots = [p for p in plots if _is_ra_plot(p)]
+    dec_plots = [p for p in plots if _is_dec_plot(p)]
+
+    ra_by_key: dict[str, Path] = {_norm_key_for_pairing(p.stem): p for p in ra_plots}
+    dec_by_key: dict[str, Path] = {_norm_key_for_pairing(p.stem): p for p in dec_plots}
+
+    paired_keys = sorted(set(ra_by_key) | set(dec_by_key))
+
+    used: set[Path] = set()
+
+    if paired_keys:
+        lines.append("<h3>RA / DEC</h3>")
+        lines.append("<table><tr><th>RA</th><th>DEC</th></tr>")
+
+        for k in paired_keys:
+            ra_p = ra_by_key.get(k)
+            dec_p = dec_by_key.get(k)
+
+            lines.append("<tr>")
+
+            # RA cell
+            if ra_p is not None:
+                used.add(ra_p)
+                rp = html.escape(rel(ra_p))
+                lines.append(
+                    "<td style='padding:10px; vertical-align:top;'>"
+                    f"<a href='{rp}'><img src='{rp}' style='max-width:450px; height:auto;'/></a>"
+                    f"<br/><code>{rp}</code>"
+                    "</td>"
+                )
+            else:
+                lines.append("<td style='padding:10px;'><i>missing RA plot</i></td>")
+
+            # DEC cell
+            if dec_p is not None:
+                used.add(dec_p)
+                dp = html.escape(rel(dec_p))
+                lines.append(
+                    "<td style='padding:10px; vertical-align:top;'>"
+                    f"<a href='{dp}'><img src='{dp}' style='max-width:450px; height:auto;'/></a>"
+                    f"<br/><code>{dp}</code>"
+                    "</td>"
+                )
+            else:
+                lines.append("<td style='padding:10px;'><i>missing DEC plot</i></td>")
+
+            lines.append("</tr>")
+
+        lines.append("</table>")
+
+    # Remaining plots excluding the RA/DEC ones already displayed
+    remaining = [p for p in plots if p not in used]
+
+    # Skymaps (other than RA/DEC) — render full-width like other plots
+    skymaps = [p for p in remaining if _is_skymap_plot(p)]
+    others = [p for p in remaining if p not in skymaps]
+
+    # Normal plots: one per row
+    for p in others:
+        rp = html.escape(rel(p))
+        lines.append(f"<p><a href='{rp}'><code>{rp}</code></a></p>")
+        lines.append(
+            f"<p><a href='{rp}'><img src='{rp}' style='max-width:900px; height:auto;'/></a></p>"
+        )
+
+    # Skymaps: one per row, full width
+    if skymaps:
+        lines.append("<h3>Sky localization</h3>")
+        for p in skymaps:
+            rp = html.escape(rel(p))
+            lines.append(f"<p><a href='{rp}'><code>{rp}</code></a></p>")
+            lines.append(
+                f"<p><a href='{rp}'><img src='{rp}' style='max-width:900px; height:auto;'/></a></p>"
+            )
+
+    lines.append("</body></html>\n")
+    out_path.write_text("\n".join(lines), encoding="utf-8")
 
 def _get_arg(args: Any, name: str, default: Any = None, required: bool = True) -> Any:
     """Read an argument from dict/Namespace/object."""
@@ -83,7 +406,37 @@ def _set_output(args: Any, name: str, value: Any) -> None:
         # Non-fatal: outputs still available via LAST_RESULT
         pass
 
+def choose_best_pe_file(candidates: list[dict]) -> dict | None:
+    """
+    candidates: list of dicts like {"record_id": int, "filename": str, "url": str}
+    Rule:
+      - prefer 'mixed_cosmo' when exists
+      - otherwise 'recombined' (only choice)
+      - fallback: prefer .hdf5/.h5, else first
+    """
+    if not candidates:
+        return None
 
+    def norm(s: str) -> str:
+        return (s or "").lower()
+
+    # 1) preferred: mixed_cosmo
+    for c in candidates:
+        if "mixed_cosmo" in norm(c.get("filename", "")):
+            return c
+
+    # 2) fallback: recombined
+    for c in candidates:
+        if "recombined" in norm(c.get("filename", "")):
+            return c
+
+    # 3) safety: prefer hdf5/h5
+    for ext in (".hdf5", ".h5"):
+        for c in candidates:
+            if norm(c.get("filename", "")).endswith(ext):
+                return c
+
+    return candidates[0]
 def run_parameters_estimation(
     *,
     src_name: str,
@@ -94,35 +447,54 @@ def run_parameters_estimation(
     fs_high: float = 300.0,
     sample_method: str = "Mixed",
     strain_approximant: str = "IMRPhenomXPHM",
+    out_report_html: str | None = None,
+    data_repo: str = "local",
+    catalog: str | None = None,
 ) -> int:
     """Entry point: run the PE plotting pipeline.
 
     Parameters
     ----------
-    args:
-        Object/dict/Namespace with fields:
-        src_name, sample_method, strain_approximant, start, stop, fs_low, fs_high
+    src_name:
+        Event name (e.g. GW200220_061928).
+    plots_dir:
+        Directory where plots and downloaded inputs are written.
+    out_report_html:
+        Optional HTML report path.
+    data_repo:
+        local | s3 | zenodo (others can be added later).
+    catalog:
+        Optional catalog (not required for zenodo PE selection).
 
     Returns
     -------
     int
         0 on success, non-zero on failure.
     """
-    
     global LAST_RESULT
-    
-    # default plots_dir to current directory
-    outdir = Path(plots_dir) if plots_dir else Path(".")
-    outdir.mkdir(parents=True, exist_ok=True)
-    
-    # --- imports kept inside to make module import cheap and Galaxy-friendly ---
+
+    from pathlib import Path
+    from typing import Any, Dict, List, Optional
     import os
     import json
     import warnings
 
+    # ---------------------------------------------------------------------
+    # Normalize output dir
+    # ---------------------------------------------------------------------
+    if plots_dir is None:
+        if out_report_html:
+            plots_dir = str(Path(out_report_html).parent / "pe_plots")
+        else:
+            plots_dir = "pe_plots"
+
+    outdir = Path(plots_dir) if plots_dir else Path(".")
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    # --- imports kept inside to make module import cheap and Galaxy-friendly ---
     warnings.filterwarnings("ignore", category=UserWarning, append=True)
     try:
-        from astropy.wcs import FITSFixedWarning
+        from astropy.wcs import FITSFixedWarning  # type: ignore
 
         warnings.simplefilter("ignore", category=FITSFixedWarning)
     except Exception:
@@ -130,21 +502,18 @@ def run_parameters_estimation(
 
     warnings.filterwarnings("ignore", "Wswiglal-redir-stdio")
 
-    import lal
+    import lal  # type: ignore
 
     lal.swig_redirect_standard_output_error(False)
 
-    import matplotlib
+    import matplotlib  # type: ignore
 
-    # Headless backends for Galaxy batch environments
     matplotlib.use("Agg", force=True)
-    import matplotlib.pyplot as plt
-    from matplotlib.colorbar import Colorbar
+    import matplotlib.pyplot as plt  # type: ignore
+    from matplotlib.colorbar import Colorbar  # type: ignore
 
-    from minio import Minio
-    from pesummary.io import read
+    from pesummary.io import read  # type: ignore
 
-    # gwpe_utils are assumed to be provided by your package environment
     from .gwpe_utils import (
         load_strain,
         generate_projected_waveform,
@@ -157,8 +526,8 @@ def run_parameters_estimation(
 
     # ODA/MMODA objects are optional
     try:
-        from oda_api.data_products import PictureProduct
-        from oda_api.api import ProgressReporter
+        from oda_api.data_products import PictureProduct  # type: ignore
+        from oda_api.api import ProgressReporter  # type: ignore
 
         oda_available = True
     except Exception:
@@ -180,7 +549,6 @@ def run_parameters_estimation(
     go_next_cell = True
 
     def _log(msg: str) -> None:
-        # Mirror notebook behaviour: append to current log chunk
         event_logs[-1] += f"\n{msg}\n"
 
     def _progress(stage: str, progress: int, substage: str) -> None:
@@ -191,77 +559,135 @@ def run_parameters_estimation(
                 pass
 
     # ---------------------------------------------------------------------
-    # Download/read PE file from S3
+    # Resolve PE file (local / S3 / Zenodo)
     # ---------------------------------------------------------------------
     _progress("Download data", 10, "step 1")
 
-    credentials_env = os.environ.get("S3_CREDENTIALS")
-    if credentials_env:
-        try:
-            credentials = json.loads(credentials_env)
-        except Exception as e:
-            credentials = {"endpoint": "minio-dev.odahub.fr", "secure": True}
-            _log(f"⚠️ [WARN] Could not parse S3_CREDENTIALS JSON: {e}")
-    else:
-        credentials = {"endpoint": "minio-dev.odahub.fr", "secure": True}
-
-    client = Minio(
-        endpoint=credentials["endpoint"],
-        secure=credentials.get("secure", True),
-        access_key=credentials.get("access_key"),
-        secret_key=credentials.get("secret_key"),
-    )
-
     data = None
     label_waveform: Optional[str] = None
+    local_pe_path: Optional[str] = None
 
     try:
-        found_file = False
-        remote_file: Optional[str] = None
+        if data_repo == "zenodo":
+            from difflib import get_close_matches
 
-        for obj in client.list_objects("gwtc", recursive=True):
-            file_name = obj.object_name
-            if (
-                src_name in file_name
-                and "PEDataRelease" in file_name
-                and (file_name.endswith(".h5") or file_name.endswith(".hdf5"))
-            ):
-                remote_file = file_name
-                found_file = True
-                _log(f"ℹ️ [INFO] Found remote PE file: {file_name}")
-                break
+            from .parameters_estimation_zenodo import (  # or inline these helpers
+                build_zenodo_pe_index,
+                choose_best_pe_file,
+                download_zenodo_pe_file,
+            )
 
-        if not found_file:
-            msg = f"❌ [ERROR] Failed reading data. No such event name {src_name} found in catalogs"
-            _log(msg)
-            go_next_cell = False
+            # 1) load cached index
+            index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
 
-        if found_file and go_next_cell and remote_file is not None:
-            local_pe_path = remote_file  # keep same relative structure
-            local_dir = os.path.dirname(local_pe_path)
-            if local_dir and not os.path.isdir(local_dir):
-                os.makedirs(local_dir, exist_ok=True)
+            # 2) if missing, refresh once (cache may be stale)
+            if src_name not in index:
+                _log(f"⚠️ [WARN] Event {src_name} not found in cached Zenodo index. Refreshing index…")
+                index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=True)
 
-            if os.path.isfile(local_pe_path):
-                _log(f"ℹ️ [CACHE] Using existing local PE file: {local_pe_path}")
+            cands = index.get(src_name, [])
+            chosen = choose_best_pe_file(cands)
+
+            if chosen is None:
+                # Suggestions to help user (and to diagnose naming mismatch)
+                keys = list(index.keys())
+                sugg = get_close_matches(src_name, keys, n=5, cutoff=0.6)
+                msg = (
+                    f"No Zenodo PE file found for event {src_name}. "
+                    f"Closest matches: {', '.join(sugg) if sugg else '(none)'}"
+                )
+                _log(f"❌ [ERROR] {msg}")
+                raise ValueError(msg)
+
+            local_path = download_zenodo_pe_file(
+                chosen,
+                outdir=outdir,
+                progress_cb=_progress if pr is not None else None,
+                log_cb=_log,
+            )
+            local_pe_path = str(local_path)
+
+
+        elif data_repo == "s3":
+            from minio import Minio  # type: ignore
+
+            credentials_env = os.environ.get("S3_CREDENTIALS")
+            if credentials_env:
+                try:
+                    credentials = json.loads(credentials_env)
+                except Exception as e:
+                    credentials = {"endpoint": "minio-dev.odahub.fr", "secure": True}
+                    _log(f"⚠️ [WARN] Could not parse S3_CREDENTIALS JSON: {e}")
             else:
-                _log(f"ℹ️ [DOWNLOAD] Fetching from S3: {remote_file}")
-                client.fget_object("gwtc", remote_file, local_pe_path)
+                credentials = {"endpoint": "minio-dev.odahub.fr", "secure": True}
 
+            client = Minio(
+                endpoint=credentials["endpoint"],
+                secure=credentials.get("secure", True),
+                access_key=credentials.get("access_key"),
+                secret_key=credentials.get("secret_key"),
+            )
+
+            found_file = False
+            remote_file: Optional[str] = None
+
+            for obj in client.list_objects("gwtc", recursive=True):
+                file_name = obj.object_name
+                if (
+                    src_name in file_name
+                    and "PEDataRelease" in file_name
+                    and (file_name.endswith(".h5") or file_name.endswith(".hdf5"))
+                ):
+                    remote_file = file_name
+                    found_file = True
+                    _log(f"ℹ️ [INFO] Found remote PE file: {file_name}")
+                    break
+
+            if not found_file or remote_file is None:
+                msg = f"❌ [ERROR] Failed reading data. No such event name {src_name} found in catalogs"
+                _log(msg)
+                go_next_cell = False
+            else:
+                local_pe_path = remote_file  # keep same relative structure
+                local_dir = os.path.dirname(local_pe_path)
+                if local_dir and not os.path.isdir(local_dir):
+                    os.makedirs(local_dir, exist_ok=True)
+
+                if os.path.isfile(local_pe_path):
+                    _log(f"ℹ️ [CACHE] Using existing local PE file: {local_pe_path}")
+                else:
+                    _log(f"ℹ️ [DOWNLOAD] Fetching from S3: {remote_file}")
+                    client.fget_object("gwtc", remote_file, local_pe_path)
+
+        else:
+            # local (or galaxy): expect user already has the PE file locally or
+            # implement your local discovery logic here.
+            # For now, keep existing behavior: look for a PE file in outdir.
+            candidates = sorted(outdir.glob(f"*{src_name}*PEDataRelease*.h5")) + sorted(
+                outdir.glob(f"*{src_name}*PEDataRelease*.hdf5")
+            )
+            if not candidates:
+                _log(
+                    "❌ [ERROR] local mode: no PE file found in output directory. "
+                    "Provide a PEDataRelease .h5/.hdf5 file or use --data-repo s3/zenodo."
+                )
+                go_next_cell = False
+            else:
+                local_pe_path = str(candidates[0])
+                _log(f"ℹ️ [INFO] local mode: using PE file {local_pe_path}")
+
+        if go_next_cell and local_pe_path is not None:
             _log(f"ℹ️ [INFO] Reading PE data from: {local_pe_path}")
             _progress("Read data", 25, "step 2")
-
             try:
                 data = read(local_pe_path)
                 label_report(data, sample_method=sample_method, strain_approximant=strain_approximant)
             except Exception as e:
-                msg = f"❌ [ERROR] Failed reading PE data: {e}"
-                _log(msg)
+                _log(f"❌ [ERROR] Failed reading PE data: {e}")
                 go_next_cell = False
 
     except Exception as e:
-        msg = f"❌ [ERROR] Failed reading data. Unable to access S3 repository: {e}"
-        _log(msg)
+        _log(f"❌ [ERROR] Failed resolving PE input ({data_repo}): {e}")
         go_next_cell = False
 
     # ---------------------------------------------------------------------
@@ -282,16 +708,13 @@ def run_parameters_estimation(
             )
 
             if label is None:
-                msg = f"❌ [ERROR] PE samples: no suitable label found; labels present: {labels}"
-                _log(msg)
+                _log(f"❌ [ERROR] PE samples: no suitable label found; labels present: {labels}")
                 go_next_cell = False
             else:
                 label_waveform = label
                 _log(f"ℹ️ [INFO] PE samples: final label = {label}")
 
                 posterior_samples = samples_dict[label]
-
-                # Derive approximant name from the label, if possible
                 approximant_for_title = label.split(":", 1)[1] if ":" in label else label
 
                 posterior_files = plot_basic_posteriors(
@@ -307,9 +730,7 @@ def run_parameters_estimation(
                         fig_distributionList.append(PictureProduct.from_file(fname))
 
         except Exception as e:
-            msg = f"❌ [ERROR] Failed creating posterior samples: {e}"
-            _log(msg)
-            # keep going? notebook stops only in some cases; keep conservative:
+            _log(f"❌ [ERROR] Failed creating posterior samples: {e}")
             go_next_cell = False
 
     # ---------------------------------------------------------------------
@@ -331,11 +752,10 @@ def run_parameters_estimation(
             )
 
             if label_waveform is None:
-                msg = (
+                _log(
                     "❌ [ERROR] Waveform model: no suitable label found in the PE file; "
                     "unable to load strain / build waveform."
                 )
-                _log(msg)
                 go_next_cell = False
             else:
                 _log(f"ℹ️ [INFO] Waveform model: using label_waveform = {label_waveform}")
@@ -500,6 +920,35 @@ def run_parameters_estimation(
     _progress("Finish", 100, "step 6")
 
     # ---------------------------------------------------------------------
+    # HTML report
+    # ---------------------------------------------------------------------
+    if out_report_html:
+        out_path = Path(out_report_html)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        plot_files = sorted(outdir.glob("*.png"), key=_pe_plot_sort_key)
+        other_files = sorted(
+            [p for p in outdir.iterdir() if p.is_file() and p.suffix.lower() not in {".png"}]
+        )
+
+        _write_parameters_estimation_report(
+            out_path=out_path,
+            title=f"Parameter estimation: {src_name}",
+            plots=plot_files,
+            files=other_files,
+            params=dict(
+                src_name=src_name,
+                start=start,
+                stop=stop,
+                fs_low=fs_low,
+                fs_high=fs_high,
+                sample_method=sample_method,
+                strain_approximant=strain_approximant,
+                data_repo=data_repo,
+            ),
+        )
+
+    # ---------------------------------------------------------------------
     # Finalize outputs
     # ---------------------------------------------------------------------
     result.tool_log = event_logs
@@ -518,4 +967,5 @@ def run_parameters_estimation(
         "fig_skymap": result.files_skymap,
         "tool_log": event_logs,
     }
+
    

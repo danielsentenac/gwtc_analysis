@@ -7,9 +7,58 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import difflib
 
 from . import gw_stat as gw
 from .report import write_simple_html_report
+
+
+ALLOWED_CATALOGS = [
+    "GWTC-2.1",
+    "GWTC-3",
+    "GWTC-4",
+]
+
+def _plot_source_type_pie(df: pd.DataFrame, out_png: Path, column: str = "binary_type") -> Path | None:
+    s = df.get(column)
+    if s is None:
+        return None
+    s = s.dropna()
+    if s.empty:
+        return None
+
+    counts = s.value_counts()
+
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.pie(counts.values, labels=counts.index, autopct="%1.0f%%", startangle=90)
+    ax.set_title("Source type distribution")
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out_png
+
+def _format_allowed_catalogs() -> str:
+    return ", ".join(ALLOWED_CATALOGS)
+    
+def _validate_catalogs(catalogs: list[str]) -> None:
+    bad = [c for c in catalogs if c not in ALLOWED_CATALOGS]
+    if not bad:
+        return
+
+    suggestions = []
+    for b in bad:
+        m = difflib.get_close_matches(b, ALLOWED_CATALOGS, n=1, cutoff=0.6)
+        if m:
+            suggestions.append(f"{b} → did you mean {m[0]}?")
+
+    msg = (
+        "Unknown catalog(s): " + ", ".join(bad)
+        + ". Allowed catalogs are: " + ", ".join(ALLOWED_CATALOGS)
+    )
+    if suggestions:
+        msg += ". Suggestions: " + "; ".join(suggestions)
+
+    raise ValueError(msg)
 
 def _safe_mkdir(p: str | Path) -> None:
     Path(p).mkdir(parents=True, exist_ok=True)
@@ -37,30 +86,96 @@ def _plot_network_counts(df: pd.DataFrame, out_png: str | Path) -> Optional[str]
     plt.close(fig)
     return str(out_png)
 
-def _plot_area_cdf(df: pd.DataFrame, out_png: str | Path, column: str) -> Optional[str]:
-    plt = _ensure_matplotlib()
+def _plot_area_cdf(
+    df: pd.DataFrame,
+    out_png: Path,
+    *,
+    column: str,
+    catalog_label: str | None = None,
+    source_type: str | None = None,   # e.g. "BBH"
+    from_zenodo: bool = False,
+) -> Path | None:
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
     if column not in df.columns:
         return None
-    x = df[column].dropna().astype(float).to_numpy()
-    if x.size == 0:
-        return None
-    x = np.sort(x)
-    y = np.arange(1, len(x)+1)/len(x)
-    fig, ax = plt.subplots(figsize=(6,4))
-    ax.plot(x, y, lw=1.6)
-    ax.set_xscale("log")
-    # column is like "A50_deg2" → extract "50"
-    import re
-    level = re.search(r"^A(\d+)_", column).group(1)
-    ax.set_xlabel(fr"$A_{{{level}}}$ [deg$^2$]")
 
+    d = df.copy()
+
+    # Optional filter by source type (MMODA example does BBH only)
+    if source_type is not None and "binary_type" in d.columns:
+        d = d[d["binary_type"] == source_type]
+
+    # Need detector count for MMODA-style grouping
+    if "n_det" not in d.columns:
+        # fall back to single curve
+        s = pd.to_numeric(d[column], errors="coerce").dropna()
+        if s.empty:
+            return None
+        xs = np.sort(s.values)
+        ys = np.arange(1, len(xs) + 1) / len(xs)
+        fig, ax = plt.subplots()
+        ax.step(xs, ys, where="post")
+        ax.set_xscale("log")
+        ax.set_xlabel(f"{column.replace('_', ' ')} [deg$^2$]")
+        ax.set_ylabel("Cumulative fraction")
+        ax.set_title("Sky localization (CDF)")
+        fig.savefig(out_png, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        return out_png
+
+    fig, ax = plt.subplots()
+
+    # Exclusive groups: by number of detectors ONLY (matches MMODA)
+    det_counts = sorted(pd.to_numeric(d["n_det"], errors="coerce").dropna().unique())
+    plotted = 0
+
+    for n in det_counts:
+        n = int(n)
+        g = d[d["n_det"] == n]
+        s = pd.to_numeric(g[column], errors="coerce").dropna()
+        if len(s) < 2:
+            continue
+
+        xs = np.sort(s.values)
+        ys = np.arange(1, len(xs) + 1) / len(xs)
+
+        q05, q50, q95 = np.percentile(xs, [5, 50, 95])
+        label = f"{n} detector{'s' if n != 1 else ''} (N={len(xs)}; med={q50:.0f}, 5–95%={q05:.0f}–{q95:.0f})"
+
+        ax.step(xs, ys, where="post", label=label)
+        plotted += 1
+
+    if plotted == 0:
+        return None
+
+    ax.set_xscale("log")
+    ax.set_xlabel(rf"$A_{{{int(round(100*0.9))}}}$  [deg$^2$]" if "A90" in column else f"{column} [deg$^2$]")
     ax.set_ylabel("Cumulative fraction")
-    ax.set_title("Sky localization (CDF)")
-    ax.grid(True, which="both", alpha=0.35)
-    fig.tight_layout()
-    fig.savefig(out_png, dpi=150)
+
+    # MMODA-like multi-line title
+    title_lines = []
+    if source_type is not None:
+        title_lines.append(f"{source_type} sky localization")
+    else:
+        title_lines.append("Sky localization")
+
+    if catalog_label:
+        title_lines.append(f"[{catalog_label!r}]")
+
+    if from_zenodo:
+        title_lines.append(f"{column.split('_')[0]} computed from Zenodo PE skymaps")
+
+    ax.set_title("\n".join(title_lines))
+    ax.legend(loc="upper left", frameon=True, fontsize=8)
+    ax.grid(True, which="both", linestyle="--", alpha=0.5)
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
     plt.close(fig)
-    return str(out_png)
+    return out_png
+
+
 
 def run_catalog_statistics(
     catalogs: List[str],
@@ -73,6 +188,7 @@ def run_catalog_statistics(
     skymaps_dirs: Optional[dict] = None,  # values can be str (dir) OR list[str] (files)
     ns_threshold: float = 3.0,
     events_json: Optional[str | Path] = None,
+    data_repo="local",
 ) -> None:
     """
     Fetch events from GWOSC jsonfull for one or more catalogs and compute basic derived columns.
@@ -80,21 +196,21 @@ def run_catalog_statistics(
     Outputs
     -------
     out_events_tsv : TSV
-        Per-event table with masses, distance, detector network (optional), and creadible area (optional).
+        Per-event table with masses, distance, detector network (optional), and credible area (optional).
     out_report_html : HTML (optional)
         Single-file HTML report with summary tables and embedded plots.
     """
+    if not catalogs:
+        raise ValueError("No catalogs selected")
+
+    # If reading from GWOSC, validate catalog names early
+    if events_json is None:
+        _validate_catalogs(catalogs)
+
     if area_column is None:
         level = int(round(100 * area_cred))
         area_column = f"A{level}_deg2"
 
-    if not catalogs:
-        raise ValueError("No catalogs selected")
-    
-    level = int(round(100 * area_cred))
-    area_column = f"A{level}_deg2"
-
-    
     import json
 
     dfs = []
@@ -104,7 +220,6 @@ def run_catalog_statistics(
         df_cat = gw.events_to_dataframe(raw["events"])
         df_cat["catalog_key"] = "OFFLINE"
         dfs.append(df_cat)
-
     else:
         for cat in catalogs:
             raw = gw.fetch_gwtc_events(catalog=cat)
@@ -114,6 +229,7 @@ def run_catalog_statistics(
 
     df0 = pd.concat(dfs, ignore_index=True)
     df = gw.prepare_catalog_df(df0, ns_threshold=ns_threshold)
+
     # In offline mode, network calls are not available.
     if events_json is not None:
         include_detectors = False
@@ -122,25 +238,66 @@ def run_catalog_statistics(
     # Detectors network (requires GWOSC v2 calls)
     fig_network = None
     if include_detectors:
-        df, fig_network = gw.add_detectors_and_virgo_flag(df, progress=True, verbose=False, plot_network_pie=False)
+        df, fig_network = gw.add_detectors_and_virgo_flag(
+            df, progress=True, verbose=False, plot_network_pie=True
+        )
         df["n_det"] = df["detectors"].apply(lambda x: len(x) if isinstance(x, list) else np.nan)
     else:
         df["detectors"] = np.nan
         df["n_det"] = np.nan
         df["has_V1"] = np.nan
 
-    # Credible area (optional): use explicit Galaxy collection directories if provided.
-    # For pure Galaxy tools, we expect skymaps collections to be passed as directory paths.
+    # Credible area (optional)
     if include_area:
         df[area_column] = np.nan
 
     skymaps_dirs = skymaps_dirs or {}
 
+    # Cache dir for Zenodo downloads (kept hidden; can be centralized later)
+    zenodo_cache_dir = ".cache_gwosc"
+
+    # --- Per-catalog credible area fill ---
     for cat in catalogs:
         m = df["catalog_key"].eq(cat)
         if not m.any():
             continue
 
+        # If area not requested, nothing to do here
+        if not include_area:
+            continue
+
+        # --- ZENODO: do not require skymaps_dirs ---
+        if data_repo == "zenodo":
+            if not hasattr(gw, "add_localization_area_from_zenodo"):
+                raise RuntimeError("gw_stat missing add_localization_area_from_zenodo()")
+
+            tmp = gw.add_localization_area_from_zenodo(
+                df.loc[m],
+                catalog_key=cat,
+                cred=area_cred,
+                column=area_column,
+                cache_dir=zenodo_cache_dir,
+                progress=True,
+                verbose=False,
+            )
+            df.loc[m, area_column] = tmp[area_column].values
+            continue
+        if data_repo == "s3":
+            tmp = gw.add_localization_area_from_s3(
+            df.loc[m],
+            catalog_key=cat,
+            cred=area_cred,
+            column=area_column,
+            bucket="gwtc",
+            base_prefix="",
+            progress=True,
+            verbose=False,
+        )
+            df.loc[m, area_column] = tmp[area_column].values
+            continue
+
+
+        # --- local data-repo (directory/collection required) ---
         skydir = skymaps_dirs.get(cat)
 
         if skydir is None:
@@ -160,10 +317,10 @@ def run_catalog_statistics(
                 continue
 
             raise RuntimeError(
-                f"Creadible area requested but no skymaps directory was provided for {cat}. "
+                f"Credible area requested but no skymaps directory was provided for {cat}. "
                 "Provide the corresponding skymaps collection input."
             )
-        
+
         # --- Normalize skymaps input: directory path OR list of files (Galaxy collection) ---
         skydir_path: Path
         if isinstance(skydir, (str, Path)):
@@ -186,7 +343,6 @@ def run_catalog_statistics(
 
         skydir = str(skydir_path)
 
-    
         # Use the directory directly (collection directory)
         if hasattr(gw, "add_localization_area_from_directory"):
             tmp = gw.add_localization_area_from_directory(
@@ -203,7 +359,7 @@ def run_catalog_statistics(
 
     # Write per-event table
     out_events_tsv = Path(out_events_tsv)
-    _safe_mkdir(out_events_tsv.parent if out_events_tsv.parent != Path('') else ".")
+    _safe_mkdir(out_events_tsv.parent if out_events_tsv.parent != Path("") else ".")
     df_out = df.copy()
 
     # Normalize detectors list to comma-joined for TSV
@@ -212,10 +368,10 @@ def run_catalog_statistics(
 
     # Keep a practical column subset (still fairly rich)
     keep = [
-        "event_id","catalog_key","version",
-        "mass_1_source","mass_2_source","chirp_mass_source","total_mass_source","final_mass_source",
-        "luminosity_distance","redshift","chi_eff","chi_p","snr","far","p_astro",
-        "binary_type","detectors","n_det","has_V1",
+        "event_id", "catalog_key", "version",
+        "mass_1_source", "mass_2_source", "chirp_mass_source", "total_mass_source", "final_mass_source",
+        "luminosity_distance", "redshift", "chi_eff", "chi_p", "snr", "far", "p_astro",
+        "binary_type", "detectors", "n_det", "has_V1",
     ]
     if include_area:
         keep.append(area_column)
@@ -227,7 +383,7 @@ def run_catalog_statistics(
         return
 
     out_report_html = Path(out_report_html)
-    _safe_mkdir(out_report_html.parent if out_report_html.parent != Path('') else ".")
+    _safe_mkdir(out_report_html.parent if out_report_html.parent != Path("") else ".")
 
     # Summary tables
     n_total = len(df_out)
@@ -244,11 +400,40 @@ def run_catalog_statistics(
     # Plots
     img_paths = []
     workdir = out_report_html.parent
-    p1 = _plot_network_counts(df_out, workdir/"network_counts.png")
-    if p1: img_paths.append(p1)
+
+    # Detector network PIE only (no histogram)
+    if include_detectors:
+        if fig_network is None:
+            raise RuntimeError(
+                "include_detectors=True but fig_network is None. "
+                "Call gw.add_detectors_and_virgo_flag(..., plot_network_pie=True)."
+            )
+        p_net = workdir / "network_pie.png"
+        fig_network.savefig(p_net, dpi=150, bbox_inches="tight")
+        img_paths.append(p_net)
+
+    # Source type PIE (BBH/BNS/NSBH/...)
+    p_type = _plot_source_type_pie(
+        df_out,
+        workdir / "source_types_pie.png",
+        column="binary_type",
+    )
+    if p_type:
+        img_paths.append(p_type)
+
+    # Area CDF
     if include_area:
-        p2 = _plot_area_cdf(df_out, workdir/"area_cdf.png", column=area_column)
-        if p2: img_paths.append(p2)
+        p_area = _plot_area_cdf(
+            df_out,
+            workdir / "area_cdf_bbh.png",
+            column=area_column,
+            catalog_label="GWTC-4",
+            source_type="BBH",
+            from_zenodo=(data_repo == "zenodo"),
+        )
+        if p_area:
+            img_paths.append(p_area)
+
 
     paragraphs = [
         f"Catalogs: {', '.join(catalogs)}",
@@ -257,7 +442,9 @@ def run_catalog_statistics(
     ]
     if include_area:
         got = int(pd.notna(df_out[area_column]).sum())
-        paragraphs.append(f"Creadible area computed at cred={area_cred}: {got}/{n_total} events.")
+        paragraphs.append(
+            f"Credible area computed at cred={area_cred}: {got}/{n_total} events."
+        )
 
     write_simple_html_report(
         out_report_html,
@@ -266,6 +453,10 @@ def run_catalog_statistics(
         images=img_paths,
         tables=tables,
     )
+
+
+
+
     
 def _materialize_skymap_collection_dir(files: list[str], workdir: Path, tag: str) -> Path:
     """

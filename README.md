@@ -51,10 +51,9 @@ The tool supports **only** the following catalog identifiers (case-sensitive):
 
 | Catalog name | Description |
 |--------------|-------------|
-| **GWTC-1-confident** | Confident subset of GWTC-1 |
-| **GWTC-2.1-confident** | Confident subset of GWTC-2.1 |
-| **GWTC-3-confident** | Confident subset of GWTC-3 |
-| **GWTC-4.0** | GWTC-4.0 public release |
+| **GWTC-2.1** | Confident subset of GWTC-2.1 |
+| **GWTC-3** | Confident subset of GWTC-3 |
+| **GWTC-4** | GWTC-4.0 public release |
 
 ---
 
