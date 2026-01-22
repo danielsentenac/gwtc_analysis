@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Optional
 
@@ -9,25 +8,27 @@ import pandas as pd
 
 from . import gw_stat as gw
 
-
-CATALOG_ALIASES = {
+# Catalog aliases for GWOSC jsonfull endpoints
+# (GWTC-4 is currently served as GWTC-4.0; GWTC-3/2.1 have "confident" endpoints for jsonfull)
+CATALOG_ALIASES: dict[str, str] = {
     "GWTC-4": "GWTC-4.0",
     "GWTC-3": "GWTC-3-confident",
     "GWTC-2.1": "GWTC-2.1-confident",
     "GWTC-1": "GWTC-1-confident",
 }
 
-def _as_float_or_nan(x):
+
+def _as_float_or_nan(x) -> float:
     try:
         return float(x)
     except Exception:
-        return np.nan
+        return float("nan")
+
 
 def run_event_selection(
     *,
     catalogs: list[str],
     out_tsv: str | Path,
-    events_json: Optional[str | Path] = None,
     m1_min: Optional[float] = None,
     m1_max: Optional[float] = None,
     m2_min: Optional[float] = None,
@@ -35,8 +36,7 @@ def run_event_selection(
     dl_min: Optional[float] = None,
     dl_max: Optional[float] = None,
 ) -> None:
-    """
-    Select GWTC events based on source-frame component masses and luminosity distance.
+    """Select GWTC events based on source-frame component masses and luminosity distance.
 
     Uses:
       - mass_1_source
@@ -45,39 +45,32 @@ def run_event_selection(
 
     Writes TSV with selected events (at least event_id).
     """
+
     out_tsv = Path(out_tsv)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
 
+    # Expand ALL catalog selector
+    if "ALL" in catalogs:
+        catalogs = [c for c in gw.ALLOWED_CATALOGS if c != "ALL"]
+
+    # Fetch per-catalog event tables
     dfs: list[pd.DataFrame] = []
+    for cat in catalogs:
+        resolved = CATALOG_ALIASES.get(cat, cat)
+        if resolved != cat:
+            print(f"[event_selection] Catalog alias applied: {cat} → {resolved}")
 
-    if events_json is not None:
-        # Offline mode: no catalog expansion/aliasing needed
-        raw = json.loads(Path(events_json).read_text(encoding="utf-8"))
-        df = gw.events_to_dataframe(raw["events"])
-        df["catalog_key"] = "OFFLINE"
-        dfs.append(df)
-    else:
-        # Online mode: expand ALL then apply aliasing
-        if "ALL" in catalogs:
-            catalogs = [c for c in gw.ALLOWED_CATALOGS if c != "ALL"]
-
-        for cat in catalogs:
-            resolved = CATALOG_ALIASES.get(cat, cat)
-            if resolved != cat:
-                print(f"[event_selection] Catalog alias applied: {cat} → {resolved}")
-
-            raw = gw.fetch_gwtc_events(catalog=resolved)
-            df_cat = gw.events_to_dataframe(raw["events"])
-            df_cat["catalog_key"] = cat  # keep user-facing key stable
-            dfs.append(df_cat)
+        raw = gw.fetch_gwtc_events(catalog=resolved)
+        df_cat = gw.events_to_dataframe(raw["events"])
+        df_cat["catalog_key"] = cat  # keep user-facing key stable
+        dfs.append(df_cat)
 
     if not dfs:
-        out = pd.DataFrame(columns=["event_id", "catalog_key"])
-        out.to_csv(out_tsv, sep="\t", index=False)
+        pd.DataFrame(columns=["event_id", "catalog_key"]).to_csv(out_tsv, sep="\t", index=False)
         return
 
-    # ---- Combine without pd.concat (future-proof) ----
-    kept = []
+    # ---- Combine without pd.concat (future-proof for pandas dtype warnings) ----
+    kept: list[pd.DataFrame] = []
     for d in dfs:
         if d is None or d.empty:
             continue
@@ -86,13 +79,12 @@ def run_event_selection(
         kept.append(d)
 
     if not kept:
-        out = pd.DataFrame(columns=["event_id", "catalog_key"])
-        out.to_csv(out_tsv, sep="\t", index=False)
+        pd.DataFrame(columns=["event_id", "catalog_key"]).to_csv(out_tsv, sep="\t", index=False)
         return
 
     all_cols = sorted(set().union(*(d.columns for d in kept)))
 
-    records = []
+    records: list[dict] = []
     for d in kept:
         d2 = d.reindex(columns=all_cols)
         records.extend(d2.to_dict(orient="records"))
@@ -133,5 +125,3 @@ def run_event_selection(
     out = out.sort_values(["catalog_key", "event_id"]).reset_index(drop=True)
 
     out.to_csv(out_tsv, sep="\t", index=False)
-
-

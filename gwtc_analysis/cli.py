@@ -14,7 +14,7 @@ def _format_allowed_catalogs() -> str:
     return ", ".join(ALLOWED_CATALOGS)
 
 def _validate_catalogs(catalogs: list[str]) -> None:
-    bad = [c for c in catalogs if c not in ALLOWED_CATALOGS]
+    bad = [c for c in catalogs if c != "ALL" and c not in ALLOWED_CATALOGS]
     if bad:
         raise ValueError(
             "Unknown catalog(s): "
@@ -22,6 +22,7 @@ def _validate_catalogs(catalogs: list[str]) -> None:
             + ". Allowed catalogs are: "
             + _format_allowed_catalogs()
         )
+
 
 def _split_csv(s: str) -> List[str]:
     return [x.strip() for x in s.split(",") if x.strip()]
@@ -94,11 +95,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cat.add_argument("--include-area", action="store_true", help="Compute sky localization area Axx if skymaps are available.")
     p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
     p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
-    p_cat.add_argument("--skymaps-gwtc21", nargs="+", default=None, help="GWTC-2.1 skymaps collection/files (Galaxy may pass a list of file paths).")
-    p_cat.add_argument("--skymaps-gwtc3", nargs="+", default=None, help="GWTC-3 skymaps collection/files (Galaxy may pass a list of file paths).")
-    p_cat.add_argument("--skymaps-gwtc4", nargs="+", default=None, help="GWTC-4 skymaps collection/files (Galaxy may pass a list of file paths).")
-    p_cat.add_argument("--data-repo", choices=["local", "galaxy", "zenodo", "s3"], default="local", help="Where to read data from.")
-    p_cat.add_argument("--events-json", default=None, help="Offline mode: path to local jsonfull-like events JSON (skip GWOSC network calls).")
+    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3")
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -121,8 +118,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_sel.add_argument("--dl-min", type=float, default=None, help="Minimum luminosity distance (Mpc).")
     p_sel.add_argument("--dl-max", type=float, default=None, help="Maximum luminosity distance (Mpc).")
 
-    p_sel.add_argument("--events-json", default=None, help="Offline mode: path to jsonfull-like events JSON (skip network calls).")
-
     # ---------------------------------------------------------------------
     # search_skymaps
     # ---------------------------------------------------------------------
@@ -140,13 +135,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
     p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
-    p_sky.add_argument("--skymaps", nargs="+", required=False, help="List of skymap files (FITS or FITS.gz). Galaxy collections may expand to a list of files.")
     p_sky.add_argument("--waveform", default="Mixed", help="Waveform/approximant selector used to filter skymap filenames (default: Mixed). Use 'any' to disable filtering.")
     p_sky.add_argument("--out-events", default="search_skymaps.tsv", help="Output TSV file (default: search_skymaps.tsv)")
     p_sky.add_argument("--out-report", default="search_skymaps.html", help="Optional output HTML report path for hits.")
     p_sky.add_argument("--plots-dir", default="sky_plots", help="Directory for hit plots (default: sky_plots).")
-    p_sky.add_argument("--data-repo", choices=["local", "galaxy", "zenodo", "s3"], default="local", help="Where to read data from.")
-    p_sky.add_argument("--events-json", default=None, help="Offline mode: path to jsonfull-like events JSON (skip GWOSC network calls).")
+    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3")
 
     # ---------------------------------------------------------------------
     # parameters_estimation
@@ -161,7 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_pe.add_argument("--out-report", default="parameters_estimation.html", help="Output HTML report path.")
     p_pe.add_argument("--src-name", dest="src_name", required=True, help="Source event name (e.g. GW231223_032836).")
-    p_pe.add_argument("--data-repo", choices=["local", "galaxy", "zenodo", "s3"], default="local", help="Where to read data from.")
+    p_pe.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3")
     p_pe.add_argument("--pe-vars", nargs="+", default=None, help=("Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance"),)
     p_pe.add_argument("--pe-pairs", nargs="+", default=None, help=("Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p"),)
     p_pe.add_argument("--plots-dir", default="pe_plots", help="Directory for output PE plots (default: pe_plots).")
@@ -190,12 +183,6 @@ def main(argv=None) -> int:
                 include_detectors=args.include_detectors,
                 include_area=args.include_area,
                 area_cred=args.area_cred,
-                skymaps_dirs={
-                    "GWTC-2.1": _none_if_empty(args.skymaps_gwtc21),
-                    "GWTC-3": _none_if_empty(args.skymaps_gwtc3),
-                    "GWTC-4": _none_if_empty(args.skymaps_gwtc4),
-                },
-                events_json=args.events_json,
                 data_repo=args.data_repo,
                 plots_dir=args.plots_dir,
             )
@@ -207,7 +194,6 @@ def main(argv=None) -> int:
             run_event_selection(
                 catalogs=catalogs,
                 out_tsv=args.out_selection,
-                events_json=args.events_json,
                 m1_min=args.m1_min,
                 m1_max=args.m1_max,
                 m2_min=args.m2_min,
@@ -224,13 +210,10 @@ def main(argv=None) -> int:
                 catalogs=catalogs,
                 out_events_tsv=args.out_events,
                 out_report_html=args.out_report,
-                skymaps_dirs={},  # not used when --skymaps list is given
-                events_json=args.events_json,
                 ra_deg=args.ra_deg,
                 dec_deg=args.dec_deg,
                 prob=args.prob,
                 plots_dir=args.plots_dir,
-                skymaps=args.skymaps,
                 data_repo=args.data_repo,
                 waveform=args.waveform,
             )

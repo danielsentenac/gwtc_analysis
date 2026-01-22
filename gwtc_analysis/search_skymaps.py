@@ -6,7 +6,7 @@ import json
 import re
 import warnings
 from pathlib import Path
-from typing import Optional, Iterable, Any
+from typing import Any, Iterable, Optional
 
 import healpy as hp
 import numpy as np
@@ -28,16 +28,22 @@ def run_search_skymaps(
     catalogs: list[str],
     out_events_tsv: str | None,
     out_report_html: Optional[str],
-    skymaps_dirs: dict[str, Optional[str]],
-    events_json: dict | str,
+    events_json: dict | str | None = None,
     ra_deg: float,
     dec_deg: float,
     prob: float,
     plots_dir: Optional[str] = None,
-    skymaps: Optional[list[str]] = None,  # Galaxy collection support
-    data_repo: str = "local",
+    data_repo: str = "s3",
     waveform: str = "Mixed",
 ) -> None:
+    """
+    Search GWTC sky localizations for whether a given (RA, Dec) lies inside a requested credible region.
+
+    data_repo:
+      - "zenodo": use the official Zenodo skymap tarballs
+      - "s3":     scan the gwtc bucket (minio)
+      - "galaxy": use Galaxy-staged collections under galaxy_inputs/<CATALOG>-SKYMAPS
+    """
     selected_event_ids = _extract_event_ids(events_json)
     requested_percent = 100.0 * prob
 
@@ -60,41 +66,33 @@ def run_search_skymaps(
     # -------------------------
     if data_repo == "zenodo":
         from .gw_stat import (
-            download_zenodo_skymaps_tarball,
             build_skymap_index_from_tar,
+            download_zenodo_skymaps_tarball,
             select_skymap_member,
         )
-        import re
+
         import tarfile
 
-        # waveform selection:
-        # - if waveform="any": prefer Mixed, else prefer requested waveform
         prefer = "Mixed" if waveform.lower() == "any" else waveform
 
         tqdm = _tqdm_or_none()
-        processed = 0
         matched = 0
         errors = 0
         miss = 0
 
         # We iterate by event ids (fast) rather than by tar members (slow).
-        # Normalize event ids like "GW200105_162426"
         event_ids = sorted(selected_event_ids) if selected_event_ids else []
 
-        pbar = None
-        if tqdm is not None:
-            pbar = tqdm(total=len(event_ids) if event_ids else None, unit=" event", desc="Zenodo skymaps")
+        pbar = tqdm(total=len(event_ids) if event_ids else None, unit=" event", desc="Zenodo skymaps") if tqdm else None
 
         for catalog in catalogs:
             tar_path = download_zenodo_skymaps_tarball(catalog, progress=True, verbose=False)
             index = build_skymap_index_from_tar(tar_path, verbose=False)
 
-            # If no events_json filtering is provided, fall back to scanning all events in index (heavier)
+            # If no filtering is provided, fall back to scanning all events in index (heavier)
             if not event_ids:
-                # build a unique set of event keys from the index
                 event_keys = sorted({ev for (ev, _approx) in index.keys()})
             else:
-                # map selected_event_ids -> "GW\d{6}_\d{6}" keys used in index
                 event_keys = []
                 for ev in event_ids:
                     m = re.search(r"(GW\d{6}_\d{6})", str(ev))
@@ -118,7 +116,6 @@ def run_search_skymaps(
                         f = tf.extractfile(member_name)
                         if f is None:
                             raise OSError(f"could not extract {member_name}")
-
                         data = f.read()
 
                         before_len = len(rows)
@@ -135,7 +132,6 @@ def run_search_skymaps(
                             plots_path=plots_path,
                         )
 
-                        # infer hit/error from appended row
                         if len(rows) > before_len:
                             last = rows[-1]
                             if last.get("status") == "ok" and last.get("inside_requested_credible") is True:
@@ -155,7 +151,6 @@ def run_search_skymaps(
                             )
                         )
 
-                    processed += 1
                     if pbar is not None:
                         pbar.update(1)
                         try:
@@ -174,17 +169,14 @@ def run_search_skymaps(
         _write_tsv(out_tsv_path, rows)
 
         if out_report_html:
-            _write_search_skymaps_report(
-                out_path=Path(out_report_html),
-                rows=rows,
-                tsv_path=Path(out_events_tsv),
-            )
+            _write_search_skymaps_report(out_path=Path(out_report_html), rows=rows, tsv_path=out_tsv_path)
         return
+
     # -------------------------
     # S3 repo
     # -------------------------
     if data_repo == "s3":
-        from .gw_stat import _s3_client_from_env, _catalog_to_s3_prefix
+        from .gw_stat import _catalog_to_s3_prefix, _s3_client_from_env
 
         client = _s3_client_from_env()
         bucket = "gwtc"
@@ -201,9 +193,7 @@ def run_search_skymaps(
 
                 # Safety: never allow empty / root prefix scans
                 if not prefix or prefix == "/":
-                    raise RuntimeError(
-                        f"Refusing to scan S3 with unsafe prefix={prefix!r} for catalog={catalog!r}"
-                    )
+                    raise RuntimeError(f"Refusing to scan S3 with unsafe prefix={prefix!r} for catalog={catalog!r}")
 
                 for obj in client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True):
                     key = obj.object_name
@@ -237,10 +227,7 @@ def run_search_skymaps(
 
                         if len(rows) > before_len:
                             last = rows[-1]
-                            if (
-                                last.get("status") == "ok"
-                                and last.get("inside_requested_credible") is True
-                            ):
+                            if last.get("status") == "ok" and last.get("inside_requested_credible") is True:
                                 matched += 1
                             if last.get("status") == "error":
                                 errors += 1
@@ -276,52 +263,30 @@ def run_search_skymaps(
         _write_tsv(out_tsv_path, rows)
 
         if out_report_html:
-            _write_search_skymaps_report(
-             out_path=Path(out_report_html),
-             rows=rows,
-             tsv_path=Path(out_events_tsv),
-        )
-
+            _write_search_skymaps_report(out_path=Path(out_report_html), rows=rows, tsv_path=out_tsv_path)
         return
 
     # -------------------------
-    # Local / Galaxy
+    # Galaxy repo
     # -------------------------
+    if data_repo == "galaxy":
+        from .gw_stat import resolve_galaxy_inputs_dir
 
-    if skymaps:
-        # Galaxy: explicit list of files (collection elements)
-        skymap_paths: list[Path] = []
-        for s in skymaps:
-            p = Path(s)
-            if p.is_dir():
-                skymap_paths.extend(list(_iter_skymaps(p)))
-            else:
-                skymap_paths.append(p)
-
-        catalog_label = catalogs[0] if catalogs else ""
-
-        for skymap_path in skymap_paths:
-            if wf_filter_on and wf not in skymap_path.name:
-                continue
-            _process_one_skymap(
-                rows=rows,
-                catalog=catalog_label,
-                skymap_path=skymap_path,
-                selected_event_ids=selected_event_ids,
-                ra_deg=ra_deg,
-                dec_deg=dec_deg,
-                prob=prob,
-                requested_percent=requested_percent,
-                plots_path=plots_path,
-            )
-    else:
-        # Existing behavior: directory per catalog
         for catalog in catalogs:
-            base = skymaps_dirs.get(catalog)
-            if not base:
+            try:
+                base_path = Path(resolve_galaxy_inputs_dir(catalog=catalog, kind="SKYMAPS", base_dir="galaxy_inputs"))
+            except Exception as e:
+                rows.append(
+                    dict(
+                        catalog=catalog,
+                        event_id="",
+                        skymap_path=f"galaxy_inputs/{catalog}-SKYMAPS",
+                        status="error",
+                        error=str(e),
+                    )
+                )
                 continue
 
-            base_path = Path(base)
             if not base_path.exists():
                 rows.append(
                     dict(
@@ -349,14 +314,14 @@ def run_search_skymaps(
                     plots_path=plots_path,
                 )
 
-    out_tsv_path = Path(out_events_tsv)
-    _write_tsv(out_tsv_path, rows)
+        out_tsv_path = Path(out_events_tsv)
+        _write_tsv(out_tsv_path, rows)
 
-    if out_report_html:
-        Path(out_report_html).write_text(
-            "<html><body><p>search_skymaps: TSV written; plots in ./plots (if enabled).</p></body></html>\n",
-            encoding="utf-8",
-        )
+        if out_report_html:
+            _write_search_skymaps_report(out_path=Path(out_report_html), rows=rows, tsv_path=out_tsv_path)
+        return
+
+    raise ValueError(f"Unknown data_repo={data_repo!r}. Expected one of: zenodo, s3, galaxy.")
 
 
 def _process_one_skymap(
@@ -419,6 +384,7 @@ def _process_one_skymap(
             )
         )
 
+
 def _process_one_skymap_zenodo_member(
     *,
     rows: list[dict[str, Any]],
@@ -432,12 +398,12 @@ def _process_one_skymap_zenodo_member(
     requested_percent: float,
     plots_path: Path,
 ) -> None:
-    """Adapter for Zenodo skymaps.
-
-    - writes member bytes to a temporary FITS/FITS.GZ file
-    - suppresses noisy FITS/plot warnings during batch runs
-    - reuses _process_one_skymap() unchanged
-    - patches output row so TSV contains Zenodo member path (not deleted temp path)
+    """
+    Adapter for Zenodo skymaps:
+      - write bytes to a temporary FITS/FITS.GZ file
+      - suppress noisy warnings during batch runs
+      - reuse _process_one_skymap()
+      - patch output row so TSV contains Zenodo member path (not deleted temp path)
     """
     tmp_dir = plots_path / ".tmp_skymaps"
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -449,32 +415,9 @@ def _process_one_skymap_zenodo_member(
         tmp_path.write_bytes(member_bytes)
 
         with warnings.catch_warnings():
-            # ligo.skymap / matplotlib noise
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*Setting the 'color' property.*",
-                category=UserWarning,
-            )
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*set_ticklabels\(\) should only be used.*FixedLocator.*",
-                category=UserWarning,
-            )
-
-            # astropy WCS FITSFixedWarning: RADECSYS deprecated
-            try:
-                from astropy.wcs.wcs import FITSFixedWarning  # type: ignore
-
-                warnings.filterwarnings(
-                    "ignore",
-                    category=FITSFixedWarning,
-                    module=r"astropy\.wcs\.wcs",
-                )
-            except Exception:
-                pass
+            _suppress_skymap_warnings()
 
             before_len = len(rows)
-
             _process_one_skymap(
                 rows=rows,
                 catalog=catalog,
@@ -487,7 +430,6 @@ def _process_one_skymap_zenodo_member(
                 plots_path=plots_path,
             )
 
-            # Patch the row added by _process_one_skymap() so it reflects Zenodo origin
             if len(rows) > before_len:
                 rows[-1]["skymap_path"] = f"zenodo:{catalog}:{member_name}"
                 rows[-1]["skymap_local_tmp"] = ""
@@ -497,6 +439,7 @@ def _process_one_skymap_zenodo_member(
             tmp_path.unlink(missing_ok=True)
         except Exception:
             pass
+
 
 def _process_one_skymap_s3_object(
     *,
@@ -511,12 +454,12 @@ def _process_one_skymap_s3_object(
     requested_percent: float,
     plots_path: Path,
 ) -> None:
-    """Adapter for S3 skymaps.
-
-    - writes bytes to a temporary FITS/FITS.GZ file
-    - suppresses noisy FITS/plot warnings during batch runs
-    - reuses _process_one_skymap() unchanged
-    - patches the output row so TSV contains the S3 key (not the deleted temp path)
+    """
+    Adapter for S3 skymaps:
+      - write bytes to a temporary FITS/FITS.GZ file
+      - suppress noisy warnings during batch runs
+      - reuse _process_one_skymap()
+      - patch output row so TSV contains the S3 key (not deleted temp path)
     """
     tmp_dir = plots_path / ".tmp_skymaps"
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -528,32 +471,9 @@ def _process_one_skymap_s3_object(
         tmp_path.write_bytes(s3_bytes)
 
         with warnings.catch_warnings():
-            # ligo.skymap / matplotlib noise
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*Setting the 'color' property.*",
-                category=UserWarning,
-            )
-            warnings.filterwarnings(
-                "ignore",
-                message=r".*set_ticklabels\(\) should only be used.*FixedLocator.*",
-                category=UserWarning,
-            )
-
-            # astropy WCS FITSFixedWarning: RADECSYS deprecated
-            try:
-                from astropy.wcs.wcs import FITSFixedWarning  # type: ignore
-
-                warnings.filterwarnings(
-                    "ignore",
-                    category=FITSFixedWarning,
-                    module=r"astropy\.wcs\.wcs",
-                )
-            except Exception:
-                pass
+            _suppress_skymap_warnings()
 
             before_len = len(rows)
-
             _process_one_skymap(
                 rows=rows,
                 catalog=catalog,
@@ -566,10 +486,8 @@ def _process_one_skymap_s3_object(
                 plots_path=plots_path,
             )
 
-            # Patch the row added by _process_one_skymap() so it reflects S3 origin
             if len(rows) > before_len:
                 rows[-1]["skymap_path"] = s3_key
-                # Optional: keep a debug column (empty by default to avoid confusion)
                 rows[-1]["skymap_local_tmp"] = ""
 
     finally:
@@ -577,6 +495,23 @@ def _process_one_skymap_s3_object(
             tmp_path.unlink(missing_ok=True)
         except Exception:
             pass
+
+
+def _suppress_skymap_warnings() -> None:
+    # ligo.skymap / matplotlib noise
+    warnings.filterwarnings("ignore", message=r".*Setting the 'color' property.*", category=UserWarning)
+    warnings.filterwarnings(
+        "ignore",
+        message=r".*set_ticklabels\(\) should only be used.*FixedLocator.*",
+        category=UserWarning,
+    )
+    # astropy WCS FITSFixedWarning: RADECSYS deprecated
+    try:
+        from astropy.wcs.wcs import FITSFixedWarning  # type: ignore
+
+        warnings.filterwarnings("ignore", category=FITSFixedWarning, module=r"astropy\.wcs\.wcs")
+    except Exception:
+        pass
 
 
 def _write_search_skymaps_report(*, out_path: Path, rows: list[dict[str, Any]], tsv_path: Path) -> None:
@@ -588,12 +523,10 @@ def _write_search_skymaps_report(*, out_path: Path, rows: list[dict[str, Any]], 
     n_hit = sum(1 for r in rows if r.get("status") == "ok" and r.get("inside_requested_credible") is True)
     n_plots = sum(1 for r in rows if r.get("plot_png"))
 
-    # Show only hits with plots
     hit_rows = [
-        r for r in rows
-        if r.get("status") == "ok"
-        and r.get("inside_requested_credible") is True
-        and r.get("plot_png")
+        r
+        for r in rows
+        if r.get("status") == "ok" and r.get("inside_requested_credible") is True and r.get("plot_png")
     ]
 
     lines: list[str] = []
@@ -608,7 +541,9 @@ def _write_search_skymaps_report(*, out_path: Path, rows: list[dict[str, Any]], 
     lines.append("</ul>")
 
     if not hit_rows:
-        lines.append("<p><b>No hits</b> (no skymaps contained the requested position at the requested probability).</p>")
+        lines.append(
+            "<p><b>No hits</b> (no skymaps contained the requested position at the requested probability).</p>"
+        )
     else:
         lines.append("<h2>Hits</h2>")
         lines.append("<table border='1' cellspacing='0' cellpadding='6'>")
@@ -622,7 +557,6 @@ def _write_search_skymaps_report(*, out_path: Path, rows: list[dict[str, Any]], 
             cap_s = html.escape(f"{cap:.3g}" if isinstance(cap, (int, float)) else str(cap))
             plot_png = str(r.get("plot_png", ""))
 
-            # Use relative paths if possible (nicer HTML portability)
             try:
                 rel_plot = str(Path(plot_png).relative_to(out_path.parent))
             except Exception:
@@ -646,10 +580,7 @@ def _write_search_skymaps_report(*, out_path: Path, rows: list[dict[str, Any]], 
 
 
 def credible_level_at_radec_percent(skymap_path: Path, ra_deg: float, dec_deg: float) -> float:
-    """Exact greedy credible level at the HEALPix pixel containing (ra,dec).
-
-    Returns percent in [0,100]. Smaller => more inside.
-    """
+    """Exact greedy credible level at the HEALPix pixel containing (ra,dec). Returns percent in [0,100]."""
     m = read_sky_map(str(skymap_path), moc=False)
     if isinstance(m, tuple):
         m = m[0]
@@ -711,8 +642,11 @@ def _normalize_plot_output(produced: str, final_path: Path) -> str:
     return str(final_path)
 
 
-def _extract_event_ids(events_json: dict | str) -> set[str]:
+def _extract_event_ids(events_json: dict | str | None) -> set[str]:
     data: Any = events_json
+    if events_json is None:
+        return set()
+
     if isinstance(events_json, str):
         p = Path(events_json)
         if p.exists():

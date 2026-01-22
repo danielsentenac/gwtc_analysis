@@ -144,11 +144,7 @@ python tools/gen_readme_cli_tables.py
 | `--include-area` | `False` | Compute sky localization area Axx if skymaps are available. |
 | `--area-cred` | `0.9` | Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95. |
 | `--plots-dir` | `cat_plots` | Directory for plots (default: cat_plots). |
-| `--skymaps-gwtc21` | `` | GWTC-2.1 skymaps collection/files (Galaxy may pass a list of file paths). |
-| `--skymaps-gwtc3` | `` | GWTC-3 skymaps collection/files (Galaxy may pass a list of file paths). |
-| `--skymaps-gwtc4` | `` | GWTC-4 skymaps collection/files (Galaxy may pass a list of file paths). |
-| `--data-repo` | `local` | Where to read data from. |
-| `--events-json` | `` | Offline mode: path to local jsonfull-like events JSON (skip GWOSC network calls). |
+| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3 |
 
 ### `event_selection`
 
@@ -163,7 +159,6 @@ python tools/gen_readme_cli_tables.py
 | `--m2-max` | `` | Maximum secondary mass (source frame). |
 | `--dl-min` | `` | Minimum luminosity distance (Mpc). |
 | `--dl-max` | `` | Maximum luminosity distance (Mpc). |
-| `--events-json` | `` | Offline mode: path to jsonfull-like events JSON (skip network calls). |
 
 ### `search_skymaps`
 
@@ -174,13 +169,11 @@ python tools/gen_readme_cli_tables.py
 | `--ra-deg` | `` | Right ascension (deg). |
 | `--dec-deg` | `` | Declination (deg). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
-| `--skymaps` | `` | List of skymap files (FITS or FITS.gz). Galaxy collections may expand to a list of files. |
 | `--waveform` | `Mixed` | Waveform/approximant selector used to filter skymap filenames (default: Mixed). Use 'any' to disable filtering. |
 | `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv) |
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
-| `--data-repo` | `local` | Where to read data from. |
-| `--events-json` | `` | Offline mode: path to jsonfull-like events JSON (skip GWOSC network calls). |
+| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3 |
 
 ### `parameters_estimation`
 
@@ -189,7 +182,7 @@ python tools/gen_readme_cli_tables.py
 | `-h, --help` | `` | show this help message and exit |
 | `--out-report` | `parameters_estimation.html` | Output HTML report path. |
 | `--src-name` | `` | Source event name (e.g. GW231223_032836). |
-| `--data-repo` | `local` | Where to read data from. |
+| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3 |
 | `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance |
 | `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |

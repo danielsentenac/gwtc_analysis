@@ -34,14 +34,13 @@ import os
 import re
 import time
 import tarfile
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Tuple, Union
-
+from typing import Any, Dict, Optional, Tuple
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import requests
 
-from .data_repo import zenodo_skymap_url, zenodo_cache_dir
+from .data_repo import zenodo_skymap_url
 
 FIGSIZE = (6, 4)
 
@@ -159,7 +158,6 @@ logger = logging.getLogger(__name__)
 
 USER_AGENT = "gw-stat/1.1 (+https://gwosc.org/)"
 
-
 # ---------------------------------------------------------------------
 # Basic GWOSC jsonfull download helpers (same as before)
 # ---------------------------------------------------------------------
@@ -199,13 +197,11 @@ def _safe_get(
 
     raise last  # type: ignore[misc]
 
-
 def catalog_key_to_jsonfull_url(catalog: str) -> str:
     cat = str(catalog).strip()
     if cat.startswith("http://") or cat.startswith("https://"):
         return cat if cat.endswith("/") else cat + "/"
     return f"https://gwosc.org/eventapi/jsonfull/{cat}/"
-
 
 def fetch_gwtc_events(catalog: str):
     # Expand ALL into a merged dict of events from all catalogs (excluding ALL itself)
@@ -231,7 +227,6 @@ def fetch_gwtc_events(catalog: str):
                 f"Unknown catalog '{catalog}'. Allowed catalogs are: {', '.join(ALLOWED_CATALOGS)}"
             ) from e
         raise
-
 
 def events_to_dataframe(raw_events: Dict[str, Any]) -> pd.DataFrame:
     rows = []
@@ -308,7 +303,6 @@ def _print_skymap_members(members, max_lines=50):
     if len(members) > max_lines:
         print(f"  ... ({len(members) - max_lines} more)")
 
-
 # ---------------------------------------------------------------------
 # Detector network (H1 / L1 / V1)
 # ---------------------------------------------------------------------
@@ -348,8 +342,6 @@ def add_detectors_and_virgo_flag(
     using a legend (no labels on the pie itself).
     """
 
-    import requests
-    import pandas as pd
     from typing import Dict, Tuple, Optional
 
     out = df.copy()
@@ -497,9 +489,6 @@ def add_detectors_and_virgo_flag(
 
     return out, fig
 
-
-
-
 # ---------------------------------------------------------------------
 # Credible area from Zenodo tarballs
 # ---------------------------------------------------------------------
@@ -508,7 +497,48 @@ def add_detectors_and_virgo_flag(
 # Galaxy collection skymaps helpers (directory of symlinks -> staged blobs)
 # ---------------------------------------------------------------------
 
-from pathlib import Path
+from typing import Literal, Optional
+
+def _galaxy_effective_catalog(catalog: str) -> str:
+    """
+    Galaxy staging convention: GWTC-1 events are contained in GWTC-2.1.
+    """
+    c = (catalog or "").strip()
+    return "GWTC-2.1" if c == "GWTC-1" else c
+
+def resolve_galaxy_inputs_dir(
+    *,
+    catalog: str,
+    kind: Literal["PE", "SKYMAPS"],
+    base_dir: str | Path = "galaxy_inputs",
+) -> Path:
+    """
+    Resolve the Galaxy-staged directory for a given catalog and kind.
+
+    Expected directory names:
+      - GWTC-2.1-PE, GWTC-3-PE, GWTC-4-PE
+      - GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS
+    Under base_dir (default: galaxy_inputs).
+
+    GWTC-1 is mapped to GWTC-2.1.
+    """
+    base = Path(base_dir)
+    cat = _galaxy_effective_catalog(catalog)
+
+    # exact expected folder name
+    expected = base / f"{cat}-{kind}"
+    if expected.exists() and expected.is_dir():
+        return expected
+
+    # Some Galaxy deployments stage with slightly different casing; try a case-insensitive scan fallback
+    # but keep it constrained (no deep rglob).
+    if base.exists() and base.is_dir():
+        target = f"{cat}-{kind}".lower()
+        for p in base.iterdir():
+            if p.is_dir() and p.name.lower() == target:
+                return p
+
+    raise RuntimeError(f"Galaxy inputs directory not found: {expected}")
 
 def _galaxy_inputs_blob_dir() -> Path:
     """Return the job-local staged inputs directory if present."""
@@ -590,7 +620,6 @@ def build_skymap_index_from_directory(skymap_dir: str | Path, verbose: bool = Fa
         )
 
     return index
-
 
 def select_skymap_path(index: dict, ev_key: str, prefer: str = "Mixed") -> Path | None:
     if (ev_key, prefer) in index:
@@ -705,11 +734,16 @@ def _read_sky_map_from_bytes(data: bytes) -> np.ndarray:
 
     return np.asarray(prob, dtype=float)
 
-def _normalize_event_name(ev: str) -> str:
+def _normalize_event_name(ev: str | None) -> str | None:
+    if ev is None:
+        return None
+    s = str(ev).strip()
+    if not s:
+        return None
     # event_id in jsonfull looks like "GW200129_065458-v2"
     # skymap files usually include the base event name without "-vN"
-    ev = str(ev)
-    return re.sub(r"-v\d+$", "", ev)
+    return re.sub(r"-v\d+$", "", s)
+
     
 def download_zenodo_skymaps_tarball(
     catalog_key: str,
@@ -768,7 +802,6 @@ def download_zenodo_skymaps_tarball(
             headers=headers,   # e.g. {"Range": "bytes=123-"} or {}
             stream=True,
         )
-
 
         # If server ignored Range and returned 200, restart from scratch
         if existing > 0 and r.status_code == 200:
@@ -838,8 +871,6 @@ def build_skymap_index_from_tar(
     *,
     verbose: bool = False,
 ):
-    import os
-    import re
     import tarfile
 
     index = {}
@@ -902,8 +933,6 @@ def build_skymap_index_from_tar(
 
     return index
 
-
-
 def select_skymap_member(
     index: dict,
     event_id: str,
@@ -934,18 +963,7 @@ def select_skymap_member(
 
     return None
 
-    
-import re
-import json
-import numpy as np
-import pandas as pd
 from minio import Minio
-import os
-import json
-
-def _catalog_to_s3_prefix(catalog_key: str) -> str:
-    # catalogs are already canonical: GWTC-2.1, GWTC-3, GWTC-4
-    return f"{catalog_key.rstrip('/')}/"
 
 def _s3_client_from_env() -> Minio:
     """
@@ -971,8 +989,6 @@ def _s3_client_from_env() -> Minio:
         secret_key=credentials.get("secret_key"),
     )
 
-
-
 def _catalog_to_s3_prefix(catalog_key: str) -> str:
     """
     Map your CLI catalog keys to S3 folder names.
@@ -986,7 +1002,6 @@ def _catalog_to_s3_prefix(catalog_key: str) -> str:
         return "GWTC-4/"
     # fallback: try exact
     return f"{catalog_key}/"
-
 
 def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False) -> dict[str, str]:
     """
@@ -1013,6 +1028,40 @@ def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False) 
 
     return index
 
+def add_localization_area_from_galaxy(
+    df: pd.DataFrame,
+    *,
+    catalog_key: str,
+    cred: float = 0.9,
+    column: str | None = None,
+    base_dir: str | Path = "galaxy_inputs",
+    progress: bool = True,
+    verbose: bool = False,
+) -> pd.DataFrame:
+    """
+    Compute A{cred*100} sky area for events using skymaps staged by Galaxy.
+
+    Expected directories under base_dir:
+      GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS
+    GWTC-1 is mapped to GWTC-2.1.
+    """
+    skymap_dir = resolve_galaxy_inputs_dir(
+        catalog=catalog_key,
+        kind="SKYMAPS",
+        base_dir=base_dir,
+    )
+
+    if verbose:
+        print(f"[gw_stat] Galaxy skymaps directory for {catalog_key}: {skymap_dir}")
+
+    return add_localization_area_from_directory(
+        df,
+        skymap_dir=skymap_dir,
+        cred=cred,
+        column=column,
+        progress=progress,
+        verbose=verbose,
+    )
 
 def add_localization_area_from_s3(
     df: pd.DataFrame,
@@ -1110,7 +1159,6 @@ def add_localization_area_from_s3(
 
     out[column] = areas
     return out
-
 
 def add_localization_area_from_zenodo(
     df: pd.DataFrame,
@@ -1226,8 +1274,6 @@ def add_localization_area_from_zenodo(
 
     out[column] = areas
     return out
-
-
 
 if __name__ == "__main__":
     # tiny smoke test
