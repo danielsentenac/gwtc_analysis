@@ -35,6 +35,7 @@ requirements:
     - gwosc
     - ligo.skymap
     - pesummary
+    - minio
 
 test:
   imports:
