@@ -159,6 +159,131 @@ def _plot_network_counts(df: pd.DataFrame, out_png: str | Path) -> Optional[str]
     plt.close(fig)
     return str(out_png)
     
+def _pick_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
+
+def _plot_m1_m2_snr_scatter(
+    df: pd.DataFrame,
+    out_png: Path,
+    *,
+    catalogs_label: str,
+) -> Path | None:
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    if "mass_1_source" not in df.columns or "mass_2_source" not in df.columns:
+        return None
+
+    m1 = pd.to_numeric(df["mass_1_source"], errors="coerce")
+    m2 = pd.to_numeric(df["mass_2_source"], errors="coerce")
+
+    snr_col = _pick_col(df, ["network_snr", "snr_network", "network_matched_filter_snr", "snr"])
+    if snr_col is None:
+        return None
+    snr = pd.to_numeric(df[snr_col], errors="coerce")
+
+    mask = np.isfinite(m1) & np.isfinite(m2) & np.isfinite(snr)
+    if not mask.any():
+        return None
+
+    m1v = m1[mask].to_numpy()
+    m2v = m2[mask].to_numpy()
+    snrv = snr[mask].to_numpy()
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    sc = ax.scatter(m1v, m2v, c=snrv, s=30, alpha=0.9)
+
+    ax.set_xlabel(r"Mass 1 (M$_\odot$)")
+    ax.set_ylabel(r"Mass 2 (M$_\odot$)")
+    ax.set_title(f"{catalogs_label}\nSource masses distribution")
+
+    ax.grid(True, alpha=0.25)
+    ax.axhline(0, linewidth=1.5)
+    ax.axvline(0, linewidth=1.5)
+
+    cb = fig.colorbar(sc, ax=ax)
+    cb.ax.set_title("Network SNR", pad=8)
+
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out_png
+
+
+def _plot_histograms_panel(
+    df: pd.DataFrame,
+    out_png: Path,
+    *,
+    catalogs_label: str,
+) -> Path | None:
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    # Masses
+    if "mass_1_source" not in df.columns or "mass_2_source" not in df.columns:
+        return None
+    m1 = pd.to_numeric(df["mass_1_source"], errors="coerce")
+    m2 = pd.to_numeric(df["mass_2_source"], errors="coerce")
+
+    # Prefer explicit total/final mass if available; otherwise m1+m2
+    mtot_col = _pick_col(df, ["total_mass_source", "final_mass_source", "mass_total_source"])
+    if mtot_col is not None:
+        mtot = pd.to_numeric(df[mtot_col], errors="coerce")
+    else:
+        mtot = m1 + m2
+
+    # Distance
+    dist_col = _pick_col(df, ["luminosity_distance", "luminosity_distance_mpc", "distance", "dist_mpc"])
+    if dist_col is None:
+        return None
+    dl = pd.to_numeric(df[dist_col], errors="coerce")
+
+    # SNR
+    snr_col = _pick_col(df, ["network_snr", "snr_network", "network_matched_filter_snr", "snr"])
+    if snr_col is None:
+        return None
+    snr = pd.to_numeric(df[snr_col], errors="coerce")
+
+    # Clean
+    mtot = mtot[np.isfinite(mtot)]
+    dl = dl[np.isfinite(dl)]
+    snr = snr[np.isfinite(snr)]
+    if len(mtot) == 0 and len(dl) == 0 and len(snr) == 0:
+        return None
+
+    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 4.2))
+
+    # Use default color cycle (no forced colors)
+    axes[0].hist(mtot, bins=10, edgecolor="black", linewidth=1.0)
+    axes[0].set_title("Mass histogram")
+    axes[0].set_xlabel(r"Mass (M$_\odot$)")
+    axes[0].set_ylabel("Count")
+    axes[0].grid(True, axis="y", alpha=0.25)
+
+    axes[1].hist(dl, bins=10, edgecolor="black", linewidth=1.0)
+    axes[1].set_title("Luminosity distance histogram")
+    axes[1].set_xlabel("Distance (Mpc)")
+    axes[1].set_ylabel("Count")
+    axes[1].grid(True, axis="y", alpha=0.25)
+
+    axes[2].hist(snr, bins=10, edgecolor="black", linewidth=1.0)
+    axes[2].set_title("Network SNR histogram")
+    axes[2].set_xlabel("SNR")
+    axes[2].set_ylabel("Count")
+    axes[2].grid(True, axis="y", alpha=0.25)
+
+    fig.suptitle(f"{catalogs_label} histograms", y=1.02)
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out_png
+
 def _plot_area_cdf(
     df: pd.DataFrame,
     out_png: Path,
@@ -550,6 +675,9 @@ def run_catalog_statistics(
     # Plots (ALWAYS saved into plot_dir; HTML references them relatively)
     img_paths: list[Path] = []
 
+    cat_label = ", ".join(catalogs)
+    cat_tag = "_".join(catalogs)
+
     # Detector network PIE
     if include_detectors:
         if fig_network is None:
@@ -570,8 +698,25 @@ def run_catalog_statistics(
     if p_type:
         img_paths.append(_rel_to_html(p_type))
 
+    # --- NEW: M1 vs M2 colored by network SNR ---
+    p_m1m2 = _plot_m1_m2_snr_scatter(
+        df_out,
+        plot_dir / f"{cat_tag}_m1_m2_snr.png",
+        catalogs_label=cat_label,
+    )
+    if p_m1m2:
+        img_paths.append(_rel_to_html(p_m1m2))
+
+    # --- NEW: Histograms panel (mass / distance / SNR) ---
+    p_hists = _plot_histograms_panel(
+        df_out,
+        plot_dir / f"{cat_tag}_histograms.png",
+        catalogs_label=cat_label,
+    )
+    if p_hists:
+        img_paths.append(_rel_to_html(p_hists))
+
     # Area plots
-    cat_label = ", ".join(catalogs)
     if include_area and area_column in df_out.columns:
         # CDF for ALL sources
         p_area_all = _plot_area_cdf(
@@ -622,6 +767,7 @@ def run_catalog_statistics(
         images=img_paths,
         tables=tables,
     )
+
 
     
 def _materialize_skymap_collection_dir(files: list[str], workdir: Path, tag: str) -> Path:
