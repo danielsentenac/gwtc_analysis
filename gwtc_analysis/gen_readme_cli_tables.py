@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
+# --- Ensure package root is on sys.path ---
+HERE = Path(__file__).resolve()
+PKG_ROOT = HERE.parent.parent   # repo_root/
+if str(PKG_ROOT) not in sys.path:
+    sys.path.insert(0, str(PKG_ROOT))
+
 import gwtc_analysis.cli as cli
+
 
 START = "<!-- CLI_TABLES_BEGIN -->"
 END = "<!-- CLI_TABLES_END -->"

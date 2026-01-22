@@ -136,56 +136,60 @@ python tools/gen_readme_cli_tables.py
 
 | Option | Default | Description |
 |---|---:|---|
-| `--catalogs` |  | Catalog keys. Space-separated; commas also accepted (e.g. GWTC-4,GWTC-3). |
+| `-h, --help` | `` | show this help message and exit |
+| `--catalogs` | `` | Catalog keys. Space-separated; commas also accepted (e.g. GWTC-4,GWTC-3). |
 | `--out-events` | `catalogs_statistics.tsv` | Output TSV path (per-event table). |
 | `--out-report` | `catalogs_statistics.html` | Output HTML report path. |
 | `--include-detectors` | `False` | Include detector network via GWOSC v2 calls. |
 | `--include-area` | `False` | Compute sky localization area Axx if skymaps are available. |
 | `--area-cred` | `0.9` | Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95. |
 | `--plots-dir` | `cat_plots` | Directory for plots (default: cat_plots). |
-| `--skymaps-gwtc21` |  | GWTC-2.1 skymaps collection/files (Galaxy may pass a list of file paths). |
-| `--skymaps-gwtc3` |  | GWTC-3 skymaps collection/files (Galaxy may pass a list of file paths). |
-| `--skymaps-gwtc4` |  | GWTC-4 skymaps collection/files (Galaxy may pass a list of file paths). |
-| `--data-repo` | `local` | Where to read data from. (`local`, `galaxy`, `zenodo`, `s3`) |
-| `--events-json` |  | Offline mode: path to local jsonfull-like events JSON (skip GWOSC network calls). |
+| `--skymaps-gwtc21` | `` | GWTC-2.1 skymaps collection/files (Galaxy may pass a list of file paths). |
+| `--skymaps-gwtc3` | `` | GWTC-3 skymaps collection/files (Galaxy may pass a list of file paths). |
+| `--skymaps-gwtc4` | `` | GWTC-4 skymaps collection/files (Galaxy may pass a list of file paths). |
+| `--data-repo` | `local` | Where to read data from. |
+| `--events-json` | `` | Offline mode: path to local jsonfull-like events JSON (skip GWOSC network calls). |
 
 ### `event_selection`
 
 | Option | Default | Description |
 |---|---:|---|
-| `--catalogs` |  | Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL |
+| `-h, --help` | `` | show this help message and exit |
+| `--catalogs` | `` | Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL |
 | `--out-selection` | `event_selection.tsv` | Output TSV path for the selected events. |
-| `--m1-min` |  | Minimum primary mass (source frame). |
-| `--m1-max` |  | Maximum primary mass (source frame). |
-| `--m2-min` |  | Minimum secondary mass (source frame). |
-| `--m2-max` |  | Maximum secondary mass (source frame). |
-| `--dl-min` |  | Minimum luminosity distance (Mpc). |
-| `--dl-max` |  | Maximum luminosity distance (Mpc). |
-| `--events-json` |  | Offline mode: path to jsonfull-like events JSON (skip network calls). |
+| `--m1-min` | `` | Minimum primary mass (source frame). |
+| `--m1-max` | `` | Maximum primary mass (source frame). |
+| `--m2-min` | `` | Minimum secondary mass (source frame). |
+| `--m2-max` | `` | Maximum secondary mass (source frame). |
+| `--dl-min` | `` | Minimum luminosity distance (Mpc). |
+| `--dl-max` | `` | Maximum luminosity distance (Mpc). |
+| `--events-json` | `` | Offline mode: path to jsonfull-like events JSON (skip network calls). |
 
 ### `search_skymaps`
 
 | Option | Default | Description |
 |---|---:|---|
-| `--catalogs` |  | Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL |
-| `--ra-deg` |  | Right ascension (deg). |
-| `--dec-deg` |  | Declination (deg). |
+| `-h, --help` | `` | show this help message and exit |
+| `--catalogs` | `` | Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL |
+| `--ra-deg` | `` | Right ascension (deg). |
+| `--dec-deg` | `` | Declination (deg). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
-| `--skymaps` |  | List of skymap files (FITS or FITS.gz). Galaxy collections may expand to a list of files. |
+| `--skymaps` | `` | List of skymap files (FITS or FITS.gz). Galaxy collections may expand to a list of files. |
 | `--waveform` | `Mixed` | Waveform/approximant selector used to filter skymap filenames (default: Mixed). Use 'any' to disable filtering. |
 | `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv) |
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
-| `--data-repo` | `local` | Where to read data from. (`local`, `galaxy`, `zenodo`, `s3`) |
-| `--events-json` |  | Offline mode: path to jsonfull-like events JSON (skip GWOSC network calls). |
+| `--data-repo` | `local` | Where to read data from. |
+| `--events-json` | `` | Offline mode: path to jsonfull-like events JSON (skip GWOSC network calls). |
 
 ### `parameters_estimation`
 
 | Option | Default | Description |
 |---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
 | `--out-report` | `parameters_estimation.html` | Output HTML report path. |
-| `--src-name` |  | Source event name (e.g. GW231223_032836). |
-| `--data-repo` | `local` | Where to read data from. (`local`, `galaxy`, `zenodo`, `s3`) |
+| `--src-name` | `` | Source event name (e.g. GW231223_032836). |
+| `--data-repo` | `local` | Where to read data from. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
 | `--start` | `0.2` | Seconds before GPS time for strain window. |
 | `--stop` | `0.1` | Seconds after GPS time for strain window. |
