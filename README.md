@@ -190,6 +190,8 @@ python tools/gen_readme_cli_tables.py
 | `--out-report` | `parameters_estimation.html` | Output HTML report path. |
 | `--src-name` | `` | Source event name (e.g. GW231223_032836). |
 | `--data-repo` | `local` | Where to read data from. |
+| `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance |
+| `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
 | `--start` | `0.2` | Seconds before GPS time for strain window. |
 | `--stop` | `0.1` | Seconds after GPS time for strain window. |
