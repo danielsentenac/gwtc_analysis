@@ -7,6 +7,7 @@ from .catalogs import run_catalog_statistics
 from .event_selection import run_event_selection
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
+from .gw_stat import ALLOWED_CATALOGS as ALLOWED_CATALOGS
 import sys
 
 def _format_allowed_catalogs() -> str:
@@ -179,6 +180,7 @@ def main(argv=None) -> int:
 
         if args.mode == "catalog_statistics":
             catalogs = _parse_catalogs(args.catalogs)
+            _validate_catalogs(catalogs)
             run_catalog_statistics(
                 catalogs=catalogs,
                 out_events_tsv=args.out_events,
@@ -199,6 +201,7 @@ def main(argv=None) -> int:
 
         if args.mode == "event_selection":
             catalogs = _parse_catalogs(args.catalogs)
+            _validate_catalogs(catalogs)
             run_event_selection(
                 catalogs=catalogs,
                 out_tsv=args.out_selection,
@@ -214,6 +217,7 @@ def main(argv=None) -> int:
 
         if args.mode == "search_skymaps":
             catalogs = _parse_catalogs(args.catalogs)
+            _validate_catalogs(catalogs)
             run_search_skymaps(
                 catalogs=catalogs,
                 out_events_tsv=args.out_events,
