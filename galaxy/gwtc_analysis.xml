@@ -1,7 +1,7 @@
-<tool id="gwtc_analysis" name="GWTC analysis" version="0.2.2" profile="22.05">
+<tool id="gwtc_analysis" name="GWTC analysis" version="0.2.1" profile="22.05">
   <description>GWTC analysis (catalog statistics + event selection + skymap search)</description>
   <requirements>
-     <container type="docker">docker.io/danielsentenac/gwtc-tool:0.1.4</container>
+     <container type="docker">docker.io/danielsentenac/gwtc-tool:0.2.1</container>
   </requirements>
   <command detect_errors="exit_code"><![CDATA[
     mkdir -p "\$(dirname '$out_events')" "\$(dirname '$out_report')" "\$(dirname '$out_selection')" &&

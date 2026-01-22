@@ -22,6 +22,25 @@ def _tqdm_or_none():
     except Exception:
         return None
 
+def _expand_catalogs_for_skymaps(catalogs: list[str]) -> list[str]:
+    """
+    Expand ALL selector for search_skymaps.
+
+    NOTE: You said GWTC-1 has no separate skymap collection; GWTC-2.1 covers it.
+    """
+    cats = [c for c in (catalogs or []) if c]
+
+    if "ALL" in cats:
+        cats = ["GWTC-2.1", "GWTC-3", "GWTC-4"]
+
+    # de-dup preserve order
+    out: list[str] = []
+    seen: set[str] = set()
+    for c in cats:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
 
 def run_search_skymaps(
     *,
@@ -44,6 +63,7 @@ def run_search_skymaps(
       - "s3":     scan the gwtc bucket (minio)
       - "galaxy": use Galaxy-staged collections under galaxy_inputs/<CATALOG>-SKYMAPS
     """
+    catalogs = _expand_catalogs_for_skymaps(list(catalogs))
     selected_event_ids = _extract_event_ids(events_json)
     requested_percent = 100.0 * prob
 
