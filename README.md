@@ -197,8 +197,8 @@ This tool relies on open-source software developed and maintained by the LVK col
 ## Testing
 
 ```bash
-python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-4.0 --ra-deg 265.0 --dec-deg -46.0 --skymaps data/*.fits
-python -m gwtc_analysis.cli event_selection --catalogs GWTC-4.0 --out-selection selected.tsv
-python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-4.0 --out-events events.tsv --out-report report.html
-python -m gwtc_analysis.cli parameters_estimation --src-name GW231223_032836 --plots-dir plots
+python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.6 --data-repo s3
+python -m gwtc_analysis.cli event_selection --catalogs GWTC-4
+python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-4 --data-repo s3
+python -m gwtc_analysis.cli parameters_estimation --src-name GW231223_032836 --data-repo zenodo
 ```

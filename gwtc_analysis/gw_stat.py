@@ -43,6 +43,108 @@ import requests
 
 from .data_repo import zenodo_skymap_url, zenodo_cache_dir
 
+FIGSIZE = (6, 4)
+
+ALLOWED_CATALOGS = (
+    "GWTC-1",
+    "GWTC-2.1",
+    "GWTC-3",
+    "GWTC-4",
+    "ALL",
+)
+def _download_with_byte_progress(
+    url: str,
+    dest: Path,
+    *,
+    progress: bool = True,
+    verbose: bool = False,
+    timeout: tuple[int, int] = (10, 600),
+    chunk_size: int = 1024 * 1024,  # 1 MiB
+    allow_resume: bool = True,
+) -> Path:
+    """
+    Download `url` to `dest` with streaming + optional resume + tqdm byte progress.
+    """
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from tqdm.auto import tqdm  # type: ignore
+    except Exception:
+        tqdm = None  # type: ignore
+
+    # Resume if partial file exists
+    existing = dest.stat().st_size if dest.exists() else 0
+    headers: dict[str, str] = {}
+    mode = "wb"
+
+    if allow_resume and existing > 0:
+        headers["Range"] = f"bytes={existing}-"
+        mode = "ab"
+        if verbose:
+            print(f"[gw_stat] resuming download at byte {existing}: {dest}")
+
+    with requests.get(url, stream=True, headers=headers, timeout=timeout) as r:
+        # If server doesn't support Range, it may return 200; then restart.
+        if existing > 0 and r.status_code == 200 and "Range" in headers:
+            if verbose:
+                print("[gw_stat] server ignored Range; restarting full download")
+            existing = 0
+            mode = "wb"
+
+        r.raise_for_status()
+
+        # Determine total size (best effort)
+        total = None
+        cl = r.headers.get("Content-Length")
+        if cl is not None:
+            try:
+                total = int(cl)
+            except ValueError:
+                total = None
+
+        # If resuming and server replied 206, total is remaining bytes; add existing for full bar
+        if existing > 0 and r.status_code == 206 and total is not None:
+            total = existing + total
+
+        pbar = None
+        if progress and tqdm is not None:
+            pbar = tqdm(
+                total=total,
+                initial=existing if total is not None else 0,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                desc=dest.name,
+                leave=False,
+            )
+
+        tmp = dest.with_suffix(dest.suffix + ".part")
+
+        # Write to .part then move into place at end (safer)
+        # If resuming, we append to .part if it exists, else start from dest itself
+        out_path = tmp
+        if mode == "ab" and tmp.exists():
+            # keep appending to existing .part
+            pass
+        elif mode == "ab" and dest.exists() and not tmp.exists():
+            # move existing dest to .part so we append to the temp file
+            dest.replace(tmp)
+
+        with open(out_path, mode) as f:
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    continue
+                f.write(chunk)
+                if pbar is not None:
+                    pbar.update(len(chunk))
+
+        if pbar is not None:
+            pbar.close()
+
+        os.replace(out_path, dest)
+        return dest
+        
 def _require_ligo_skymap():
     try:
         import ligo.skymap  # noqa: F401
@@ -71,19 +173,32 @@ def _safe_get(
     retries: int = 3,
     backoff_s: float = 0.6,
     verbose: bool = False,
+    headers: Optional[dict[str, str]] = None,
+    stream: bool = False,
 ) -> requests.Response:
     last: Optional[Exception] = None
+
+    # Merge caller headers with our UA (caller headers win except UA is forced unless caller sets it)
+    merged_headers = {"User-Agent": USER_AGENT}
+    if headers:
+        merged_headers.update(headers)
+
     for k in range(retries):
         try:
-            r = session.get(url, timeout=timeout, headers={"User-Agent": USER_AGENT})
-            r.raise_for_status()
+            r = session.get(url, timeout=timeout, headers=merged_headers, stream=stream)
+            try:
+                r.raise_for_status()
+            except requests.HTTPError as e:
+                raise requests.HTTPError(f"{e} (URL={r.url})") from e
             return r
         except Exception as e:  # noqa: BLE001
             last = e
             if verbose:
                 print(f"[gw_stat] GET failed ({k+1}/{retries}) {type(e).__name__}: {e} :: {url}")
             time.sleep(backoff_s * (k + 1))
+
     raise last  # type: ignore[misc]
+
 
 def catalog_key_to_jsonfull_url(catalog: str) -> str:
     cat = str(catalog).strip()
@@ -91,7 +206,20 @@ def catalog_key_to_jsonfull_url(catalog: str) -> str:
         return cat if cat.endswith("/") else cat + "/"
     return f"https://gwosc.org/eventapi/jsonfull/{cat}/"
 
+
 def fetch_gwtc_events(catalog: str):
+    # Expand ALL into a merged dict of events from all catalogs (excluding ALL itself)
+    if catalog == "ALL":
+        merged: dict = {"events": {}}
+        for c in ALLOWED_CATALOGS:
+            if c == "ALL":
+                continue
+            raw = fetch_gwtc_events(c)
+            # Defensive: accept either dict events or missing
+            evs = raw.get("events", {}) if isinstance(raw, dict) else {}
+            merged["events"].update(evs)
+        return merged
+
     url = f"https://gwosc.org/eventapi/jsonfull/{catalog}/"
     s = requests.Session()
     try:
@@ -103,6 +231,7 @@ def fetch_gwtc_events(catalog: str):
                 f"Unknown catalog '{catalog}'. Allowed catalogs are: {', '.join(ALLOWED_CATALOGS)}"
             ) from e
         raise
+
 
 def events_to_dataframe(raw_events: Dict[str, Any]) -> pd.DataFrame:
     rows = []
@@ -327,7 +456,7 @@ def add_detectors_and_virgo_flag(
                 "H1–L1–V1-G1": "#d62728",
             }
 
-            fig, ax = plt.subplots(figsize=(10.5, 7.5))
+            fig, ax = plt.subplots(figsize=FIGSIZE)
             fig.subplots_adjust(right=0.78)
             wedges, _, autotexts = ax.pie(
                 counts.values,
@@ -576,15 +705,12 @@ def _read_sky_map_from_bytes(data: bytes) -> np.ndarray:
 
     return np.asarray(prob, dtype=float)
 
-
-
-
 def _normalize_event_name(ev: str) -> str:
     # event_id in jsonfull looks like "GW200129_065458-v2"
     # skymap files usually include the base event name without "-vN"
     ev = str(ev)
     return re.sub(r"-v\d+$", "", ev)
-
+    
 def download_zenodo_skymaps_tarball(
     catalog_key: str,
     *,
@@ -598,45 +724,112 @@ def download_zenodo_skymaps_tarball(
     Returns local filepath.
 
     The file is cached on disk; if already present, it is not downloaded again.
-    """
 
+    Adds streaming byte-progress via tqdm and supports resume (HTTP Range) when possible.
+    """
     url = zenodo_skymap_url(catalog_key)
-    cache_dir = zenodo_cache_dir()
+
+    # Respect explicit cache_dir argument (your previous code overwrote it)
     os.makedirs(cache_dir, exist_ok=True)
 
     if dest_path is None:
-        # use a stable filename per catalog
         safe = catalog_key.replace("/", "_")
         dest_path = os.path.join(cache_dir, f"{safe}_skymaps.tar.gz")
 
+    # If already downloaded, use it
     if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
         if verbose:
             print(f"[gw_stat] using cached tarball: {dest_path}")
         return dest_path
 
+    try:
+        from tqdm.auto import tqdm  # type: ignore
+    except Exception:
+        tqdm = None  # type: ignore
+
+    part_path = dest_path + ".part"
+    existing = os.path.getsize(part_path) if os.path.exists(part_path) else 0
+
+    headers = {}
+    if existing > 0:
+        headers["Range"] = f"bytes={existing}-"
+        if verbose:
+            print(f"[gw_stat] resuming tarball download at byte {existing}: {part_path}")
+
     with requests.Session() as s:
-        r = _safe_get(s, url, timeout=(10, 300), retries=3, verbose=verbose)
-        total = int(r.headers.get("Content-Length", "0") or 0)
+        # NOTE: _safe_get must accept headers=... and stream=True, or you can pass stream=True via _safe_get.
+        # If your _safe_get doesn't support these kwargs yet, add them there.
+        r = _safe_get(
+            s,
+            url,
+            timeout=(10, 1200),
+            retries=3,
+            verbose=verbose,
+            headers=headers,   # e.g. {"Range": "bytes=123-"} or {}
+            stream=True,
+        )
 
-        try:
-            from tqdm.auto import tqdm  # type: ignore
-        except Exception:
-            tqdm = None  # type: ignore
 
-        if progress and tqdm is not None and total > 0:
-            pbar = tqdm(total=total, unit="B", unit_scale=True, desc=f"Download {catalog_key} skymaps")
-        else:
-            pbar = None
+        # If server ignored Range and returned 200, restart from scratch
+        if existing > 0 and r.status_code == 200:
+            if verbose:
+                print("[gw_stat] server ignored Range; restarting full download")
+            existing = 0
+            headers = {}
+            # restart request cleanly
+            r.close()
+            r = _safe_get(
+                s,
+                url,
+                timeout=(10, 1200),
+                retries=3,
+                verbose=verbose,
+                headers=headers,
+                stream=True,
+            )
 
-        with open(dest_path, "wb") as f:
+        # Determine total size (best effort)
+        total = None
+        cl = r.headers.get("Content-Length")
+        if cl:
+            try:
+                total = int(cl)
+            except ValueError:
+                total = None
+
+        # If resuming and status 206, Content-Length is remaining; convert to full size for tqdm
+        if existing > 0 and r.status_code == 206 and total is not None:
+            total = existing + total
+
+        pbar = None
+        if progress and tqdm is not None:
+            pbar = tqdm(
+                total=total,
+                initial=existing if (total is not None and existing > 0) else 0,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                desc=f"Download {catalog_key} skymaps",
+                leave=False,
+            )
+
+        # Write to .part then atomically move into place at the end
+        mode = "ab" if existing > 0 else "wb"
+        with open(part_path, mode) as f:
             for chunk in r.iter_content(chunk_size=1024 * 1024):
                 if not chunk:
                     continue
                 f.write(chunk)
                 if pbar is not None:
                     pbar.update(len(chunk))
+
         if pbar is not None:
             pbar.close()
+
+    # Finalize
+    os.replace(part_path, dest_path)
+    if verbose:
+        print(f"[gw_stat] downloaded tarball: {dest_path}")
 
     return dest_path
 

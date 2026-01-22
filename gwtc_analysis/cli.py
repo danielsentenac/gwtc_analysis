@@ -89,11 +89,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_cat.add_argument("--out-events", default="catalogs_statistics.tsv", help="Output TSV path (per-event table).")
     p_cat.add_argument("--out-report", default="catalogs_statistics.html", help="Output HTML report path.")
-
     p_cat.add_argument("--include-detectors", action="store_true", help="Include detector network via GWOSC v2 calls.")
     p_cat.add_argument("--include-area", action="store_true", help="Compute sky localization area Axx if skymaps are available.")
     p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
-
+    p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
     p_cat.add_argument("--skymaps-gwtc21", nargs="+", default=None, help="GWTC-2.1 skymaps collection/files (Galaxy may pass a list of file paths).")
     p_cat.add_argument("--skymaps-gwtc3", nargs="+", default=None, help="GWTC-3 skymaps collection/files (Galaxy may pass a list of file paths).")
     p_cat.add_argument("--skymaps-gwtc4", nargs="+", default=None, help="GWTC-4 skymaps collection/files (Galaxy may pass a list of file paths).")
@@ -112,9 +111,8 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=fmt,
     )
-    p_sel.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys. Space-separated; commas also accepted.")
+    p_sel.add_argument("--catalogs", required=True, nargs="+", help="Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL")
     p_sel.add_argument("--out-selection", default="event_selection.tsv", help="Output TSV path for the selected events.")
-
     p_sel.add_argument("--m1-min", type=float, default=None, help="Minimum primary mass (source frame).")
     p_sel.add_argument("--m1-max", type=float, default=None, help="Maximum primary mass (source frame).")
     p_sel.add_argument("--m2-min", type=float, default=None, help="Minimum secondary mass (source frame).")
@@ -137,7 +135,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=fmt,
     )
-    p_sky.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys. Space-separated; commas also accepted.")
+    p_sky.add_argument("--catalogs", required=True, nargs="+", help="Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL")
     p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
     p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
@@ -195,6 +193,7 @@ def main(argv=None) -> int:
                 },
                 events_json=args.events_json,
                 data_repo=args.data_repo,
+                plots_dir=args.plots_dir,
             )
             return 0
 
