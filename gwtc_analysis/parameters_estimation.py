@@ -357,7 +357,6 @@ def _pe_plot_sort_key(p: Path) -> tuple[int, int, str]:
 
     return (group, det_order, name)
 
-
 def _write_parameters_estimation_report(
     *,
     out_path: Path,
@@ -365,7 +364,13 @@ def _write_parameters_estimation_report(
     plots: list[Path],
     files: list[Path],
     params: dict[str, Any],
+    posterior_keys_by_label: dict[str, list[str]] | None = None,
+    missing_pe_vars_by_label: dict[str, list[str]] | None = None,
+    requested_pe_vars: list[str] | None = None,
+    posterior_pairs_missing_by_label: dict[str, list[str]] | None = None,
+    requested_pe_pairs: list[str] | None = None,
 ) -> None:
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     def rel(p: Path) -> str:
@@ -437,6 +442,56 @@ def _write_parameters_estimation_report(
         lines.append("</body></html>\n")
         out_path.write_text("\n".join(lines), encoding="utf-8")
         return
+        
+    # Posterior sample keys (per approximant)
+    posterior_keys_by_label = posterior_keys_by_label or {}
+    missing_pe_vars_by_label = missing_pe_vars_by_label or {}
+    requested_pe_vars = requested_pe_vars or []
+
+    if posterior_keys_by_label:
+        lines.append("<h2>Posterior samples</h2>")
+
+        if requested_pe_vars:
+            lines.append("<p><b>Requested extra posterior variables:</b> "
+                         + html.escape(", ".join(requested_pe_vars)) + "</p>")
+
+        for label, keys in sorted(posterior_keys_by_label.items(), key=lambda kv: kv[0]):
+            n = len(keys)
+            missing = missing_pe_vars_by_label.get(label, [])
+
+            lines.append(f"<h3>{html.escape(label)}</h3>")
+            lines.append(f"<p>Available posterior keys: <b>{n}</b></p>")
+
+            if missing:
+                lines.append(
+                    "<p style='color:#b00020;'><b>Requested keys not found:</b> "
+                    + html.escape(", ".join(missing))
+                    + "</p>"
+                )
+
+            # Collapsible full list
+            lines.append("<details>")
+            lines.append("<summary>Show/hide full list</summary>")
+            lines.append(
+                "<pre style='white-space: pre-wrap; background:#f6f8fa; padding:10px; "
+                "border-radius:8px; border:1px solid #ddd;'>"
+                + html.escape("\n".join(keys))
+                + "</pre>"
+            )
+            lines.append("</details>")
+            
+        requested_pe_pairs = requested_pe_pairs or []
+        posterior_pairs_missing_by_label = posterior_pairs_missing_by_label or {}
+
+        if requested_pe_pairs:
+            lines.append("<p><b>Requested 2D posterior pairs:</b> "
+                 + html.escape(", ".join(requested_pe_pairs)) + "</p>")
+
+        missing_pairs = posterior_pairs_missing_by_label.get(label, [])
+        if missing_pairs:
+            lines.append("<p style='color:#b00020;'><b>Requested pairs not plotted:</b> "
+                 + html.escape(", ".join(missing_pairs)) + "</p>")
+
 
     # -----------------------
     # Plots
@@ -585,6 +640,7 @@ def choose_best_pe_file(candidates: list[dict]) -> dict | None:
                 return c
 
     return candidates[0]
+    
 def run_parameters_estimation(
     *,
     src_name: str,
@@ -598,6 +654,8 @@ def run_parameters_estimation(
     out_report_html: str | None = None,
     data_repo: str = "local",
     catalog: str | None = None,
+    pe_vars: list[str] | None = None,
+    pe_pairs: list[str] | None = None,
 ) -> int:
     """Entry point: run the PE plotting pipeline.
 
@@ -668,6 +726,7 @@ def run_parameters_estimation(
         plot_whitened_overlay,
         plot_time_frequency,
         plot_basic_posteriors,
+        plot_posterior_pairs,
         select_label,
         label_report,
     )
@@ -693,6 +752,12 @@ def run_parameters_estimation(
     fig_strainList: List[Any] = []
     fig_psdList: List[Any] = []
     fig_skymapList: List[Any] = []
+    
+    posterior_keys_by_label: dict[str, list[str]] = {}
+    missing_by_label: dict[str, list[str]] = {}
+
+    posterior_pairs_missing_by_label: dict[str, list[str]] = {}
+    posterior_pairs_plotted_by_label: dict[str, list[str]] = {}
 
     go_next_cell = True
 
@@ -858,13 +923,41 @@ def run_parameters_estimation(
                 posterior_samples = samples_dict[label]
                 approximant_for_title = label.split(":", 1)[1] if ":" in label else label
 
-                posterior_files = plot_basic_posteriors(
+                posterior_info = plot_basic_posteriors(
                     posterior_samples,
                     src_name,
                     outdir,
                     approximant=approximant_for_title,
+                    extra_params=pe_vars,   # <-- from CLI
                 )
 
+                posterior_files = posterior_info["plots"]
+                available_keys = posterior_info["available_keys"]
+                missing_requested = posterior_info["missing_requested"]
+                posterior_keys_by_label[label] = available_keys
+                missing_by_label[label] = missing_requested
+                
+                pair_info = plot_posterior_pairs(
+                    posterior_samples,
+                    src_name,
+                    outdir,
+                    pairs=pe_pairs,
+                    approximant=approximant_for_title,
+                )
+
+                pair_files = pair_info["plots"]
+                missing_pairs = pair_info["missing_pairs"]
+
+                # Add to output lists so Galaxy/ODA collects them
+                for _pair_tok, fname in pair_files.items():
+                    result.files_distribution.append(fname)
+                    if oda_available:
+                        fig_distributionList.append(PictureProduct.from_file(fname))
+
+                # Store in report dictionaries (optional but recommended)
+                posterior_pairs_missing_by_label[label] = missing_pairs
+                posterior_pairs_plotted_by_label[label] = pair_info["plotted_pairs"]
+                
                 for _par_name, fname in posterior_files.items():
                     result.files_distribution.append(fname)
                     if oda_available:
@@ -1089,6 +1182,11 @@ def run_parameters_estimation(
                 strain_approximant=strain_approximant,
                 data_repo=data_repo,
             ),
+            posterior_keys_by_label=posterior_keys_by_label,
+            missing_pe_vars_by_label=missing_by_label,
+            requested_pe_vars=pe_vars or [],
+            posterior_pairs_missing_by_label=posterior_pairs_missing_by_label,
+            requested_pe_pairs=pe_pairs or [],
         )
 
     # ---------------------------------------------------------------------

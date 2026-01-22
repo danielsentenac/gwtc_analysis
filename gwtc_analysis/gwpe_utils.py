@@ -884,36 +884,177 @@ def plot_time_frequency(
     print(f"ℹ️ [OK] Saved {fname}")
     return fname
 
+from typing import Dict, Optional, Tuple, List, Any
+
+def plot_posterior_pairs(
+    posterior_samples: dict[str, Any],
+    src_name: str,
+    outdir: str | Path,
+    *,
+    pairs: list[str] | None = None,
+    approximant: str | None = None,
+    bins: int = 60,
+    max_points_scatter: int = 30000,
+) -> Dict[str, Any]:
+    """
+    Plot 2D posterior pairs given as tokens 'x:y'.
+
+    Returns:
+      - 'plots': dict 'x:y' -> filepath
+      - 'available_keys': sorted list of keys
+      - 'missing_pairs': list of tokens that couldn't be plotted (missing key or bad format)
+      - 'plotted_pairs': list of tokens successfully plotted
+    """
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    pairs = pairs or []
+    available = set(posterior_samples.keys())
+    available_list = sorted(map(str, available))
+
+    plots: dict[str, str] = {}
+    missing_pairs: list[str] = []
+    plotted_pairs: list[str] = []
+
+    def _get_arr(key: str) -> np.ndarray:
+        arr = np.array(posterior_samples[key])
+        if key in ("ra", "dec"):
+            arr = np.degrees(arr)
+        return arr
+
+    for tok in pairs:
+        if ":" not in tok:
+            missing_pairs.append(tok)
+            continue
+
+        xk, yk = tok.split(":", 1)
+        xk = xk.strip()
+        yk = yk.strip()
+
+        if (xk not in available) or (yk not in available):
+            missing_pairs.append(tok)
+            continue
+
+        x = _get_arr(xk)
+        y = _get_arr(yk)
+
+        # Drop non-finite
+        m = np.isfinite(x) & np.isfinite(y)
+        x = x[m]
+        y = y[m]
+        if len(x) < 10:
+            missing_pairs.append(tok)
+            continue
+
+        # If huge, sub-sample scatter overlay
+        do_scatter = len(x) <= max_points_scatter
+        if not do_scatter:
+            # sub-sample for scatter if you still want it
+            idx = np.random.choice(len(x), size=max_points_scatter, replace=False)
+            xs = x[idx]
+            ys = y[idx]
+        else:
+            xs, ys = x, y
+
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+        # 2D histogram density
+        h = ax.hist2d(x, y, bins=bins)
+
+        # optional scatter overlay (helps when bins are coarse)
+        ax.scatter(xs, ys, s=3, alpha=0.15)
+
+        ax.set_xlabel(xk if xk not in ("ra", "dec") else f"{xk} [deg]")
+        ax.set_ylabel(yk if yk not in ("ra", "dec") else f"{yk} [deg]")
+
+        title = f"{xk} vs {yk} – {src_name}"
+        if approximant:
+            title += f"\nApproximant: {approximant}"
+        ax.set_title(title, fontsize=10)
+
+        plt.tight_layout()
+
+        safe = f"{xk}_vs_{yk}".replace("/", "_").replace(" ", "_")
+        fname = os.path.join(outdir, f"pair_{safe}_{src_name}.png")
+        fig.savefig(fname, dpi=150)
+        plt.close(fig)
+
+        print(f"ℹ️ [OK] Saved posterior 2D plot {tok} → {fname}")
+        plots[tok] = fname
+        plotted_pairs.append(tok)
+
+    return {
+        "plots": plots,
+        "available_keys": available_list,
+        "missing_pairs": sorted(set(missing_pairs)),
+        "plotted_pairs": plotted_pairs,
+    }
+
 def plot_basic_posteriors(
     posterior_samples,
     src_name: str,
     outdir: str | Path,
-    plot_specs: Optional[list] = None,
+    plot_specs: Optional[list[tuple[str, str, str]]] = None,
     approximant: Optional[str] = None,
-) -> Dict[str, str]:
+    *,
+    extra_params: Optional[list[str]] = None,
+) -> Dict[str, Any]:
     """
-    Produce simple 1D posterior histograms for a set of parameters using matplotlib,
-    with median ± 68% CI shown in a small inset box inside the plot.
+    Produce 1D posterior histograms for a set of parameters using matplotlib,
+    with median ± 68% CI shown in a small inset box.
+
+    Returns a dict with:
+      - 'plots': dict par_name -> filepath
+      - 'available_keys': sorted list of keys
+      - 'missing_requested': list of requested keys not found
+      - 'plotted': list of plotted keys
     """
-    outdir = Path(outdir)  # normalize
+    outdir = Path(outdir)
     ensure_outdir(outdir)
 
+    # What is available in the posterior object?
+    available_keys = set(posterior_samples.keys())
+    available_list = sorted(map(str, available_keys))
+
     # Default parameters to plot if not provided
+    default_specs: list[tuple[str, str, str]] = [
+        ("mass_1_source",       "mass1",              r"$m_1^{\mathrm{source}}\ [M_\odot]$"),
+        ("mass_2_source",       "mass2",              r"$m_2^{\mathrm{source}}\ [M_\odot]$"),
+        ("final_mass_source",   "finalmass",          r"$M_f^{\mathrm{source}}\ [M_\odot]$"),
+        ("luminosity_distance", "luminositydistance", r"$D_L\ [\mathrm{Mpc}]$"),
+        ("ra",                  "RA",                 r"Right ascension [deg]"),
+        ("dec",                 "Dec",                r"Declination [deg]"),
+    ]
+
+    # If caller provided explicit plot_specs, respect it exactly.
+    # Otherwise use defaults + any extra_params requested by user.
     if plot_specs is None:
-        plot_specs = [
-            ("mass_1_source",       "mass1",              r"$m_1^{\mathrm{source}}\ [M_\odot]$"),
-            ("mass_2_source",       "mass2",              r"$m_2^{\mathrm{source}}\ [M_\odot]$"),
-            ("final_mass_source",   "finalmass",          r"$M_f^{\mathrm{source}}\ [M_\odot]$"),
-            ("luminosity_distance", "luminositydistance", r"$D_L\ [\mathrm{Mpc}]$"),
-            ("ra",                  "RA",                 r"Right ascension [deg]"),
-            ("dec",                 "Dec",                r"Declination [deg]"),
-        ]
+        plot_specs = list(default_specs)
+
+        # Add user-requested variables (if any), using generic labels
+        # basename must be filesystem-safe and stable
+        extra_params = extra_params or []
+        seen = {p for p, _, _ in plot_specs}
+
+        for par_name in extra_params:
+            if par_name in seen:
+                continue
+            seen.add(par_name)
+            basename = par_name.replace("/", "_").replace(" ", "_")
+            xlabel = par_name  # generic label; can be improved later with a mapping
+            plot_specs.append((par_name, basename, xlabel))
 
     generated: Dict[str, str] = {}
-    available_keys = set(posterior_samples.keys())
+    missing_requested: list[str] = []
+    plotted: list[str] = []
+
+    # Track missing only for user-requested keys (not defaults)
+    requested_set = set(extra_params or [])
 
     for par_name, basename, xlabel in plot_specs:
         if par_name not in available_keys:
+            if par_name in requested_set:
+                missing_requested.append(par_name)
             print(f"⚠️ [WARN] plot_basic_posteriors: parameter '{par_name}' not found; skipping.")
             continue
 
@@ -923,32 +1064,28 @@ def plot_basic_posteriors(
         if par_name in ["ra", "dec"]:
             samples = np.degrees(samples)
 
-        # ---- Summary statistics: median and 68% CI ----
+        # ---- Summary statistics ----
         median = np.median(samples)
         low, high = np.percentile(samples, [16, 84])
         err_minus = median - low
         err_plus = high - median
 
-        # Text for the inset box
-        # (keep it short; 3 sig figs is usually enough)
         stats_text = (
             f"median = {median:.3g}\n"
             f"68% CI: +{err_plus:.3g} / -{err_minus:.3g}"
         )
 
-        # ---- Make the plot ----
-        fig, ax = plt.subplots()
+        # ---- Plot ----
+        fig, ax = plt.subplots(figsize=(6, 4))
         ax.hist(samples, bins=50, density=True, histtype="step")
         ax.set_xlabel(xlabel)
         ax.set_ylabel("Posterior density")
 
-        # Clean title: parameter + event (+ approximant if given)
         title = f"{par_name} – {src_name}"
         if approximant:
             title += f"\nApproximant: {approximant}"
         ax.set_title(title)
 
-        # Inset box with stats in the top-right corner
         ax.text(
             0.97, 0.97,
             stats_text,
@@ -962,13 +1099,19 @@ def plot_basic_posteriors(
         plt.tight_layout()
 
         fname = os.path.join(outdir, f"{basename}_{src_name}.png")
-        fig.savefig(fname)
+        fig.savefig(fname, dpi=150)
         plt.close(fig)
 
         print(f"ℹ️ [OK] Saved posterior histogram for {par_name} → {fname}")
         generated[par_name] = fname
+        plotted.append(par_name)
 
-    return generated
+    return {
+        "plots": generated,
+        "available_keys": available_list,
+        "missing_requested": sorted(set(missing_requested)),
+        "plotted": plotted,
+    }
 
 
 

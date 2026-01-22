@@ -162,6 +162,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_pe.add_argument("--out-report", default="parameters_estimation.html", help="Output HTML report path.")
     p_pe.add_argument("--src-name", dest="src_name", required=True, help="Source event name (e.g. GW231223_032836).")
     p_pe.add_argument("--data-repo", choices=["local", "galaxy", "zenodo", "s3"], default="local", help="Where to read data from.")
+    p_pe.add_argument("--pe-vars", nargs="+", default=None, help=("Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance"),)
+    p_pe.add_argument("--pe-pairs", nargs="+", default=None, help=("Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p"),)
     p_pe.add_argument("--plots-dir", default="pe_plots", help="Directory for output PE plots (default: pe_plots).")
     p_pe.add_argument("--start", type=float, default=0.2, help="Seconds before GPS time for strain window.")
     p_pe.add_argument("--stop", type=float, default=0.1, help="Seconds after GPS time for strain window.")
@@ -246,6 +248,8 @@ def main(argv=None) -> int:
                 strain_approximant=args.strain_approximant,
                 out_report_html=args.out_report, 
                 data_repo=args.data_repo,
+                pe_vars=args.pe_vars,
+                pe_pairs=args.pe_pairs,
             )
             # Small manifest (like your previous behavior)
             for k, v in out.items():
