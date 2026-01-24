@@ -217,11 +217,45 @@ def _plot_source_type_pie(df: pd.DataFrame, out_png: Path, column: str = "binary
         return None
 
     counts = s.value_counts()
-
+    if counts.sum() > 0:
+        colors = {
+            "BBH": "#9467bd",
+            "BH-NS": "#ff7f0e",
+            "NS-NS": "#2ca02c",
+        }
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.pie(counts.values, labels=counts.index, autopct="%1.0f%%", startangle=90)
+    fig, ax = plt.subplots(figsize=(5, 4))
+    wedges, _, autotexts = ax.pie(
+        counts.values,
+        labels=None,
+        colors=[colors[k] for k in counts.index],
+        startangle=90,
+        counterclock=False,
+        wedgeprops=dict(width=0.42),
+        autopct=lambda p: f"{p:.1f}%" if p >= 3 else "",
+        pctdistance=0.78,
+    )
+
+    # Center label
+    total = int(counts.sum())
+    ax.text(
+        0, 0,
+        f"N = {total}",
+        ha="center", va="center",
+        fontsize=13,
+        fontweight="bold",
+    )
+
+    # Legend
+    ax.legend(
+        wedges,
+        [f"{k} ({counts[k]})" for k in counts.index],
+        title="Source type",
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        frameon=False,
+    )
     ax.set_title("Source type distribution")
     fig.savefig(out_png, dpi=150, bbox_inches="tight")
     plt.close(fig)
