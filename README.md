@@ -89,34 +89,34 @@ python -m gwtc_analysis.cli <MODE> -h
 
 ## Data repositories
 
-Many modes accept `--data-repo` to choose where data products are read from:
+The GWTC catalogs (Parameter Estimation and Skymaps) can be directly downloaded from different supports:
 
-- `local`: use local files only (no downloads).
-- `galaxy`: read inputs from Galaxy collections (collections may expand to lists of file paths).
-- `zenodo`: download official releases from Zenodo; cached under `.cache_gwosc/`.
-- `s3`: read skymaps from an S3-compatible object store (optimized for large catalogs).
+- The Zenodo portal (official catalogs PE/skymaps tarballs) at https://zenodo.org/records/8177023|17014085|6513631.
+- A s3 Minio bucket called gwtc on  https://minio-dev.odahub.fr
+- Galaxy collections under the name GWTC at https://usegalaxy.org
 
 ---
 
-## Galaxy usage
+## Usage
 
-This tool is designed to run smoothly inside **Galaxy**.
+This tool is designed to run either on your laptop as a docker image or conda package, or on several user-friendly platforms:
+
+- [docker image](https://hub.docker.com/repository/docker/danielsentenac/gwtc-tool)
+- [conda package](https://anaconda.org/channels/danielsentenac/packages/gwtc_analysis/overview)
+- [Galaxy tool](https://usegalaxy.org)
+- [MMODA-LIGO-VIRGO-KAGRA service](https://www.astro.unige.ch/mmoda/)
 
 ### Inputs
-- Catalog selections are passed as parameters.
-- Skymaps may be provided as:
-  - Galaxy collections (directories or file lists)
-  - Individual FITS / FITS.gz files
+- Catalog selections are passed as parameters separated by space
+- Data repositories accept `--data-repo` to choose where data products are read from:
+	- `galaxy`: read inputs from Galaxy collections
+	- `zenodo`: official releases from Zenodo
+	- `s3`: S3-compatible bucket
 
 ### Outputs
-- TSV tables are produced as standard Galaxy datasets.
-- HTML reports are single-file (no external assets) and render in the Galaxy UI.
-- Plot images are written under the directory given by `--plots-dir`.
-
-### Collections
-When a Galaxy collection is provided:
-- a single directory collection is used directly when possible
-- a multi-file collection may be materialized into a working directory (symlinks preferred; copies as fallback)
+- TSV tables
+- HTML reports
+- Plot images
 
 ---
 
