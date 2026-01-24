@@ -1,5 +1,5 @@
 {% set name = "gwtc_analysis" %}
-{% set version = "0.2.1" %}
+{% set version = "0.2.4" %}
 
 package:
   name: {{ name|lower }}
@@ -20,7 +20,7 @@ requirements:
     - pip
     - setuptools
   run:
-    - python >=3.9,<3.13
+    - python >=3.10,<3.13
     - numpy
     - scipy
     - pandas

@@ -1,99 +1,108 @@
-<tool id="gwtc_analysis" name="GWTC analysis" version="0.2.1" profile="22.05">
-  <description>GWTC analysis (catalog statistics + event selection + skymap search)</description>
+<?xml version="1.0" encoding="UTF-8"?>
+<tool id="gwtc_analysis" name="GWTC analysis" version="0.1.9" profile="22.05">
+  <description>Catalog statistics, event selection, skymap search, parameter estimation</description>
   <requirements>
-     <container type="docker">docker.io/danielsentenac/gwtc-tool:0.2.1</container>
+    <container type="docker">docker.io/danielsentenac/gwtc-tool:0.2.3</container>
   </requirements>
-  <command detect_errors="exit_code"><![CDATA[
-    mkdir -p "\$(dirname '$out_events')" "\$(dirname '$out_report')" "\$(dirname '$out_selection')" &&
-    
-    PYTHONPATH='$__tool_directory__/..' python -m gwtc_analysis.cli \
-        --mode '$mode.mode' \
-        
-        #if str($mode.mode) != "parameters_estimation":
-            --catalogs ${' '.join($mode.catalogs)}
-        #end if
+   <command detect_errors="exit_code"><![CDATA[
+#set $cmd = "python -m gwtc_analysis.cli"
+#if str($mode.analysis_mode) == "catalog_statistics":
+    #set $cmd = $cmd + " catalog_statistics"
+    #set $cmd = $cmd + " --catalogs"
+    #for $c in $mode.catalogs:
+        #set $cmd = $cmd + " '" + str($c) + "'"
+    #end for
+    #set $cmd = $cmd + " --out-events '" + str($out_events) + "'"
+    #set $cmd = $cmd + " --out-report '" + str($out_report) + "'"
+    #if $mode.include_detectors:
+        #set $cmd = $cmd + " --include-detectors"
+    #end if
+    #if $mode.include_area:
+        #set $cmd = $cmd + " --include-area"
+        #set $cmd = $cmd + " --area-cred '" + str($mode.area_cred) + "'"
+    #end if
+    #set $cmd = $cmd + " --plots-dir '" + str($mode.plots_dir) + "'"
+    #set $cmd = $cmd + " --data-repo '" + str($mode.data_repo) + "'"
+    $cmd && : > '$out_selection'
 
-        #if $mode.events_json:
-            --events-json '$mode.events_json'
-        #end if
+#elif str($mode.analysis_mode) == "event_selection":
+    #set $cmd = $cmd + " event_selection"
+    #set $cmd = $cmd + " --catalogs"
+    #for $c in $mode.catalogs:
+        #set $cmd = $cmd + " '" + str($c) + "'"
+    #end for
+    #set $cmd = $cmd + " --out-selection '" + str($out_selection) + "'"
+    #if $mode.m1_min:
+        #set $cmd = $cmd + " --m1-min '" + str($mode.m1_min) + "'"
+    #end if
+    #if $mode.m1_max:
+        #set $cmd = $cmd + " --m1-max '" + str($mode.m1_max) + "'"
+    #end if
+    #if $mode.m2_min:
+        #set $cmd = $cmd + " --m2-min '" + str($mode.m2_min) + "'"
+    #end if
+    #if $mode.m2_max:
+        #set $cmd = $cmd + " --m2-max '" + str($mode.m2_max) + "'"
+    #end if
+    #if $mode.dl_min:
+        #set $cmd = $cmd + " --dl-min '" + str($mode.dl_min) + "'"
+    #end if
+    #if $mode.dl_max:
+        #set $cmd = $cmd + " --dl-max '" + str($mode.dl_max) + "'"
+    #end if
+    $cmd && : > '$out_events' && : > '$out_report'
 
-        #if str($mode.mode) == "catalog_statistics":
-            --out-events '$out_events'
-            --out-report '$out_report'
+#elif str($mode.analysis_mode) == "search_skymaps":
+    #set $cmd = $cmd + " search_skymaps"
+    #set $cmd = $cmd + " --catalogs"
+    #for $c in $mode.catalogs:
+        #set $cmd = $cmd + " '" + str($c) + "'"
+    #end for
+    #set $cmd = $cmd + " --ra-deg '" + str($mode.ra_deg) + "'"
+    #set $cmd = $cmd + " --dec-deg '" + str($mode.dec_deg) + "'"
+    #set $cmd = $cmd + " --prob '" + str($mode.prob) + "'"
+    #set $cmd = $cmd + " --waveform '" + str($mode.waveform) + "'"
+    #set $cmd = $cmd + " --out-events '" + str($out_events) + "'"
+    #set $cmd = $cmd + " --out-report '" + str($out_report) + "'"
+    #set $cmd = $cmd + " --plots-dir '" + str($mode.plots_dir) + "'"
+    #set $cmd = $cmd + " --data-repo '" + str($mode.data_repo) + "'"
+    $cmd && : > '$out_selection'
 
-            #if $mode.include_detectors:
-                --include-detectors
-            #end if
+#elif str($mode.analysis_mode) == "parameters_estimation":
+    #set $cmd = $cmd + " parameters_estimation"
+    #set $cmd = $cmd + " --src-name '" + str($mode.src_name) + "'"
+    #set $cmd = $cmd + " --out-report '" + str($out_report) + "'"
+    #set $cmd = $cmd + " --plots-dir '" + str($mode.plots_dir) + "'"
+    #set $cmd = $cmd + " --data-repo '" + str($mode.data_repo) + "'"
 
-            #if $mode.include_area:
-                --include-area
-                --area-cred '$mode.area_cred'
-            #end if
+    #if $mode.pe_vars:
+        #set $cmd = $cmd + " --pe-vars"
+        #for $v in $mode.pe_vars:
+            #set $cmd = $cmd + " '" + str($v) + "'"
+        #end for
+    #end if
 
-            #if $mode.skymaps_gwtc21:
-                --skymaps-gwtc21 ${' '.join($mode.skymaps_gwtc21)}
-            #end if
-            #if $mode.skymaps_gwtc3:
-                --skymaps-gwtc3 ${' '.join($mode.skymaps_gwtc3)}
-            #end if
-            #if $mode.skymaps_gwtc4:
-                --skymaps-gwtc4 ${' '.join($mode.skymaps_gwtc4)}
-            #end if
+    #if $mode.pe_pairs:
+        #set $cmd = $cmd + " --pe-pairs"
+        #for $p in $mode.pe_pairs:
+            #set $cmd = $cmd + " '" + str($p) + "'"
+        #end for
+    #end if
 
-        #else if str($mode.mode) == "event_selection":
-            --out-selection '$out_selection'
+    #set $cmd = $cmd + " --start '" + str($mode.start) + "'"
+    #set $cmd = $cmd + " --stop '" + str($mode.stop) + "'"
+    #set $cmd = $cmd + " --fs-low '" + str($mode.fs_low) + "'"
+    #set $cmd = $cmd + " --fs-high '" + str($mode.fs_high) + "'"
+    #set $cmd = $cmd + " --sample-method '" + str($mode.sample_method) + "'"
+    #set $cmd = $cmd + " --strain-approximant '" + str($mode.strain_approximant) + "'"
 
-            #if $mode.m1_min and str($mode.m1_min).strip():
-                --m1-min '$mode.m1_min'
-            #end if
-            #if $mode.m1_max and str($mode.m1_max).strip():
-                --m1-max '$mode.m1_max'
-            #end if
-            #if $mode.m2_min and str($mode.m2_min).strip():
-                --m2-min '$mode.m2_min'
-            #end if
-            #if $mode.m2_max and str($mode.m2_max).strip():
-                --m2-max '$mode.m2_max'
-            #end if
-            #if $mode.dl_min and str($mode.dl_min).strip():
-                --dl-min '$mode.dl_min'
-            #end if
-            #if $mode.dl_max and str($mode.dl_max).strip():
-                --dl-max '$mode.dl_max'
-            #end if
-            
-        #else if str($mode.mode) == "search_skymaps":
-            --out-events '$out_events'
-            --out-report '$out_report'
-            --ra-deg  '$mode.ra_deg'
-            --dec-deg '$mode.dec_deg'
-            --prob '$mode.prob'
-            
-            #if $mode.events_json:
-                --events-json '$mode.events_json'
-            #end if
-            #if $mode.skymaps:
-                --skymaps #echo ' '.join([str($s) for $s in $mode.skymaps])
-            #end if
-            
-        #else if str($mode.mode) == "parameters_estimation":
-            --out-events '$out_events'
-            --out-report '$out_report'
-            --src-name '$mode.src_name'
-            --sample-method '$mode.sample_method'
-            --strain-approximant '$mode.strain_approximant'
-            --fs-low '$mode.fs_low'
-            --fs-high '$mode.fs_high'
-            --start '$mode.start'
-            --stop '$mode.stop'
-
-		#end if
+    $cmd && : > '$out_events' && : > '$out_selection'
+#end if
 ]]></command>
-
 
   <inputs>
     <conditional name="mode">
-      <param name="mode" type="select" label="Analysis mode">
+      <param name="analysis_mode" type="select" label="Analysis mode">
         <option value="catalog_statistics" selected="true">Catalog statistics</option>
         <option value="event_selection">Event selection</option>
         <option value="search_skymaps">Search skymaps at RA/Dec</option>
@@ -102,36 +111,31 @@
 
       <when value="catalog_statistics">
         <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
+          <option value="ALL">ALL</option>
+          <option value="GWTC-1">GWTC-1</option>
           <option value="GWTC-2.1" selected="true">GWTC-2.1</option>
-          <option value="GWTC-3" selected="true">GWTC-3</option>
+          <option value="GWTC-3">GWTC-3</option>
           <option value="GWTC-4">GWTC-4</option>
         </param>
-
-        <param name="events_json" type="data" format="json" optional="true"
-               label="Events JSON (offline mode)"/>
-
-        <param name="include_detectors" type="boolean" label="Add detector network (GWOSC v2 calls)" checked="true" />
-        <param name="include_area" type="boolean" label="Compute A90 from skymaps collections (optional)" checked="false" />
-        <param name="area_cred" type="float" label="Credible level for A90" value="0.9" min="0.5" max="0.99" />
-
-        <param name="skymaps_gwtc21" type="data_collection" collection_type="list" optional="true"
-               label="Skymaps collection for GWTC-2.1"/>
-        <param name="skymaps_gwtc3" type="data_collection" collection_type="list" optional="true"
-               label="Skymaps collection for GWTC-3"/>
-        <param name="skymaps_gwtc4" type="data_collection" collection_type="list" optional="true"
-               label="Skymaps collection for GWTC-4"/>
+        <param name="include_detectors" type="boolean" label="Include detector network" truevalue="true" falsevalue="false" checked="false"/>
+        <param name="include_area" type="boolean" label="Compute localization area (Axx)" truevalue="true" falsevalue="false" checked="false"/>
+        <param name="area_cred" type="float" label="Credible level for area" value="0.9"/>
+        <param name="plots_dir" type="text" label="Plots directory" value="cat_plots"/>
+        <param name="data_repo" type="select" label="Data repository" help="Where to read data from">
+          <option value="zenodo" selected="true">zenodo</option>
+          <option value="s3">s3</option>
+          <option value="galaxy">galaxy</option>
+        </param>
       </when>
 
       <when value="event_selection">
         <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
+          <option value="ALL">ALL</option>
+          <option value="GWTC-1">GWTC-1</option>
           <option value="GWTC-2.1" selected="true">GWTC-2.1</option>
-          <option value="GWTC-3" selected="true">GWTC-3</option>
+          <option value="GWTC-3">GWTC-3</option>
           <option value="GWTC-4">GWTC-4</option>
         </param>
-
-        <param name="events_json" type="data" format="json" optional="true"
-               label="Events JSON (offline mode)" />
-
         <param name="m1_min" type="float" optional="true" label="m1 (source) min [Msun]" />
         <param name="m1_max" type="float" optional="true" label="m1 (source) max [Msun]" />
         <param name="m2_min" type="float" optional="true" label="m2 (source) min [Msun]" />
@@ -139,113 +143,141 @@
         <param name="dl_min" type="float" optional="true" label="Luminosity distance min [Mpc]" />
         <param name="dl_max" type="float" optional="true" label="Luminosity distance max [Mpc]" />
       </when>
-      
+
       <when value="search_skymaps">
         <param name="catalogs" type="select" label="Catalogs" multiple="true" display="checkboxes">
+          <option value="ALL">ALL</option>
+          <option value="GWTC-1">GWTC-1</option>
           <option value="GWTC-2.1" selected="true">GWTC-2.1</option>
           <option value="GWTC-3">GWTC-3</option>
           <option value="GWTC-4">GWTC-4</option>
         </param>
-
-        <param name="events_json" type="data" format="json" optional="true" label="Events JSON (offline mode)"/>
-        <param name="ra_deg"  type="float" value="30.0" label="Right ascension (deg)"/>
+        <param name="ra_deg" type="float" value="30.0" label="Right ascension (deg)"/>
         <param name="dec_deg" type="float" value="40.0" label="Declination (deg)"/>
-        <param name="prob"    type="float" value="0.5" min="0.01" max="1.0" label="Credible-level threshold"/>
-        <param name="make_plots" type="select" label="Generate skymap plots">
-          <option value="none">None</option>
-          <option value="hits" selected="true">Hits only</option>
-          <option value="all">All</option>
+        <param name="prob" type="float" value="0.9" min="0.01" max="1.0" label="Credible-level threshold"/>
+        <param name="waveform" type="text" value="Mixed" label="Waveform filter" help="Select skymap products; use 'any' to disable filtering."/>
+        <param name="plots_dir" type="text" label="Plots directory" value="sky_plots"/>
+        <param name="data_repo" type="select" label="Data repository">
+          <option value="zenodo" selected="true">zenodo</option>
+          <option value="s3">s3</option>
+          <option value="galaxy">galaxy</option>
         </param>
-
-        <!-- Galaxy collection input (list of FITS files) -->
-        <param name="skymaps" type="data" format="fits,txt" multiple="true" optional="false" label="Skymap files (FITS or FITS.gz)"/>
       </when>
+
       <when value="parameters_estimation">
-
-          <param name="src_name" type="text" label="Source event name" value="GW150914"/>
-
-          <param name="sample_method" type="text" label="sample_method" value="IMRPhenomXPHM"/>
-          <param name="strain_approximant" type="text" label="strain_approximant" value="IMRPhenomXPHM"/>
-
-          <param name="start" type="float" label="Start (s)" value="0.2"/>
-          <param name="stop" type="float" label="Stop (s)" value="0.05"/>
-          <param name="fs_low" type="float" label="Bandpass low (Hz)" value="20.0"/>
-          <param name="fs_high" type="float" label="Bandpass high (Hz)" value="300.0"/>
-
-          <param name="events_json" type="data" format="json" optional="true" label="Events JSON (offline mode)"/>
+        <param name="src_name" type="text" label="Source event name" value="GW150914"/>
+        <param name="plots_dir" type="text" label="Plots directory" value="pe_plots"/>
+        <param name="data_repo" type="select" label="Data repository">
+          <option value="zenodo" selected="true">zenodo</option>
+          <option value="s3">s3</option>
+          <option value="galaxy">galaxy</option>
+        </param>
+        <param name="pe_vars" type="text" optional="true" multiple="true" label="PE variables to plot (1D)" help="Space-separated; if empty defaults are used."/>
+        <param name="pe_pairs" type="text" optional="true" multiple="true" label="PE variable pairs to plot (2D)" help="Space-separated items like x:y (e.g. chi_eff:chi_p)."/>
+        <param name="start" type="float" label="Seconds before GPS time" value="0.2"/>
+        <param name="stop" type="float" label="Seconds after GPS time" value="0.1"/>
+        <param name="fs_low" type="float" label="Bandpass low frequency (Hz)" value="20.0"/>
+        <param name="fs_high" type="float" label="Bandpass high frequency (Hz)" value="300.0"/>
+        <param name="sample_method" type="text" label="Sample method / label selector" value="Mixed"/>
+        <param name="strain_approximant" type="text" label="Strain approximant" value="IMRPhenomXPHM"/>
       </when>
-
     </conditional>
   </inputs>
+
   <outputs>
-    <data name="out_events" format="tabular" label="GWTC output table (TSV)">
-      <filter>mode.get("analysis_mode") in ("catalog_statistics", "search_skymaps", "parameters_estimation")</filter>
-    </data>
-
-    <data name="out_report" format="html" label="GWTC catalog report">
-      <filter>mode.get("analysis_mode") in ("catalog_statistics", "search_skymaps", "parameters_estimation")</filter>
-    </data>
-
-    <data name="out_selection" format="tabular" label="Selected events (TSV)">
-      <filter>mode.get("analysis_mode") == "event_selection"</filter>
-    </data>
+    <data name="out_events" format="tabular" label="${tool.name} on ${on_string}: events"/>
+    <data name="out_selection" format="tabular" label="${tool.name} on ${on_string}: selection"/>
+    <data name="out_report" format="html" label="${tool.name} on ${on_string}: report"/>
   </outputs>
+
   <tests>
-    <test expect_num_outputs="2">
+    <test expect_exit_code="0">
       <param name="mode|analysis_mode" value="catalog_statistics"/>
       <param name="mode|catalogs" value="GWTC-2.1"/>
       <param name="mode|include_detectors" value="false"/>
       <param name="mode|include_area" value="false"/>
-      <param name="mode|events_json" value="gwtc_small.json"/>
-
-      <output name="out_events" ftype="tabular">
+      <param name="mode|data_repo" value="zenodo"/>
+      <param name="mode|plots_dir" value="cat_plots"/>
+      <output name="out_events">
         <assert_contents>
-          <has_text text="event"/>
-          <has_n_lines min="1"/>
+          <has_text text="event_id"/>
+          <has_n_lines min="2"/>
         </assert_contents>
       </output>
-
-      <output name="out_report" ftype="html">
+      <output name="out_report">
         <assert_contents>
           <has_text text="GWTC"/>
         </assert_contents>
       </output>
     </test>
 
-    <test expect_num_outputs="1">
+    <test expect_exit_code="0">
       <param name="mode|analysis_mode" value="event_selection"/>
       <param name="mode|catalogs" value="GWTC-2.1"/>
-      <param name="mode|events_json" value="gwtc_small.json"/>
       <param name="mode|m1_min" value="10"/>
       <param name="mode|m1_max" value="500"/>
-
-      <output name="out_selection" ftype="tabular">
+      <output name="out_selection">
         <assert_contents>
-          <has_text text="event"/>
-          <has_n_lines min="1"/>
+          <has_text text="event_id"/>
+          <has_n_lines min="2"/>
         </assert_contents>
       </output>
     </test>
+  
+    <test expect_exit_code="0">
+      <param name="mode|analysis_mode" value="search_skymaps"/>
+      <param name="mode|catalogs" value="GWTC-2.1"/>
+      <param name="mode|ra_deg" value="180.0"/>
+      <param name="mode|dec_deg" value="0.0"/>
+      <param name="mode|prob" value="0.9"/>
+      <param name="mode|waveform" value="Mixed"/>
+      <param name="mode|data_repo" value="zenodo"/>
+      <param name="mode|plots_dir" value="sky_plots"/>
+      <output name="out_events">
+        <assert_contents>
+          <has_text text="event_id"/>
+          <has_n_lines min="2"/>
+        </assert_contents>
+      </output>
+      <output name="out_report">
+        <assert_contents>
+          <has_text text="skymap"/>
+        </assert_contents>
+      </output>
+    </test>
+
+    <test expect_exit_code="0">
+      <param name="mode|analysis_mode" value="parameters_estimation"/>
+      <param name="mode|src_name" value="GW150914_095045"/>
+      <param name="mode|data_repo" value="zenodo"/>
+      <param name="mode|plots_dir" value="pe_plots"/>
+      <param name="mode|sample_method" value="Mixed"/>
+      <param name="mode|strain_approximant" value="IMRPhenomXPHM"/>
+      <output name="out_report">
+        <assert_contents>
+          <has_text text="Parameter estimation"/>
+          <has_text text="Run parameters"/>
+        </assert_contents>
+      </output>
+    </test>
+
   </tests>
+
   <help><![CDATA[
-... keep your help unchanged ...
-]]></help>
+This tool wraps **gwtc_analysis**.
+
+- **catalog_statistics**: fetch catalog(s) and produce a TSV + HTML report.
+- **event_selection**: filter events by masses and luminosity distance and produce a TSV report.
+- **search_skymaps**: check if a sky position is inside events' credible regions and produce a HTML report.
+- **parameters_estimation**: generate PE posterior plots and strain vs waveform, and produce a HTML report.
+
+Outputs are written to default filenames/dirs unless overridden.
+  ]]></help>
 
   <citations>
-    <citation type="bibtex">
-@misc{gwosc,
-  title        = {Gravitational Wave Open Science Center (GWOSC)},
-  howpublished = {\url{https://gwosc.org}},
-  note         = {Used via the GWOSC Event API}
-}
-    </citation>
-    <citation type="bibtex">
-@software{ligo_skymap,
-  title  = {ligo.skymap},
-  author = {Singer, Leo P. and others},
-  url    = {https://lscsoft.docs.ligo.org/ligo.skymap/}
-}
-    </citation>
+    <citation type="bibtex">@misc{gwosc, title={GWOSC Event API}}</citation>
+    <citation type="bibtex">@misc{pesummary, title={PESummary}}</citation>
+    <citation type="bibtex">@misc{GWpy, title={GWpy}}</citation>
+    <citation type="bibtex">@misc{ligo.skymap, title={ligo.skymap}}</citation>
   </citations>
 </tool>
-
