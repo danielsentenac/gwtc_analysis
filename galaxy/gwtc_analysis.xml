@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tool id="gwtc_analysis" name="GWTC analysis" version="0.2.8" profile="22.05">
+<tool id="gwtc_analysis" name="GWTC analysis" version="0.2.9" profile="22.05">
   <description>Catalog statistics, event selection, skymap search, parameter estimation</description>
   <requirements>
-    <container type="docker">docker.io/danielsentenac/gwtc-tool:0.2.8</container>
+    <container type="docker">docker.io/danielsentenac/gwtc-tool:0.2.9</container>
   </requirements>
    <command detect_errors="exit_code"><![CDATA[
 #set $cmd = "python -m gwtc_analysis.cli"
@@ -155,7 +155,7 @@
         <param name="ra_deg" type="float" value="30.0" label="Right ascension (deg)"/>
         <param name="dec_deg" type="float" value="40.0" label="Declination (deg)"/>
         <param name="prob" type="float" value="0.9" min="0.01" max="1.0" label="Credible-level threshold"/>
-        <param name="waveform" type="text" value="Mixed" label="Waveform filter" help="Select skymap products; use 'any' to disable filtering."/>
+        <param name="waveform" type="text" value="Mixed" label="Waveform filter" help="Select skymap label products."/>
         <param name="plots_dir" type="text" label="Plots directory" value="sky_plots"/>
         <param name="data_repo" type="select" label="Data repository">
           <option value="zenodo" selected="true">zenodo</option>
@@ -172,8 +172,8 @@
           <option value="s3">s3</option>
           <option value="galaxy">galaxy</option>
         </param>
-        <param name="pe_vars" type="text" optional="true" multiple="true" label="PE variables to plot (1D)" help="Space-separated; if empty defaults are used."/>
-        <param name="pe_pairs" type="text" optional="true" multiple="true" label="PE variable pairs to plot (2D)" help="Space-separated items like x:y (e.g. chi_eff:chi_p)."/>
+        <param name="pe_vars" type="text" optional="true" multiple="true" label="PE variables to plot (1D)" help="Space-separated parameters."/>
+        <param name="pe_pairs" type="text" optional="true" multiple="true" label="PE variable pairs to plot (2D)" help="Space-separated parameter pairs like x:y (e.g. chi_eff:chi_p)."/>
         <param name="start" type="float" label="Seconds before GPS time" value="0.2"/>
         <param name="stop" type="float" label="Seconds after GPS time" value="0.1"/>
         <param name="fs_low" type="float" label="Bandpass low frequency (Hz)" value="20.0"/>

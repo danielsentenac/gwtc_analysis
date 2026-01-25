@@ -63,7 +63,6 @@ LAST_RESULT: Optional[PEResult] = None
 ZENODO_PE_RECORD_IDS = [6513631, 8177023, 17014085]
 USER_AGENT = "gwtc_analysis (https://github.com/danielsentenac/gwtc_analysis)"
 
-
 def _tqdm_or_none():
     try:
         from tqdm.auto import tqdm  # type: ignore
@@ -317,6 +316,7 @@ def _write_parameters_estimation_report(
     requested_pe_vars: list[str] | None = None,
     posterior_pairs_missing_by_label: dict[str, list[str]] | None = None,
     requested_pe_pairs: list[str] | None = None,
+    event_logs: list[str] | None = None,
 ) -> None:
     """Write a simple (non-embedded) HTML report referencing local PNGs."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -342,10 +342,44 @@ def _write_parameters_estimation_report(
         n = p.name.lower()
         return ("_dec" in n) or n.startswith("dec_") or n.endswith("_dec.png") or (n == "dec.png")
 
+    # Optional: extract only the "Label report" section (fallback to full log)
+    import re
+
+    def _extract_label_report(log_text: str) -> str:
+        m = re.search(
+            r"(Label report:\n.*?Available labels in PE file.*?\n(?:\s+- .*?\n)+)",
+            log_text,
+            flags=re.S,
+        )
+        return m.group(1).strip() if m else ""
+
     lines: list[str] = []
-    lines.append("<html><head><meta charset='utf-8'>")
-    lines.append(f"<title>{html.escape(title)}</title>")
-    lines.append("</head><body>")
+
+    # --- HTML header ---
+    lines.append("<!doctype html>")
+    lines.append("<html>")
+    lines.append("<head>")
+    lines.append("""
+        <meta charset="utf-8">
+        <title>Parameters estimation</title>
+
+        <style>
+            .pe-label-report {
+                font-size: 12px;
+                line-height: 1.25;
+                padding: 10px;
+                background: #f6f8fa;
+                border: 1px solid #d0d7de;
+                border-radius: 6px;
+                overflow-x: auto;
+                white-space: pre;
+                font-family: monospace;
+            }
+        </style>
+    """)
+    lines.append("</head>")
+    lines.append("<body>")
+
     lines.append(f"<h1>{html.escape(title)}</h1>")
 
     # Parameters block
@@ -357,6 +391,17 @@ def _write_parameters_estimation_report(
             f"<tr><td><code>{html.escape(str(k))}</code></td><td>{html.escape(str(v))}</td></tr>"
         )
     lines.append("</table>")
+
+    # Logs report
+    if event_logs:
+        full_log = "\n".join(event_logs)
+        label_block = _extract_label_report(full_log)
+        text_to_show = label_block if label_block else full_log
+
+        lines.append("<h2>Log report</h2>")
+        lines.append("<pre class='pe-label-report'>")
+        lines.append(html.escape(text_to_show))
+        lines.append("</pre>")
 
     # Output summary
     lines.append("<h2>Outputs</h2>")
@@ -569,7 +614,7 @@ def run_parameters_estimation(
     Returns a dict of produced filenames (always relative/absolute paths as written).
     """
     global LAST_RESULT
-
+    
     import os
 
     # ---------------------------------------------------------------------
@@ -613,6 +658,7 @@ def run_parameters_estimation(
         plot_posterior_pairs,
         select_label,
         label_report,
+        pe_log,
     )
 
     # ODA/MMODA objects are optional
@@ -642,9 +688,6 @@ def run_parameters_estimation(
 
     go_next_cell = True
 
-    def _log(msg: str) -> None:
-        event_logs[-1] += f"\n{msg}\n"
-
     def _progress(stage: str, progress: int, substage: str) -> None:
         if pr is not None:
             try:
@@ -667,7 +710,7 @@ def run_parameters_estimation(
 
             index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
             if src_name not in index:
-                _log(f"⚠️ [WARN] Event {src_name} not found in cached Zenodo index. Refreshing index…")
+                pe_log(f"⚠️ [WARN] Event {src_name} not found in cached Zenodo index. Refreshing index…", event_logs)
                 index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=True)
 
             cands = index.get(src_name, [])
@@ -679,11 +722,11 @@ def run_parameters_estimation(
                     f"No Zenodo PE file found for event {src_name}. "
                     f"Closest matches: {', '.join(sugg) if sugg else '(none)'}"
                 )
-                _log(f"❌ [ERROR] {msg}")
+                pe_log(f"❌ [ERROR] {msg}", event_logs)
                 raise ValueError(msg)
 
             local_path = download_zenodo_pe_file(
-                chosen, outdir=outdir, progress_cb=_progress if pr is not None else None, log_cb=_log
+                chosen, outdir=outdir, progress_cb=_progress if pr is not None else None, log_cb=lambda m: pe_log(m, event_logs),
             )
             local_pe_path = str(local_path)
 
@@ -696,7 +739,7 @@ def run_parameters_estimation(
                     credentials = json.loads(credentials_env)
                 except Exception as e:
                     credentials = {"endpoint": "minio-dev.odahub.fr", "secure": True}
-                    _log(f"⚠️ [WARN] Could not parse S3_CREDENTIALS JSON: {e}")
+                    pe_log(f"⚠️ [WARN] Could not parse S3_CREDENTIALS JSON: {e}", event_logs)
             else:
                 credentials = {"endpoint": "minio-dev.odahub.fr", "secure": True}
 
@@ -716,12 +759,12 @@ def run_parameters_estimation(
                     and (file_name.endswith(".h5") or file_name.endswith(".hdf5"))
                 ):
                     remote_file = file_name
-                    _log(f"ℹ️ [INFO] Found remote PE file: {file_name}")
+                    pe_log(f"ℹ️ [INFO] Found remote PE file: {file_name}", event_logs)
                     break
 
             if remote_file is None:
                 msg = f"❌ [ERROR] No PE file for event {src_name} found in S3 bucket 'gwtc'"
-                _log(msg)
+                pe_log(msg, event_logs)
                 go_next_cell = False
             else:
                 local_pe_path = remote_file  # keep same relative structure
@@ -729,9 +772,9 @@ def run_parameters_estimation(
                 local_path.parent.mkdir(parents=True, exist_ok=True)
 
                 if local_path.is_file() and local_path.stat().st_size > 0:
-                    _log(f"ℹ️ [CACHE] Using existing local PE file: {local_path}")
+                    pe_log(f"ℹ️ [CACHE] Using existing local PE file: {local_path}", event_logs)
                 else:
-                    _log(f"ℹ️ [DOWNLOAD] Fetching from S3: {remote_file}")
+                    pe_log(f"ℹ️ [DOWNLOAD] Fetching from S3: {remote_file}", event_logs)
                     _download_s3_with_progress(
                         client,
                         bucket="gwtc",
@@ -743,19 +786,19 @@ def run_parameters_estimation(
         elif data_repo == "galaxy":
             pe_dirs = _guess_galaxy_pe_dirs(catalog)
             if not pe_dirs:
-                _log("❌ [ERROR] Galaxy mode: ./galaxy_inputs/<CATALOG>-PE not found.")
+                pe_log("❌ [ERROR] Galaxy mode: ./galaxy_inputs/<CATALOG>-PE not found.", event_logs)
                 go_next_cell = False
             else:
                 found = _find_local_pe_file(src_name, pe_dirs)
                 if found is None:
-                    _log(
+                    pe_log(
                         "❌ [ERROR] Galaxy mode: no PE file found for "
-                        f"{src_name} under: {', '.join(str(p) for p in pe_dirs)}"
+                        f"{src_name} under: {', '.join(str(p) for p in pe_dirs)}", event_logs
                     )
                     go_next_cell = False
                 else:
                     local_pe_path = str(found)
-                    _log(f"ℹ️ [INFO] Galaxy mode: using PE file {local_pe_path}")
+                    pe_log(f"ℹ️ [INFO] Galaxy mode: using PE file {local_pe_path}", event_logs)
 
         else:
             # local/dev fallback
@@ -763,27 +806,27 @@ def run_parameters_estimation(
                 outdir.glob(f"*{src_name}*PEDataRelease*.hdf5")
             )
             if not candidates:
-                _log(
+                pe_log(
                     "❌ [ERROR] local mode: no PE file found in output directory. "
-                    "Provide a PEDataRelease .h5/.hdf5 file or use --data-repo s3/zenodo/galaxy."
+                    "Provide a PEDataRelease .h5/.hdf5 file or use --data-repo s3/zenodo/galaxy.", event_logs
                 )
                 go_next_cell = False
             else:
                 local_pe_path = str(candidates[0])
-                _log(f"ℹ️ [INFO] local mode: using PE file {local_pe_path}")
+                pe_log(f"ℹ️ [INFO] local mode: using PE file {local_pe_path}", event_logs)
 
         if go_next_cell and local_pe_path is not None:
-            _log(f"ℹ️ [INFO] Reading PE data from: {local_pe_path}")
+            pe_log(f"ℹ️ [INFO] Reading PE data from: {local_pe_path}", event_logs)
             _progress("Read data", 25, "step 2")
             try:
                 data = read(local_pe_path)
                 label_report(data, sample_method=sample_method, strain_approximant=strain_approximant)
             except Exception as e:
-                _log(f"❌ [ERROR] Failed reading PE data: {e}")
+                pe_log(f"❌ [ERROR] Failed reading PE data: {e}", event_logs)
                 go_next_cell = False
 
     except Exception as e:
-        _log(f"❌ [ERROR] Failed resolving PE input ({data_repo}): {e}")
+        pe_log(f"❌ [ERROR] Failed resolving PE input ({data_repo}): {e}", event_logs)
         go_next_cell = False
 
     # ---------------------------------------------------------------------
@@ -798,17 +841,18 @@ def run_parameters_estimation(
             label = select_label(
                 data,
                 sample_method,
-                event_logs=event_logs,
                 require_psd=False,
                 show_labels=True,
+                context="samples",
+                event_logs=event_logs,
             )
 
             if label is None:
-                _log(f"❌ [ERROR] PE samples: no suitable label found; labels present: {labels}")
+                pe_log(f"❌ [ERROR] PE samples: no suitable label found; labels present: {labels}", event_logs)
                 go_next_cell = False
             else:
                 label_waveform = label
-                _log(f"ℹ️ [INFO] PE samples: final label = {label}")
+                pe_log(f"ℹ️ [INFO] PE samples: final label = {label}", event_logs)
 
                 posterior_samples = samples_dict[label]
                 approximant_for_title = label.split(":", 1)[1] if ":" in label else label
@@ -841,7 +885,7 @@ def run_parameters_estimation(
                         fig_distributionList.append(PictureProduct.from_file(fname))
 
         except Exception as e:
-            _log(f"❌ [ERROR] Failed creating posterior plots: {e}")
+            pe_log(f"❌ [ERROR] Failed creating posterior plots: {e}", event_logs)
             go_next_cell = False
 
     # ---------------------------------------------------------------------
@@ -857,19 +901,20 @@ def run_parameters_estimation(
             label_waveform = select_label(
                 data,
                 strain_approximant,
-                event_logs=event_logs,
                 require_psd=True,
                 show_labels=False,
+                context="strain",
+                event_logs=event_logs,
             )
 
             if label_waveform is None:
-                _log(
+                pe_log(
                     "❌ [ERROR] Waveform model: no suitable label found in the PE file; "
-                    "unable to load strain / build waveform."
+                    "unable to load strain / build waveform.", event_logs
                 )
                 go_next_cell = False
             else:
-                _log(f"ℹ️ [INFO] Waveform model: using label_waveform = {label_waveform}")
+                pe_log(f"ℹ️ [INFO] Waveform model: using label_waveform = {label_waveform}", event_logs)
 
             if go_next_cell:
                 posterior_samples_wave = samples_dict[label_waveform]
@@ -879,34 +924,34 @@ def run_parameters_estimation(
                 except Exception:
                     dets_available = ["H1", "L1", "V1"]
 
-                _log(f"ℹ️ [INFO] Detectors in PE file (label {label_waveform}): {dets_available}")
+                pe_log(f"ℹ️ [INFO] Detectors in PE file (label {label_waveform}): {dets_available}", event_logs)
 
                 for det in dets_available:
                     det_time_key = f"{det}_time"
                     t0_det: Optional[float] = None
                     try:
                         t0_det = float(posterior_samples_wave.maxL[det_time_key][0])
-                        _log(f"ℹ️ [INFO] Using maxL {det_time_key} = {t0_det} for {det}")
+                        pe_log(f"ℹ️ [INFO] Using maxL {det_time_key} = {t0_det} for {det}", event_logs)
                     except Exception:
                         try:
                             t0_det = float(posterior_samples_wave.maxL["geocent_time"][0])
-                            _log(f"ℹ️ [INFO] Using geocent_time = {t0_det} for {det}")
+                            pe_log(f"ℹ️ [INFO] Using geocent_time = {t0_det} for {det}", event_logs)
                         except Exception:
-                            _log(f"⚠️ [WARN] No time information for {det} in maxL table")
+                            pe_log(f"⚠️ [WARN] No time information for {det} in maxL table", event_logs)
                             continue
 
                     try:
                         strain_data[det] = load_strain(src_name, t0_det, det)
                         merger_times[det] = t0_det
                     except Exception as e:
-                        _log(f"⚠️ [WARN] Could not load strain for {det}: {e}")
+                        pe_log(f"⚠️ [WARN] Could not load strain for {det}: {e}", event_logs)
 
                 if not strain_data:
-                    _log("⚠️ [WARN] No strain data could be loaded for any detector.")
+                    pe_log("⚠️ [WARN] No strain data could be loaded for any detector.", event_logs)
                     go_next_cell = False
 
         except Exception as e:
-            _log(f"❌ [ERROR] Failed loading strain data: {e}")
+            pe_log(f"❌ [ERROR] Failed loading strain data: {e}", event_logs)
             go_next_cell = False
 
     # Generate projected waveforms / q-transforms
@@ -916,8 +961,39 @@ def run_parameters_estimation(
             start_before = float(start)
             stop_after = float(stop)
 
+            def _sanitize_for_engine(aprx: str | None) -> str | None:
+                """Convert PE-style labels (e.g. IMRPhenomXPHM-SpinTaylor) into LAL-friendly names."""
+                if not aprx:
+                    return None
+                a = str(aprx).strip().rstrip(",;")
+                if ":" in a and a.lstrip().startswith("C"):
+                    # If user passed a full PE label like 'C00:SEOBNRv5PHM', take RHS
+                    a = a.split(":", 1)[1].strip()
+                # Drop PE-specific suffixes that LAL/GWSignal doesn't understand
+                if "-" in a:
+                    a = a.split("-", 1)[0].strip()
+                return a or None
+
+
             for det, strain in strain_data.items():
                 t0 = merger_times[det]
+
+                # Keep the PE label for reading PSD/samples/skymap
+                pe_label = label_waveform
+
+                # Derive the "RHS" of the PE label (e.g. "IMRPhenomXPHM-SpinTaylor")
+                pe_rhs = pe_label.split(":", 1)[1] if ":" in pe_label else pe_label
+
+                # Engine approximant to pass to maxL_td_waveform (LAL/GWSignal-friendly)
+                requested_engine_aprx = (
+                    _sanitize_for_engine(strain_approximant)
+                    or _sanitize_for_engine(pe_rhs)
+                )
+
+                pe_log(
+                    f"ℹ️ [INFO] Overlay config for {det}: "
+                    f"PE label={pe_label}, PE rhs={pe_rhs}, engine requested={requested_engine_aprx}", event_logs
+                )
 
                 bp_cropped, crop_temp, used_aprx = generate_projected_waveform(
                     strain=strain,
@@ -925,12 +1001,21 @@ def run_parameters_estimation(
                     det=det,
                     t0=t0,
                     pedata=data,
-                    label=label_waveform,
+                    label=pe_label,                          # PE label for PSD/maxL context
+                    requested_approximant=requested_engine_aprx,  # engine approximant
+                    allow_fallback=True,
                     freqrange=(fs_low, fs_high),
                     time_window=(start_before, stop_after),
+                    event_logs=event_logs,
                 )
 
                 if bp_cropped is not None and crop_temp is not None:
+                
+                    if requested_engine_aprx == "SEOBNRv5PHM":
+                        pe_log(
+                            "ℹ️ [INFO] SEOBNRv5PHM exists in PE but may not be regenerable "
+                            "for strain overlays with GWSignal; fallback may occur.", event_logs
+                        )
                     fname_overlay = plot_whitened_overlay(
                         bp_cropped,
                         crop_temp,
@@ -939,12 +1024,15 @@ def run_parameters_estimation(
                         outdir,
                         approximant=used_aprx,
                         t0=t0,
+                        pe_label=pe_rhs,
+                        engine_requested=requested_engine_aprx,   # what you tried first
+                        engine_used=used_aprx,                    # what succeeded (may be fallback)
                     )
                     result.files_strain.append(fname_overlay)
                     if oda_available and PictureProduct is not None:
                         fig_strainList.append(PictureProduct.from_file(fname_overlay))
                 else:
-                    _log(f"⚠️ [WARN] Skipping overlay for {det} (no waveform).")
+                    pe_log(f"⚠️ [WARN] Skipping overlay for {det} (no waveform).", event_logs)
 
                 try:
                     fname_q = plot_time_frequency(
@@ -961,10 +1049,11 @@ def run_parameters_estimation(
                     if oda_available and PictureProduct is not None:
                         fig_strainList.append(PictureProduct.from_file(fname_q))
                 except Exception as e_q:
-                    _log(f"⚠️ [WARN] Could not create q-transform for {det}: {e_q}")
+                    pe_log(f"⚠️ [WARN] Could not create q-transform for {det}: {e_q}", event_logs)
+
 
         except Exception as e:
-            _log(f"❌ [ERROR] Failed creating projected waveforms / q-transforms: {e}")
+            pe_log(f"❌ [ERROR] Failed creating projected waveforms / q-transforms: {e}", event_logs)
             go_next_cell = False
 
     # ---------------------------------------------------------------------
@@ -976,7 +1065,7 @@ def run_parameters_estimation(
             fig = psd.plot(fmin=20)
             ax = fig.gca()
             ax.set_ylim(1e-48, 1e-40)
-            ax.set_title(f"PSD model for waveform: {label_waveform}", fontsize=12)
+            ax.set_title(f"PSD model (waveform: {label_waveform})", fontsize=10)
             plt.tight_layout()
 
             waveform = label_waveform.split(":", 1)[1] if ":" in label_waveform else label_waveform
@@ -989,7 +1078,7 @@ def run_parameters_estimation(
                 fig_psdList.append(PictureProduct.from_file(fname_psd))
 
         except Exception as e:
-            _log(f"❌ [ERROR] Failed creating PSD plot: {e}")
+            pe_log(f"❌ [ERROR] Failed creating PSD plot: {e}", event_logs)
             go_next_cell = False
 
     # ---------------------------------------------------------------------
@@ -998,7 +1087,13 @@ def run_parameters_estimation(
     if go_next_cell and data is not None and label_waveform is not None:
         try:
             fig, ax = data.skymap[label_waveform].plot(contour=[50, 90])
-            ax.set_title(f"Skymap for waveform: {label_waveform}", fontsize=9)
+            
+            # shrink the "50% area / 90% area" annotation
+            for t in ax.texts + fig.texts:
+                s = t.get_text()
+                if "area" in s and "deg" in s:
+                    t.set_fontsize(6)
+            ax.set_title(f"Skymap (waveform: {label_waveform})", fontsize=8)
             ax.tick_params(axis="both", labelsize=7)
             ax.set_xlabel(ax.get_xlabel(), fontsize=7)
             ax.set_ylabel(ax.get_ylabel(), fontsize=7)
@@ -1023,7 +1118,7 @@ def run_parameters_estimation(
                 fig_skymapList.append(PictureProduct.from_file(fname_sky))
 
         except Exception as e:
-            _log(f"❌ [ERROR] Failed creating skymap plot: {e}")
+            pe_log(f"❌ [ERROR] Failed creating skymap plot: {e}", event_logs)
             go_next_cell = False
 
     _progress("Finish", 100, "step 6")
@@ -1059,6 +1154,7 @@ def run_parameters_estimation(
             requested_pe_vars=pe_vars or [],
             posterior_pairs_missing_by_label=posterior_pairs_missing_by_label,
             requested_pe_pairs=pe_pairs or [],
+            event_logs=event_logs,
         )
 
     # ---------------------------------------------------------------------

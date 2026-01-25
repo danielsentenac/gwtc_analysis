@@ -44,6 +44,17 @@ __all__ = [
 # Select label helpers
 # ---------------------------------------------------------------------
 
+
+def pe_log(msg: str, event_logs: list[str] | None = None) -> None:
+    """
+    Global logger for PE pipeline.
+    - ALWAYS prints to stdout
+    - ALWAYS appends to event_logs (for HTML report)
+    """
+    print(msg)
+    if event_logs is not None:
+        event_logs[-1] += f"\n{msg}\n"
+        
 def find_label_for_approximant(labels, aprx_str):
     """
     Return the label matching a given approximant name, e.g. 'SEOBNRv4PHM'
@@ -73,41 +84,38 @@ def label_has_psd(pedata, label):
 def select_label(
     pedata,
     requested_approximant,
-    event_logs=None,
     require_psd: bool = True,
     show_labels: bool = True,
+    context: str = "samples",  # "samples" or "strain"
+    event_logs: list[str] | None = None,
 ):
     """
-    Select the best label for a given context (PE samples or strain), with:
+    Select the best PE label for a given context (PE samples or strain/PSD), with:
 
-      1. Requested approximant/method (if present),
-      2. Other available approximants found in pedata.labels,
-      3. Optionally a 'Mixed' label (useful for PE samples),
-      4. First label as last resort,
+      1. Direct PE label match if user provided e.g. "C00:SEOBNRv5PHM",
+      2. Requested approximant/method (matched against label RHS),
+      3. Other available approximants found in pedata.labels,
+      4. Optionally a 'Mixed' label (useful for PE samples),
+      5. First label as last resort,
 
     and *optionally* enforcing that the final choice has PSD available.
 
-    Parameters
-    ----------
-    pedata : pesummary.gw.file.File
-        The PE data returned by pesummary.read().
-    requested_approximant : str or None
-        Desired waveform approximant / method, e.g. "IMRPhenomXPHM", "Mixed".
-    event_logs : list or None
-        If provided, log strings are appended to event_logs[-1].
-    require_psd : bool, optional
-        If True, try very hard to return a label with PSD
-        (use this for STRAIN / WAVEFORM generation).
-        If False, return the best label by approximant/method logic only
-        (use this for PE SAMPLES / POSTERIORS).
-    show_labels : bool, optional
-        If True, print a pretty, sorted list of available labels/waveforms.
+    Notes
+    -----
+    - In context="samples", requested_approximant is treated as a PE method/label RHS
+      (e.g. "Mixed", "SEOBNRv5PHM") and warnings will mention PE labels.
+    - In context="strain", requested_approximant may be a waveform *engine* name
+      (e.g. "IMRPhenomPv2") which may not exist as a PE label RHS; in this case
+      we do NOT emit the confusing "not in labels" warning and instead explain
+      that we will pick the closest PSD-capable PE label.
 
     Returns
     -------
     str or None
-        The chosen label, or None if no suitable label was found.
+        The chosen PE label, or None if no suitable label was found.
     """
+    import re
+    from typing import List
 
     # Sorted labels for nicer logging
     try:
@@ -115,95 +123,126 @@ def select_label(
     except Exception:
         labels = []
 
-    # Helper logger with emoji-ish tags
-    def log(msg: str):
-        print(msg)
-        if event_logs is not None:
-            event_logs[-1] += f"\n{msg}\n"
+    def _normalize_requested(s: str | None) -> str | None:
+        """Normalize a user-requested approximant/method/label string.
 
-    # ---- Pretty, multi-line, sorted label listing ----
+        - strips whitespace and trailing punctuation from CLI copy/paste
+        - if a full PE label like 'C00:SEOBNRv5PHM' is provided, keeps only the RHS
+        """
+        if s is None:
+            return None
+        s2 = str(s).strip().rstrip(",;")
+        if re.match(r"^C\d{2}:", s2):
+            s2 = s2.split(":", 1)[1].strip()
+        return s2 or None
+
+    requested_raw = requested_approximant
+    requested_norm = _normalize_requested(requested_approximant)
+
+    # ------------------------------------------------------------------
+    # 0) If the user directly provided a full PE label, honor it.
+    # ------------------------------------------------------------------
+    requested_label = None
+    if isinstance(requested_raw, str):
+        requested_label = str(requested_raw).strip().rstrip(",;")
+
+    if requested_label and requested_label in labels:
+        pe_log(f"✅ [INFO] Requested using label {requested_label} (direct label match)",event_logs)
+        if (not require_psd) or label_has_psd(pedata, requested_label):
+            return requested_label
+        pe_log(f"⚠️ [WARN] Requested label {requested_label} has no PSD; will select another label.",event_logs)
+
+    # ------------------------------------------------------------------
+    # 1) Pretty, multi-line, sorted label listing
+    # ------------------------------------------------------------------
     if show_labels:
         if labels:
             bullet_lines = "\n".join(f"  - {lab}" for lab in labels)
-            log(
-                "ℹ️ [INFO] Available labels/waveforms in PE file (sorted):\n"
-                f"{bullet_lines}"
+            pe_log(
+                "ℹ️ [INFO] Available labels in PE file (sorted):\n"
+                f"{bullet_lines}",event_logs
             )
         else:
-            log("⚠️ [WARN] No labels/waveforms found in PE file.")
+            pe_log("⚠️ [WARN] No labels found in PE file.",event_logs)
 
-    # If there are no labels at all, nothing more to do
     if not labels:
-        log("❌ [ERROR] No labels found – cannot select any label.")
+        pe_log("❌ [ERROR] No labels found – cannot select any label.",event_logs)
         return None
 
     # ------------------------------------------------------------------
-    # Build a dynamic list of candidate approximants from the labels
-    # Example: "C01:IMRPhenomXPHM" → "IMRPhenomXPHM"
+    # 2) Build list of available approximants from label RHS.
+    #     Example: "C01:IMRPhenomXPHM" → "IMRPhenomXPHM"
     # ------------------------------------------------------------------
     available_aprx: List[str] = []
     for lab in labels:
         try:
-            aprx = lab.split(":", 1)[1]
+            rhs = lab.split(":", 1)[1]
         except Exception:
             continue
-        if aprx not in available_aprx:
-            available_aprx.append(aprx)
+        if rhs not in available_aprx:
+            available_aprx.append(rhs)
 
-    # Dynamic candidate list:
-    #   - requested_approximant (if any) first
-    #   - then all approximants actually present in pedata.labels
+    # ------------------------------------------------------------------
+    # 3) Dynamic candidate list:
+    #    - requested_norm (if any) first
+    #    - then all RHS values present in pedata.labels
+    # ------------------------------------------------------------------
     candidate_aprx: List[str] = []
-    if requested_approximant is not None:
-        candidate_aprx.append(requested_approximant)
+    if requested_norm is not None:
+        candidate_aprx.append(requested_norm)
+    for rhs in available_aprx:
+        if rhs not in candidate_aprx:
+            candidate_aprx.append(rhs)
 
-    for aprx in available_aprx:
-        if aprx not in candidate_aprx:
-            candidate_aprx.append(aprx)
-
-    # 1a) Warn if requested approximant is not present
-    if requested_approximant is not None:
-        if find_label_for_approximant(labels, requested_approximant) is None:
-            log(
-                "⚠️ [WARN] Requested approximant/method "
-                f"'{requested_approximant}' not in labels {labels}; "
-                "will try other available approximants derived from labels."
+    # ------------------------------------------------------------------
+    # 3a) Context-aware message when requested value doesn't match any label RHS
+    # ------------------------------------------------------------------
+    if requested_norm is not None and find_label_for_approximant(labels, requested_norm) is None:
+        if context == "samples":
+            pe_log(
+                "⚠️ [WARN] Requested method/label "
+                f"'{requested_raw}' not found in PE labels {labels}; "
+                "will try other labels derived from the PE file.", event_logs
+            )
+        else:
+            # strain context: the request may be an engine name not present as a label RHS
+            pe_log(
+                f"ℹ️ [INFO] Requested strain engine '{requested_raw}' does not directly match a PE label; "
+                "selecting the closest PSD-capable label from the PE file.", event_logs
             )
 
     # ------------------------------------------------------------------
-    # 1b) Choose label based on candidate approximant list (no PSD check)
+    # 4) Choose label based on candidate list (no PSD check yet)
     # ------------------------------------------------------------------
     label = None
-    for aprx_try in candidate_aprx:
-        lab = find_label_for_approximant(labels, aprx_try)
+    for rhs_try in candidate_aprx:
+        lab = find_label_for_approximant(labels, rhs_try)
         if lab is not None:
             label = lab
-            log(f"✅ [INFO] Requested using label {label} (from method/approximant {aprx_try})")
+            pe_log(f"✅ [INFO] Selected label {label} (from method {rhs_try})", event_logs)
             break
 
     # ------------------------------------------------------------------
-    # 1c) Try 'Mixed' label as a special case (useful for PE samples)
-    #     We do this only if no label chosen yet. We don't treat 'Mixed'
-    #     as a normal approximant in the candidate_aprx logic above.
+    # 5) Try 'Mixed' label as a special case (useful for PE samples)
     # ------------------------------------------------------------------
     if label is None:
         mixed_label = next((lab for lab in labels if lab.endswith(":Mixed")), None)
         if mixed_label:
             label = mixed_label
-            log(f"ℹ️ [INFO] Falling back to Mixed label: {label}")
+            pe_log(f"ℹ️ [INFO] Falling back to Mixed label: {label}", event_logs)
 
     # ------------------------------------------------------------------
-    # 1d) Final fallback: first label
+    # 6) Final fallback: first label
     # ------------------------------------------------------------------
-    if label is None and labels:
+    if label is None:
         label = labels[0]
-        log(
-            "⚠️ [WARN] No label matched any approximant/method; "
-            f"using first label {label}"
+        pe_log(
+            "⚠️ [WARN] No label matched any method/approximant; "
+            f"using first label {label}", event_logs
         )
 
     if label is None:
-        log("❌ [ERROR] No suitable label found in PE dataset.")
+        pe_log("❌ [ERROR] No suitable label found in PE dataset.", event_logs)
         return None
 
     # -----------------------------------------------------------------
@@ -213,43 +252,43 @@ def select_label(
         return label
 
     # -----------------------------------------------------------------
-    # 2) PSD-enforcing branch (for strain / waveform generation)
+    # 7) PSD-enforcing branch (for strain / waveform generation)
     # -----------------------------------------------------------------
     if not label_has_psd(pedata, label):
-        log(
-            "⚠️ [WARN] Label "
-            f"{label} does not provide PSD; searching for PSD-capable labels."
+        pe_log(
+            "⚠️ [WARN] Selected label "
+            f"{label} does not provide PSD; searching for PSD-capable labels.", event_logs
         )
 
-        # Re-try with the same dynamic approximant list but requiring PSD.
-        # Here we *intentionally* skip 'Mixed' as a primary PSD candidate
-        # and treat it separately later.
-        for aprx_try in candidate_aprx:
-            if aprx_try == "Mixed":
+        # Re-try with the same RHS candidate list but requiring PSD.
+        # Intentionally skip 'Mixed' as a primary PSD candidate.
+        for rhs_try in candidate_aprx:
+            if rhs_try == "Mixed":
                 continue
-            lab = find_label_for_approximant(labels, aprx_try)
+            lab = find_label_for_approximant(labels, rhs_try)
             if lab is not None and label_has_psd(pedata, lab):
-                log(f"✅ [INFO] Switching to {lab} which has PSD.")
+                pe_log(f"✅ [INFO] Switching to {lab} which has PSD.", event_logs)
                 return lab
 
         # Try Mixed-with-PSD explicitly, if present
         mixed_label = next((lab2 for lab2 in labels if lab2.endswith(":Mixed")), None)
         if mixed_label and label_has_psd(pedata, mixed_label):
-            log(f"✅ [INFO] Using Mixed label {mixed_label} which has PSD.")
+            pe_log(f"✅ [INFO] Using Mixed label {mixed_label} which has PSD.", event_logs)
             return mixed_label
 
         # Try ANY label that has PSD
         for lab in labels:
             if label_has_psd(pedata, lab):
-                log(f"✅ [INFO] Using {lab} because it provides PSD.")
+                pe_log(f"✅ [INFO] Using {lab} because it provides PSD.", event_logs)
                 return lab
 
         # No PSD anywhere
-        log("❌ [ERROR] No label in PE file provides PSD. Cannot load strain.")
+        pe_log("❌ [ERROR] No label in PE file provides PSD. Cannot load strain.", event_logs)
         return None
 
     # Label has PSD → good for strain
     return label
+
 
 def label_report(
     pedata,
@@ -257,7 +296,7 @@ def label_report(
     strain_approximant: Optional[str] = None,
 ):
     """
-    Print a compact summary of the PE labels / approximants, including:
+    print a compact summary of the PE labels / approximants, including:
 
       - Available labels (Cxx:Approximant)
       - Parsed approximant / method names
@@ -541,30 +580,48 @@ def ensure_outdir(outdir: str) -> None:
 # Projected waveform utilities
 # ---------------------------------------------------------------------
 
-
 def _get_approximant_for_label(pedata, label: Optional[str]) -> str:
-    """Internal helper to pick an approximant string."""
+    """Return the approximant associated with a PE label, without inventing one.
+
+    Preference order:
+    1) pedata.approximant[idx] if label is in pedata.labels
+    2) parse from label string like 'C00:SEOBNRv5PHM' -> 'SEOBNRv5PHM'
+    3) if pedata.approximant is a single string, use it
+    4) otherwise return empty string (unknown)
+    """
+    # 1) indexed lookup via pedata.labels / pedata.approximant
+    labels: list[str] = []
     try:
         labels = list(pedata.labels)
     except Exception:
         labels = []
 
-    if label is not None and label in labels:
+    if label and labels and label in labels:
         try:
             idx = labels.index(label)
-            return pedata.approximant[idx]
+            aprx = pedata.approximant[idx]
+            if isinstance(aprx, str) and aprx.strip():
+                return aprx.strip()
         except Exception:
             pass
 
+    # 2) derive from label string
+    if label and isinstance(label, str) and ":" in label:
+        rhs = label.split(":", 1)[1].strip()
+        if rhs:
+            return rhs
+
+    # 3) sometimes pedata.approximant is a single string
     if hasattr(pedata, "approximant"):
         approx = pedata.approximant
-        if isinstance(approx, str):
-            return approx
+        if isinstance(approx, str) and approx.strip():
+            return approx.strip()
 
-    # Fallback
-    return "IMRPhenomXPHM"
-
-
+    # 4) unknown
+    return ""
+        
+from typing import Callable, Optional
+            
 def generate_projected_waveform(
     strain: TimeSeries,
     event: str,
@@ -574,6 +631,9 @@ def generate_projected_waveform(
     label: Optional[str] = None,
     freqrange: Tuple[float, float] = (30.0, 400.0),
     time_window: Tuple[float, float] = (0.2, 0.2),
+    requested_approximant: Optional[str] = None,
+    allow_fallback: bool = True,
+    event_logs: list[str] | None = None,
 ):
     """
     Build projected waveform on detector `det`, whiten + band-pass + crop.
@@ -584,9 +644,14 @@ def generate_projected_waveform(
         (start_before, stop_after) in seconds, where:
         - start_before > 0 → seconds BEFORE merger (t0 - start_before)
         - stop_after  > 0 → seconds AFTER  merger (t0 + stop_after)
-    """
 
-    """
+    requested_approximant : str or None
+        If provided, try this approximant first (and optionally only this one).
+
+    allow_fallback : bool
+        If False, do not fall back to generic LAL waveforms if the requested/label
+        approximant fails. This is useful to avoid silently producing overlays with
+        a different waveform than the user asked for.
 
     Returns
     -------
@@ -597,13 +662,15 @@ def generate_projected_waveform(
     used_aprx : str or None
         Name of the approximant actually used to generate the waveform.
     """
-    print(f"ℹ️ [INFO] Building projected waveform for {det} ...")
+    import builtins
+
+    pe_log(f"ℹ️ [INFO] Building projected waveform for {det} ...",event_logs)
 
     samples_dict = pedata.samples_dict
     all_labels = list(samples_dict.keys())
     if label is None or label not in all_labels:
         if not all_labels:
-            print("⚠️ [WARN] No samples_dict labels found.")
+            pe_log("⚠️ [WARN] No samples_dict labels found.",event_logs)
             return None, None, None
         label = all_labels[0]
 
@@ -611,7 +678,7 @@ def generate_projected_waveform(
 
     # Approximant from metadata
     aprx = _get_approximant_for_label(pedata, label)
-    print(f"ℹ️ [INFO] Initial approximant guess {aprx} and label {label}")
+    pe_log(f"ℹ️ [INFO] Initial approximant guess {aprx} and label {label}",event_logs)
 
     # Reference frequency
     fref = 20.0
@@ -636,11 +703,11 @@ def generate_projected_waveform(
     try:
         psd_dict = pedata.psd[label]  # dict keyed by 'H1', 'L1', 'V1', ...
     except Exception:
-        print("⚠️ [WARN] No PSD in PE file – cannot build projected waveform.")
+        pe_log("⚠️ [WARN] No PSD in PE file – cannot build projected waveform.",event_logs)
         return None, None, None
 
     if det not in psd_dict:
-        print(f"⚠️ [WARN] No PSD for detector {det} – skipping waveform.")
+        pe_log(f"⚠️ [WARN] No PSD for detector {det} – skipping waveform.",event_logs)
         return None, None, None
 
     zippedpsd = psd_dict[det]
@@ -652,9 +719,7 @@ def generate_projected_waveform(
     target_frequencies = np.linspace(0.0, fs / 2.0, int(duration * fs / 2.0), endpoint=False)
 
     asdsquare = FrequencySeries(
-        interp1d(psdfreq, psdvalue, bounds_error=False, fill_value=np.inf)(
-            target_frequencies
-        ),
+        interp1d(psdfreq, psdvalue, bounds_error=False, fill_value=np.inf)(target_frequencies),
         frequencies=target_frequencies,
     )
     asd = np.sqrt(asdsquare)
@@ -669,14 +734,29 @@ def generate_projected_waveform(
     bp_cropped = bp_data.crop(cropstart, cropend)
 
     # Build max-L template projected on det
-    # Try the PE approximant first; if it fails (e.g. missing pyseob_wf for SEOBNRv5PHM),
-    # fall back to standard LAL waveforms that are usually available.
     hp = None
+    last_err: Optional[str] = None
     used_aprx: Optional[str] = None
     tried: List[str] = []
 
-    # candidate approximants, in order of preference
-    candidate_aprx = [aprx, "IMRPhenomXPHM", "IMRPhenomPv2"]
+    # Candidate approximants, in order of preference:
+    # 1) user-requested approximant (if any)
+    # 2) PE-derived approximant from metadata
+    # 3) generic fallbacks (only if allow_fallback=True)
+    candidate_aprx: List[str] = []
+
+    if requested_approximant:
+        candidate_aprx.append(requested_approximant)
+
+    if aprx and aprx not in candidate_aprx:
+        candidate_aprx.append(aprx)
+
+    if allow_fallback:
+        for fb in ("IMRPhenomXPHM", "IMRPhenomPv2"):
+            if fb not in candidate_aprx:
+                candidate_aprx.append(fb)
+
+    pe_log(f"ℹ️ [INFO] Approximants to try (in order): {candidate_aprx}",event_logs)
 
     for aprx_try in candidate_aprx:
         if aprx_try in tried or aprx_try is None:
@@ -684,7 +764,7 @@ def generate_projected_waveform(
         tried.append(aprx_try)
 
         try:
-            print(f"ℹ️ [INFO] Trying maxL_td_waveform with approximant {aprx_try}")
+            pe_log(f"ℹ️ [INFO] Trying maxL_td_waveform with approximant {aprx_try}",event_logs)
             hp_dict = posterior_samples.maxL_td_waveform(
                 aprx_try,
                 delta_t=1.0 / fs,
@@ -696,25 +776,36 @@ def generate_projected_waveform(
             if isinstance(hp_dict, dict):
                 hp = hp_dict.get("h_plus", None)
                 if hp is None and len(hp_dict):
-                    # fallback to the first entry in the dict
                     hp = list(hp_dict.values())[0]
             else:
                 hp = hp_dict
 
             if hp is not None:
                 used_aprx = aprx_try
-                print(f"[OK] Built waveform with {aprx_try}")
+                pe_log(f"[OK] Built waveform with {aprx_try}",event_logs)
                 break
 
         except NameError as e:
-            # This is where "pyseob_wf is not defined" will land
-            print(f"⚠️ [WARN] Failed to build waveform with {aprx_try}: {e}")
+            last_err = str(e)
+            pe_log(f"⚠️ [WARN] Failed to build waveform with {aprx_try}: {e}",event_logs)
         except Exception as e:
-            print(f"⚠️ [WARN] Failed to build waveform with {aprx_try}: {e}")
+            last_err = str(e)
+            pe_log(f"⚠️ [WARN] Failed to build waveform with {aprx_try}: {e}",event_logs)
 
     if hp is None:
-        print("⚠️ [WARN] Could not build waveform with any approximant; skipping.")
+        if requested_approximant and not allow_fallback:
+            pe_log(
+                f"⚠️ [WARN] Could not build waveform with requested approximant "
+                f"{requested_approximant}; fallback disabled, skipping.",event_logs
+            )
+        else:
+            pe_log("⚠️ [WARN] Could not build waveform with any approximant; skipping.",event_logs)
         return None, None, None
+
+    if requested_approximant and used_aprx != requested_approximant:
+        pe_log(
+            f"⚠️ [WARN] Requested approximant {requested_approximant} but used {used_aprx} fallback.",event_logs
+        )
 
     hp = hp.taper()
     hp = hp.pad(int(60 * fs))
@@ -723,8 +814,9 @@ def generate_projected_waveform(
     bp_temp = white_temp.bandpass(freqrange[0], freqrange[1])
     crop_temp = bp_temp.crop(cropstart, cropend)
 
-    print(f"ℹ️ [OK] Projected waveform for {det} built (approximant {used_aprx}).")
+    pe_log(f"ℹ️ [OK] Projected waveform for {det} built (approximant {used_aprx}).",event_logs)
     return bp_cropped, crop_temp, used_aprx
+
 
 
 # ---------------------------------------------------------------------
@@ -739,6 +831,9 @@ def plot_whitened_overlay(
     outdir: str| Path,
     approximant: Optional[str] = None,
     t0: Optional[float] = None,
+    pe_label: str | None = None,
+    engine_requested: str | None = None,
+    engine_used: str | None = None,
 ) -> str:
 
     """
@@ -778,13 +873,21 @@ def plot_whitened_overlay(
     ax.set_ylabel("Whitened strain", fontsize=label_font)
 
     # Title
-    title = f"{event} – {det} whitened data + projected waveform"
-    if approximant:
-        title += f"\nApproximant: {approximant},  t0 = {float(t0):.3f} s (GPS)"
-    else:
-        title += f"\nt0 = {float(t0):.3f} s (GPS)"
+    title1 = f"{event} – {det} whitened data + projected waveform"
 
-    ax.set_title(title, fontsize=title_font, pad=2, linespacing=0.9)
+    # Build a truthful second line
+    parts = []
+    if engine_requested and engine_used and engine_requested != engine_used:
+        parts.append(f"Engine: {engine_used} (fallback from {engine_requested})")
+    elif engine_used:
+        parts.append(f"Engine: {engine_used}")
+    elif engine_requested:
+        parts.append(f"Engine: {engine_requested}")
+
+    parts.append(f"t0 = {t0:.3f} s (GPS)")
+    title2 = " | ".join(parts)
+
+    ax.set_title(title1 + "\n" + title2, fontsize=8)
 
     # Tick formatting: plain numbers, no scientific notation
     ax.ticklabel_format(style="plain", axis="x", useOffset=False)

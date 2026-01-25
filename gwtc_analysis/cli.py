@@ -73,21 +73,21 @@ def build_parser() -> argparse.ArgumentParser:
         "catalog_statistics",
         help="Build per-event TSV table and HTML summary report (with PIE plots) from GW catalogs.",
         description=(
-            "Fetch events for one or more catalogs and compute derived columns.\n"
+            "Fetch events statistics for one or more catalogs.\n\n"
             "Outputs:\n"
             "  --out-events : TSV table of events\n"
             "  --out-report : HTML report (tables + plots)\n\n"
             "Optional additions:\n"
             "  --include-detectors : detector network via GWOSC calls\n"
-            "  --include-area      : sky localization area Axx (requires skymaps)\n"
+            "  --include-area      : sky localization area Axx\n"
         ),
-        formatter_class=fmt,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_cat.add_argument(
         "--catalogs",
         required=True,
         nargs="+",
-        help="Catalog keys. Space-separated; commas also accepted (e.g. GWTC-4,GWTC-3).",
+        help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all.",
     )
     p_cat.add_argument("--out-events", default="catalogs_statistics.tsv", help="Output TSV path (per-event table).")
     p_cat.add_argument("--out-report", default="catalogs_statistics.html", help="Output HTML report path.")
@@ -95,7 +95,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cat.add_argument("--include-area", action="store_true", help="Compute sky localization area Axx if skymaps are available.")
     p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
     p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
-    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3")
+    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -107,9 +107,9 @@ def build_parser() -> argparse.ArgumentParser:
             "Select events by simple cuts on source-frame masses and luminosity distance.\n"
             "Cuts are optional; if a cut is not provided, it is not applied.\n"
         ),
-        formatter_class=fmt,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sel.add_argument("--catalogs", required=True, nargs="+", help="Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL")
+    p_sel.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all.")
     p_sel.add_argument("--out-selection", default="event_selection.tsv", help="Output TSV path for the selected events.")
     p_sel.add_argument("--m1-min", type=float, default=None, help="Minimum primary mass (source frame).")
     p_sel.add_argument("--m1-max", type=float, default=None, help="Maximum primary mass (source frame).")
@@ -125,21 +125,21 @@ def build_parser() -> argparse.ArgumentParser:
         "search_skymaps",
         help="Search GW sky localizations for a given sky position (RA/Dec).",
         description=(
-            "Given a sky position (RA/Dec in degrees) and a list of skymap FITS files,\n"
+            "Given a sky position (RA/Dec in degrees) and catalogs,\n"
             "report which events contain that position above the requested credible level.\n"
-            "Plotting: Hit plots are produced.\n"
+            "Plotting: Hit skymaps are produced.\n"
         ),
-        formatter_class=fmt,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sky.add_argument("--catalogs", required=True, nargs="+", help="Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL")
+    p_sky.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all.")
     p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
     p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
-    p_sky.add_argument("--waveform", default="Mixed", help="Waveform/approximant selector used to filter skymap filenames (default: Mixed). Use 'any' to disable filtering.")
-    p_sky.add_argument("--out-events", default="search_skymaps.tsv", help="Output TSV file (default: search_skymaps.tsv)")
+    p_sky.add_argument("--waveform", default="Mixed", help="Waveform/approximant selector used to filter skymap (Mixed | IMRPhenomXPHM | SEOBNRv4PHM | SEOBNRv5PHM | IMRPhenomPv2 | IMRPhenomD | IMRPhenomM | IMRPhenomXPHM-SpinTaylor | NRSur7dq4 | NRSur7dq4HM | TaylorF2 | TaylorF2Ecc).")
+    p_sky.add_argument("--out-events", default="search_skymaps.tsv", help="Output TSV file (default: search_skymaps.tsv).")
     p_sky.add_argument("--out-report", default="search_skymaps.html", help="Optional output HTML report path for hits.")
     p_sky.add_argument("--plots-dir", default="sky_plots", help="Directory for hit plots (default: sky_plots).")
-    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3")
+    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
 
     # ---------------------------------------------------------------------
     # parameters_estimation
@@ -150,20 +150,20 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Generate PE plots (posteriors, skymap, strain overlays, PSD) for a single event.\n"
         ),
-        formatter_class=fmt,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     p_pe.add_argument("--out-report", default="parameters_estimation.html", help="Output HTML report path.")
     p_pe.add_argument("--src-name", dest="src_name", required=True, help="Source event name (e.g. GW231223_032836).")
-    p_pe.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3")
-    p_pe.add_argument("--pe-vars", nargs="+", default=None, help=("Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance"),)
-    p_pe.add_argument("--pe-pairs", nargs="+", default=None, help=("Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p"),)
+    p_pe.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
+    p_pe.add_argument("--pe-vars", nargs="+", default=None, help=("Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance."))
+    p_pe.add_argument("--pe-pairs", nargs="+", default=None, help=("Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p."))
     p_pe.add_argument("--plots-dir", default="pe_plots", help="Directory for output PE plots (default: pe_plots).")
     p_pe.add_argument("--start", type=float, default=0.2, help="Seconds before GPS time for strain window.")
     p_pe.add_argument("--stop", type=float, default=0.1, help="Seconds after GPS time for strain window.")
     p_pe.add_argument("--fs-low", type=float, default=20.0, help="Bandpass low frequency (Hz).")
     p_pe.add_argument("--fs-high", type=float, default=300.0, help="Bandpass high frequency (Hz).")
-    p_pe.add_argument("--sample-method", default="Mixed", help="Posterior sample label/model selector (e.g. Mixed, IMRPhenomXPHM, SEOBNRv4PHM).")
-    p_pe.add_argument("--strain-approximant", default="IMRPhenomXPHM", help="Waveform model used to generate time-domain waveform for strain overlay.")
+    p_pe.add_argument("--sample-method", default="Mixed", help="Posterior sample label/model selector (Mixed | IMRPhenomXPHM | SEOBNRv4PHM | SEOBNRv5PHM | IMRPhenomPv2 | IMRPhenomD | IMRPhenomM | IMRPhenomXPHM-SpinTaylor | NRSur7dq4 | NRSur7dq4HM | TaylorF2 | TaylorF2Ecc).")
+    p_pe.add_argument("--strain-approximant", default="IMRPhenomXPHM", help="Waveform model used to generate time-domain waveform for strain overlay (IMRPhenomXPHM | IMRPhenomPv2 | SEOBNRv4PHM | SEOBNRv5PHM | ).")
 
     return p
 

@@ -137,21 +137,21 @@ python tools/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalog keys. Space-separated; commas also accepted (e.g. GWTC-4,GWTC-3). |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all. |
 | `--out-events` | `catalogs_statistics.tsv` | Output TSV path (per-event table). |
 | `--out-report` | `catalogs_statistics.html` | Output HTML report path. |
 | `--include-detectors` | `False` | Include detector network via GWOSC v2 calls. |
 | `--include-area` | `False` | Compute sky localization area Axx if skymaps are available. |
 | `--area-cred` | `0.9` | Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95. |
 | `--plots-dir` | `cat_plots` | Directory for plots (default: cat_plots). |
-| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3 |
+| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
 
 ### `event_selection`
 
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all. |
 | `--out-selection` | `event_selection.tsv` | Output TSV path for the selected events. |
 | `--m1-min` | `` | Minimum primary mass (source frame). |
 | `--m1-max` | `` | Maximum primary mass (source frame). |
@@ -165,15 +165,15 @@ python tools/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalogs space-separated: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all. |
 | `--ra-deg` | `` | Right ascension (deg). |
 | `--dec-deg` | `` | Declination (deg). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
-| `--waveform` | `Mixed` | Waveform/approximant selector used to filter skymap filenames (default: Mixed). Use 'any' to disable filtering. |
-| `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv) |
+| `--waveform` | `Mixed` | Waveform/approximant selector used to filter skymap (Mixed \| IMRPhenomXPHM \| SEOBNRv4PHM \| SEOBNRv5PHM \| IMRPhenomPv2 \| IMRPhenomD \| IMRPhenomM \| IMRPhenomXPHM-SpinTaylor \| NRSur7dq4 \| NRSur7dq4HM \| TaylorF2 \| TaylorF2Ecc). |
+| `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
-| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3 |
+| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
 
 ### `parameters_estimation`
 
@@ -182,16 +182,16 @@ python tools/gen_readme_cli_tables.py
 | `-h, --help` | `` | show this help message and exit |
 | `--out-report` | `parameters_estimation.html` | Output HTML report path. |
 | `--src-name` | `` | Source event name (e.g. GW231223_032836). |
-| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3 |
-| `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance |
-| `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p |
+| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
+| `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
+| `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
 | `--start` | `0.2` | Seconds before GPS time for strain window. |
 | `--stop` | `0.1` | Seconds after GPS time for strain window. |
 | `--fs-low` | `20.0` | Bandpass low frequency (Hz). |
 | `--fs-high` | `300.0` | Bandpass high frequency (Hz). |
-| `--sample-method` | `Mixed` | Posterior sample label/model selector (e.g. Mixed, IMRPhenomXPHM, SEOBNRv4PHM). |
-| `--strain-approximant` | `IMRPhenomXPHM` | Waveform model used to generate time-domain waveform for strain overlay. |
+| `--sample-method` | `Mixed` | Posterior sample label/model selector (Mixed \| IMRPhenomXPHM \| SEOBNRv4PHM \| SEOBNRv5PHM \| IMRPhenomPv2 \| IMRPhenomD \| IMRPhenomM \| IMRPhenomXPHM-SpinTaylor \| NRSur7dq4 \| NRSur7dq4HM \| TaylorF2 \| TaylorF2Ecc). |
+| `--strain-approximant` | `IMRPhenomXPHM` | Waveform model used to generate time-domain waveform for strain overlay (IMRPhenomXPHM \| IMRPhenomPv2 \| SEOBNRv4PHM \| SEOBNRv5PHM \| ). |
 
 <!-- CLI_TABLES_END -->
 
