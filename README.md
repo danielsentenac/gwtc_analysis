@@ -195,6 +195,42 @@ python tools/gen_readme_cli_tables.py
 
 <!-- CLI_TABLES_END -->
 
+### Choosing `--sample-method` and `--strain-approximant`
+
+The **parameter estimation** workflow distinguishes clearly between **which PE samples are used** and **which waveform engine is used to regenerate a strain overlay**. These two concepts are controlled independently by the options below.
+
+**`--sample-method` (PE samples / posteriors)**
+
+* Selects *which PE label* from the PE file is used to read posterior samples.
+* This must correspond to a label actually stored in the PE file (e.g. `C00:SEOBNRv5PHM`, `C00:IMRPhenomXPHM-SpinTaylor`, `C00:Mixed`).
+* Typical choices:
+
+  * `Mixed` – combined samples from multiple waveform models (default, robust)
+  * `SEOBNRv5PHM`, `IMRPhenomXPHM-SpinTaylor`, `NRSur7dq4` – model-specific PE runs
+
+This choice affects **posterior plots and skymaps only**.
+
+**`--strain-approximant` (waveform engine for strain overlay)**
+
+* Selects the **time-domain waveform model** used to regenerate a waveform and overlay it on detector strain.
+* This is an *engine name*, not a PE label. It must be supported by `GWSignal / LALSimulation`.
+* Common usable choices are:
+
+  * `IMRPhenomXPHM` (default, robust, precessing)
+  * `IMRPhenomPv2` (precessing, slightly older)
+  * `SEOBNRv5PHM` (may fail for some posterior points)
+
+⚠️ **Important note on fallback behaviour**
+
+A PE file may contain a label like `C00:SEOBNRv5PHM`, but regenerating the strain overlay with the same model can fail (e.g. due to spin limits or missing support in the waveform engine). In that case:
+
+* The tool **logs an explicit warning** explaining the failure reason
+* A **fallback waveform engine** (typically `IMRPhenomXPHM`) is used instead
+* The plot title clearly indicates both the *requested* and the *actually used* engine
+
+This guarantees that strain overlays are produced whenever possible, without silently changing the physics model.
+
+
 ---
 
 ## Testing
