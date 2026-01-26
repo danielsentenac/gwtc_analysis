@@ -190,46 +190,55 @@ python tools/gen_readme_cli_tables.py
 | `--stop` | `0.1` | Seconds after GPS time for strain window. |
 | `--fs-low` | `20.0` | Bandpass low frequency (Hz). |
 | `--fs-high` | `300.0` | Bandpass high frequency (Hz). |
-| `--sample-method` | `Mixed` | Posterior sample label/model selector (Mixed \| IMRPhenomXPHM \| SEOBNRv4PHM \| SEOBNRv5PHM \| IMRPhenomPv2 \| IMRPhenomD \| IMRPhenomM \| IMRPhenomXPHM-SpinTaylor \| NRSur7dq4 \| NRSur7dq4HM \| TaylorF2 \| TaylorF2Ecc). |
-| `--strain-approximant` | `IMRPhenomXPHM` | Waveform model used to generate time-domain waveform for strain overlay (IMRPhenomXPHM \| IMRPhenomPv2 \| SEOBNRv4PHM \| SEOBNRv5PHM \| ). |
+| `--pe-label` | `` | PE label used to select posterior samples and metadata. If omitted and --waveform-engine is provided, the tool selects the closest PE label by substring match in the PE label. If both are omitted, defaults to Mixed. |
+| `--waveform-engine` | `` | Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays. |
 
 <!-- CLI_TABLES_END -->
 
-### Choosing `--sample-method` and `--strain-approximant`
+### Choosing `--pe-label` and `--waveform-engine`
 
-The **parameter estimation** workflow distinguishes clearly between **which PE samples are used** and **which waveform engine is used to regenerate a strain overlay**. These two concepts are controlled independently by the options below.
+The **parameter estimation** workflow distinguishes between **which PE label is used** (to read posteriors and metadata from the PE file) and **which waveform engine is requested** (to synthesize a time-domain signal for strain overlays).
 
-**`--sample-method` (PE samples / posteriors)**
+**`--pe-label` (PE samples / posteriors)**
 
-* Selects *which PE label* from the PE file is used to read posterior samples.
-* This must correspond to a label actually stored in the PE file (e.g. `C00:SEOBNRv5PHM`, `C00:IMRPhenomXPHM-SpinTaylor`, `C00:Mixed`).
-* Typical choices:
+* Selects the PE label used to read posterior samples and associated metadata (e.g. `C00:Mixed`, `C00:IMRPhenomXPHM-SpinTaylor`, `C00:SEOBNRv5PHM`).
+* If explicitly provided, this choice takes priority.
 
-  * `Mixed` – combined samples from multiple waveform models (default, robust)
-  * `SEOBNRv5PHM`, `IMRPhenomXPHM-SpinTaylor`, `NRSur7dq4` – model-specific PE runs
+**`--waveform-engine` (waveform engine for strain overlay)**
 
-This choice affects **posterior plots and skymaps only**.
+* Selects the waveform generator used to build the time-domain waveform for strain overlays (engine name, e.g. `IMRPhenomXPHM`).
+* This is an engine name and does not have to exactly match a PE label stored in the file.
 
-**`--strain-approximant` (waveform engine for strain overlay)**
+---
 
-* Selects the **time-domain waveform model** used to regenerate a waveform and overlay it on detector strain.
-* This is an *engine name*, not a PE label. It must be supported by `GWSignal / LALSimulation`.
-* Common usable choices are:
+#### Automatic label selection rules
 
-  * `IMRPhenomXPHM` (default, robust, precessing)
-  * `IMRPhenomPv2` (precessing, slightly older)
-  * `SEOBNRv5PHM` (may fail for some posterior points)
+1. **If `--pe-label` is explicitly provided**
+   * That label is used for posterior plots.
+   * The same label is also used as the source of PSDs and maximum-likelihood parameters for strain overlays.
 
-⚠️ **Important note on fallback behaviour**
+2. **If `--pe-label` is *not* provided but `--waveform-engine` *is***
+   * The tool selects the PE label whose waveform string best matches the requested engine by **substring match** on the PE label string (no hardcoded waveform mappings).
+   * The selected label is then used consistently for posteriors, PSDs/detector lists, and maximum-likelihood parameters.
 
-A PE file may contain a label like `C00:SEOBNRv5PHM`, but regenerating the strain overlay with the same model can fail (e.g. due to spin limits or missing support in the waveform engine). In that case:
+   Example:
+   * `--waveform-engine IMRPhenomXPHM`
+   * → selects `C00:IMRPhenomXPHM-SpinTaylor` if present in the PE file
 
-* The tool **logs an explicit warning** explaining the failure reason
-* A **fallback waveform engine** (typically `IMRPhenomXPHM`) is used instead
-* The plot title clearly indicates both the *requested* and the *actually used* engine
+3. **If neither option is provided**
+   * The default `Mixed` PE label is used.
 
-This guarantees that strain overlays are produced whenever possible, without silently changing the physics model.
+---
 
+#### Waveform synthesis fallback
+
+If the requested waveform engine cannot be instantiated (e.g. unsupported parameter range), the tool:
+
+* logs a clear warning
+* falls back to an alternative engine when possible
+* explicitly reports both the requested and the actually used engine in the logs and plot titles
+
+This ensures robustness while keeping model choices transparent.
 
 ---
 

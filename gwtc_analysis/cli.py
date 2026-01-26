@@ -10,8 +10,10 @@ from .parameters_estimation import run_parameters_estimation
 from .gw_stat import ALLOWED_CATALOGS as ALLOWED_CATALOGS
 import sys
 
+
 def _format_allowed_catalogs() -> str:
     return ", ".join(ALLOWED_CATALOGS)
+
 
 def _validate_catalogs(catalogs: list[str]) -> None:
     bad = [c for c in catalogs if c != "ALL" and c not in ALLOWED_CATALOGS]
@@ -62,7 +64,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-
 
     sub = p.add_subparsers(dest="mode", required=True, metavar="MODE")
 
@@ -162,8 +163,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_pe.add_argument("--stop", type=float, default=0.1, help="Seconds after GPS time for strain window.")
     p_pe.add_argument("--fs-low", type=float, default=20.0, help="Bandpass low frequency (Hz).")
     p_pe.add_argument("--fs-high", type=float, default=300.0, help="Bandpass high frequency (Hz).")
-    p_pe.add_argument("--sample-method", default="Mixed", help="Posterior sample label/model selector (Mixed | IMRPhenomXPHM | SEOBNRv4PHM | SEOBNRv5PHM | IMRPhenomPv2 | IMRPhenomD | IMRPhenomM | IMRPhenomXPHM-SpinTaylor | NRSur7dq4 | NRSur7dq4HM | TaylorF2 | TaylorF2Ecc).")
-    p_pe.add_argument("--strain-approximant", default="IMRPhenomXPHM", help="Waveform model used to generate time-domain waveform for strain overlay (IMRPhenomXPHM | IMRPhenomPv2 | SEOBNRv4PHM | SEOBNRv5PHM | ).")
+
+    # Renamed options (no legacy names)
+    p_pe.add_argument(
+        "--pe-label",
+        default=None,
+        help=(
+            "PE label used to select posterior samples and metadata. "
+            "If omitted and --waveform-engine is provided, the tool selects the closest PE label "
+            "by substring match in the PE label. If both are omitted, defaults to Mixed."
+        ),
+    )
+    p_pe.add_argument(
+        "--waveform-engine",
+        default=None,
+        help="Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays.",
+    )
 
     return p
 
@@ -227,9 +242,9 @@ def main(argv=None) -> int:
                 stop=args.stop,
                 fs_low=args.fs_low,
                 fs_high=args.fs_high,
-                sample_method=args.sample_method,
-                strain_approximant=args.strain_approximant,
-                out_report_html=args.out_report, 
+                pe_label=_none_if_empty(args.pe_label),
+                waveform_engine=_none_if_empty(args.waveform_engine),
+                out_report_html=args.out_report,
                 data_repo=args.data_repo,
                 pe_vars=args.pe_vars,
                 pe_pairs=args.pe_pairs,

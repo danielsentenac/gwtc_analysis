@@ -67,6 +67,61 @@ def find_label_for_approximant(labels, aprx_str):
     return None
 
 
+def find_closest_label_by_token(
+    pedata,
+    labels: list[str],
+    token: str,
+    *,
+    require_psd: bool,
+):
+    """Return the closest PE label whose RHS contains the given token.
+
+    This is a pure string-based match (no hardcoded waveform names).
+
+    Scoring heuristics (generic, waveform-agnostic):
+      - exact RHS match > prefix match > substring match
+      - shorter RHS preferred (smaller suffix)
+      - when require_psd=True, only PSD-capable labels are considered
+    """
+
+    def _norm(s: str) -> str:
+        return re.sub(r"\s+", "", str(s)).lower()
+
+    if not token:
+        return None
+
+    tok = _norm(token)
+    best = None
+    best_score = None
+
+    for lab in labels:
+        if require_psd and not label_has_psd(pedata, lab):
+            continue
+
+        if ":" not in lab:
+            continue
+
+        rhs_raw = lab.split(":", 1)[1]
+        rhs = _norm(rhs_raw)
+
+        if tok not in rhs:
+            continue
+
+        score = 0
+        if rhs == tok:
+            score += 1000
+        if rhs.startswith(tok):
+            score += 500
+        score += 200  # substring baseline
+        score -= len(rhs_raw)  # prefer shorter strings
+
+        if best_score is None or score > best_score:
+            best = lab
+            best_score = score
+
+    return best
+
+
 def label_has_psd(pedata, label):
     """
     Return True if the PE dataset contains PSD info for the given label.
@@ -195,37 +250,60 @@ def select_label(
             candidate_aprx.append(rhs)
 
     # ------------------------------------------------------------------
-    # 3a) Context-aware message when requested value doesn't match any label RHS
-    # ------------------------------------------------------------------
-    if requested_norm is not None and find_label_for_approximant(labels, requested_norm) is None:
-        if context == "samples":
-            pe_log(
-                "⚠️ [WARN] Requested method/label "
-                f"'{requested_raw}' not found in PE labels {labels}; "
-                "will try other labels derived from the PE file.", event_logs
-            )
-        else:
-            # strain context: the request may be an engine name not present as a label RHS
-            pe_log(
-                f"ℹ️ [INFO] Requested strain engine '{requested_raw}' does not directly match a PE label; "
-                "selecting the closest PSD-capable label from the PE file.", event_logs
-            )
-
-    # ------------------------------------------------------------------
-    # 4) Choose label based on candidate list (no PSD check yet)
+    # 3a) If a request was provided, first try a *substring* match on RHS.
+    #     This yields (e.g.) IMRPhenomXPHM -> IMRPhenomXPHM-SpinTaylor
+    #     without hardcoding waveform names.
     # ------------------------------------------------------------------
     label = None
-    for rhs_try in candidate_aprx:
-        lab = find_label_for_approximant(labels, rhs_try)
-        if lab is not None:
-            label = lab
-            pe_log(f"✅ [INFO] Selected label {label} (from method {rhs_try})", event_logs)
-            break
+    if requested_norm is not None:
+        closest = find_closest_label_by_token(
+            pedata,
+            labels,
+            requested_norm,
+            require_psd=require_psd,
+        )
+        if closest is not None:
+            label = closest
+            rhs = label.split(":", 1)[1] if ":" in label else "?"
+            pe_log(
+                f"✅ [INFO] Selected closest label {label} (matched token '{requested_raw}' in '{rhs}')",
+                event_logs,
+            )
+        else:
+            # Context-aware message when no substring match exists
+            if context == "samples":
+                pe_log(
+                    "⚠️ [WARN] Requested method/label "
+                    f"'{requested_raw}' not found in PE labels {labels}; "
+                    "will try other labels derived from the PE file.",
+                    event_logs,
+                )
+            else:
+                pe_log(
+                    f"ℹ️ [INFO] Requested strain engine '{requested_raw}' does not match any PE label RHS; "
+                    "selecting the closest PSD-capable label from the PE file.",
+                    event_logs,
+                )
+
+    # ------------------------------------------------------------------
+    # 4) If no substring match was found, try exact RHS matches from the
+    #    candidate list (no PSD check yet; PSD enforcement happens later).
+    # ------------------------------------------------------------------
+    if label is None:
+        for rhs_try in candidate_aprx:
+            lab = find_label_for_approximant(labels, rhs_try)
+            if lab is not None:
+                label = lab
+                pe_log(f"✅ [INFO] Selected label {label} (from method {rhs_try})", event_logs)
+                break
 
     # ------------------------------------------------------------------
     # 5) Try 'Mixed' label as a special case (useful for PE samples)
+    #    IMPORTANT: only do this when the user did not request a specific
+    #    approximant/engine. If the user requested an approximant, "Mixed"
+    #    should NOT silently override that intent.
     # ------------------------------------------------------------------
-    if label is None:
+    if label is None and requested_norm is None:
         mixed_label = next((lab for lab in labels if lab.endswith(":Mixed")), None)
         if mixed_label:
             label = mixed_label
@@ -259,6 +337,21 @@ def select_label(
             "⚠️ [WARN] Selected label "
             f"{label} does not provide PSD; searching for PSD-capable labels.", event_logs
         )
+
+        # If the user requested a specific approximant/engine, prefer a PSD-capable
+        # label whose RHS *contains* that token (substring match), before any other
+        # fallback. This keeps PSD/maxL inputs consistent with the user's intent
+        # without hardcoding waveform names.
+        if requested_norm is not None:
+            closest_psd = find_closest_label_by_token(
+                pedata,
+                labels,
+                requested_norm,
+                require_psd=True,
+            )
+            if closest_psd is not None:
+                pe_log(f"✅ [INFO] Switching to {closest_psd} which matches '{requested_raw}' and has PSD.", event_logs)
+                return closest_psd
 
         # Re-try with the same RHS candidate list but requiring PSD.
         # Intentionally skip 'Mixed' as a primary PSD candidate.
