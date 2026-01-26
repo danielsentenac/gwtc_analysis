@@ -53,7 +53,7 @@ def run_search_skymaps(
     prob: float,
     plots_dir: Optional[str] = None,
     data_repo: str = "s3",
-    waveform: str = "Mixed",
+    skymap_label: str = "Mixed",
 ) -> None:
     """
     Search GWTC sky localizations for whether a given (RA, Dec) lies inside a requested credible region.
@@ -78,7 +78,7 @@ def run_search_skymaps(
     plots_path = Path(plots_dir)
     plots_path.mkdir(parents=True, exist_ok=True)
 
-    wf = (waveform or "").strip()
+    wf = (skymap_label or "").strip()
     wf_filter_on = bool(wf) and wf.lower() != "any"
 
     # -------------------------
@@ -93,7 +93,7 @@ def run_search_skymaps(
 
         import tarfile
 
-        prefer = "Mixed" if waveform.lower() == "any" else waveform
+        prefer = "Mixed" if skymap_label.lower() == "any" else skymap_label
 
         tqdm = _tqdm_or_none()
         matched = 0

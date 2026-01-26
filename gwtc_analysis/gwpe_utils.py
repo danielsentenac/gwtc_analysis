@@ -385,8 +385,8 @@ def select_label(
 
 def label_report(
     pedata,
-    sample_method: Optional[str] = None,
-    strain_approximant: Optional[str] = None,
+    pe_label: Optional[str] = None,
+    waveform_engine: Optional[str] = None,
 ):
     """
     print a compact summary of the PE labels / approximants, including:
@@ -396,18 +396,18 @@ def label_report(
       - PSD availability per label
       - Whether a label is 'Mixed'
       - Which label would be chosen by select_label() for:
-          * PE SAMPLES  (require_psd = False, using sample_method)
-          * STRAIN      (require_psd = True,  using strain_approximant)
+          * PE SAMPLES  (require_psd = False, using pe_label)
+          * STRAIN      (require_psd = True,  using waveform_engine)
 
     Parameters
     ----------
     pedata : pesummary.gw.file.File
         The PE data returned by pesummary.read().
-    sample_method : str or None
+    pe_label : str or None
         Requested method / approximant for PE samples (posteriors),
         e.g. "Mixed", "IMRPhenomXPHM". Passed to select_label with
         require_psd=False.
-    strain_approximant : str or None
+    waveform_engine : str or None
         Requested approximant for strain / waveform generation,
         e.g. "IMRPhenomXPHM". Passed to select_label with require_psd=True.
 
@@ -444,14 +444,14 @@ def label_report(
     # What would select_label() pick in the two key modes?
     best_for_sample = select_label(
         pedata,
-        requested_approximant=sample_method,
+        requested_approximant=pe_label,
         event_logs=None,
         require_psd=False,
         show_labels=False,
     )
     best_for_strain = select_label(
         pedata,
-        requested_approximant=strain_approximant,
+        requested_approximant=waveform_engine,
         event_logs=None,
         require_psd=True,
         show_labels=False,
@@ -460,8 +460,8 @@ def label_report(
     # Header
     print("===")
     print("Label report:")
-    print(f"- requested sample_method      (PE samples) : {sample_method}")
-    print(f"- requested strain_approximant  (strain)     : {strain_approximant}")
+    print(f"- requested pe_label      (PE samples) : {pe_label}")
+    print(f"- requested waveform_engine  (strain)     : {waveform_engine}")
     print(f"- best_for_sample (no PSD requirement) : {best_for_sample}")
     print(f"- best_for_strain  (require PSD=True)   : {best_for_strain}")
     print("===")

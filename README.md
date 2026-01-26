@@ -169,7 +169,7 @@ python tools/gen_readme_cli_tables.py
 | `--ra-deg` | `` | Right ascension (deg). |
 | `--dec-deg` | `` | Declination (deg). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
-| `--waveform` | `Mixed` | Waveform/approximant selector used to filter skymap (Mixed \| IMRPhenomXPHM \| SEOBNRv4PHM \| SEOBNRv5PHM \| IMRPhenomPv2 \| IMRPhenomD \| IMRPhenomM \| IMRPhenomXPHM-SpinTaylor \| NRSur7dq4 \| NRSur7dq4HM \| TaylorF2 \| TaylorF2Ecc). |
+| `--skymap_label` | `Mixed` | Label selector used to filter skymap (default: Mixed). |
 | `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |

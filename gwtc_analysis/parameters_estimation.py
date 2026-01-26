@@ -600,8 +600,8 @@ def run_parameters_estimation(
     stop: float = 0.1,
     fs_low: float = 20.0,
     fs_high: float = 300.0,
-    sample_method: str = "Mixed",
-    strain_approximant: str = "IMRPhenomXPHM",
+    pe_label: str = "Mixed",
+    waveform_engine: str = "IMRPhenomXPHM",
     out_report_html: str | None = None,
     data_repo: str = "s3",
     catalog: str | None = None,
@@ -820,7 +820,7 @@ def run_parameters_estimation(
             _progress("Read data", 25, "step 2")
             try:
                 data = read(local_pe_path)
-                label_report(data, sample_method=sample_method, strain_approximant=strain_approximant)
+                label_report(data, pe_label=pe_label, waveform_engine=waveform_engine)
             except Exception as e:
                 pe_log(f"❌ [ERROR] Failed reading PE data: {e}", event_logs)
                 go_next_cell = False
@@ -840,7 +840,7 @@ def run_parameters_estimation(
 
             label = select_label(
                 data,
-                sample_method,
+                pe_label,
                 require_psd=False,
                 show_labels=True,
                 context="samples",
@@ -900,7 +900,7 @@ def run_parameters_estimation(
 
             label_waveform = select_label(
                 data,
-                strain_approximant,
+                waveform_engine,
                 require_psd=True,
                 show_labels=False,
                 context="strain",
@@ -986,7 +986,7 @@ def run_parameters_estimation(
 
                 # Engine approximant to pass to maxL_td_waveform (LAL/GWSignal-friendly)
                 requested_engine_aprx = (
-                    _sanitize_for_engine(strain_approximant)
+                    _sanitize_for_engine(waveform_engine)
                     or _sanitize_for_engine(pe_rhs)
                 )
 
@@ -1144,8 +1144,8 @@ def run_parameters_estimation(
                 stop=stop,
                 fs_low=fs_low,
                 fs_high=fs_high,
-                sample_method=sample_method,
-                strain_approximant=strain_approximant,
+                pe_label=pe_label,
+                waveform_engine=waveform_engine,
                 data_repo=data_repo,
                 catalog=catalog,
             ),
