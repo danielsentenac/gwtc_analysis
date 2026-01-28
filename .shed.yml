@@ -1,5 +1,31 @@
-categories:
-- Astronomy
-description: gwtc_analysis
 name: gwtc_analysis
-owner: daniel.sentenac
+owner: danielsentenac
+description: GWTC analysis workflows with support for Galaxy, S3, Zenodo, and GWOSC API data access.
+long_description: |
+  Galaxy wrapper for GWTC analysis workflows (gwtc_analysis).
+
+  DATA ACCESS (required):
+  This tool requires access to GWTC catalog data and supports multiple
+  data access mechanisms:
+
+  - Galaxy: access GWTC datasets available on the Galaxy instance
+    (e.g. provided as dataset collections or reference datasets).
+    This backend does not require outbound network access and is supported
+    on all Galaxy deployments, including restricted HPC environments.
+
+  - S3: access GWTC datasets stored in an S3-compatible object store.
+    This backend requires outbound network access.
+
+  - Zenodo: download GWTC datasets from Zenodo.
+    This backend requires outbound network access.
+
+  - GWOSC API: event selection and catalog statistics modules may query
+    the GWOSC public API for metadata. This requires outbound network access.
+
+  Container runtime:
+  docker://danielsentenac/gwtc-tool:v0.3.1 (executed via Apptainer/Singularity).
+
+homepage_url: https://github.com/danielsentenac/gwtc_analysis
+remote_repository_url: https://github.com/danielsentenac/gwtc_analysis
+categories:
+  - Astronomy
