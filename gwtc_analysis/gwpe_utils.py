@@ -13,13 +13,20 @@ import re
 from typing import Tuple, Optional, List, Dict
 
 import numpy as np
+import traceback
+
+# Remember last requested waveform engine to support callers that
+# do not pass it through to sample-label selection.
+_LAST_REQUESTED_WAVEFORM_ENGINE: str | None = None
+
 import matplotlib.pyplot as plt
 
-from gwpy.timeseries import TimeSeries
 from gwpy.frequencyseries import FrequencySeries
 from scipy.interpolate import interp1d
 from matplotlib.ticker import MaxNLocator
 from pathlib import Path
+from gwpy.timeseries import TimeSeries as GWpyTimeSeries
+from pycbc.types import TimeSeries as PyCBCTimeSeries
 
 __all__ = [
     "get_cache_dir",
@@ -54,6 +61,49 @@ def pe_log(msg: str, event_logs: list[str] | None = None) -> None:
     print(msg)
     if event_logs is not None:
         event_logs[-1] += f"\n{msg}\n"
+
+
+# ---------------------------------------------------------------------
+# Debug helpers
+# ---------------------------------------------------------------------
+# Enable with:  GWPE_DEBUG=1 python -m gwtc_analysis.cli ...
+GWPE_DEBUG = os.environ.get("GWPE_DEBUG", "0") not in ("0", "false", "False", "")
+GWPE_ALWAYS_TRACE = os.environ.get("GWPE_ALWAYS_TRACE", "0") not in ("0", "false", "False", "")
+
+GWPE_DEBUG_BANNER = (GWPE_DEBUG or GWPE_ALWAYS_TRACE)
+if GWPE_DEBUG_BANNER:
+    print(f"🐛 [GWPE_DEBUG] gwpe_utils imported from: {__file__}")
+
+def debug_wrap(name: str):
+    """Decorator to print a full traceback when the CLI catches exceptions.
+
+    Enable with:
+      - GWPE_DEBUG=1 (prints tracebacks for any exception)
+      - GWPE_ALWAYS_TRACE=1 (prints tracebacks even if GWPE_DEBUG is off)
+
+    Also: if a TypeError contains 'NoneType' and 'iterable', we print a traceback
+    automatically because the CLI otherwise hides the real line number.
+    """
+    def _decorator(fn):
+        def _wrapped(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except Exception as e:
+                msg = str(e)
+                auto = (
+                    isinstance(e, TypeError)
+                    and ("NoneType" in msg)
+                    and ("iterable" in msg or "not iterable" in msg)
+                )
+                if GWPE_DEBUG or GWPE_ALWAYS_TRACE or auto:
+                    print(f"\n🐛 [GWPE_DEBUG] Exception in {name} ({fn.__module__}.{fn.__name__})")
+                    print(f"🐛 [GWPE_DEBUG] gwpe_utils file = {__file__}")
+                    print(f"🐛 [GWPE_DEBUG] GWPE_DEBUG={GWPE_DEBUG} GWPE_ALWAYS_TRACE={GWPE_ALWAYS_TRACE} auto={auto}")
+                    traceback.print_exc()
+                    print("🐛 [GWPE_DEBUG] End traceback\n")
+                raise
+        return _wrapped
+    return _decorator
         
 def find_label_for_approximant(labels, aprx_str):
     """
@@ -122,265 +172,161 @@ def find_closest_label_by_token(
     return best
 
 
-def label_has_psd(pedata, label):
+@debug_wrap('label_has_psd')
+def label_has_psd(pedata, label: str) -> bool:
     """
-    Return True if the PE dataset contains PSD info for the given label.
+    Robust PSD availability check for a PE label.
+
+    `pesummary` releases sometimes expose `pedata.psd` as None, or
+    `pedata.psd[label]` as None, or store PSDs in different containers.
+    This function avoids membership tests on None and handles dict/array-like entries.
     """
+    psd_container = getattr(pedata, "psd", None)
+    if psd_container is None:
+        return False
+
+    # Fetch entry safely
     try:
-        return (
-            hasattr(pedata, "psd")
-            and label in pedata.psd
-            and pedata.psd[label] is not None
-            and len(pedata.psd[label]) > 0
-        )
+        if isinstance(psd_container, dict):
+            psd_entry = psd_container.get(label, None)
+        elif hasattr(psd_container, "get"):
+            psd_entry = psd_container.get(label, None)
+        else:
+            psd_entry = psd_container[label]
     except Exception:
         return False
 
+    if psd_entry is None:
+        return False
+
+    if isinstance(psd_entry, dict):
+        for v in psd_entry.values():
+            if v is None:
+                continue
+            try:
+                if len(v) > 0:
+                    return True
+            except Exception:
+                return True
+        return False
+
+    try:
+        return len(psd_entry) > 0
+    except Exception:
+        return True
+
+
+@debug_wrap('select_label')
 def select_label(
     pedata,
-    requested_approximant,
-    require_psd: bool = True,
-    show_labels: bool = True,
-    context: str = "samples",  # "samples" or "strain"
+    pe_label: str | None = None,
+    waveform_engine: str | None = None,
+    require_psd: bool = False,
     event_logs: list[str] | None = None,
+    requested_approximant: str | None = None,
+    return_reason: bool = False,
+    context: str = "samples",
+    show_labels: bool = True,
+    **_ignored_kwargs,
 ):
+    """Select which PE label/run to use from a PEDataRelease.
+
+    Most callers expect a *string label*. Set return_reason=True to get (label, reason).
+
+    Compatibility:
+      - accepts 'requested_approximant' as an alias for 'waveform_engine'
+      - accepts 'context' and 'show_labels' used by older call sites
+
+    Behavior:
+      - If waveform_engine is provided (or requested_approximant), select the matching PE label.
+      - If not provided, but a previous call provided it, reuse that remembered engine.
+        This fixes cases where the pipeline selects posterior-sample labels without
+        threading through the CLI waveform-engine option.
     """
-    Select the best PE label for a given context (PE samples or strain/PSD), with:
+    global _LAST_REQUESTED_WAVEFORM_ENGINE
 
-      1. Direct PE label match if user provided e.g. "C00:SEOBNRv5PHM",
-      2. Requested approximant/method (matched against label RHS),
-      3. Other available approximants found in pedata.labels,
-      4. Optionally a 'Mixed' label (useful for PE samples),
-      5. First label as last resort,
+    # Back-compat alias
+    if (not waveform_engine) and requested_approximant:
+        waveform_engine = requested_approximant
 
-    and *optionally* enforcing that the final choice has PSD available.
+    # Remember the engine when we learn it (typically from strain selection)
+    if waveform_engine:
+        _LAST_REQUESTED_WAVEFORM_ENGINE = str(waveform_engine).strip()
+    elif _LAST_REQUESTED_WAVEFORM_ENGINE:
+        # Reuse for callers that don't pass it (e.g. posterior plot selection)
+        waveform_engine = _LAST_REQUESTED_WAVEFORM_ENGINE
 
-    Notes
-    -----
-    - In context="samples", requested_approximant is treated as a PE method/label RHS
-      (e.g. "Mixed", "SEOBNRv5PHM") and warnings will mention PE labels.
-    - In context="strain", requested_approximant may be a waveform *engine* name
-      (e.g. "IMRPhenomPv2") which may not exist as a PE label RHS; in this case
-      we do NOT emit the confusing "not in labels" warning and instead explain
-      that we will pick the closest PSD-capable PE label.
-
-    Returns
-    -------
-    str or None
-        The chosen PE label, or None if no suitable label was found.
-    """
-    import re
-    from typing import List
-
-    # Sorted labels for nicer logging
-    try:
-        labels = sorted(list(pedata.labels))
-    except Exception:
-        labels = []
-
-    def _normalize_requested(s: str | None) -> str | None:
-        """Normalize a user-requested approximant/method/label string.
-
-        - strips whitespace and trailing punctuation from CLI copy/paste
-        - if a full PE label like 'C00:SEOBNRv5PHM' is provided, keeps only the RHS
-        """
-        if s is None:
-            return None
-        s2 = str(s).strip().rstrip(",;")
-        if re.match(r"^C\d{2}:", s2):
-            s2 = s2.split(":", 1)[1].strip()
-        return s2 or None
-
-    requested_raw = requested_approximant
-    requested_norm = _normalize_requested(requested_approximant)
-
-    # ------------------------------------------------------------------
-    # 0) If the user directly provided a full PE label, honor it.
-    # ------------------------------------------------------------------
-    requested_label = None
-    if isinstance(requested_raw, str):
-        requested_label = str(requested_raw).strip().rstrip(",;")
-
-    if requested_label and requested_label in labels:
-        pe_log(f"✅ [INFO] Requested using label {requested_label} (direct label match)",event_logs)
-        if (not require_psd) or label_has_psd(pedata, requested_label):
-            return requested_label
-        pe_log(f"⚠️ [WARN] Requested label {requested_label} has no PSD; will select another label.",event_logs)
-
-    # ------------------------------------------------------------------
-    # 1) Pretty, multi-line, sorted label listing
-    # ------------------------------------------------------------------
-    if show_labels:
-        if labels:
-            bullet_lines = "\n".join(f"  - {lab}" for lab in labels)
-            pe_log(
-                "ℹ️ [INFO] Available labels in PE file (sorted):\n"
-                f"{bullet_lines}",event_logs
-            )
-        else:
-            pe_log("⚠️ [WARN] No labels found in PE file.",event_logs)
-
+    samples_dict = getattr(pedata, "samples_dict", {}) or {}
+    labels = sorted(list(samples_dict.keys()))
     if not labels:
-        pe_log("❌ [ERROR] No labels found – cannot select any label.",event_logs)
-        return None
+        raise RuntimeError("No labels found in PE file (samples_dict is empty).")
 
-    # ------------------------------------------------------------------
-    # 2) Build list of available approximants from label RHS.
-    #     Example: "C01:IMRPhenomXPHM" → "IMRPhenomXPHM"
-    # ------------------------------------------------------------------
-    available_aprx: List[str] = []
-    for lab in labels:
-        try:
-            rhs = lab.split(":", 1)[1]
-        except Exception:
-            continue
-        if rhs not in available_aprx:
-            available_aprx.append(rhs)
-
-    # ------------------------------------------------------------------
-    # 3) Dynamic candidate list:
-    #    - requested_norm (if any) first
-    #    - then all RHS values present in pedata.labels
-    # ------------------------------------------------------------------
-    candidate_aprx: List[str] = []
-    if requested_norm is not None:
-        candidate_aprx.append(requested_norm)
-    for rhs in available_aprx:
-        if rhs not in candidate_aprx:
-            candidate_aprx.append(rhs)
-
-    # ------------------------------------------------------------------
-    # 3a) If a request was provided, first try a *substring* match on RHS.
-    #     This yields (e.g.) IMRPhenomXPHM -> IMRPhenomXPHM-SpinTaylor
-    #     without hardcoding waveform names.
-    # ------------------------------------------------------------------
-    label = None
-    if requested_norm is not None:
-        closest = find_closest_label_by_token(
-            pedata,
-            labels,
-            requested_norm,
-            require_psd=require_psd,
-        )
-        if closest is not None:
-            label = closest
-            rhs = label.split(":", 1)[1] if ":" in label else "?"
-            pe_log(
-                f"✅ [INFO] Selected closest label {label} (matched token '{requested_raw}' in '{rhs}')",
-                event_logs,
-            )
-        else:
-            # Context-aware message when no substring match exists
-            if context == "samples":
-                pe_log(
-                    "⚠️ [WARN] Requested method/label "
-                    f"'{requested_raw}' not found in PE labels {labels}; "
-                    "will try other labels derived from the PE file.",
-                    event_logs,
-                )
-            else:
-                pe_log(
-                    f"ℹ️ [INFO] Requested strain engine '{requested_raw}' does not match any PE label RHS; "
-                    "selecting the closest PSD-capable label from the PE file.",
-                    event_logs,
-                )
-
-    # ------------------------------------------------------------------
-    # 4) If no substring match was found, try exact RHS matches from the
-    #    candidate list (no PSD check yet; PSD enforcement happens later).
-    # ------------------------------------------------------------------
-    if label is None:
-        for rhs_try in candidate_aprx:
-            lab = find_label_for_approximant(labels, rhs_try)
-            if lab is not None:
-                label = lab
-                pe_log(f"✅ [INFO] Selected label {label} (from method {rhs_try})", event_logs)
-                break
-
-    # ------------------------------------------------------------------
-    # 5) Try 'Mixed' label as a special case (useful for PE samples)
-    #    IMPORTANT: only do this when the user did not request a specific
-    #    approximant/engine. If the user requested an approximant, "Mixed"
-    #    should NOT silently override that intent.
-    # ------------------------------------------------------------------
-    if label is None and requested_norm is None:
-        mixed_label = next((lab for lab in labels if lab.endswith(":Mixed")), None)
-        if mixed_label:
-            label = mixed_label
-            pe_log(f"ℹ️ [INFO] Falling back to Mixed label: {label}", event_logs)
-
-    # ------------------------------------------------------------------
-    # 6) Final fallback: first label
-    # ------------------------------------------------------------------
-    if label is None:
-        label = labels[0]
-        pe_log(
-            "⚠️ [WARN] No label matched any method/approximant; "
-            f"using first label {label}", event_logs
-        )
-
-    if label is None:
-        pe_log("❌ [ERROR] No suitable label found in PE dataset.", event_logs)
-        return None
-
-    # -----------------------------------------------------------------
-    # If we *don’t* require PSD (PE samples / method choice), we’re done
-    # -----------------------------------------------------------------
-    if not require_psd:
-        return label
-
-    # -----------------------------------------------------------------
-    # 7) PSD-enforcing branch (for strain / waveform generation)
-    # -----------------------------------------------------------------
-    if not label_has_psd(pedata, label):
-        pe_log(
-            "⚠️ [WARN] Selected label "
-            f"{label} does not provide PSD; searching for PSD-capable labels.", event_logs
-        )
-
-        # If the user requested a specific approximant/engine, prefer a PSD-capable
-        # label whose RHS *contains* that token (substring match), before any other
-        # fallback. This keeps PSD/maxL inputs consistent with the user's intent
-        # without hardcoding waveform names.
-        if requested_norm is not None:
-            closest_psd = find_closest_label_by_token(
-                pedata,
-                labels,
-                requested_norm,
-                require_psd=True,
-            )
-            if closest_psd is not None:
-                pe_log(f"✅ [INFO] Switching to {closest_psd} which matches '{requested_raw}' and has PSD.", event_logs)
-                return closest_psd
-
-        # Re-try with the same RHS candidate list but requiring PSD.
-        # Intentionally skip 'Mixed' as a primary PSD candidate.
-        for rhs_try in candidate_aprx:
-            if rhs_try == "Mixed":
-                continue
-            lab = find_label_for_approximant(labels, rhs_try)
-            if lab is not None and label_has_psd(pedata, lab):
-                pe_log(f"✅ [INFO] Switching to {lab} which has PSD.", event_logs)
-                return lab
-
-        # Try Mixed-with-PSD explicitly, if present
-        mixed_label = next((lab2 for lab2 in labels if lab2.endswith(":Mixed")), None)
-        if mixed_label and label_has_psd(pedata, mixed_label):
-            pe_log(f"✅ [INFO] Using Mixed label {mixed_label} which has PSD.", event_logs)
-            return mixed_label
-
-        # Try ANY label that has PSD
+    if show_labels:
+        pe_log("ℹ️ [INFO] Available labels in PE file (sorted):", event_logs)
         for lab in labels:
-            if label_has_psd(pedata, lab):
-                pe_log(f"✅ [INFO] Using {lab} because it provides PSD.", event_logs)
-                return lab
+            pe_log(f"  - {lab}", event_logs)
 
-        # No PSD anywhere
-        pe_log("❌ [ERROR] No label in PE file provides PSD. Cannot load strain.", event_logs)
-        return None
+    def _label_aprx(lab: str) -> str:
+        try:
+            return str(_get_approximant_for_label(pedata, lab) or "")
+        except Exception:
+            return ""
 
-    # Label has PSD → good for strain
-    return label
+    def _has_psd(lab: str) -> bool:
+        return label_has_psd(pedata, lab)
+
+    def _ret(lab: str, reason: str):
+        pe_log(f"✅ [INFO] Selected label {lab} ({reason})", event_logs)
+        return (lab, reason) if return_reason else lab
+
+    # 1) Explicit pe_label (only if provided)
+    if pe_label:
+        if pe_label in labels:
+            return _ret(pe_label, "explicit pe_label")
+        needle = str(pe_label).lower()
+        for lab in labels:
+            if needle in lab.lower():
+                return _ret(lab, f"closest match for '{pe_label}'")
+        pe_log(f"⚠️ [WARN] Requested pe_label '{pe_label}' not found; falling back.", event_logs)
+
+    # 2) Waveform engine match (preferred when available)
+    if waveform_engine:
+        eng = str(waveform_engine).strip()
+        eng_low = eng.lower()
+
+        candidates = []
+        for lab in labels:
+            aprx = _label_aprx(lab)
+            if eng_low in lab.lower() or (aprx and eng_low in aprx.lower()):
+                if (not require_psd) or _has_psd(lab):
+                    candidates.append(lab)
+
+        if not candidates:
+            token = re.sub(r"[^a-zA-Z0-9]+", "", eng_low)
+            for lab in labels:
+                aprx = _label_aprx(lab)
+                lab_tok = re.sub(r"[^a-zA-Z0-9]+", "", lab.lower())
+                aprx_tok = re.sub(r"[^a-zA-Z0-9]+", "", (aprx or "").lower())
+                if token and (token in lab_tok or token in aprx_tok):
+                    if (not require_psd) or _has_psd(lab):
+                        candidates.append(lab)
+
+        if candidates:
+            exact = [
+                lab for lab in candidates
+                if _label_aprx(lab).lower() == eng_low
+                or lab.split(":", 1)[-1].lower() == eng_low
+            ]
+            sel = exact[0] if exact else candidates[0]
+            return _ret(sel, f"matched waveform_engine {eng}")
+
+    # 3) Fallback
+    if require_psd:
+        psd_labels = [lab for lab in labels if _has_psd(lab)]
+        if psd_labels:
+            return _ret(psd_labels[0], "fallback: first PSD-capable label")
+
+    return _ret(labels[0], "fallback: first label")
 
 
 def label_report(
@@ -579,44 +525,13 @@ def get_cached_or_download(filename: str, download_fn):
 # ---------------------------------------------------------------------
 # Strain helpers
 # ---------------------------------------------------------------------
-def label_has_psd(pedata, label: str) -> bool:
-    """
-    Return True if the PE dataset provides PSD for the given label.
-    A valid PSD entry must:
-      - exist in pedata.psd
-      - contain at least one detector (H1, L1, etc.)
-      - have non-empty PSD data
-
-    Parameters
-    ----------
-    pedata : pesummary.gw.file.File
-        The PE data returned by pesummary's read().
-    label : str
-        A Cxx:Approximant label stored in pedata.labels
-
-    Returns
-    -------
-    bool
-        True if PSD exists and is non-empty, otherwise False.
-    """
-    try:
-        return (
-            hasattr(pedata, "psd")
-            and label in pedata.psd
-            and pedata.psd[label] is not None
-            and len(pedata.psd[label]) > 0
-        )
-    except Exception:
-        return False
-
-
 def load_strain(
     event: str,
     t0: float,
     detector: str,
     window: float = 14.0,
     cache: bool = True,
-) -> TimeSeries:
+) -> GWpyTimeSeries:
     """
     Fetch ~2*window seconds of open data around t0 (GPS) for one detector.
 
@@ -635,7 +550,7 @@ def load_strain(
 
     Returns
     -------
-    TimeSeries
+    GWpyTimeSeries
         Strain time series.
     """
     start = float(t0) - float(window)
@@ -646,10 +561,10 @@ def load_strain(
 
     if cache and file_already_exists(cache_name):
         print(f"ℹ️ [CACHE] Using cached strain for {detector}: {cache_name}")
-        return TimeSeries.read(cache_file)
+        return GWpyTimeSeries.read(cache_file)
 
     print(f"ℹ️ [INFO] Fetching open strain for {detector} from {start} to {end} ...")
-    strain = TimeSeries.fetch_open_data(detector, start, end, cache=False)
+    strain = GWpyTimeSeries.fetch_open_data(detector, start, end, cache=False)
 
     if cache:
         strain.write(cache_file, format="hdf5")
@@ -712,11 +627,392 @@ def _get_approximant_for_label(pedata, label: Optional[str]) -> str:
 
     # 4) unknown
     return ""
-        
-from typing import Callable, Optional
             
+from typing import Optional, Dict, Any, Tuple
+
+def _first_present(d: Dict[str, Any], keys: list[str], default=None):
+    for k in keys:
+        if k in d:
+            return d[k]
+    return default
+
+def _maxl_row(posterior_samples, maxl_index: int) -> Dict[str, float]:
+    """
+    Extract one maxL sample as a flat dict: key -> float.
+    posterior_samples is typically a pesummary SamplesDict / pandas-like object.
+    """
+    row = {}
+    # posterior_samples behaves like a dict of arrays
+    for k in posterior_samples.keys():
+        try:
+            v = posterior_samples[k][maxl_index]
+            # Convert numpy scalars cleanly
+            row[k] = float(v) if np.ndim(v) == 0 else v
+        except Exception:
+            pass
+    return row
+    
+import astropy.units as u
+from lalsimulation import gwsignal
+
+def _replace_key(d: dict, old: str, new: str):
+    d[new] = d.pop(old)
+
+
+def _try_generate_with_alias_rotation(gen, base_params: dict, groups: dict, event_logs=None):
+    """
+    groups: dict[group_name] = (aliases, value)  where aliases is a list[str] (in preference order)
+    """
+    # Start by using first alias for each group
+    active = dict(base_params)
+    active_groups = {k: list(v[0]) for k, v in groups.items()}
+    for gname, (aliases, value) in groups.items():
+        active[aliases[0]] = value
+
+    for _ in range(20):
+        try:
+            return gen.generate_td_waveform(**active)
+        except Exception as e:
+            msg = str(e)
+            if "Parameter " in msg and " not in accepted list" in msg:
+                bad = msg.split("Parameter ", 1)[1].split(" ", 1)[0].strip()
+
+                # Find which group owns this alias and rotate to next alias
+                rotated = False
+                for gname, aliases in active_groups.items():
+                    if bad in aliases:
+                        if len(aliases) <= 1:
+                            break
+                        # rotate: drop bad alias, switch to next
+                        aliases.remove(bad)
+                        new_key = aliases[0]
+                        val = groups[gname][1]
+                        if bad in active:
+                            _replace_key(active, bad, new_key)
+                        else:
+                            active[new_key] = val
+                        pe_log(f"⚠️ [WARN] GWSignal rejected '{bad}', retrying with '{new_key}'", event_logs)
+                        rotated = True
+                        break
+
+                if rotated:
+                    continue
+
+            raise  # not an alias issue; propagate
+
+    raise RuntimeError("GWSignal alias rotation exhausted (too many rejections).")
+
+def _debug_gwsignal_param_sources(gen, event_logs=None):
+    import inspect
+
+    pe_log(f"ℹ️ [INFO] GWSignal gen type: {type(gen)}", event_logs)
+    pe_log(f"ℹ️ [INFO] GWSignal gen dir has metadata: {hasattr(gen, 'metadata')}", event_logs)
+
+    if hasattr(gen, "metadata"):
+        try:
+            pe_log(f"ℹ️ [INFO] GWSignal metadata keys: {list(gen.metadata.keys())}", event_logs)
+            pe_log(f"ℹ️ [INFO] GWSignal metadata:parameters: {gen.metadata.get('parameters')}", event_logs)
+        except Exception as e:
+            pe_log(f"⚠️ [WARN] Could not read gen.metadata: {e}", event_logs)
+
+    # Try common internal names where parameter lists often live
+    candidates = [
+        "parameters", "parameter_list", "accepted_parameters", "allowed_parameters",
+        "_parameters", "_parameter_list", "_accepted_parameters", "_allowed_parameters",
+        "PARAMETERS", "VALID_PARAMS",
+    ]
+    for name in candidates:
+        if hasattr(gen, name):
+            try:
+                v = getattr(gen, name)
+                pe_log(f"ℹ️ [INFO] gen.{name} = {v}", event_logs)
+            except Exception as e:
+                pe_log(f"⚠️ [WARN] gen.{name} exists but unreadable: {e}", event_logs)
+
+    # Signature (sometimes useless, but cheap)
+    try:
+        pe_log(f"ℹ️ [INFO] signature(generate_td_waveform) = {inspect.signature(gen.generate_td_waveform)}", event_logs)
+    except Exception as e:
+        pe_log(f"⚠️ [WARN] Could not inspect signature: {e}", event_logs)
+
+def _to_pycbc_timeseries(x, delta_t: float, epoch: float = 0.0) -> PyCBCTimeSeries:
+    if isinstance(x, PyCBCTimeSeries):
+        return x
+
+    if hasattr(x, "value") and hasattr(x, "dt") and hasattr(x, "t0"):
+        data = np.asarray(x.value)
+        dt = float(getattr(x.dt, "value", x.dt))
+        t0 = float(getattr(x.t0, "value", x.t0))
+        return PyCBCTimeSeries(data, delta_t=dt, epoch=t0)
+
+    data = np.asarray(getattr(x, "value", x))
+    dt = float(getattr(x, "delta_t", delta_t))
+    t0 = float(getattr(x, "epoch", epoch))
+    
+    return PyCBCTimeSeries(data, delta_t=dt, epoch=t0)
+
+def _gwsignal_td_waveform_scalar_spins(
+    approximant: str,
+    params: Dict[str, Any],
+    delta_t: float,
+    f_low: float,
+    f_ref: float,
+    event_logs: list[str] | None = None,
+):
+    """
+    Build (hp, hc) at the source (not projected) using LALSimulation GWSignal,
+    forcing scalar aligned spins (chi1z/chi2z).
+
+    Returns
+    -------
+    hp, hc : TimeSeries-like
+        GWSignal / PyCBC-compatible plus and cross polarizations.
+    """
+    # ------------------------------------------------------------------
+    # Required physical parameters
+    # ------------------------------------------------------------------
+    m1 = _first_present(params, ["mass_1", "mass1", "m1", "mass_1_detector", "mass_1_source"])
+    m2 = _first_present(params, ["mass_2", "mass2", "m2", "mass_2_detector", "mass_2_source"])
+    dist = _first_present(params, ["luminosity_distance", "distance", "d_l", "dl"])
+    inc = _first_present(params, ["inclination", "iota"], default=0.0)
+    phi0 = _first_present(params, ["phase", "coa_phase", "phi_ref", "phi0"], default=0.0)
+
+    chi1z = _first_present(params, ["chi_1z", "chi1z", "spin_1z", "s1z", "a_1z"])
+    chi2z = _first_present(params, ["chi_2z", "chi2z", "spin_2z", "s2z", "a_2z"])
+
+    if m1 is None or m2 is None or dist is None or chi1z is None or chi2z is None:
+        missing = [k for k in ("m1", "m2", "dist", "chi1z", "chi2z") if locals().get(k) is None]
+        raise RuntimeError(f"Cannot build scalar-spin GWSignal params; missing: {missing}")
+
+    # ------------------------------------------------------------------
+    # Frequencies
+    # ------------------------------------------------------------------
+    f_low = float(f_low)
+    f_ref = float(f_ref)
+    if f_ref < f_low:
+        f_ref = f_low
+
+    # ------------------------------------------------------------------
+    # Get GWSignal generator (class or instance depending on version)
+    # ------------------------------------------------------------------
+    try:
+        gen_or_cls = gwsignal.gwsignal_get_waveform_generator(approximant)
+    except Exception as e:
+        raise RuntimeError(f"Failed to get GWSignal generator for {approximant}: {e}")
+
+    gen = gen_or_cls() if isinstance(gen_or_cls, type) else gen_or_cls
+
+    # ------------------------------------------------------------------
+    # Build GWSignal kwargs: ONE alias per physical quantity
+    # (avoid passing multiple aliases that trigger strict "accepted list" errors)
+    # ------------------------------------------------------------------
+    
+    base_params = {
+        "mass1": float(m1) * u.solMass,
+        "mass2": float(m2) * u.solMass,
+        "spin1z": float(chi1z) * u.dimensionless_unscaled,
+        "spin2z": float(chi2z) * u.dimensionless_unscaled,
+        "distance": float(dist) * u.Mpc,
+        "inclination": float(inc) * u.rad,
+    }
+    
+    alias_groups = {
+        "phase": (
+            ["phi_ref", "phase", "reference_phase"],
+            float(phi0) * u.rad,
+        ),
+        "flow": (
+            ["f22_start", "f_start","f_low", "f_min", "f_lower"],
+            float(f_low) * u.Hz,
+        ),
+        "dt": (
+            ["deltaT", "delta_t", "dt"],
+            float(delta_t) * u.s,
+        ),
+    }
+
+    # ------------------------------------------------------------------
+    # Generate time-domain waveform
+    # ------------------------------------------------------------------
+    
+    # Generate with alias rotation
+    try:
+        out = _try_generate_with_alias_rotation(gen, base_params, alias_groups, event_logs=event_logs)
+    except Exception as e:
+        raise RuntimeError(f"GWSignal generate_td_waveform failed for {approximant}: {e}")
+        try:
+            out = gen.generate_td_waveform(**gws_params)
+        except Exception as e:
+            raise RuntimeError(f"GWSignal generate_td_waveform failed for {approximant}: {e}")
+
+    # ------------------------------------------------------------------
+    # Extract h+ / h×
+    # ------------------------------------------------------------------
+    hp = None
+    hc = None
+
+    if isinstance(out, dict):
+        hp = out.get("h_plus") or out.get("hp") or out.get("plus") or out.get("hplus")
+        hc = out.get("h_cross") or out.get("hc") or out.get("cross") or out.get("hcross")
+    else:
+        try:
+            hp, hc = out
+        except Exception:
+            pass
+
+    if hp is None or hc is None:
+        keys_or_type = list(out.keys()) if isinstance(out, dict) else type(out)
+        raise RuntimeError(
+            "GWSignal td waveform output not understood "
+            f"(keys/type={keys_or_type}); cannot find hp/hc."
+        )
+
+    # Ensure PyCBC TimeSeries for downstream projection/time shifting
+    hp = _to_pycbc_timeseries(hp, delta_t=float(delta_t), epoch=0.0)
+    hc = _to_pycbc_timeseries(hc, delta_t=float(delta_t), epoch=0.0)
+    
+    return hp, hc
+
+
+
+
+
+
+def _project_hp_hc_to_detector(
+    hp, hc,
+    det: str,
+    ra: float,
+    dec: float,
+    psi: float,
+    geocent_time: float,
+):
+    """
+    Project (hp, hc) onto a detector using antenna patterns.
+    Returns a PyCBC TimeSeries-like strain for that detector.
+    """
+    try:
+        from pycbc.detector import Detector
+    except Exception as e:
+        raise RuntimeError(f"pycbc is required for detector projection but not available: {e}")
+
+    ifo = Detector(det)
+
+    # Antenna pattern
+    fp, fc = ifo.antenna_pattern(ra, dec, psi, geocent_time)
+
+    # Time delay from geocenter to detector
+    dt = ifo.time_delay_from_earth_center(ra, dec, geocent_time)
+
+    # Combine
+    ht = fp * hp + fc * hc
+
+    # Shift by dt (PyCBC TimeSeries has .cyclic_time_shift or .time_shift depending on type)
+    try:
+        ht = ht.time_shift(dt)
+    except Exception:
+        try:
+            ht = ht.cyclic_time_shift(dt)
+        except Exception:
+            # If ht is not a PyCBC type, you’ll need to convert it first.
+            raise RuntimeError("Projected waveform object does not support time shifting; convert to PyCBC TimeSeries.")
+
+    return ht
+    
+# ------------------------------------------------------------------
+# Scalar / time helpers (PEViewer-compatible)
+# ------------------------------------------------------------------
+def _sec(x) -> float:
+    """Convert Quantity / LIGOTimeGPS / numeric to float seconds."""
+    if x is None:
+        raise TypeError("Cannot convert None to seconds")
+    try:
+        return float(x.to_value("s"))
+    except Exception:
+        pass
+    try:
+        return float(x)
+    except Exception:
+        pass
+    return float(getattr(x, "value"))
+
+def _scalar(x) -> float:
+    """Convert Quantity / numpy scalar / python numeric to plain float."""
+    if x is None:
+        raise TypeError("Cannot convert None to float")
+    if hasattr(x, "to_value"):
+        try:
+            return float(x.to_value(x.unit))
+        except Exception:
+            pass
+    if hasattr(x, "value") and not isinstance(x.value, (str, bytes)):
+        try:
+            return float(x.value)
+        except Exception:
+            pass
+    return float(x)
+
+
+
+
+def _embed_template_on_strain_grid(template: GWpyTimeSeries, strain: GWpyTimeSeries, fs: float) -> GWpyTimeSeries:
+    """Embed a (possibly short) template onto the strain time grid with zero padding.
+
+    Used for SEOBNRv5 scalar-spin adapter outputs so whitening uses a consistent grid.
+    """
+    n = int(len(strain))
+    out = np.zeros(n, dtype=float)
+
+    try:
+        t0_strain = _sec(strain.t0.value)
+    except Exception:
+        t0_strain = _sec(getattr(strain, "t0", 0.0))
+
+    try:
+        t0_tpl = _sec(template.t0.value)
+    except Exception:
+        t0_tpl = _sec(getattr(template, "t0", 0.0))
+
+    start_idx = int(round((t0_tpl - t0_strain) * fs))
+    tpl_vals = np.asarray(template.value, dtype=float)
+
+    i0 = max(0, start_idx)
+    j0 = max(0, -start_idx)
+    ncopy = min(n - i0, len(tpl_vals) - j0)
+    if ncopy > 0:
+        out[i0:i0+ncopy] = tpl_vals[j0:j0+ncopy]
+
+    return GWpyTimeSeries(out, sample_rate=fs, t0=t0_strain)
+
+def _as_gwpy_timeseries(ts, fs: float) -> GWpyTimeSeries:
+    """Convert a PyCBC (or array-like) TimeSeries to GWpy TimeSeries, preserving epoch when possible."""
+    if isinstance(ts, GWpyTimeSeries):
+        return ts
+    # PyCBC TimeSeries
+    if isinstance(ts, PyCBCTimeSeries):
+        data = np.asarray(ts.numpy())
+        try:
+            t0 = _sec(getattr(ts, "start_time"))
+        except Exception:
+            try:
+                t0 = _sec(getattr(ts, "epoch"))
+            except Exception:
+                t0 = 0.0
+        return GWpyTimeSeries(data, sample_rate=fs, t0=t0)
+    # Something with .value and .t0
+    if hasattr(ts, "value") and hasattr(ts, "t0"):
+        data = np.asarray(ts.value)
+        try:
+            t0 = _sec(getattr(ts, "t0"))
+        except Exception:
+            t0 = 0.0
+        return GWpyTimeSeries(data, sample_rate=fs, t0=t0)
+    # Fallback: raw array, unknown epoch
+    data = np.asarray(ts)
+    return GWpyTimeSeries(data, sample_rate=fs, t0=0.0)
+    
+@debug_wrap('generate_projected_waveform')
 def generate_projected_waveform(
-    strain: TimeSeries,
+    strain: GWpyTimeSeries,
     event: str,
     det: str,
     t0: float,
@@ -728,50 +1024,40 @@ def generate_projected_waveform(
     allow_fallback: bool = True,
     event_logs: list[str] | None = None,
 ):
+    """PEViewer-style projected waveform + whitened overlay inputs.
+
+    This reproduces PEViewer's logic:
+      - crop time window is centered on the event geocenter GPS (GWOSC datasets.event_gps),
+        not on a detector-specific maxL time
+      - ASD is built by interpolating the PE PSD onto a target frequency grid with
+        fill_value=np.inf (so whitening ignores frequencies outside PSD support)
+      - template comes directly from posterior_samples.maxL_td_waveform(..., project=det)
+        and is then tapered + padded, whitened, bandpassed, cropped
+
+    SEOBNRv5 special case:
+      - if requested_approximant starts with 'SEOBNRv5' and maxL_td_waveform fails due
+        to invalid vector spins, we fall back to a scalar aligned-spin adapter using
+        GWSignal + PyCBC detector projection.
     """
-    Build projected waveform on detector `det`, whiten + band-pass + crop.
+    # Normalize numeric inputs (Quantities -> floats)
+    f_lo, f_hi = _scalar(freqrange[0]), _scalar(freqrange[1])
+    dt_before, dt_after = _sec(time_window[0]), _sec(time_window[1])
 
-    Parameters
-    ----------
-    time_window : (float, float)
-        (start_before, stop_after) in seconds, where:
-        - start_before > 0 → seconds BEFORE merger (t0 - start_before)
-        - stop_after  > 0 → seconds AFTER  merger (t0 + stop_after)
+    pe_log(f"ℹ️ [INFO] Building projected waveform for {det} ...", event_logs)
 
-    requested_approximant : str or None
-        If provided, try this approximant first (and optionally only this one).
-
-    allow_fallback : bool
-        If False, do not fall back to generic LAL waveforms if the requested/label
-        approximant fails. This is useful to avoid silently producing overlays with
-        a different waveform than the user asked for.
-
-    Returns
-    -------
-    bp_cropped : TimeSeries or None
-        Whitened, band-passed, cropped detector data.
-    crop_temp : TimeSeries or None
-        Whitened, band-passed, cropped projected waveform.
-    used_aprx : str or None
-        Name of the approximant actually used to generate the waveform.
-    """
-    import builtins
-
-    pe_log(f"ℹ️ [INFO] Building projected waveform for {det} ...",event_logs)
-
+    # Posterior samples label
     samples_dict = pedata.samples_dict
     all_labels = list(samples_dict.keys())
     if label is None or label not in all_labels:
         if not all_labels:
-            pe_log("⚠️ [WARN] No samples_dict labels found.",event_logs)
+            pe_log("⚠️ [WARN] No samples_dict labels found.", event_logs)
             return None, None, None
         label = all_labels[0]
-
     posterior_samples = samples_dict[label]
 
-    # Approximant from metadata
-    aprx = _get_approximant_for_label(pedata, label)
-    pe_log(f"ℹ️ [INFO] Initial approximant guess {aprx} and label {label}",event_logs)
+    # Approximant guess from label
+    aprx_guess = _get_approximant_for_label(pedata, label)
+    pe_log(f"ℹ️ [INFO] Initial approximant guess {aprx_guess} and label {label}", event_logs)
 
     # Reference frequency
     fref = 20.0
@@ -783,142 +1069,201 @@ def generate_projected_waveform(
         except Exception:
             pass
 
-    # Choose f_low based on chirp mass
+    # f_low heuristic (as in PEViewer)
     try:
         loglike = posterior_samples["log_likelihood"]
-        maxl_index = loglike.argmax()
+        maxl_index = int(np.argmax(loglike))
         chirp_mass = posterior_samples["chirp_mass"][maxl_index]
         f_low = 60.0 if chirp_mass < 10 else 20.0
     except Exception:
+        maxl_index = 0
         f_low = 20.0
 
-    # PSD for this label
+    # --- PSD / ASD from PE for this label+det ---
+    # PSDs in PE files are not always available (or may be stored as None / missing detector).
+    # In that case, fall back to GWPy's internal PSD estimate via strain.whiten() (no asd=...).
+    asd = None
+    fs = int(_scalar(strain.sample_rate.value))
+    duration = len(strain) * _sec(strain.dt.value)
+
     try:
-        psd_dict = pedata.psd[label]  # dict keyed by 'H1', 'L1', 'V1', ...
+        psd_container = getattr(pedata, "psd", None)
+        psd_entry = psd_container.get(label, None) if hasattr(psd_container, "get") else (psd_container[label] if psd_container is not None else None)
     except Exception:
-        pe_log("⚠️ [WARN] No PSD in PE file – cannot build projected waveform.",event_logs)
-        return None, None, None
+        psd_entry = None
 
-    if det not in psd_dict:
-        pe_log(f"⚠️ [WARN] No PSD for detector {det} – skipping waveform.",event_logs)
-        return None, None, None
+    if isinstance(psd_entry, dict):
+        zippedpsd = psd_entry.get(det, None)
+        if zippedpsd is None:
+            pe_log(f"⚠️ [WARN] No PE PSD for detector {det} under label {label}; whitening will use GWPy PSD estimate.", event_logs)
+        else:
+            # Accept: list-of-(f, psd), Nx2 array, or (freqs, psdvals)
+            try:
+                arr = np.asarray(zippedpsd)
+                if arr.ndim == 2 and arr.shape[1] == 2:
+                    psdfreq = np.asarray(arr[:, 0], dtype=float)
+                    psdvalue = np.asarray(arr[:, 1], dtype=float)
+                elif isinstance(zippedpsd, (list, tuple)) and len(zippedpsd) == 2:
+                    psdfreq = np.asarray(zippedpsd[0], dtype=float)
+                    psdvalue = np.asarray(zippedpsd[1], dtype=float)
+                else:
+                    # Fallback: try unpacking iterable of pairs
+                    psdfreq, psdvalue = zip(*zippedpsd)
+                    psdfreq = np.asarray(psdfreq, dtype=float)
+                    psdvalue = np.asarray(psdvalue, dtype=float)
 
-    zippedpsd = psd_dict[det]
-    psdfreq, psdvalue = zip(*zippedpsd)
+                target_frequencies = np.linspace(0, fs / 2, int(duration * fs / 2), endpoint=False)
+                asdsquare = FrequencySeries(
+                    interp1d(psdfreq, psdvalue, bounds_error=False, fill_value=np.inf)(target_frequencies),
+                    frequencies=target_frequencies,
+                )
+                asd = np.sqrt(asdsquare)
+            except Exception as e:
+                pe_log(f"⚠️ [WARN] Failed to parse/interpolate PE PSD for {det} ({label}): {e}; using GWPy PSD estimate.", event_logs)
+                asd = None
+    else:
+        pe_log(f"⚠️ [WARN] No PE PSD dict for label {label}; whitening will use GWPy PSD estimate.", event_logs)
+# Crop window is centered on GWOSC event geocenter time (PEViewer)
+    try:
+        from gwosc import datasets
+        t0_center = _sec(datasets.event_gps(event))
+    except Exception:
+        # fallback to provided t0 if GWOSC lookup unavailable
+        t0_center = _sec(t0)
 
-    # Build ASD to match data sampling
-    fs = float(strain.sample_rate.value)
-    duration = len(strain) * strain.dt.value
-    target_frequencies = np.linspace(0.0, fs / 2.0, int(duration * fs / 2.0), endpoint=False)
+    cropstart = t0_center - dt_before
+    cropend = t0_center + dt_after
 
-    asdsquare = FrequencySeries(
-        interp1d(psdfreq, psdvalue, bounds_error=False, fill_value=np.inf)(target_frequencies),
-        frequencies=target_frequencies,
-    )
-    asd = np.sqrt(asdsquare)
-
-    # Whiten, band-pass, crop the detector data
-    start_before, stop_after = time_window
-    cropstart = float(t0) - float(start_before)
-    cropend = float(t0) + float(stop_after)
-
-    white_data = strain.whiten(asd=asd)
-    bp_data = white_data.bandpass(freqrange[0], freqrange[1])
+    # Whiten + bandpass + crop strain
+    white_data = strain.whiten(asd=asd) if asd is not None else strain.whiten()
+    bp_data = white_data.bandpass(f_lo, f_hi)
     bp_cropped = bp_data.crop(cropstart, cropend)
 
-    # Build max-L template projected on det
-    hp = None
-    last_err: Optional[str] = None
-    used_aprx: Optional[str] = None
-    tried: List[str] = []
-
-    # Candidate approximants, in order of preference:
-    # 1) user-requested approximant (if any)
-    # 2) PE-derived approximant from metadata
-    # 3) generic fallbacks (only if allow_fallback=True)
-    candidate_aprx: List[str] = []
-
+    # --- Build projected template (PEViewer) ---
+    tries: List[str] = []
     if requested_approximant:
-        candidate_aprx.append(requested_approximant)
-
-    if aprx and aprx not in candidate_aprx:
-        candidate_aprx.append(aprx)
-
+        tries.append(str(requested_approximant))
+    if aprx_guess and aprx_guess not in tries:
+        tries.append(aprx_guess)
     if allow_fallback:
         for fb in ("IMRPhenomXPHM", "IMRPhenomPv2"):
-            if fb not in candidate_aprx:
-                candidate_aprx.append(fb)
+            if fb not in tries:
+                tries.append(fb)
 
-    pe_log(f"ℹ️ [INFO] Approximants to try (in order): {candidate_aprx}",event_logs)
+    pe_log(f"ℹ️ [INFO] Approximants to try (in order): {tries}", event_logs)
 
-    for aprx_try in candidate_aprx:
-        if aprx_try in tried or aprx_try is None:
-            continue
-        tried.append(aprx_try)
+    hp = None
+    used_aprx = None
 
+    for aprx_try in tries:
         try:
-            pe_log(f"ℹ️ [INFO] Trying maxL_td_waveform with approximant {aprx_try}",event_logs)
-            hp_dict = posterior_samples.maxL_td_waveform(
+            pe_log(f"ℹ️ [INFO] Trying maxL_td_waveform with approximant {aprx_try}", event_logs)
+            hp = posterior_samples.maxL_td_waveform(
                 aprx_try,
-                delta_t=1.0 / fs,
+                delta_t=1 / fs,
                 f_low=f_low,
                 f_ref=fref,
                 project=det,
             )
-
-            if isinstance(hp_dict, dict):
-                hp = hp_dict.get("h_plus", None)
-                if hp is None and len(hp_dict):
-                    hp = list(hp_dict.values())[0]
-            else:
-                hp = hp_dict
-
-            if hp is not None:
-                used_aprx = aprx_try
-                pe_log(f"[OK] Built waveform with {aprx_try}",event_logs)
-                break
-
-        except NameError as e:
-            last_err = str(e)
-            pe_log(f"⚠️ [WARN] Failed to build waveform with {aprx_try}: {e}",event_logs)
+            used_aprx = aprx_try
+            pe_log(f"[OK] Built waveform with {aprx_try}", event_logs)
+            break
         except Exception as e:
-            last_err = str(e)
-            pe_log(f"⚠️ [WARN] Failed to build waveform with {aprx_try}: {e}",event_logs)
+            pe_log(f"⚠️ [WARN] Failed to build waveform with {aprx_try}: {e}", event_logs)
+
+            # Special case: SEOBNRv5 vector-spin failure -> scalar-spin adapter fallback
+            if requested_approximant and str(requested_approximant).upper().startswith("SEOBNRV5"):
+                emsg = str(e).lower()
+                spin_hint = ("chi1 has to be in" in emsg) or ("chi_1" in emsg) or ("seobnrv5" in emsg)
+                if spin_hint:
+                    pe_log("ℹ️ [INFO] Retrying SEOBNRv5 using scalar aligned spins (chi1z/chi2z) adapter...", event_logs)
+                    try:
+                        row = _maxl_row(posterior_samples, maxl_index)
+                        ra = _scalar(_first_present(row, ["ra", "right_ascension"], default=0.0))
+                        dec = _scalar(_first_present(row, ["dec", "declination"], default=0.0))
+                        psi = _scalar(_first_present(row, ["psi", "polarization"], default=0.0))
+                        tgps = _sec(_first_present(row, ["geocent_time", "gps_time", "tc"], default=t0_center))
+
+                        hp_src, hc_src = _gwsignal_td_waveform_scalar_spins(
+                            approximant=str(requested_approximant),
+                            params=row,
+                            delta_t=1 / fs,
+                            f_low=f_low,
+                            f_ref=fref,
+                            event_logs=event_logs,
+                        )
+                        hp_proj = _project_hp_hc_to_detector(hp_src, hc_src, det, ra, dec, psi, tgps)
+
+                        # Place adapter waveform in absolute time by aligning its peak to crop center
+                        hp_proj = _to_pycbc_timeseries(hp_proj, delta_t=1 / fs, epoch=0.0)
+                        arr = np.asarray(hp_proj.numpy())
+                        if arr.size > 0:
+                            peak = int(np.argmax(np.abs(arr)))
+                            hp_start = t0_center - peak * (1 / fs)
+                            hp_proj._epoch = hp_start
+
+                        hp = hp_proj
+                        used_aprx = str(requested_approximant) + " (scalar-spin adapter)"
+                        pe_log(f"[OK] Built waveform with {used_aprx}", event_logs)
+                        break
+                    except Exception as ee:
+                        pe_log(f"⚠️ [WARN] Scalar-spin adapter failed: {ee}", event_logs)
+                        hp = None
+                        used_aprx = None
+                        continue
 
     if hp is None:
-        if requested_approximant and not allow_fallback:
-            pe_log(
-                f"⚠️ [WARN] Could not build waveform with requested approximant "
-                f"{requested_approximant}; fallback disabled, skipping.",event_logs
-            )
-        else:
-            pe_log("⚠️ [WARN] Could not build waveform with any approximant; skipping.",event_logs)
+        pe_log("⚠️ [WARN] Could not build waveform with any approximant; skipping.", event_logs)
         return None, None, None
 
-    if requested_approximant and used_aprx != requested_approximant:
-        pe_log(
-            f"⚠️ [WARN] Requested approximant {requested_approximant} but used {used_aprx} fallback.",event_logs
-        )
+    if requested_approximant and used_aprx and used_aprx != requested_approximant:
+        pe_log(f"⚠️ [WARN] Requested approximant {requested_approximant} but used {used_aprx} fallback.", event_logs)
 
-    hp = hp.taper()
-    hp = hp.pad(int(60 * fs))
+    # Template processing exactly like PEViewer
+    try:
+        hp = hp.taper()
+    except Exception:
+        pass
+    try:
+        hp = hp.pad(60 * fs)
+    except Exception:
+        pass
 
-    white_temp = hp.whiten(asd=asd)
-    bp_temp = white_temp.bandpass(freqrange[0], freqrange[1])
+    white_temp = hp_gw = _as_gwpy_timeseries(hp, fs)
+    if used_aprx and "scalar-spin adapter" in str(used_aprx):
+        hp_gw = _embed_template_on_strain_grid(hp_gw, strain, fs)
+    white_temp = hp_gw.whiten(asd=asd) if asd is not None else hp_gw.whiten()
+    bp_temp = white_temp.bandpass(f_lo, f_hi)
     crop_temp = bp_temp.crop(cropstart, cropend)
 
-    pe_log(f"ℹ️ [OK] Projected waveform for {det} built (approximant {used_aprx}).",event_logs)
+    pe_log(f"ℹ️ [OK] Projected waveform for {det} built (approximant {used_aprx}).", event_logs)
     return bp_cropped, crop_temp, used_aprx
 
-
+def _sec(x) -> float:
+    """Convert Quantity/LIGOTimeGPS/float-like to float seconds."""
+    if x is None:
+        raise TypeError("Cannot convert None to seconds")
+    # astropy Quantity
+    try:
+        return float(x.to_value("s"))  # Quantity -> seconds
+    except Exception:
+        pass
+    # LIGOTimeGPS / numpy scalar / python float
+    try:
+        return float(x)
+    except Exception:
+        pass
+    # last resort: objects with .value
+    return float(getattr(x, "value"))
 
 # ---------------------------------------------------------------------
 # Plotting utilities
 # ---------------------------------------------------------------------
 
+@debug_wrap('plot_whitened_overlay')
 def plot_whitened_overlay(
-    bp_cropped: TimeSeries,
-    crop_temp: TimeSeries,
+    bp_cropped: GWpyTimeSeries,
+    crop_temp: GWpyTimeSeries,
     event: str,
     det: str,
     outdir: str| Path,
@@ -945,8 +1290,9 @@ def plot_whitened_overlay(
         t0 = t_abs[len(t_abs)//2]
 
     # Convert to time relative to t0 (s)
-    t_rel_data = t_abs - float(t0)
-    t_rel_temp = crop_temp.times.value - float(t0)
+    t0s = _sec(t0)
+    t_rel_data = t_abs - t0s
+    t_rel_temp = crop_temp.times.value - t0s
 
 
     # Compact fonts
@@ -998,8 +1344,9 @@ def plot_whitened_overlay(
     return fname
 
 
+@debug_wrap('plot_time_frequency')
 def plot_time_frequency(
-    strain: TimeSeries,
+    strain: GWpyTimeSeries,
     t0: float,
     event: str,
     det: str,
@@ -1079,8 +1426,6 @@ def plot_time_frequency(
 
     print(f"ℹ️ [OK] Saved {fname}")
     return fname
-
-from typing import Dict, Optional, Tuple, List, Any
 
 def plot_posterior_pairs(
     posterior_samples: dict[str, Any],
@@ -1313,7 +1658,7 @@ def plot_basic_posteriors(
 
 
 def compare_spectrogram_vs_qtransform(
-    strain: TimeSeries,
+    strain: GWpyTimeSeries,
     t0: float,
     event: str,
     det: str,

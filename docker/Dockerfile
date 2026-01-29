@@ -3,10 +3,13 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ---- system deps ----
+
+# do normal verified install
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl bzip2 git \
-    build-essential \
+    ca-certificates curl \
+ && update-ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+
 
 # ---- install Miniforge (conda-forge) ----
 ARG MINIFORGE_VERSION=24.7.1-0

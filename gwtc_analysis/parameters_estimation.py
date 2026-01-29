@@ -702,6 +702,7 @@ def run_parameters_estimation(
 
     data = None
     label_waveform: Optional[str] = None
+    label_samples: Optional[str] = None
     local_pe_path: Optional[str] = None
 
     try:
@@ -838,24 +839,25 @@ def run_parameters_estimation(
             samples_dict = data.samples_dict
             labels = list(data.labels)
 
-            label = select_label(
+            label_samples = select_label(
                 data,
-                pe_label,
+                pe_label=(label_samples or pe_label),
+                pe_label_waveform=label_waveform,
+                waveform_engine=waveform_engine,
                 require_psd=False,
                 show_labels=True,
                 context="samples",
                 event_logs=event_logs,
             )
 
-            if label is None:
+            if label_samples is None:
                 pe_log(f"❌ [ERROR] PE samples: no suitable label found; labels present: {labels}", event_logs)
                 go_next_cell = False
             else:
-                label_waveform = label
-                pe_log(f"ℹ️ [INFO] PE samples: final label = {label}", event_logs)
+                pe_log(f"ℹ️ [INFO] PE samples: final label = {label_samples}", event_logs)
 
-                posterior_samples = samples_dict[label]
-                approximant_for_title = label.split(":", 1)[1] if ":" in label else label
+                posterior_samples = samples_dict[label_samples]
+                approximant_for_title = label_samples.split(":", 1)[1] if ":" in label_samples else label_samples
 
                 posterior_info = plot_basic_posteriors(
                     posterior_samples,
@@ -865,8 +867,8 @@ def run_parameters_estimation(
                     extra_params=pe_vars,
                 )
                 posterior_files: dict[str, str] = posterior_info.get("plots", {})
-                posterior_keys_by_label[label] = posterior_info.get("available_keys", [])
-                missing_by_label[label] = posterior_info.get("missing_requested", [])
+                posterior_keys_by_label[label_samples] = posterior_info.get("available_keys", [])
+                missing_by_label[label_samples] = posterior_info.get("missing_requested", [])
 
                 # Optional 2D pairs
                 pair_info = plot_posterior_pairs(
@@ -877,7 +879,7 @@ def run_parameters_estimation(
                     approximant=approximant_for_title,
                 )
                 pair_files: dict[str, str] = pair_info.get("plots", {})
-                posterior_pairs_missing_by_label[label] = pair_info.get("missing_pairs", [])
+                posterior_pairs_missing_by_label[label_samples] = pair_info.get("missing_pairs", [])
 
                 for _tok, fname in {**pair_files, **posterior_files}.items():
                     result.files_distribution.append(fname)
@@ -900,7 +902,8 @@ def run_parameters_estimation(
 
             label_waveform = select_label(
                 data,
-                waveform_engine,
+                pe_label=None,
+                waveform_engine=waveform_engine,
                 require_psd=True,
                 show_labels=False,
                 context="strain",
@@ -979,10 +982,10 @@ def run_parameters_estimation(
                 t0 = merger_times[det]
 
                 # Keep the PE label for reading PSD/samples/skymap
-                pe_label = label_waveform
+                pe_label_waveform = label_waveform
 
                 # Derive the "RHS" of the PE label (e.g. "IMRPhenomXPHM-SpinTaylor")
-                pe_rhs = pe_label.split(":", 1)[1] if ":" in pe_label else pe_label
+                pe_rhs = pe_label_waveform.split(":", 1)[1] if (isinstance(pe_label_waveform, str) and ":" in pe_label_waveform) else pe_label_waveform
 
                 # Engine approximant to pass to maxL_td_waveform (LAL/GWSignal-friendly)
                 requested_engine_aprx = (
@@ -992,7 +995,7 @@ def run_parameters_estimation(
 
                 pe_log(
                     f"ℹ️ [INFO] Overlay config for {det}: "
-                    f"PE label={pe_label}, PE rhs={pe_rhs}, engine requested={requested_engine_aprx}", event_logs
+                    f"PE label={pe_label_waveform}, PE rhs={pe_rhs}, engine requested={requested_engine_aprx}", event_logs
                 )
 
                 bp_cropped, crop_temp, used_aprx = generate_projected_waveform(
@@ -1001,7 +1004,7 @@ def run_parameters_estimation(
                     det=det,
                     t0=t0,
                     pedata=data,
-                    label=pe_label,                          # PE label for PSD/maxL context
+                    label=pe_label_waveform,                      # PE label for PSD/maxL context
                     requested_approximant=requested_engine_aprx,  # engine approximant
                     allow_fallback=True,
                     freqrange=(fs_low, fs_high),
