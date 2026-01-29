@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tool id="gwtc_analysis" name="GWTC analysis" version="0.3.2" profile="22.05">
+<tool id="gwtc_analysis" name="GWTC analysis" version="0.3.3" profile="22.05">
   <description>Catalog statistics, event selection, skymap search, parameter estimation</description>
   <requirements>
-    <container type="docker">danielsentenac/gwtc-tool:v0.3.2</container>
-    <container type="singularity">docker://danielsentenac/gwtc-tool:v0.3.2</container>
+    <container type="docker">danielsentenac/gwtc-tool:v0.3.3</container>
+    <container type="singularity">docker://danielsentenac/gwtc-tool:v0.3.3</container>
   </requirements>
    <command detect_errors="exit_code"><![CDATA[
 #set $cmd = "python -m gwtc_analysis.cli"
