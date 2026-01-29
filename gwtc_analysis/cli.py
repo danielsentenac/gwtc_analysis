@@ -136,7 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
     p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
-    p_sky.add_argument("--skymap_label", default="Mixed", help="Label selector used to filter skymap (default: Mixed).")
+    p_sky.add_argument("--skymap-label", default="Mixed", help="Label selector used to filter skymap (default: Mixed).")
     p_sky.add_argument("--out-events", default="search_skymaps.tsv", help="Output TSV file (default: search_skymaps.tsv).")
     p_sky.add_argument("--out-report", default="search_skymaps.html", help="Optional output HTML report path for hits.")
     p_sky.add_argument("--plots-dir", default="sky_plots", help="Directory for hit plots (default: sky_plots).")
