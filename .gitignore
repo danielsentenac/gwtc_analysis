@@ -33,3 +33,7 @@ Thumbs.db
 # Jupyter
 .ipynb_checkpoints/
 gwtc_analysis-feedstock/
+
+# Local caches
+.cache_gwosc/
+.codex

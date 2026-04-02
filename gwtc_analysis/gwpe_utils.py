@@ -1354,45 +1354,69 @@ def plot_time_frequency(
     outdir: str | Path,
     outseg: Tuple[float, float] = (-2.0, 2.0),
     frange: Tuple[float, float] = (20.0, 512.0),
+    fscale: str = "log",
     approximant: Optional[str] = None,
 ) -> str:
     """
-    Make a q-transform around t0 and save as PNG, using pure matplotlib.
+    Make a q-transform around t0 and save as PNG.
 
     - X-axis: time relative to t0 (seconds), centered around 0.
     - GPS reference t0 is shown in the title.
+    - Uses GWpy's normalized Q energy directly (not log10 of the energy),
+      matching the usual public-style GW diagnostic plots more closely.
     """
     outdir = Path(outdir)  # normalize
     ensure_outdir(outdir)
     print(f"ℹ️ [INFO] Computing q-transform for {det} ...")
 
-    # Time window around t0 in absolute GPS
-    seg = (float(t0) + outseg[0], float(t0) + outseg[1])
+    # Respect the caller-provided time window around t0.
+    seg = (float(t0) + float(outseg[0]), float(t0) + float(outseg[1]))
+
+    # Respect the caller-provided frequency range.
+    q_frange = (float(frange[0]), float(frange[1]))
+    q_fscale = str(fscale).strip().lower()
+    if q_fscale not in {"linear", "log"}:
+        raise ValueError(f"Unsupported q-transform frequency scale: {fscale!r}")
+
+    # Focus the selected Q plane around the merger time, otherwise loud nearby
+    # glitches can dominate the transform (notably GW170817 L1).
+    search = min(0.4, max(0.1, 0.25 * (seg[1] - seg[0])))
 
     # Compute q-transform
-    q = strain.q_transform(outseg=seg, frange=frange)
+    q = strain.q_transform(
+        outseg=seg,
+        frange=q_frange,
+        gps=float(t0),
+        search=search,
+        qrange=(8, 64),
+        logf=(q_fscale == "log"),
+        fres=500,
+        norm="median",
+        highpass=max(15.0, min(20.0, q_frange[0])),
+    )
 
     # Absolute times (GPS) and frequencies
     t_abs = q.times.value
     f = q.frequencies.value
-    z = np.abs(q.value)
+    z = np.asarray(q.value, dtype=float)
 
     # Δt axis (seconds relative to merger)
     t_rel = t_abs - float(t0)
 
-    # Log10 energy
-    eps = 1e-24
-    z_log = np.log10(np.maximum(z, eps)).T
-    vmin, vmax = np.percentile(z_log, [5, 99])
+    # Q-transform already returns normalized energy. Clip robustly so that
+    # a loud glitch does not completely hide the merger signal.
+    vmin = 0.0
+    vmax = 25.0
 
     fig, ax = plt.subplots(figsize=(6, 4))
-    im = ax.imshow(
-        z_log,
-        extent=[t_rel[0], t_rel[-1], f[0], f[-1]],
-        origin="lower",
-        aspect="auto",
+    im = ax.pcolormesh(
+        t_rel,
+        f,
+        z.T,
+        shading="auto",
         vmin=vmin,
         vmax=vmax,
+        cmap="viridis",
     )
 
     small = 8
@@ -1401,7 +1425,8 @@ def plot_time_frequency(
     # Axes labels and ticks
     ax.set_xlabel("Time relative to merger (s)", fontsize=small)
     ax.set_ylabel("Frequency (Hz)", fontsize=small)
-    ax.set_ylim(frange)
+    ax.set_yscale(q_fscale)
+    ax.set_ylim(q_frange)
     ax.tick_params(axis="both", which="major", labelsize=smaller)
 
     # Nice number of ticks on Δt axis, plain formatting
@@ -1415,7 +1440,7 @@ def plot_time_frequency(
 
     # Colorbar
     cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label("log10(energy)", fontsize=small)
+    cbar.set_label("Normalized energy", fontsize=small)
     cbar.ax.tick_params(labelsize=smaller)
 
     plt.tight_layout()
@@ -1750,4 +1775,3 @@ def compare_spectrogram_vs_qtransform(
     plt.close()
     print(f"ℹ️ [OK] Saved {fname}")
     return fname
-
