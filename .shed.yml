@@ -23,7 +23,7 @@ long_description: |
     the GWOSC public API for metadata. This requires outbound network access.
 
   Container runtime:
-  docker://danielsentenac/gwtc-tool:v0.3.1 (executed via Apptainer/Singularity).
+  docker://danielsentenac/gwtc-tool:v0.3.4 (executed via Apptainer/Singularity).
 
 homepage_url: https://github.com/danielsentenac/gwtc_analysis
 remote_repository_url: https://github.com/danielsentenac/gwtc_analysis

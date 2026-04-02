@@ -1,5 +1,5 @@
 {% set name = "gwtc_analysis" %}
-{% set version = "0.3.2" %}
+{% set version = "0.3.4" %}
 
 package:
   name: {{ name|lower }}
@@ -48,6 +48,7 @@ test:
     - python -m gwtc_analysis.cli event_selection -h
     - python -m gwtc_analysis.cli catalog_statistics -h
     - python -m gwtc_analysis.cli parameters_estimation -h
+    - python -m gwtc_analysis.cli build_unofficial_pe -h
   requires:
     - pip
 
@@ -59,4 +60,3 @@ about:
 extra:
   recipe-maintainers:
     - danielsentenac: daniel.sentenac@ligo.org
-
