@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tool id="gwtc_analysis" name="GWTC analysis" version="0.3.2" profile="22.05">
+<tool id="gwtc_analysis" name="GWTC analysis" version="0.3.4" profile="22.05">
   <description>Catalog statistics, event selection, skymap search, parameter estimation</description>
   <requirements>
-    <container type="docker">danielsentenac/gwtc-tool:v0.3.2</container>
-    <container type="singularity">docker://danielsentenac/gwtc-tool:v0.3.2</container>
+    <container type="docker">danielsentenac/gwtc-tool:v0.3.4</container>
+    <container type="singularity">docker://danielsentenac/gwtc-tool:v0.3.4</container>
   </requirements>
    <command detect_errors="exit_code"><![CDATA[
 #set $cmd = "python -m gwtc_analysis.cli"
@@ -62,7 +62,7 @@
     #set $cmd = $cmd + " --ra-deg '" + str($mode.ra_deg) + "'"
     #set $cmd = $cmd + " --dec-deg '" + str($mode.dec_deg) + "'"
     #set $cmd = $cmd + " --prob '" + str($mode.prob) + "'"
-    #set $cmd = $cmd + " --skymap_label '" + str($mode.skymap_label) + "'"
+    #set $cmd = $cmd + " --skymap-label '" + str($mode.skymap_label) + "'"
     #set $cmd = $cmd + " --out-events '" + str($out_events) + "'"
     #set $cmd = $cmd + " --out-report '" + str($out_report) + "'"
     #set $cmd = $cmd + " --plots-dir '" + str($mode.plots_dir) + "'"
@@ -92,8 +92,33 @@
 
     #set $cmd = $cmd + " --start '" + str($mode.start) + "'"
     #set $cmd = $cmd + " --stop '" + str($mode.stop) + "'"
-    #set $cmd = $cmd + " --fs-low '" + str($mode.fs_low) + "'"
-    #set $cmd = $cmd + " --fs-high '" + str($mode.fs_high) + "'"
+    #set $cmd = $cmd + " --fmin '" + str($mode.fmin) + "'"
+    #set $cmd = $cmd + " --fmax '" + str($mode.fmax) + "'"
+    #if str($mode.overlay_start) != ""
+        #set $cmd = $cmd + " --overlay-start '" + str($mode.overlay_start) + "'"
+    #end if
+    #if str($mode.overlay_stop) != ""
+        #set $cmd = $cmd + " --overlay-stop '" + str($mode.overlay_stop) + "'"
+    #end if
+    #if str($mode.overlay_fmin) != ""
+        #set $cmd = $cmd + " --overlay-fmin '" + str($mode.overlay_fmin) + "'"
+    #end if
+    #if str($mode.overlay_fmax) != ""
+        #set $cmd = $cmd + " --overlay-fmax '" + str($mode.overlay_fmax) + "'"
+    #end if
+    #if str($mode.q_start) != ""
+        #set $cmd = $cmd + " --q-start '" + str($mode.q_start) + "'"
+    #end if
+    #if str($mode.q_stop) != ""
+        #set $cmd = $cmd + " --q-stop '" + str($mode.q_stop) + "'"
+    #end if
+    #if str($mode.q_fmin) != ""
+        #set $cmd = $cmd + " --q-fmin '" + str($mode.q_fmin) + "'"
+    #end if
+    #if str($mode.q_fmax) != ""
+        #set $cmd = $cmd + " --q-fmax '" + str($mode.q_fmax) + "'"
+    #end if
+    #set $cmd = $cmd + " --q-fscale '" + str($mode.q_fscale) + "'"
     #set $cmd = $cmd + " --pe-label '" + str($mode.pe_label) + "'"
     #set $cmd = $cmd + " --waveform-engine '" + str($mode.waveform_engine) + "'"
 
@@ -175,10 +200,22 @@
         </param>
         <param name="pe_vars" type="text" optional="true" multiple="true" label="PE variables to plot (1D)" help="Space-separated parameters."/>
         <param name="pe_pairs" type="text" optional="true" multiple="true" label="PE variable pairs to plot (2D)" help="Space-separated parameter pairs like x:y (e.g. chi_eff:chi_p)."/>
-        <param name="start" type="float" label="Seconds before GPS time" value="0.2"/>
-        <param name="stop" type="float" label="Seconds after GPS time" value="0.1"/>
-        <param name="fs_low" type="float" label="Bandpass low frequency (Hz)" value="20.0"/>
-        <param name="fs_high" type="float" label="Bandpass high frequency (Hz)" value="300.0"/>
+        <param name="start" type="float" label="Default seconds before GPS time" value="0.2"/>
+        <param name="stop" type="float" label="Default seconds after GPS time" value="0.1"/>
+        <param name="fmin" type="float" label="Default low frequency bound (Hz)" value="20.0"/>
+        <param name="fmax" type="float" label="Default high frequency bound (Hz)" value="300.0"/>
+        <param name="overlay_start" type="float" optional="true" label="Overlay-only seconds before GPS time" />
+        <param name="overlay_stop" type="float" optional="true" label="Overlay-only seconds after GPS time" />
+        <param name="overlay_fmin" type="float" optional="true" label="Overlay-only low frequency bound (Hz)" />
+        <param name="overlay_fmax" type="float" optional="true" label="Overlay-only high frequency bound (Hz)" />
+        <param name="q_start" type="float" optional="true" label="Q-transform-only seconds before GPS time" />
+        <param name="q_stop" type="float" optional="true" label="Q-transform-only seconds after GPS time" />
+        <param name="q_fmin" type="float" optional="true" label="Q-transform-only low frequency bound (Hz)" />
+        <param name="q_fmax" type="float" optional="true" label="Q-transform-only high frequency bound (Hz)" />
+        <param name="q_fscale" type="select" label="Q-transform frequency scale">
+          <option value="log" selected="true">log</option>
+          <option value="linear">linear</option>
+        </param>
         <param name="pe_label" type="text" label="Sample method / label selector" value="Mixed"/>
         <param name="waveform_engine" type="text" label="Strain approximant" value="IMRPhenomXPHM"/>
       </when>
