@@ -31,6 +31,8 @@ import warnings
 
 import requests
 
+from .unofficial_pe import build_unofficial_pe_bundle
+
 
 # ---------------------------------------------------------------------
 # Result container
@@ -217,6 +219,24 @@ def choose_best_pe_file(candidates: list[dict[str, Any]]) -> dict[str, Any] | No
             if low(c.get("filename", "")).endswith(ext):
                 return c
     return candidates[0]
+
+
+def _maybe_use_unofficial_bundle(
+    src_name: str,
+    *,
+    log_cb: Callable[[str], None] | None = None,
+    cache_dir: str | Path = ".cache_gwosc",
+) -> str | None:
+    path = build_unofficial_pe_bundle(
+        src_name,
+        cache_dir=cache_dir,
+        log_cb=log_cb,
+    )
+    if path is None:
+        return None
+    if log_cb:
+        log_cb(f"ℹ️ [INFO] Using unofficial local PE bundle for {src_name}: {path}")
+    return str(path)
 
 
 # ---------------------------------------------------------------------
@@ -598,8 +618,19 @@ def run_parameters_estimation(
     plots_dir: str | None = None,
     start: float = 0.5,
     stop: float = 0.1,
-    fs_low: float = 20.0,
-    fs_high: float = 300.0,
+    fmin: float | None = None,
+    fmax: float | None = None,
+    fs_low: float | None = None,
+    fs_high: float | None = None,
+    overlay_start: float | None = None,
+    overlay_stop: float | None = None,
+    overlay_fmin: float | None = None,
+    overlay_fmax: float | None = None,
+    q_start: float | None = None,
+    q_stop: float | None = None,
+    q_fmin: float | None = None,
+    q_fmax: float | None = None,
+    q_fscale: str = "log",
     pe_label: str = "Mixed",
     waveform_engine: str = "IMRPhenomXPHM",
     out_report_html: str | None = None,
@@ -616,6 +647,60 @@ def run_parameters_estimation(
     global LAST_RESULT
     
     import os
+
+    def _resolve_shared(value: float | None, legacy: float | None, default: float) -> float:
+        if value is not None:
+            return float(value)
+        if legacy is not None:
+            return float(legacy)
+        return float(default)
+
+    def _resolve_override(value: float | None, default: float) -> float:
+        if value is None:
+            return float(default)
+        return float(value)
+
+    def _validate_duration(name: str, value: float) -> None:
+        if value < 0:
+            raise ValueError(f"{name} must be non-negative, got {value}")
+
+    def _validate_frequency_range(name: str, lo: float, hi: float) -> None:
+        if lo <= 0 or hi <= 0:
+            raise ValueError(f"{name} must be strictly positive, got ({lo}, {hi})")
+        if lo >= hi:
+            raise ValueError(f"{name} must satisfy min < max, got ({lo}, {hi})")
+
+    shared_fmin = _resolve_shared(fmin, fs_low, 20.0)
+    shared_fmax = _resolve_shared(fmax, fs_high, 300.0)
+    overlay_start = _resolve_override(overlay_start, start)
+    overlay_stop = _resolve_override(overlay_stop, stop)
+    overlay_fmin = _resolve_override(overlay_fmin, shared_fmin)
+    overlay_fmax = _resolve_override(overlay_fmax, shared_fmax)
+    q_start = _resolve_override(q_start, start)
+    q_stop = _resolve_override(q_stop, stop)
+    q_fmin = _resolve_override(q_fmin, shared_fmin)
+    q_fmax = _resolve_override(q_fmax, shared_fmax)
+    q_fscale = str(q_fscale).strip().lower()
+
+    for name, value in (
+        ("start", float(start)),
+        ("stop", float(stop)),
+        ("overlay-start", overlay_start),
+        ("overlay-stop", overlay_stop),
+        ("q-start", q_start),
+        ("q-stop", q_stop),
+    ):
+        _validate_duration(name, value)
+
+    for name, lo, hi in (
+        ("shared frequency range", shared_fmin, shared_fmax),
+        ("overlay frequency range", overlay_fmin, overlay_fmax),
+        ("q-transform frequency range", q_fmin, q_fmax),
+    ):
+        _validate_frequency_range(name, lo, hi)
+
+    if q_fscale not in {"linear", "log"}:
+        raise ValueError(f"q-fscale must be 'linear' or 'log', got {q_fscale!r}")
 
     # ---------------------------------------------------------------------
     # Normalize output dir
@@ -688,6 +773,25 @@ def run_parameters_estimation(
 
     go_next_cell = True
 
+    pe_log(
+        "ℹ️ [INFO] Shared PE plotting defaults: "
+        f"window=(-{float(start):g}, +{float(stop):g}) s, "
+        f"frange=({shared_fmin:g}, {shared_fmax:g}) Hz",
+        event_logs,
+    )
+    pe_log(
+        "ℹ️ [INFO] Overlay overrides: "
+        f"window=(-{overlay_start:g}, +{overlay_stop:g}) s, "
+        f"frange=({overlay_fmin:g}, {overlay_fmax:g}) Hz",
+        event_logs,
+    )
+    pe_log(
+        "ℹ️ [INFO] Q-transform overrides: "
+        f"window=(-{q_start:g}, +{q_stop:g}) s, "
+        f"frange=({q_fmin:g}, {q_fmax:g}) Hz, fscale={q_fscale}",
+        event_logs,
+    )
+
     def _progress(stage: str, progress: int, substage: str) -> None:
         if pr is not None:
             try:
@@ -711,25 +815,35 @@ def run_parameters_estimation(
 
             index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
             if src_name not in index:
-                pe_log(f"⚠️ [WARN] Event {src_name} not found in cached Zenodo index. Refreshing index…", event_logs)
-                index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=True)
+                local_pe_path = _maybe_use_unofficial_bundle(
+                    src_name,
+                    log_cb=lambda msg: pe_log(msg, event_logs),
+                )
+                if local_pe_path is None:
+                    pe_log(f"⚠️ [WARN] Event {src_name} not found in cached Zenodo index. Refreshing index…", event_logs)
+                    index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=True)
 
             cands = index.get(src_name, [])
             chosen = choose_best_pe_file(cands)
-            if chosen is None:
-                keys = list(index.keys())
-                sugg = get_close_matches(src_name, keys, n=5, cutoff=0.6)
-                msg = (
-                    f"No Zenodo PE file found for event {src_name}. "
-                    f"Closest matches: {', '.join(sugg) if sugg else '(none)'}"
+            if local_pe_path is None and chosen is None:
+                local_pe_path = _maybe_use_unofficial_bundle(
+                    src_name,
+                    log_cb=lambda msg: pe_log(msg, event_logs),
                 )
-                pe_log(f"❌ [ERROR] {msg}", event_logs)
-                raise ValueError(msg)
-
-            local_path = download_zenodo_pe_file(
-                chosen, outdir=outdir, progress_cb=_progress if pr is not None else None, log_cb=lambda m: pe_log(m, event_logs),
-            )
-            local_pe_path = str(local_path)
+                if local_pe_path is None:
+                    keys = list(index.keys())
+                    sugg = get_close_matches(src_name, keys, n=5, cutoff=0.6)
+                    msg = (
+                        f"No Zenodo PE file found for event {src_name}. "
+                        f"Closest matches: {', '.join(sugg) if sugg else '(none)'}"
+                    )
+                    pe_log(f"❌ [ERROR] {msg}", event_logs)
+                    raise ValueError(msg)
+            elif local_pe_path is None and chosen is not None:
+                local_path = download_zenodo_pe_file(
+                    chosen, outdir=outdir, progress_cb=_progress if pr is not None else None, log_cb=lambda m: pe_log(m, event_logs),
+                )
+                local_pe_path = str(local_path)
 
         elif data_repo == "s3":
             from minio import Minio  # type: ignore
@@ -764,9 +878,14 @@ def run_parameters_estimation(
                     break
 
             if remote_file is None:
-                msg = f"❌ [ERROR] No PE file for event {src_name} found in S3 bucket 'gwtc'"
-                pe_log(msg, event_logs)
-                go_next_cell = False
+                local_pe_path = _maybe_use_unofficial_bundle(
+                    src_name,
+                    log_cb=lambda msg: pe_log(msg, event_logs),
+                )
+                if local_pe_path is None:
+                    msg = f"❌ [ERROR] No PE file for event {src_name} found in S3 bucket 'gwtc'"
+                    pe_log(msg, event_logs)
+                    go_next_cell = False
             else:
                 local_pe_path = remote_file  # keep same relative structure
                 local_path = Path(local_pe_path)
@@ -792,11 +911,16 @@ def run_parameters_estimation(
             else:
                 found = _find_local_pe_file(src_name, pe_dirs)
                 if found is None:
-                    pe_log(
-                        "❌ [ERROR] Galaxy mode: no PE file found for "
-                        f"{src_name} under: {', '.join(str(p) for p in pe_dirs)}", event_logs
+                    local_pe_path = _maybe_use_unofficial_bundle(
+                        src_name,
+                        log_cb=lambda msg: pe_log(msg, event_logs),
                     )
-                    go_next_cell = False
+                    if local_pe_path is None:
+                        pe_log(
+                            "❌ [ERROR] Galaxy mode: no PE file found for "
+                            f"{src_name} under: {', '.join(str(p) for p in pe_dirs)}", event_logs
+                        )
+                        go_next_cell = False
                 else:
                     local_pe_path = str(found)
                     pe_log(f"ℹ️ [INFO] Galaxy mode: using PE file {local_pe_path}", event_logs)
@@ -807,11 +931,16 @@ def run_parameters_estimation(
                 outdir.glob(f"*{src_name}*PEDataRelease*.hdf5")
             )
             if not candidates:
-                pe_log(
-                    "❌ [ERROR] local mode: no PE file found in output directory. "
-                    "Provide a PEDataRelease .h5/.hdf5 file or use --data-repo s3/zenodo/galaxy.", event_logs
+                local_pe_path = _maybe_use_unofficial_bundle(
+                    src_name,
+                    log_cb=lambda msg: pe_log(msg, event_logs),
                 )
-                go_next_cell = False
+                if local_pe_path is None:
+                    pe_log(
+                        "❌ [ERROR] local mode: no PE file found in output directory. "
+                        "Provide a PEDataRelease .h5/.hdf5 file or use --data-repo s3/zenodo/galaxy.", event_logs
+                    )
+                    go_next_cell = False
             else:
                 local_pe_path = str(candidates[0])
                 pe_log(f"ℹ️ [INFO] local mode: using PE file {local_pe_path}", event_logs)
@@ -961,8 +1090,10 @@ def run_parameters_estimation(
     if go_next_cell and data is not None and label_waveform is not None:
         _progress("Generate projected waveforms", 90, "step 5")
         try:
-            start_before = float(start)
-            stop_after = float(stop)
+            overlay_start_before = float(overlay_start)
+            overlay_stop_after = float(overlay_stop)
+            q_start_before = float(q_start)
+            q_stop_after = float(q_stop)
 
             def _sanitize_for_engine(aprx: str | None) -> str | None:
                 """Convert PE-style labels (e.g. IMRPhenomXPHM-SpinTaylor) into LAL-friendly names."""
@@ -1007,8 +1138,8 @@ def run_parameters_estimation(
                     label=pe_label_waveform,                      # PE label for PSD/maxL context
                     requested_approximant=requested_engine_aprx,  # engine approximant
                     allow_fallback=True,
-                    freqrange=(fs_low, fs_high),
-                    time_window=(start_before, stop_after),
+                    freqrange=(overlay_fmin, overlay_fmax),
+                    time_window=(overlay_start_before, overlay_stop_after),
                     event_logs=event_logs,
                 )
 
@@ -1044,8 +1175,9 @@ def run_parameters_estimation(
                         event=src_name,
                         det=det,
                         outdir=outdir,
-                        outseg=(-start_before, stop_after),
-                        frange=(fs_low, fs_high),
+                        outseg=(-q_start_before, q_stop_after),
+                        frange=(q_fmin, q_fmax),
+                        fscale=q_fscale,
                         approximant=used_aprx,
                     )
                     result.files_strain.append(fname_q)
@@ -1145,8 +1277,17 @@ def run_parameters_estimation(
                 src_name=src_name,
                 start=start,
                 stop=stop,
-                fs_low=fs_low,
-                fs_high=fs_high,
+                fmin=shared_fmin,
+                fmax=shared_fmax,
+                overlay_start=overlay_start,
+                overlay_stop=overlay_stop,
+                overlay_fmin=overlay_fmin,
+                overlay_fmax=overlay_fmax,
+                q_start=q_start,
+                q_stop=q_stop,
+                q_fmin=q_fmin,
+                q_fmax=q_fmax,
+                q_fscale=q_fscale,
                 pe_label=pe_label,
                 waveform_engine=waveform_engine,
                 data_repo=data_repo,

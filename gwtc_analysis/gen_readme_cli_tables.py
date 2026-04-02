@@ -27,6 +27,8 @@ def _parser_to_md_tables(parser: argparse.ArgumentParser) -> str:
         for a in sub._actions:
             if not a.option_strings:
                 continue
+            if a.help is argparse.SUPPRESS:
+                continue
             opt = ", ".join(a.option_strings)
             default = a.default
             if default is None or default is argparse.SUPPRESS:

@@ -7,6 +7,7 @@ from .catalogs import run_catalog_statistics
 from .event_selection import run_event_selection
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
+from .unofficial_pe import build_unofficial_pe_bundle, list_unofficial_pe_specs
 from .gw_stat import ALLOWED_CATALOGS as ALLOWED_CATALOGS
 import sys
 
@@ -61,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
+            "  gwtc_analysis build_unofficial_pe -h\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -159,10 +161,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_pe.add_argument("--pe-vars", nargs="+", default=None, help=("Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance."))
     p_pe.add_argument("--pe-pairs", nargs="+", default=None, help=("Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p."))
     p_pe.add_argument("--plots-dir", default="pe_plots", help="Directory for output PE plots (default: pe_plots).")
-    p_pe.add_argument("--start", type=float, default=0.2, help="Seconds before GPS time for strain window.")
-    p_pe.add_argument("--stop", type=float, default=0.1, help="Seconds after GPS time for strain window.")
-    p_pe.add_argument("--fs-low", type=float, default=20.0, help="Bandpass low frequency (Hz).")
-    p_pe.add_argument("--fs-high", type=float, default=300.0, help="Bandpass high frequency (Hz).")
+    p_pe.add_argument("--start", type=float, default=0.2, help="Default seconds before GPS time for overlay and q-transform windows.")
+    p_pe.add_argument("--stop", type=float, default=0.1, help="Default seconds after GPS time for overlay and q-transform windows.")
+    p_pe.add_argument("--fmin", type=float, default=20.0, help="Default low frequency bound (Hz) used for overlay filtering and q-transform range.")
+    p_pe.add_argument("--fmax", type=float, default=300.0, help="Default high frequency bound (Hz) used for overlay filtering and q-transform range.")
+    p_pe.add_argument("--fs-low", dest="fmin", type=float, help=argparse.SUPPRESS)
+    p_pe.add_argument("--fs-high", dest="fmax", type=float, help=argparse.SUPPRESS)
+    p_pe.add_argument("--overlay-start", type=float, default=None, help="Override seconds before GPS time for the whitened overlay window.")
+    p_pe.add_argument("--overlay-stop", type=float, default=None, help="Override seconds after GPS time for the whitened overlay window.")
+    p_pe.add_argument("--overlay-fmin", type=float, default=None, help="Override low frequency bound (Hz) for overlay whitening/bandpass.")
+    p_pe.add_argument("--overlay-fmax", type=float, default=None, help="Override high frequency bound (Hz) for overlay whitening/bandpass.")
+    p_pe.add_argument("--q-start", type=float, default=None, help="Override seconds before GPS time for the q-transform window.")
+    p_pe.add_argument("--q-stop", type=float, default=None, help="Override seconds after GPS time for the q-transform window.")
+    p_pe.add_argument("--q-fmin", type=float, default=None, help="Override low frequency bound (Hz) for the q-transform.")
+    p_pe.add_argument("--q-fmax", type=float, default=None, help="Override high frequency bound (Hz) for the q-transform.")
+    p_pe.add_argument("--q-fscale", choices=["linear", "log"], default="log", help="Frequency axis scaling for q-transform plots (default: log).")
 
     # Renamed options (no legacy names)
     p_pe.add_argument(
@@ -179,6 +192,23 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays.",
     )
+
+    # ---------------------------------------------------------------------
+    # build_unofficial_pe
+    # ---------------------------------------------------------------------
+    supported_unofficial = ", ".join(list_unofficial_pe_specs()) or "(none)"
+    p_unoff = sub.add_parser(
+        "build_unofficial_pe",
+        help="Build an unofficial PESummary-compatible PE bundle from locally cached source files.",
+        description=(
+            "Build an unofficial PEDataRelease-style HDF5 bundle for a supported special-case event.\n\n"
+            f"Supported events: {supported_unofficial}\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_unoff.add_argument("--src-name", dest="src_name", required=True, help="Source event name (e.g. GW170817).")
+    p_unoff.add_argument("--cache-dir", default=".cache_gwosc", help="Cache root where unofficial_pe/<bundle>.h5 will be written.")
+    p_unoff.add_argument("--force", action="store_true", help="Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date.")
 
     return p
 
@@ -240,8 +270,17 @@ def main(argv=None) -> int:
                 plots_dir=args.plots_dir,
                 start=args.start,
                 stop=args.stop,
-                fs_low=args.fs_low,
-                fs_high=args.fs_high,
+                fmin=args.fmin,
+                fmax=args.fmax,
+                overlay_start=args.overlay_start,
+                overlay_stop=args.overlay_stop,
+                overlay_fmin=args.overlay_fmin,
+                overlay_fmax=args.overlay_fmax,
+                q_start=args.q_start,
+                q_stop=args.q_stop,
+                q_fmin=args.q_fmin,
+                q_fmax=args.q_fmax,
+                q_fscale=args.q_fscale,
                 pe_label=_none_if_empty(args.pe_label),
                 waveform_engine=_none_if_empty(args.waveform_engine),
                 out_report_html=args.out_report,
@@ -257,6 +296,21 @@ def main(argv=None) -> int:
                     print(f"[pe] {k}: {v}")
             return 0
 
+        if args.mode == "build_unofficial_pe":
+            out = build_unofficial_pe_bundle(
+                args.src_name,
+                cache_dir=args.cache_dir,
+                log_cb=print,
+                force_rebuild=bool(args.force),
+            )
+            if out is None:
+                supported = ", ".join(list_unofficial_pe_specs()) or "(none)"
+                raise ValueError(
+                    f"No unofficial PE bundle recipe is registered for {args.src_name}. Supported events: {supported}"
+                )
+            print(out)
+            return 0
+
         raise SystemExit(f"Unsupported mode {args.mode}")
 
     except ValueError as e:
@@ -267,4 +321,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

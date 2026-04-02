@@ -67,6 +67,7 @@ positional arguments:
     event_selection
     search_skymaps
     parameters_estimation
+    build_unofficial_pe
 ```
 
 Each mode has its own help:
@@ -127,7 +128,7 @@ The tables below are generated directly from `cli.py` to stay aligned with the r
 To regenerate locally (from the repository root):
 
 ```bash
-python tools/gen_readme_cli_tables.py
+python gwtc_analysis/gen_readme_cli_tables.py
 ```
 
 <!-- CLI_TABLES_BEGIN -->
@@ -169,7 +170,7 @@ python tools/gen_readme_cli_tables.py
 | `--ra-deg` | `` | Right ascension (deg). |
 | `--dec-deg` | `` | Declination (deg). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
-| `--skymap_label` | `Mixed` | Label selector used to filter skymap (default: Mixed). |
+| `--skymap-label` | `Mixed` | Label selector used to filter skymap (default: Mixed). |
 | `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
@@ -186,14 +187,59 @@ python tools/gen_readme_cli_tables.py
 | `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
 | `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
-| `--start` | `0.2` | Seconds before GPS time for strain window. |
-| `--stop` | `0.1` | Seconds after GPS time for strain window. |
-| `--fs-low` | `20.0` | Bandpass low frequency (Hz). |
-| `--fs-high` | `300.0` | Bandpass high frequency (Hz). |
+| `--start` | `0.2` | Default seconds before GPS time for overlay and q-transform windows. |
+| `--stop` | `0.1` | Default seconds after GPS time for overlay and q-transform windows. |
+| `--fmin` | `20.0` | Default low frequency bound (Hz) used for overlay filtering and q-transform range. |
+| `--fmax` | `300.0` | Default high frequency bound (Hz) used for overlay filtering and q-transform range. |
+| `--overlay-start` | `` | Override seconds before GPS time for the whitened overlay window. |
+| `--overlay-stop` | `` | Override seconds after GPS time for the whitened overlay window. |
+| `--overlay-fmin` | `` | Override low frequency bound (Hz) for overlay whitening/bandpass. |
+| `--overlay-fmax` | `` | Override high frequency bound (Hz) for overlay whitening/bandpass. |
+| `--q-start` | `` | Override seconds before GPS time for the q-transform window. |
+| `--q-stop` | `` | Override seconds after GPS time for the q-transform window. |
+| `--q-fmin` | `` | Override low frequency bound (Hz) for the q-transform. |
+| `--q-fmax` | `` | Override high frequency bound (Hz) for the q-transform. |
+| `--q-fscale` | `log` | Frequency axis scaling for q-transform plots (default: log). |
 | `--pe-label` | `` | PE label used to select posterior samples and metadata. If omitted and --waveform-engine is provided, the tool selects the closest PE label by substring match in the PE label. If both are omitted, defaults to Mixed. |
 | `--waveform-engine` | `` | Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays. |
 
+### `build_unofficial_pe`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--src-name` | `` | Source event name (e.g. GW170817). |
+| `--cache-dir` | `.cache_gwosc` | Cache root where unofficial_pe/<bundle>.h5 will be written. |
+| `--force` | `False` | Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date. |
+
 <!-- CLI_TABLES_END -->
+
+### `parameters_estimation`: Shared Defaults And Overrides
+
+The `parameters_estimation` workflow now separates shared plotting defaults from
+per-product overrides.
+
+- Shared defaults apply to both the whitened overlay and the q-transform:
+  `--start`, `--stop`, `--fmin`, `--fmax`
+- Overlay-only overrides affect only the whitened waveform overlay:
+  `--overlay-start`, `--overlay-stop`, `--overlay-fmin`, `--overlay-fmax`
+- Q-transform-only overrides affect only the time-frequency panel:
+  `--q-start`, `--q-stop`, `--q-fmin`, `--q-fmax`, `--q-fscale {linear,log}`
+
+If an override is omitted, the corresponding shared default is used.
+
+### `build_unofficial_pe`: Unofficial Bundle Workflow
+
+For supported special-case events such as `GW170817`, `build_unofficial_pe`
+creates a PESummary-compatible `PEDataRelease` bundle from locally cached source
+products such as posterior samples, PSDs, and skymaps.
+
+- Use `python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817` to
+  build or reuse the cached unofficial bundle explicitly.
+- Use `--force` to rebuild the bundle even if the cached output is up to date.
+- `parameters_estimation` keeps its transparent fallback for supported special
+  cases, but the explicit builder is the recommended way to prepare an uploadable
+  bundle for S3 or local inspection.
 
 ### Choosing `--pe-label` and `--waveform-engine`
 
@@ -248,7 +294,9 @@ This ensures robustness while keeping model choices transparent.
 python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.6 --data-repo s3
 python -m gwtc_analysis.cli event_selection --catalogs GWTC-4
 python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-4 --data-repo s3
+python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817
 python -m gwtc_analysis.cli parameters_estimation --src-name GW231223_032836 --data-repo zenodo
+python -m gwtc_analysis.cli parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log
 ```
 
 ---
