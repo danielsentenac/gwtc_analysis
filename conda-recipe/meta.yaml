@@ -6,9 +6,8 @@ package:
   version: {{ version }}
 
 source:
-  # Preferred for release builds: build from a tag
-  git_url: https://github.com/danielsentenac/gwtc_analysis
-  git_rev: v{{ version }}
+  url: https://pypi.org/packages/source/g/gwtc_analysis/gwtc_analysis-{{ version }}.tar.gz
+  sha256: 66886234e5e5aafdbbee94f972de720eba84d6a517ce32804bdca7781825e0d4
 
 build:
   noarch: python
@@ -53,10 +52,11 @@ test:
     - pip
 
 about:
+  home: https://github.com/danielsentenac/gwtc_analysis
   summary: "GWTC Analysis: search skymaps, event selection, catalog statistics, and parameter estimation plotting"
   license: MIT
   license_file: LICENSE
 
 extra:
   recipe-maintainers:
-    - danielsentenac: daniel.sentenac@ligo.org
+    - danielsentenac
