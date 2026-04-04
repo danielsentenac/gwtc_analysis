@@ -29,21 +29,6 @@ Using the Docker image is recommended for reproducibility, portability, and inte
 
 ---
 
-## Release Automation
-
-- **Docker Hub**: `.github/workflows/dockerhub-description.yml` syncs the Docker Hub repository description from the repository `README.md` on pushes to `main` that modify the README, and it can also be run manually.
-- **Docker image releases**: `.github/workflows/release.yml` builds and pushes `danielsentenac/gwtc-tool` on Git tag pushes such as `v0.3.4`, publishing both the Git tag (for example `v0.3.4`) and `latest`.
-- **PyPI**: the PyPI project page uses the same repository `README.md` because `pyproject.toml` declares `readme = { file = "README.md", content-type = "text/markdown" }`. The release workflow builds the package and publishes it on Git tag pushes.
-- **conda-forge**: package page metadata is not synced from `README.md`. It comes from the conda recipe/feedstock metadata, so conda-forge still needs its own feedstock update for summary/description changes.
-
-To enable the workflows:
-
-- set repository variable `DOCKERHUB_USERNAME`
-- set repository secret `DOCKERHUB_TOKEN`
-- configure either a PyPI trusted publisher for this repository or a repository secret `PYPI_API_TOKEN`
-
----
-
 ## Astrophysical Sources
 
 The GWTC catalogs contain compact binary merger events involving:
