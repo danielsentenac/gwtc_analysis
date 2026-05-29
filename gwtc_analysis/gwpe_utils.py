@@ -39,6 +39,8 @@ __all__ = [
     "generate_projected_waveform",
     "plot_whitened_overlay",
     "plot_time_frequency",
+    "compute_matched_filter_snr",
+    "plot_matched_filter_snr",
     "compare_spectrogram_vs_qtransform",
     "plot_basic_posteriors",
     "local_pe_path",
@@ -1069,15 +1071,15 @@ def generate_projected_waveform(
         except Exception:
             pass
 
-    # f_low heuristic (as in PEViewer)
+    # Always start the template at 20 Hz (LIGO low end). The visible portion
+    # is set by the crop window, not by f_low. For BBH the early <30 Hz
+    # section is intrinsically tiny; for BNS it is essential.
     try:
         loglike = posterior_samples["log_likelihood"]
         maxl_index = int(np.argmax(loglike))
-        chirp_mass = posterior_samples["chirp_mass"][maxl_index]
-        f_low = 60.0 if chirp_mass < 10 else 20.0
     except Exception:
         maxl_index = 0
-        f_low = 20.0
+    f_low = 20.0
 
     # --- PSD / ASD from PE for this label+det ---
     # PSDs in PE files are not always available (or may be stored as None / missing detector).
@@ -1340,6 +1342,216 @@ def plot_whitened_overlay(
     fig.savefig(fname, dpi=150)
     plt.close(fig)
 
+    print(f"ℹ️ [OK] Saved {fname}")
+    return fname
+
+
+@debug_wrap('compute_matched_filter_snr')
+def compute_matched_filter_snr(
+    strain: GWpyTimeSeries,
+    pedata,
+    det: str,
+    label: str,
+    *,
+    t0: float,
+    fmin: float = 20.0,
+    fmax: Optional[float] = None,
+    requested_approximant: Optional[str] = None,
+    allow_fallback: bool = True,
+    event_logs: list[str] | None = None,
+):
+    """Compute the matched-filter SNR time series for one detector.
+
+    Generates the maxL projected waveform from the posterior and matched-filters
+    it against the strain using the per-detector PSD from ``pedata``. The peak
+    of |SNR(t)| should sit at the true coalescence time and rise to the recovered
+    detector SNR (~25–32 for GW170817 in L1/H1).
+
+    Returns
+    -------
+    (times, snr_complex, used_aprx) | (None, None, None)
+        ``times`` are absolute GPS seconds; ``snr_complex`` is the complex
+        matched-filter time series (same length).
+    """
+    import numpy as np
+    try:
+        from pycbc.types import TimeSeries as PyCBCTS, FrequencySeries
+        from pycbc.filter import matched_filter
+    except Exception as e:
+        pe_log(f"⚠️ [WARN] pycbc unavailable for matched filtering: {e}", event_logs)
+        return None, None, None
+
+    samples_dict = pedata.samples_dict
+    all_labels = list(samples_dict.keys())
+    if label is None or label not in all_labels:
+        if not all_labels:
+            pe_log("⚠️ [WARN] No samples_dict labels found for matched filter.", event_logs)
+            return None, None, None
+        label = all_labels[0]
+    posterior_samples = samples_dict[label]
+
+    aprx_guess = _get_approximant_for_label(pedata, label)
+    fref = 20.0
+    try:
+        fref = float(pedata.config[label]["engine"]["fref"])
+    except Exception:
+        try:
+            fref = float(pedata.config[label]["config"]["reference-frequency"])
+        except Exception:
+            pass
+
+    fs = int(_scalar(strain.sample_rate.value))
+    delta_t = 1.0 / fs
+
+    tries: List[str] = []
+    if requested_approximant:
+        tries.append(str(requested_approximant))
+    if aprx_guess and aprx_guess not in tries:
+        tries.append(aprx_guess)
+    if allow_fallback:
+        for fb in ("IMRPhenomXPHM", "IMRPhenomPv2"):
+            if fb not in tries:
+                tries.append(fb)
+
+    template = None
+    used_aprx = None
+    for aprx_try in tries:
+        try:
+            template = posterior_samples.maxL_td_waveform(
+                aprx_try, delta_t=delta_t, f_low=fmin, f_ref=fref, project=det,
+            )
+            used_aprx = aprx_try
+            break
+        except Exception as e:
+            pe_log(f"⚠️ [WARN] matched-filter template build failed for {aprx_try}: {e}", event_logs)
+
+    if template is None:
+        pe_log(f"⚠️ [WARN] Could not build template for {det}; skipping matched filter.", event_logs)
+        return None, None, None
+
+    template_arr = np.asarray(template.value, dtype=float)
+    template_t0 = _sec(template.t0.value)
+
+    strain_arr = np.asarray(strain.value, dtype=float)
+    strain_t0 = _sec(strain.t0.value)
+    n_data = len(strain_arr)
+
+    # Embed the (long) inspiral template onto the strain's time grid: zero outside,
+    # truth inside, with the maxL coalescence at its absolute GPS within the segment.
+    template_offset = int(round((template_t0 - strain_t0) / delta_t))
+    embedded = np.zeros(n_data, dtype=float)
+    src_start = max(0, -template_offset)
+    src_end = min(len(template_arr), n_data - template_offset)
+    dst_start = max(0, template_offset)
+    dst_end = dst_start + (src_end - src_start)
+    if src_end > src_start:
+        embedded[dst_start:dst_end] = template_arr[src_start:src_end]
+
+    template_pycbc = PyCBCTS(embedded, delta_t=delta_t, epoch=strain_t0)
+    data_pycbc = PyCBCTS(strain_arr, delta_t=delta_t, epoch=strain_t0)
+
+    duration = n_data * delta_t
+    delta_f = 1.0 / duration
+
+    # Estimate the noise PSD from the strain segment itself via Welch's method.
+    # Using a per-segment-PSD ensures the matched filter normalisation actually
+    # matches the data we're filtering (the PE's BayesWave PSDs were computed
+    # against the inference-time strain, not whatever we have cached now).
+    try:
+        from pycbc.psd import welch as pycbc_welch, interpolate as pycbc_psd_interp, inverse_spectrum_truncation
+    except Exception as e:
+        pe_log(f"⚠️ [WARN] pycbc.psd unavailable: {e}", event_logs)
+        return None, None, None
+
+    seg_len = min(int(4 * fs), n_data)
+    seg_stride = seg_len // 2
+    psd_pycbc = pycbc_welch(data_pycbc, seg_len=seg_len, seg_stride=seg_stride, avg_method="median")
+    psd_pycbc = pycbc_psd_interp(psd_pycbc, delta_f)
+    psd_pycbc = inverse_spectrum_truncation(
+        psd_pycbc,
+        max_filter_len=int(4 * fs),
+        low_frequency_cutoff=float(fmin),
+        trunc_method="hann",
+    )
+
+    high_freq_cutoff = float(fmax) if fmax is not None else None
+    snr = matched_filter(
+        template_pycbc, data_pycbc,
+        psd=psd_pycbc,
+        low_frequency_cutoff=float(fmin),
+        high_frequency_cutoff=high_freq_cutoff,
+    )
+
+    # Matched-filter output has ringing at the segment edges from the
+    # inverse-spectrum truncation (length 4 s) and from the FFT correlation.
+    # PyCBC's tutorial convention is to crop ~(filter_len/fs + buffer) seconds
+    # off each side. We use the same: 4 s + 4 s = 8 s at start, 4 s at end.
+    crop_start = 4.0 + 4.0
+    crop_end = 4.0
+    snr = snr.crop(crop_start, crop_end)
+
+    snr_arr = np.asarray(snr.numpy())
+    times = float(snr.start_time) + np.arange(len(snr_arr)) * delta_t
+    if snr_arr.size:
+        peak_loc = int(np.argmax(np.abs(snr_arr)))
+        peak_val = float(np.abs(snr_arr[peak_loc]))
+        peak_t = float(times[peak_loc])
+        pe_log(
+            f"ℹ️ [OK] Matched-filter SNR for {det}: peak |ρ|={peak_val:.2f} "
+            f"at t={peak_t:.4f} (Δt={peak_t - float(t0):+.4f}s rel. trigger)",
+            event_logs,
+        )
+    return times, snr_arr, used_aprx
+
+
+@debug_wrap('plot_matched_filter_snr')
+def plot_matched_filter_snr(
+    times,
+    snr_complex,
+    event: str,
+    det: str,
+    outdir: str | Path,
+    *,
+    t0: float,
+    pe_label: str | None = None,
+    engine_used: str | None = None,
+    window: tuple[float, float] = (0.5, 0.2),
+) -> str:
+    """Plot |ρ(t)| around the merger; mark the peak."""
+    import numpy as np
+    outdir = Path(outdir)
+    ensure_outdir(outdir)
+
+    t_rel = times - float(t0)
+    snr_abs = np.abs(snr_complex)
+
+    mask = (t_rel >= -float(window[0])) & (t_rel <= float(window[1]))
+    if not np.any(mask):
+        mask = np.ones_like(t_rel, dtype=bool)
+
+    peak_idx = int(np.argmax(snr_abs))
+    peak_t_rel = float(t_rel[peak_idx])
+    peak_val = float(snr_abs[peak_idx])
+
+    fig, ax = plt.subplots(figsize=(6, 3.5))
+    ax.plot(t_rel[mask], snr_abs[mask], linewidth=0.9, label="|ρ(t)|")
+    ax.axvline(peak_t_rel, color="C3", linestyle="--", linewidth=0.7,
+               label=f"peak: |ρ|={peak_val:.2f} at Δt={peak_t_rel*1000:+.1f} ms")
+    ax.set_xlabel("Time relative to merger (s)", fontsize=7)
+    ax.set_ylabel("Matched-filter SNR  |ρ(t)|", fontsize=7)
+    ax.tick_params(axis="both", which="major", labelsize=6)
+    title1 = f"{event} – {det} matched-filter SNR"
+    title_parts = []
+    if engine_used:
+        title_parts.append(f"Engine: {engine_used}")
+    title_parts.append(f"t0 = {float(t0):.3f} s (GPS)")
+    ax.set_title(title1 + "\n" + " | ".join(title_parts), fontsize=8)
+    ax.legend(fontsize=6, loc="upper right", frameon=False)
+    fig.tight_layout(pad=1.0)
+
+    fname = os.path.join(outdir, f"{event}_{det}_matched_filter_snr.png")
+    fig.savefig(fname, dpi=150)
+    plt.close(fig)
     print(f"ℹ️ [OK] Saved {fname}")
     return fname
 

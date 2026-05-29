@@ -234,6 +234,20 @@ For supported special-case events such as `GW170817`, `build_unofficial_pe`
 creates a PESummary-compatible `PEDataRelease` bundle from locally cached source
 products such as posterior samples, PSDs, and skymaps.
 
+- `GW170817` is reconstructed from separate GWTC-1-era pieces rather than a
+  single official PESummary release. The current recipe expects:
+  `~/.gwcache/GW170817_GWTC-1.hdf5`,
+  `~/.gwcache/GWTC1_GW170817_PSDs.dat`, and
+  `~/.gwcache/GW170817_skymap.fits.gz`.
+- The raw posterior samples do not provide `H1_time`, `L1_time`, or `V1_time`.
+  The bundle builder derives those detector arrival times from `geocent_time`,
+  `ra`, and `dec` with LAL detector delays, then stores them in the reconstructed
+  sample table. For the median GW170817 sky position and geocenter GPS
+  `1187008882.429464`, the arrivals are approximately H1
+  `1187008882.448258`, L1 `1187008882.444965`, and V1 `1187008882.423074`.
+- If any of the three source files above are absent, the bundle cannot be
+  rebuilt and strain overlays will not proceed from this special-case path.
+
 - Use `python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817` to
   build or reuse the cached unofficial bundle explicitly.
 - Use `--force` to rebuild the bundle even if the cached output is up to date.
