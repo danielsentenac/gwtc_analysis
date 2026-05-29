@@ -9,8 +9,9 @@ import pandas as pd
 from . import gw_stat as gw
 
 # Catalog aliases for GWOSC jsonfull endpoints
-# (GWTC-4 is currently served as GWTC-4.0; GWTC-3/2.1 have "confident" endpoints for jsonfull)
+# (GWTC-5/GWTC-4 are currently served as GWTC-5.0/GWTC-4.0; GWTC-3/2.1 have "confident" endpoints for jsonfull)
 CATALOG_ALIASES: dict[str, str] = {
+    "GWTC-5": "GWTC-5.0",
     "GWTC-4": "GWTC-4.0",
     "GWTC-3": "GWTC-3-confident",
     "GWTC-2.1": "GWTC-2.1-confident",

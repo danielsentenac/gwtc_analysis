@@ -19,10 +19,12 @@ ALLOWED_CATALOGS = [
     "GWTC-2.1",
     "GWTC-3",
     "GWTC-4",
+    "GWTC-5",
     "ALL",
 ]
 
 CATALOG_STATISTICS_ALIASES = {
+    "GWTC-5": "GWTC-5.0",
     "GWTC-4": "GWTC-4.0",
     "GWTC-3": "GWTC-3-confident",
     "GWTC-2.1": "GWTC-2.1-confident",
@@ -418,7 +420,7 @@ def run_catalog_statistics(
 
     Notes
     -----
-    - Catalog names passed on the CLI are "user-facing" (GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, ALL).
+    - Catalog names passed on the CLI are "user-facing" (GWTC-1, GWTC-2.1, GWTC-3, GWTC-4, GWTC-5, ALL).
       Internally, some of them are aliased to the GWOSC/GWTC identifiers needed by APIs.
     - For localization areas (--include-area), supported data repos are:
         * s3
@@ -546,7 +548,7 @@ def run_catalog_statistics(
 
             if data_repo == "galaxy":
                 # Convention: Galaxy collections are staged under the working directory as:
-                #   GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS
+                #   GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS, GWTC-5-SKYMAPS
                 base = Path(f"{cat}-SKYMAPS")
                 if not base.exists():
                     # GWTC-1 is covered by GWTC-2.1 on Galaxy

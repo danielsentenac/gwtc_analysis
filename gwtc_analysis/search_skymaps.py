@@ -31,7 +31,7 @@ def _expand_catalogs_for_skymaps(catalogs: list[str]) -> list[str]:
     cats = [c for c in (catalogs or []) if c]
 
     if "ALL" in cats:
-        cats = ["GWTC-2.1", "GWTC-3", "GWTC-4"]
+        cats = ["GWTC-2.1", "GWTC-3", "GWTC-4", "GWTC-5"]
 
     # de-dup preserve order
     out: list[str] = []
