@@ -90,7 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--catalogs",
         required=True,
         nargs="+",
-        help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all.",
+        help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all.",
     )
     p_cat.add_argument("--out-events", default="catalogs_statistics.tsv", help="Output TSV path (per-event table).")
     p_cat.add_argument("--out-report", default="catalogs_statistics.html", help="Output HTML report path.")
@@ -112,7 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sel.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all.")
+    p_sel.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all.")
     p_sel.add_argument("--out-selection", default="event_selection.tsv", help="Output TSV path for the selected events.")
     p_sel.add_argument("--m1-min", type=float, default=None, help="Minimum primary mass (source frame).")
     p_sel.add_argument("--m1-max", type=float, default=None, help="Maximum primary mass (source frame).")
@@ -134,7 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sky.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all.")
+    p_sky.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all.")
     p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
     p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")

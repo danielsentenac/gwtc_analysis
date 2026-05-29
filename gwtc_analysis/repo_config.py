@@ -22,6 +22,10 @@ DEFAULT_REPO_CONFIG = RepoConfig(
 
     zenodo_skymaps={
         # Former ZENODO_SKYMAP_TARBALLS entries (lossless refactor)
+        "GWTC-5": ZenodoSkymapSpec(
+            record_id="20348005",
+            filename="IGWN-GWTC5p0-29ebe06b7_25-Archived_Skymaps.tar.gz",
+        ),
         "GWTC-4": ZenodoSkymapSpec(
             record_id="17014085",
             filename="IGWN-GWTC4p0-1a206db3d_721-Archived_Skymaps.tar.gz",

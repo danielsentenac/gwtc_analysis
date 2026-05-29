@@ -11,7 +11,7 @@ Supported data repositories (data_repo):
   - "s3"     : MinIO bucket "gwtc"
   - "zenodo" : public Zenodo PEDataRelease records
   - "galaxy" : PE files staged by Galaxy collections under ./galaxy_inputs
-              (expected collection directories: GWTC-2.1-PE, GWTC-3-PE, GWTC-4-PE)
+              (expected collection directories: GWTC-2.1-PE, GWTC-3-PE, GWTC-4-PE, GWTC-5-PE)
   - "local"  : look for PEDataRelease file in plots_dir (kept for dev/debug)
 
 Notes
@@ -62,7 +62,7 @@ LAST_RESULT: Optional[PEResult] = None
 # Zenodo PE helpers
 # ---------------------------------------------------------------------
 
-ZENODO_PE_RECORD_IDS = [6513631, 8177023, 17014085]
+ZENODO_PE_RECORD_IDS = [6513631, 8177023, 17014085, 20348005, 20348006]
 USER_AGENT = "gwtc_analysis (https://github.com/danielsentenac/gwtc_analysis)"
 
 def _tqdm_or_none():
@@ -576,6 +576,7 @@ def _guess_galaxy_pe_dirs(catalog: str | None) -> list[Path]:
       - GWTC-2.1-PE
       - GWTC-3-PE
       - GWTC-4-PE
+      - GWTC-5-PE
     """
     base = Path("galaxy_inputs")
     if not base.exists():

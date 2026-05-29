@@ -12,6 +12,7 @@ Why this exists
 The GWOSC v2 parameters endpoint often provides only a scalar `sky_area` for a subset
 of events and may not expose skymap links uniformly. However, the LVK "confident"
 catalog PE releases on Zenodo include comprehensive skymap tarballs, e.g.:
+- GWTC-5.0 archived skymaps tarball (Zenodo record 20348005)
 - GWTC-4 archived skymaps tarball (Zenodo record 17014085) citeturn26search0
 - GWTC-3.0 PE skylocalizations tarball (Zenodo record 8177023) citeturn26search1
 - GWTC-2.1 PE skymaps tarball (Zenodo record 6513631) citeturn26search2
@@ -49,6 +50,7 @@ ALLOWED_CATALOGS = (
     "GWTC-2.1",
     "GWTC-3",
     "GWTC-4",
+    "GWTC-5",
     "ALL",
 )
 def _download_with_byte_progress(
@@ -516,8 +518,8 @@ def resolve_galaxy_inputs_dir(
     Resolve the Galaxy-staged directory for a given catalog and kind.
 
     Expected directory names:
-      - GWTC-2.1-PE, GWTC-3-PE, GWTC-4-PE
-      - GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS
+      - GWTC-2.1-PE, GWTC-3-PE, GWTC-4-PE, GWTC-5-PE
+      - GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS, GWTC-5-SKYMAPS
     Under base_dir (default: galaxy_inputs).
 
     GWTC-1 is mapped to GWTC-2.1.
@@ -1000,6 +1002,8 @@ def _catalog_to_s3_prefix(catalog_key: str) -> str:
         return "GWTC-3/"
     if catalog_key.startswith("GWTC-4"):
         return "GWTC-4/"
+    if catalog_key.startswith("GWTC-5"):
+        return "GWTC-5/"
     # fallback: try exact
     return f"{catalog_key}/"
 
@@ -1042,7 +1046,7 @@ def add_localization_area_from_galaxy(
     Compute A{cred*100} sky area for events using skymaps staged by Galaxy.
 
     Expected directories under base_dir:
-      GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS
+      GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS, GWTC-5-SKYMAPS
     GWTC-1 is mapped to GWTC-2.1.
     """
     skymap_dir = resolve_galaxy_inputs_dir(
