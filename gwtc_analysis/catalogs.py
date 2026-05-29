@@ -492,6 +492,28 @@ def run_catalog_statistics(
     df0 = pd.DataFrame.from_records(records, columns=all_cols)
     df = gw.prepare_catalog_df(df0, ns_threshold=ns_threshold)
 
+    # prepare_catalog_df drops events without source-frame component masses
+    # (they cannot be placed on mass-based statistics). Report how many were
+    # dropped per catalog so the kept count is not surprising.
+    mass_drop_rows: list[dict] = []
+    if "catalog_key" in df0.columns:
+        before = df0["catalog_key"].value_counts()
+        after = df["catalog_key"].value_counts() if "catalog_key" in df.columns else {}
+        for cat in catalogs:
+            n_before = int(before.get(cat, 0))
+            n_after = int(after.get(cat, 0))
+            n_drop = n_before - n_after
+            mass_drop_rows.append(
+                {"catalog": cat, "total": n_before, "kept": n_after, "dropped_no_masses": n_drop}
+            )
+            if n_drop > 0:
+                print(
+                    f"[catalogs] {cat}: {n_after}/{n_before} events kept "
+                    f"({n_drop} dropped: no source-frame masses in GWOSC metadata)"
+                )
+            else:
+                print(f"[catalogs] {cat}: {n_after}/{n_before} events kept")
+
     # ------------------------------------------------------------------
     # Detectors network (requires GWOSC v2 calls)
     # ------------------------------------------------------------------
@@ -630,9 +652,40 @@ def run_catalog_statistics(
 
     tables = []
     tables.append(("Counts by catalog", per_cat.to_html(index=False, escape=True)))
+    if mass_drop_rows:
+        drop_df = pd.DataFrame(mass_drop_rows, columns=["catalog", "total", "kept", "dropped_no_masses"])
+        tables.append((
+            "Events kept vs. dropped (events without source-frame masses are excluded "
+            "from mass-based statistics)",
+            drop_df.to_html(index=False, escape=True),
+        ))
     tables.append(("Counts by binary type", per_type.to_html(index=False, escape=True)))
     if include_detectors:
         tables.append(("Counts by detector number", per_net.to_html(index=False, escape=True)))
+
+    # Loudest events: top 10% by network SNR — the best candidates to inspect
+    # the parameter estimation for. List their names so they can be fed to
+    # `parameters_estimation --src-name <event>`.
+    top_snr_names: list[str] = []
+    top_snr_threshold: float | None = None
+    snr_col_rep = _pick_first_existing_col(
+        df_out, ["network_snr", "snr_network", "network_matched_filter_snr", "snr"]
+    )
+    name_col = "common_name" if "common_name" in df_out.columns else "event_id"
+    if snr_col_rep is not None:
+        snr_num = pd.to_numeric(df_out[snr_col_rep], errors="coerce")
+        valid = df_out.assign(_snr=snr_num).dropna(subset=["_snr"])
+        if not valid.empty:
+            top_snr_threshold = float(valid["_snr"].quantile(0.90))
+            top = valid[valid["_snr"] >= top_snr_threshold].sort_values("_snr", ascending=False)
+            top_snr_names = [str(x) for x in top[name_col].tolist()]
+            cols = [c for c in (name_col, "_snr", "mass_1_source", "mass_2_source", "catalog_key") if c in top.columns]
+            top_tbl = top[cols].rename(columns={name_col: "event", "_snr": "network_snr"})
+            tables.append((
+                f"Loudest events — top 10% by network SNR (≥ {top_snr_threshold:.1f}), "
+                "best candidates for PE inspection",
+                top_tbl.to_html(index=False, escape=True),
+            ))
 
     img_paths: list[Path] = []
     cat_label = ", ".join(catalogs)
@@ -700,6 +753,24 @@ def run_catalog_statistics(
         f"Total events after basic cleaning: {n_total}",
         f"Per-event table written to: {out_events_tsv.name}",
     ]
+
+    total_drop = sum(r["dropped_no_masses"] for r in mass_drop_rows)
+    if total_drop > 0:
+        per_cat_drop = ", ".join(
+            f"{r['catalog']} {r['kept']}/{r['total']}" for r in mass_drop_rows
+        )
+        paragraphs.append(
+            f"{total_drop} catalog event(s) were dropped from the statistics because the "
+            f"GWOSC metadata has no source-frame component masses ({per_cat_drop} kept). "
+            "See the 'Events kept vs. dropped' table for the per-catalog breakdown."
+        )
+
+    if top_snr_names:
+        paragraphs.append(
+            f"Loudest events (top 10% by network SNR ≥ {top_snr_threshold:.1f}, "
+            f"n={len(top_snr_names)}) — best candidates for PE inspection: "
+            + ", ".join(top_snr_names)
+        )
 
     if include_area and area_column in df_out.columns:
         got = int(pd.notna(df_out[area_column]).sum())
