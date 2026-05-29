@@ -52,7 +52,10 @@ Catalog identifiers are **case-sensitive**:
 | `GWTC-2.1` | Confident subset of GWTC-2.1 |
 | `GWTC-3` | Confident subset of GWTC-3 |
 | `GWTC-4` | GWTC-4 public release |
+| `GWTC-5` | GWTC-5.0 public release (O4b) |
 | `ALL` | Expands to all catalogs above |
+
+`GWTC-5` resolves to the GWOSC `GWTC-5.0` endpoint and to the Zenodo records below.
 
 ---
 
@@ -92,7 +95,7 @@ python -m gwtc_analysis.cli <MODE> -h
 
 The GWTC catalogs (Parameter Estimation and Skymaps) can be directly downloaded from different supports:
 
-- The Zenodo portal (official catalogs PE/skymaps tarballs) at https://zenodo.org/records/8177023|17014085|6513631.
+- The Zenodo portal (official catalogs PE/skymaps tarballs) at https://zenodo.org/records/8177023|17014085|6513631. GWTC-5.0 (O4b) is split across two records: https://zenodo.org/records/20348005 (part 1, plus the archived skymaps tarball) and https://zenodo.org/records/20348006 (part 2).
 - A s3 Minio bucket called gwtc on  https://minio-dev.odahub.fr
 - Galaxy collections under the name GWTC at https://usegalaxy.org
 
@@ -227,6 +230,30 @@ per-product overrides.
   `--q-start`, `--q-stop`, `--q-fmin`, `--q-fmax`, `--q-fscale {linear,log}`
 
 If an override is omitted, the corresponding shared default is used.
+
+When the posterior is BNS-like (median `chirp_mass` < 5 M☉), the workflow
+automatically switches the overlay and q-transform windows to a BNS profile
+(longer windows, wider frequency range) for any parameter you did **not** set
+explicitly on the CLI. An explicit `--overlay-*` / `--q-*` value always wins.
+
+### `parameters_estimation`: Matched-filter SNR
+
+For each detector present in the PE file, the workflow also produces a
+**matched-filter SNR** time series `|ρ(t)|`: the maximum-likelihood projected
+waveform is matched-filtered against the detector strain, and the peak should
+sit at the coalescence time and rise to the detector's recovered SNR.
+
+- The strain is conditioned the canonical PyCBC way before filtering (high-pass
+  at 15 Hz, resampled to a 2048 Hz grid, edges cropped of filter transients), so
+  the off-source `|ρ(t)|` has unit-scale RMS (~0.7). A normalization guard warns
+  if it strays from that range.
+- **Short (BBH-like) signals only.** A single maximum-likelihood template cannot
+  coherently recover a long BNS inspiral — over the many thousands of inspiral
+  cycles, small parameter/phase differences accumulate and the SNR is lost
+  (reliable BNS recovery requires a template bank, not just more strain). When the
+  template is longer than the available conditioned data, the matched-filter SNR
+  is **skipped with a warning**; all other plots are still produced. This is *not*
+  fixable by fetching a longer strain segment.
 
 ### `build_unofficial_pe`: Unofficial Bundle Workflow
 
