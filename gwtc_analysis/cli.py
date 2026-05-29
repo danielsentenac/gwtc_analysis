@@ -7,7 +7,7 @@ from .catalogs import run_catalog_statistics
 from .event_selection import run_event_selection
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
-from .unofficial_pe import build_unofficial_pe_bundle, list_unofficial_pe_specs
+from .unofficial_pe import build_unofficial_pe_bundle, get_unofficial_pe_spec, list_unofficial_pe_specs
 from .gw_stat import ALLOWED_CATALOGS as ALLOWED_CATALOGS
 import sys
 
@@ -305,8 +305,13 @@ def main(argv=None) -> int:
             )
             if out is None:
                 supported = ", ".join(list_unofficial_pe_specs()) or "(none)"
+                if get_unofficial_pe_spec(args.src_name) is None:
+                    raise ValueError(
+                        f"No unofficial PE bundle recipe is registered for {args.src_name}. Supported events: {supported}"
+                    )
                 raise ValueError(
-                    f"No unofficial PE bundle recipe is registered for {args.src_name}. Supported events: {supported}"
+                    f"Unofficial PE bundle recipe for {args.src_name} exists, but required source files are missing. "
+                    "See warnings above for the expected paths."
                 )
             print(out)
             return 0

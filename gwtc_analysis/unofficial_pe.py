@@ -10,18 +10,22 @@ class UnofficialPEAnalysisSpec:
     dataset_name: str
     label: str
     approximant: str
+    lalinference_samples_path: Path | None = None
 
 
 @dataclass(frozen=True)
 class UnofficialPEBundleSpec:
     event_id: str
-    raw_samples_path: Path
-    psd_path: Path
+    raw_samples_path: Path | None
+    psd_path: Path | None
     skymap_path: Path
     output_filename: str
     analyses: tuple[UnofficialPEAnalysisSpec, ...]
     gps_time: float
+    asd_paths: tuple[tuple[str, Path], ...] = ()
 
+
+_PE_SAMPLES_REPO = Path.home() / "GW170817"
 
 GW170817_SPEC = UnofficialPEBundleSpec(
     event_id="GW170817",
@@ -32,16 +36,23 @@ GW170817_SPEC = UnofficialPEBundleSpec(
     analyses=(
         UnofficialPEAnalysisSpec(
             dataset_name="IMRPhenomPv2NRT_lowSpin_posterior",
-            label="C01:IMRPhenomPv2_NRTidal-LowSpin",
+            label="C02:IMRPhenomPv2_NRTidal-LowSpin",
             approximant="IMRPhenomPv2_NRTidal",
+            lalinference_samples_path=_PE_SAMPLES_REPO / "MCMC_IMRPPNRT_LowSpin_post.dat",
         ),
         UnofficialPEAnalysisSpec(
             dataset_name="IMRPhenomPv2NRT_highSpin_posterior",
             label="C02:IMRPhenomPv2_NRTidal-HighSpin",
             approximant="IMRPhenomPv2_NRTidal",
+            lalinference_samples_path=_PE_SAMPLES_REPO / "MCMC_IMRPPNRT_HighSpin_post.dat",
         ),
     ),
     gps_time=1187008882.429464,
+    asd_paths=(
+        ("H1", _PE_SAMPLES_REPO / "psd" / "BayesWave_PSD_H1_IFO0_asd_median.dat"),
+        ("L1", _PE_SAMPLES_REPO / "psd" / "BayesWave_PSD_L1_IFO0_asd_median.dat"),
+        ("V1", _PE_SAMPLES_REPO / "psd" / "BayesWave_PSD_V1_IFO0_asd_median.dat"),
+    ),
 )
 
 
@@ -69,11 +80,27 @@ def build_unofficial_pe_bundle(
     if spec is None:
         return None
 
-    sources = [
-        spec.raw_samples_path.expanduser(),
-        spec.psd_path.expanduser(),
-        spec.skymap_path.expanduser(),
-    ]
+    sources: list[Path] = [spec.skymap_path.expanduser()]
+    if spec.asd_paths:
+        sources.extend(Path(p).expanduser() for _, p in spec.asd_paths)
+    elif spec.psd_path is not None:
+        sources.append(spec.psd_path.expanduser())
+
+    needs_raw_hdf5 = any(a.lalinference_samples_path is None for a in spec.analyses)
+    if needs_raw_hdf5:
+        if spec.raw_samples_path is None:
+            if log_cb:
+                log_cb(
+                    "⚠️ [WARN] Unofficial PE bundle for "
+                    f"{spec.event_id} has analyses without lalinference_samples_path "
+                    "but no raw_samples_path is configured."
+                )
+            return None
+        sources.append(spec.raw_samples_path.expanduser())
+    for analysis in spec.analyses:
+        if analysis.lalinference_samples_path is not None:
+            sources.append(analysis.lalinference_samples_path.expanduser())
+
     missing = [str(p) for p in sources if not p.exists()]
     if missing:
         if log_cb:
@@ -99,14 +126,19 @@ def build_unofficial_pe_bundle(
             log_cb(f"ℹ️ [BUILD] Rebuilding unofficial PE bundle for {spec.event_id}: {target}")
         log_cb(f"ℹ️ [BUILD] Building unofficial PE bundle for {spec.event_id} from local cache files")
 
-    _write_unofficial_pesummary_bundle(spec, target)
+    _write_unofficial_pesummary_bundle(spec, target, log_cb=log_cb)
 
     if log_cb:
         log_cb(f"ℹ️ [OK] Built unofficial PE bundle: {target}")
     return target
 
 
-def _write_unofficial_pesummary_bundle(spec: UnofficialPEBundleSpec, out_path: Path) -> None:
+def _write_unofficial_pesummary_bundle(
+    spec: UnofficialPEBundleSpec,
+    out_path: Path,
+    *,
+    log_cb: Callable[[str], None] | None = None,
+) -> None:
     import h5py
     import numpy as np
     from astropy.io import fits
@@ -116,16 +148,50 @@ def _write_unofficial_pesummary_bundle(spec: UnofficialPEBundleSpec, out_path: P
 
     samples_by_label: dict[str, SamplesDict] = {}
 
-    with h5py.File(spec.raw_samples_path.expanduser(), "r") as h5f:
+    h5f = None
+    needs_raw_hdf5 = any(a.lalinference_samples_path is None for a in spec.analyses)
+    try:
+        if needs_raw_hdf5:
+            assert spec.raw_samples_path is not None  # validated earlier
+            h5f = h5py.File(spec.raw_samples_path.expanduser(), "r")
         for analysis in spec.analyses:
-            if analysis.dataset_name not in h5f:
-                raise KeyError(
-                    f"Dataset {analysis.dataset_name!r} not found in {spec.raw_samples_path}"
+            if analysis.lalinference_samples_path is not None:
+                if log_cb:
+                    log_cb(
+                        f"ℹ️ [INFO] {analysis.label}: using full LALInference posterior "
+                        f"({analysis.lalinference_samples_path.name}) — psi/phase/time/logl are real."
+                    )
+                samples_by_label[analysis.label] = _build_samples_from_lalinference(
+                    analysis.lalinference_samples_path.expanduser(),
+                    gps_time=spec.gps_time,
                 )
-            dataset = h5f[analysis.dataset_name][:]
-            samples_by_label[analysis.label] = _build_samples_dict(dataset, gps_time=spec.gps_time)
+            else:
+                if log_cb:
+                    log_cb(
+                        f"⚠️ [INFO] {analysis.label}: using public {spec.raw_samples_path.name} dataset "
+                        f"{analysis.dataset_name!r} — psi/phase from priors, log_likelihood synthetic."
+                    )
+                if analysis.dataset_name not in h5f:
+                    raise KeyError(
+                        f"Dataset {analysis.dataset_name!r} not found in {spec.raw_samples_path}"
+                    )
+                dataset = h5f[analysis.dataset_name][:]
+                samples_by_label[analysis.label] = _build_samples_dict(dataset, gps_time=spec.gps_time)
+    finally:
+        if h5f is not None:
+            h5f.close()
 
-    psds = _read_multidetector_psd(spec.psd_path.expanduser())
+    if spec.asd_paths:
+        if log_cb:
+            log_cb(
+                "ℹ️ [INFO] Using per-detector BayesWave-median ASDs (squared to PSD) "
+                f"for {len(spec.asd_paths)} detector(s)."
+            )
+        psds = _read_per_detector_asds(spec.asd_paths)
+    elif spec.psd_path is not None:
+        psds = _read_multidetector_psd(spec.psd_path.expanduser())
+    else:
+        psds = {}
     skymap = _read_skymap(spec.skymap_path.expanduser(), event_id=spec.event_id, gps_time=spec.gps_time)
 
     labels = [analysis.label for analysis in spec.analyses]
@@ -155,17 +221,72 @@ def _build_samples_dict(dataset, *, gps_time: float):
     from pesummary.utils.samples_dict import SamplesDict
 
     base = {name: np.asarray(dataset[name], dtype=float) for name in dataset.dtype.names}
+    return _finalize_samples_from_base(base, gps_time=gps_time)
+
+
+def _build_samples_from_lalinference(path: Path, *, gps_time: float):
+    """Read a LALInference posterior_samples.dat and build a PESummary SamplesDict.
+
+    LALInference column names differ from PESummary's standard set; in particular
+    ``time`` is the geocenter coalescence time, ``{h1,l1,v1}_end_time`` are the
+    detector arrival times, and ``logl``/``phi12``/``tilt1``/``tilt2``/``costilt1``/
+    ``costilt2``/``cosiota``/``costheta_jn``/``a1z``/``a2z``/``lam_tilde``/
+    ``dlam_tilde``/``mc``/``distance``/``m1``/``m2``/``mtotal``/``mf``/``af``
+    have analogous renames. ``standardize_parameter_names`` covers most; the
+    remaining few are renamed explicitly below.
+    """
+    import numpy as np
+
+    arr = np.genfromtxt(path, names=True)
+    base = {name: np.asarray(arr[name], dtype=float) for name in arr.dtype.names}
+
+    rename_pairs = (
+        ("time", "geocent_time"),
+        ("h1_end_time", "H1_time"),
+        ("l1_end_time", "L1_time"),
+        ("v1_end_time", "V1_time"),
+        ("phi12", "phi_12"),
+        ("logl", "log_likelihood"),
+        ("logprior", "log_prior"),
+        ("logpost", "log_posterior"),
+    )
+    for src, dst in rename_pairs:
+        if src in base and dst not in base:
+            base[dst] = base.pop(src)
+
+    return _finalize_samples_from_base(base, gps_time=gps_time)
+
+
+def _finalize_samples_from_base(base: dict, *, gps_time: float):
+    import numpy as np
+    from pesummary.utils.samples_dict import SamplesDict
+
     samples = SamplesDict(base).standardize_parameter_names()
     nsamples = len(next(iter(samples.values())))
 
-    samples["geocent_time"] = np.full(nsamples, float(gps_time), dtype=float)
-    samples["phase"] = np.zeros(nsamples, dtype=float)
-    samples["psi"] = np.zeros(nsamples, dtype=float)
-    samples["phi_jl"] = np.zeros(nsamples, dtype=float)
-    samples["phi_12"] = np.zeros(nsamples, dtype=float)
+    # Parameters not exposed by the public GWTC-1 release. Sample from the
+    # LALInference priors so the bundle is self-consistent: maxL projection
+    # via posterior_samples.maxL_td_waveform() relies on (psi, phase) for the
+    # antenna-pattern factor F+·cos(2ψ) + F×·sin(2ψ); a constant ψ=0 silently
+    # drops the F× contribution and biases the projected amplitude. Seed from
+    # gps_time so rebuilds are reproducible.
+    rng = np.random.default_rng(seed=int(gps_time) & 0xFFFFFFFF)
+
+    if "geocent_time" not in samples:
+        samples["geocent_time"] = np.full(nsamples, float(gps_time), dtype=float)
+    if "phase" not in samples:
+        samples["phase"] = rng.uniform(0.0, 2.0 * np.pi, size=nsamples)
+    if "psi" not in samples:
+        samples["psi"] = rng.uniform(0.0, np.pi, size=nsamples)
+    if "phi_jl" not in samples:
+        samples["phi_jl"] = rng.uniform(0.0, 2.0 * np.pi, size=nsamples)
+    if "phi_12" not in samples:
+        samples["phi_12"] = rng.uniform(0.0, 2.0 * np.pi, size=nsamples)
 
     _ensure_compatibility_columns(samples)
-    samples["log_likelihood"] = _synthetic_log_likelihood(samples)
+    _ensure_detector_arrival_times(samples, gps_time=gps_time)
+    if "log_likelihood" not in samples:
+        samples["log_likelihood"] = _synthetic_log_likelihood(samples)
 
     try:
         samples.generate_all_posterior_samples()
@@ -175,7 +296,64 @@ def _build_samples_dict(dataset, *, gps_time: float):
         pass
 
     _ensure_compatibility_columns(samples)
+    _ensure_detector_arrival_times(samples, gps_time=gps_time)
     return samples
+
+
+def _ensure_detector_arrival_times(samples, *, gps_time: float) -> None:
+    """Add H1/L1/V1 detector arrival times derived from geocenter time and sky position."""
+    import numpy as np
+
+    if "ra" not in samples or "dec" not in samples:
+        return
+
+    try:
+        import lal
+    except Exception:
+        return
+
+    try:
+        nsamples = len(next(iter(samples.values())))
+    except Exception:
+        return
+
+    geocent_times = np.asarray(
+        samples.get("geocent_time", np.full(nsamples, float(gps_time), dtype=float)),
+        dtype=float,
+    )
+    if geocent_times.ndim == 0:
+        geocent_times = np.full(nsamples, float(geocent_times), dtype=float)
+
+    ra = np.asarray(samples["ra"], dtype=float)
+    dec = np.asarray(samples["dec"], dtype=float)
+
+    detectors = {
+        "H1": lal.LALDetectorIndexLHODIFF,
+        "L1": lal.LALDetectorIndexLLODIFF,
+        "V1": lal.LALDetectorIndexVIRGODIFF,
+    }
+
+    for det, detector_index in detectors.items():
+        key = f"{det}_time"
+        if key in samples:
+            continue
+
+        detector = lal.CachedDetectors[detector_index]
+        arrivals = np.empty(nsamples, dtype=float)
+        for idx in range(nsamples):
+            tc = float(geocent_times[idx])
+            if not (np.isfinite(tc) and np.isfinite(ra[idx]) and np.isfinite(dec[idx])):
+                arrivals[idx] = tc if np.isfinite(tc) else float(gps_time)
+                continue
+            delay = lal.TimeDelayFromEarthCenter(
+                detector.location,
+                float(ra[idx]),
+                float(dec[idx]),
+                lal.LIGOTimeGPS(tc),
+            )
+            arrivals[idx] = tc + float(delay)
+
+        samples[key] = arrivals
 
 
 def _ensure_compatibility_columns(samples) -> None:
@@ -246,6 +424,21 @@ def _read_multidetector_psd(path: Path) -> dict[str, "object"]:
 
     if not out:
         raise ValueError(f"Could not extract detector PSD columns from {path}")
+    return out
+
+
+def _read_per_detector_asds(asd_paths: tuple[tuple[str, Path], ...]) -> dict[str, "object"]:
+    """Read per-detector ASD files (freq, asd) and return PSD dict (asd squared)."""
+    import numpy as np
+
+    out: dict[str, object] = {}
+    for detector, path in asd_paths:
+        data = np.genfromtxt(Path(path).expanduser(), comments="#")
+        if data.ndim != 2 or data.shape[1] < 2:
+            raise ValueError(f"ASD file {path} does not contain (freq, asd) columns")
+        freqs = data[:, 0]
+        psd = data[:, 1] ** 2
+        out[detector] = np.column_stack([freqs, psd])
     return out
 
 

@@ -608,6 +608,41 @@ def _find_local_pe_file(src_name: str, search_dirs: list[Path]) -> Path | None:
 
 
 # ---------------------------------------------------------------------
+# Overlay defaults
+# ---------------------------------------------------------------------
+
+_BNS_OVERLAY_DEFAULTS = dict(start=0.2, stop=0.2, fmin=20.0, fmax=300.0)
+_BNS_QTRANSFORM_DEFAULTS = dict(start=2.0, stop=1.0, fmin=50.0, fmax=1000.0)
+
+
+def _maybe_apply_bns_defaults(
+    *,
+    profile: dict[str, float],
+    chirp_mass_med: float | None,
+    user_specified: dict[str, bool],
+    current: dict[str, float],
+    label: str,
+    log_cb: Callable[[str], None] | None,
+) -> dict[str, float]:
+    """If the posterior is BNS-like (chirp_mass_med < 5 M_sun), swap in the
+    BNS profile for any parameter the user did NOT override on the CLI."""
+    if chirp_mass_med is None or chirp_mass_med >= 5.0:
+        return current
+    new = dict(current)
+    for key in ("start", "stop", "fmin", "fmax"):
+        if not user_specified.get(key, False) and key in profile:
+            new[key] = profile[key]
+    if log_cb is not None and new != current:
+        log_cb(
+            f"ℹ️ [INFO] BNS-like chirp mass detected ({chirp_mass_med:.2f} M_sun); "
+            f"switching {label} defaults to BNS profile "
+            f"(start={new['start']:g}s, stop={new['stop']:g}s, "
+            f"fmin={new['fmin']:g} Hz, fmax={new['fmax']:g} Hz)."
+        )
+    return new
+
+
+# ---------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------
 
@@ -669,6 +704,21 @@ def run_parameters_estimation(
             raise ValueError(f"{name} must be strictly positive, got ({lo}, {hi})")
         if lo >= hi:
             raise ValueError(f"{name} must satisfy min < max, got ({lo}, {hi})")
+
+    # Track which overlay / q-transform parameters the user explicitly
+    # provided, so that _maybe_apply_bns_defaults can skip overriding them.
+    _overlay_user_specified = dict(
+        start=overlay_start is not None,
+        stop=overlay_stop is not None,
+        fmin=overlay_fmin is not None,
+        fmax=overlay_fmax is not None,
+    )
+    _q_user_specified = dict(
+        start=q_start is not None,
+        stop=q_stop is not None,
+        fmin=q_fmin is not None,
+        fmax=q_fmax is not None,
+    )
 
     shared_fmin = _resolve_shared(fmin, fs_low, 20.0)
     shared_fmax = _resolve_shared(fmax, fs_high, 300.0)
@@ -739,6 +789,8 @@ def run_parameters_estimation(
         generate_projected_waveform,
         plot_whitened_overlay,
         plot_time_frequency,
+        compute_matched_filter_snr,
+        plot_matched_filter_snr,
         plot_basic_posteriors,
         plot_posterior_pairs,
         select_label,
@@ -988,6 +1040,47 @@ def run_parameters_estimation(
                 posterior_samples = samples_dict[label_samples]
                 approximant_for_title = label_samples.split(":", 1)[1] if ":" in label_samples else label_samples
 
+                # Auto-switch to BNS overlay defaults when the posterior is BNS-like.
+                import numpy as _np
+                _chirp_mass_med = None
+                try:
+                    if "chirp_mass" in posterior_samples:
+                        _chirp_mass_med = float(_np.nanmedian(posterior_samples["chirp_mass"]))
+                except Exception:
+                    _chirp_mass_med = None
+
+                _overlay_cfg = _maybe_apply_bns_defaults(
+                    profile=_BNS_OVERLAY_DEFAULTS,
+                    chirp_mass_med=_chirp_mass_med,
+                    user_specified=_overlay_user_specified,
+                    current=dict(
+                        start=overlay_start, stop=overlay_stop,
+                        fmin=overlay_fmin, fmax=overlay_fmax,
+                    ),
+                    label="overlay",
+                    log_cb=lambda m: pe_log(m, event_logs),
+                )
+                overlay_start = _overlay_cfg["start"]
+                overlay_stop = _overlay_cfg["stop"]
+                overlay_fmin = _overlay_cfg["fmin"]
+                overlay_fmax = _overlay_cfg["fmax"]
+
+                _q_cfg = _maybe_apply_bns_defaults(
+                    profile=_BNS_QTRANSFORM_DEFAULTS,
+                    chirp_mass_med=_chirp_mass_med,
+                    user_specified=_q_user_specified,
+                    current=dict(
+                        start=q_start, stop=q_stop,
+                        fmin=q_fmin, fmax=q_fmax,
+                    ),
+                    label="q-transform",
+                    log_cb=lambda m: pe_log(m, event_logs),
+                )
+                q_start = _q_cfg["start"]
+                q_stop = _q_cfg["stop"]
+                q_fmin = _q_cfg["fmin"]
+                q_fmax = _q_cfg["fmax"]
+
                 posterior_info = plot_basic_posteriors(
                     posterior_samples,
                     src_name,
@@ -1185,6 +1278,36 @@ def run_parameters_estimation(
                         fig_strainList.append(PictureProduct.from_file(fname_q))
                 except Exception as e_q:
                     pe_log(f"⚠️ [WARN] Could not create q-transform for {det}: {e_q}", event_logs)
+
+                try:
+                    snr_times, snr_complex, snr_aprx = compute_matched_filter_snr(
+                        strain=strain,
+                        pedata=data,
+                        det=det,
+                        label=pe_label_waveform,
+                        t0=t0,
+                        fmin=overlay_fmin,
+                        fmax=overlay_fmax,
+                        requested_approximant=requested_engine_aprx,
+                        allow_fallback=True,
+                        event_logs=event_logs,
+                    )
+                    if snr_times is not None and snr_complex is not None:
+                        fname_snr = plot_matched_filter_snr(
+                            snr_times,
+                            snr_complex,
+                            event=src_name,
+                            det=det,
+                            outdir=outdir,
+                            t0=t0,
+                            pe_label=pe_rhs,
+                            engine_used=snr_aprx,
+                        )
+                        result.files_strain.append(fname_snr)
+                        if oda_available and PictureProduct is not None:
+                            fig_strainList.append(PictureProduct.from_file(fname_snr))
+                except Exception as e_mf:
+                    pe_log(f"⚠️ [WARN] Could not create matched-filter SNR plot for {det}: {e_mf}", event_logs)
 
 
         except Exception as e:
