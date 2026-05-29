@@ -1460,20 +1460,24 @@ def compute_matched_filter_snr(
     template_arr = np.asarray(template.value, dtype=float)
     template_t0 = _sec(template.t0.value)
 
-    # Gate out long-inspiral (BNS-like) signals: a single maxL template cannot
-    # coherently recover a ~100 s inspiral over thousands of cycles (that needs a
-    # template bank with near-exact parameters), so the filter locks onto noise and
-    # the result is misleading. Require the whole template to fit inside the
-    # conditioned data with room for PSD estimation / edge cropping.
+    # Gate out long-inspiral (BNS-like) signals. The template length (in band) is
+    # the proxy we trigger on, but note the real limitation is NOT data length:
+    # validated on GW170817, even with 400 s of clean strain and the full 219 s
+    # template placed at the merger, a single maxL point-estimate template recovers
+    # only |rho|~4 at the merger (vs ~18 expected) — over the BNS's thousands of
+    # inspiral cycles, tiny chirp-mass / phase / f_ref-convention differences
+    # accumulate and the SNR never builds up. Reliable BNS recovery needs a template
+    # bank, not more strain, so fetching a longer segment would only bypass this gate
+    # and emit a misleading ~4-sigma plot. Skip cleanly instead.
     template_seconds = len(template_arr) / fs
     usable_seconds = float(data_pycbc.duration) - 2 * 4.0
     if template_seconds > usable_seconds:
         pe_log(
             f"⚠️ [WARN] Skipping matched-filter SNR for {det}: the maxL template is "
-            f"{template_seconds:.0f}s long but only {max(0.0, usable_seconds):.0f}s of "
-            "conditioned data is available. Matched-filter SNR is reliable for short "
-            "(BBH-like) signals only — long BNS inspirals need a longer strain segment "
-            "and a template bank.",
+            f"{template_seconds:.0f}s long (BNS-like). Single-template matched filtering "
+            "is reliable only for short (BBH-like) signals — a long BNS inspiral loses "
+            "most of its SNR to phase drift and needs a template bank, so this is not "
+            "fixable by fetching more strain.",
             event_logs,
         )
         return None, None, None
