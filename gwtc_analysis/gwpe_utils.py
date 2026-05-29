@@ -1401,8 +1401,36 @@ def compute_matched_filter_snr(
             pass
 
     fs = int(_scalar(strain.sample_rate.value))
-    delta_t = 1.0 / fs
 
+    try:
+        from pycbc.filter import highpass as pycbc_highpass, resample_to_delta_t
+        from pycbc.psd import welch as pycbc_welch, interpolate as pycbc_psd_interp, inverse_spectrum_truncation
+    except Exception as e:
+        pe_log(f"⚠️ [WARN] pycbc.filter/psd unavailable for matched filtering: {e}", event_logs)
+        return None, None, None
+
+    # --- Condition the data BEFORE matched filtering (canonical PyCBC recipe). ---
+    # Feeding raw strain straight to welch()/matched_filter() leaves the |rho(t)|
+    # noise floor far from unit variance and inflates the peak by ~100x. High-pass
+    # well below the band, downsample to a 2048 Hz grid (Nyquist 1024 Hz >> fmax),
+    # then trim the filter transients from both edges so the PSD/correlation are
+    # estimated on clean, stationary data.
+    strain_arr = np.asarray(strain.value, dtype=float)
+    strain_t0 = _sec(strain.t0.value)
+    data_pycbc = PyCBCTS(strain_arr, delta_t=1.0 / fs, epoch=strain_t0)
+    data_pycbc = pycbc_highpass(data_pycbc, 15.0)
+    target_dt = 1.0 / 2048 if fs > 2048 else 1.0 / fs
+    data_pycbc = resample_to_delta_t(data_pycbc, target_dt)
+    edge = 2.0
+    if float(data_pycbc.duration) > 4 * edge:
+        data_pycbc = data_pycbc.crop(edge, edge)
+
+    fs = int(round(1.0 / float(data_pycbc.delta_t)))
+    delta_t = float(data_pycbc.delta_t)
+    n_data = len(data_pycbc)
+    data_t0 = _sec(data_pycbc.start_time)
+
+    # --- Build the maxL projected template on the conditioned time grid. ---
     tries: List[str] = []
     if requested_approximant:
         tries.append(str(requested_approximant))
@@ -1432,13 +1460,27 @@ def compute_matched_filter_snr(
     template_arr = np.asarray(template.value, dtype=float)
     template_t0 = _sec(template.t0.value)
 
-    strain_arr = np.asarray(strain.value, dtype=float)
-    strain_t0 = _sec(strain.t0.value)
-    n_data = len(strain_arr)
+    # Gate out long-inspiral (BNS-like) signals: a single maxL template cannot
+    # coherently recover a ~100 s inspiral over thousands of cycles (that needs a
+    # template bank with near-exact parameters), so the filter locks onto noise and
+    # the result is misleading. Require the whole template to fit inside the
+    # conditioned data with room for PSD estimation / edge cropping.
+    template_seconds = len(template_arr) / fs
+    usable_seconds = float(data_pycbc.duration) - 2 * 4.0
+    if template_seconds > usable_seconds:
+        pe_log(
+            f"⚠️ [WARN] Skipping matched-filter SNR for {det}: the maxL template is "
+            f"{template_seconds:.0f}s long but only {max(0.0, usable_seconds):.0f}s of "
+            "conditioned data is available. Matched-filter SNR is reliable for short "
+            "(BBH-like) signals only — long BNS inspirals need a longer strain segment "
+            "and a template bank.",
+            event_logs,
+        )
+        return None, None, None
 
-    # Embed the (long) inspiral template onto the strain's time grid: zero outside,
-    # truth inside, with the maxL coalescence at its absolute GPS within the segment.
-    template_offset = int(round((template_t0 - strain_t0) / delta_t))
+    # Embed the template onto the conditioned data's grid. matched_filter scans all
+    # lags, so this absolute placement only fixes where the SNR peak lands in time.
+    template_offset = int(round((template_t0 - data_t0) / delta_t))
     embedded = np.zeros(n_data, dtype=float)
     src_start = max(0, -template_offset)
     src_end = min(len(template_arr), n_data - template_offset)
@@ -1447,29 +1489,16 @@ def compute_matched_filter_snr(
     if src_end > src_start:
         embedded[dst_start:dst_end] = template_arr[src_start:src_end]
 
-    template_pycbc = PyCBCTS(embedded, delta_t=delta_t, epoch=strain_t0)
-    data_pycbc = PyCBCTS(strain_arr, delta_t=delta_t, epoch=strain_t0)
+    template_pycbc = PyCBCTS(embedded, delta_t=delta_t, epoch=data_t0)
 
-    duration = n_data * delta_t
-    delta_f = 1.0 / duration
-
-    # Estimate the noise PSD from the strain segment itself via Welch's method.
-    # Using a per-segment-PSD ensures the matched filter normalisation actually
-    # matches the data we're filtering (the PE's BayesWave PSDs were computed
-    # against the inference-time strain, not whatever we have cached now).
-    try:
-        from pycbc.psd import welch as pycbc_welch, interpolate as pycbc_psd_interp, inverse_spectrum_truncation
-    except Exception as e:
-        pe_log(f"⚠️ [WARN] pycbc.psd unavailable: {e}", event_logs)
-        return None, None, None
-
-    seg_len = min(int(4 * fs), n_data)
-    seg_stride = seg_len // 2
-    psd_pycbc = pycbc_welch(data_pycbc, seg_len=seg_len, seg_stride=seg_stride, avg_method="median")
-    psd_pycbc = pycbc_psd_interp(psd_pycbc, delta_f)
+    # --- Noise PSD from the conditioned segment (Welch median), truncated. ---
+    psd_seg = min(4, max(1, int(float(data_pycbc.duration) // 4)))
+    seg_len = int(psd_seg * fs)
+    psd_pycbc = pycbc_welch(data_pycbc, seg_len=seg_len, seg_stride=seg_len // 2, avg_method="median")
+    psd_pycbc = pycbc_psd_interp(psd_pycbc, data_pycbc.delta_f)
     psd_pycbc = inverse_spectrum_truncation(
         psd_pycbc,
-        max_filter_len=int(4 * fs),
+        max_filter_len=seg_len,
         low_frequency_cutoff=float(fmin),
         trunc_method="hann",
     )
@@ -1482,23 +1511,38 @@ def compute_matched_filter_snr(
         high_frequency_cutoff=high_freq_cutoff,
     )
 
-    # Matched-filter output has ringing at the segment edges from the
-    # inverse-spectrum truncation (length 4 s) and from the FFT correlation.
-    # PyCBC's tutorial convention is to crop ~(filter_len/fs + buffer) seconds
-    # off each side. We use the same: 4 s + 4 s = 8 s at start, 4 s at end.
-    crop_start = 4.0 + 4.0
-    crop_end = 4.0
-    snr = snr.crop(crop_start, crop_end)
+    # Crop the inverse-spectrum-truncation transients (psd_seg seconds) off each end.
+    crop_edge = float(psd_seg)
+    if float(snr.duration) > 3 * crop_edge:
+        snr = snr.crop(crop_edge, crop_edge)
 
     snr_arr = np.asarray(snr.numpy())
     times = float(snr.start_time) + np.arange(len(snr_arr)) * delta_t
     if snr_arr.size:
-        peak_loc = int(np.argmax(np.abs(snr_arr)))
-        peak_val = float(np.abs(snr_arr[peak_loc]))
+        abs_snr = np.abs(snr_arr)
+        peak_loc = int(np.argmax(abs_snr))
+        peak_val = float(abs_snr[peak_loc])
         peak_t = float(times[peak_loc])
+
+        # Normalisation guard: for a correctly normalised matched filter the
+        # off-source |rho(t)| has unit-scale RMS (~0.7). A value far above that
+        # means the data conditioning/PSD is wrong and the peak is meaningless.
+        off = np.ones(abs_snr.size, dtype=bool)
+        half = fs // 2
+        off[max(0, peak_loc - half):peak_loc + half] = False
+        off_rms = float(abs_snr[off].std()) if off.any() else float("nan")
+        if np.isfinite(off_rms) and not (0.2 < off_rms < 3.0):
+            pe_log(
+                f"⚠️ [WARN] Matched-filter SNR for {det} looks mis-normalised "
+                f"(off-source RMS={off_rms:.2f}, expected ~0.7); peak |ρ|={peak_val:.1f} "
+                "is unreliable — check strain conditioning.",
+                event_logs,
+            )
+
         pe_log(
             f"ℹ️ [OK] Matched-filter SNR for {det}: peak |ρ|={peak_val:.2f} "
-            f"at t={peak_t:.4f} (Δt={peak_t - float(t0):+.4f}s rel. trigger)",
+            f"at t={peak_t:.4f} (Δt={peak_t - float(t0):+.4f}s rel. trigger, "
+            f"off-source RMS={off_rms:.2f})",
             event_logs,
         )
     return times, snr_arr, used_aprx
