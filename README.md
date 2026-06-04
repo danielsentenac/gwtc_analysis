@@ -15,6 +15,8 @@ The tool provides:
 All gravitational-wave data products are retrieved from the **Gravitational Wave Open Science Center (GWOSC)**,
 or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
 
+> **New:** the **GWTC-5.0** catalog (O4b observing run) is now available and fully supported — use the `GWTC-5` catalog key.
+
 ---
 
 ## Containerized Distribution (Docker)
@@ -141,7 +143,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all. |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all. |
 | `--out-events` | `catalogs_statistics.tsv` | Output TSV path (per-event table). |
 | `--out-report` | `catalogs_statistics.html` | Output HTML report path. |
 | `--include-detectors` | `False` | Include detector network via GWOSC v2 calls. |
@@ -155,7 +157,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all. |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all. |
 | `--out-selection` | `event_selection.tsv` | Output TSV path for the selected events. |
 | `--m1-min` | `` | Minimum primary mass (source frame). |
 | `--m1-max` | `` | Maximum primary mass (source frame). |
@@ -169,7 +171,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4). ALL key takes them all. |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all. |
 | `--ra-deg` | `` | Right ascension (deg). |
 | `--dec-deg` | `` | Declination (deg). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
@@ -335,6 +337,7 @@ This ensures robustness while keeping model choices transparent.
 python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.6 --data-repo s3
 python -m gwtc_analysis.cli event_selection --catalogs GWTC-4
 python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-4 --data-repo s3
+python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-5 --data-repo zenodo
 python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817
 python -m gwtc_analysis.cli parameters_estimation --src-name GW231223_032836 --data-repo zenodo
 python -m gwtc_analysis.cli parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log
