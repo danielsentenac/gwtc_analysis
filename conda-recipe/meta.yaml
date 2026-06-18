@@ -1,5 +1,5 @@
 {% set name = "gwtc_analysis" %}
-{% set version = "0.4.2" %}
+{% set version = "0.4.3" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.org/packages/source/g/gwtc_analysis/gwtc_analysis-{{ version }}.tar.gz
-  sha256: a4ef260d28ae97e9cfb9ec15bfd20ce9aa4dc66358923808a3764d4a7202fd2f
+  sha256: 13ec755b43fc8b453f09e93b359ac31d7dd2bf0990f45dbe7c560ed1efac67e0
 
 build:
   noarch: python
