@@ -29,6 +29,7 @@ packages = ["gwtc_analysis"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-v"
 markers = [
-  "network: test reaches out to usegalaxy.org over the network (skips if unreachable)",
+  "network: test reaches out over the network (usegalaxy.org / zenodo.org / MinIO); skips if unreachable",
 ]
