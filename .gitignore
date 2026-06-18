@@ -37,3 +37,6 @@ gwtc_analysis-feedstock/
 # Local caches
 .cache_gwosc/
 .codex
+
+# pytest
+.pytest_cache/
