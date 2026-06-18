@@ -83,9 +83,12 @@ jobs:
       - name: Publish to PyPI with trusted publisher
         if: ${{ env.PYPI_API_TOKEN == '' }}
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
       - name: Publish to PyPI with API token
         if: ${{ env.PYPI_API_TOKEN != '' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ env.PYPI_API_TOKEN }}
+          skip-existing: true
