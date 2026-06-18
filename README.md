@@ -99,7 +99,7 @@ The GWTC catalogs (Parameter Estimation and Skymaps) can be directly downloaded 
 
 - The Zenodo portal (official catalogs PE/skymaps tarballs) at https://zenodo.org/records/8177023|17014085|6513631. GWTC-5.0 (O4b) is split across two records: https://zenodo.org/records/20348005 (part 1, plus the archived skymaps tarball) and https://zenodo.org/records/20348006 (part 2).
 - A s3 Minio bucket called gwtc on  https://minio-dev.odahub.fr
-- Galaxy collections under the name GWTC at https://usegalaxy.org
+- Galaxy collections under the name GWTC at https://usegalaxy.org. With `--data-repo galaxy`, parameter-estimation files are first looked up in locally staged Galaxy collections (`./galaxy_inputs/<CATALOG>-PE`) and, if none is found, downloaded over HTTP from the public usegalaxy.org **"GWTC" published history** (anonymous, no API key — works while the history stays published).
 
 ---
 
@@ -115,7 +115,7 @@ This tool is designed to run either on your laptop as a docker image or conda pa
 ### Inputs
 - Catalog selections are passed as parameters separated by space
 - Data repositories accept `--data-repo` to choose where data products are read from:
-	- `galaxy`: read inputs from Galaxy collections
+	- `galaxy`: read inputs from locally staged Galaxy collections, falling back to the public usegalaxy.org "GWTC" published history over HTTP when no staged file is found
 	- `zenodo`: official releases from Zenodo
 	- `s3`: S3-compatible bucket
 
