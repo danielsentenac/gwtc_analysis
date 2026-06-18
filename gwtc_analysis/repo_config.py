@@ -14,6 +14,10 @@ class RepoConfig:
     zenodo_skymaps: Dict[str, ZenodoSkymapSpec]
     s3_bucket: str
     s3_prefix: str
+    # Public usegalaxy.org published history used as a network data source
+    # (download links resolved via the Galaxy REST API).
+    galaxy_server_url: str
+    galaxy_history_id: str
 
 DEFAULT_REPO_CONFIG = RepoConfig(
     galaxy_base=Path("/data/gwtc_analysis"),
@@ -42,5 +46,8 @@ DEFAULT_REPO_CONFIG = RepoConfig(
 
     s3_bucket="gwtc",
     s3_prefix="PEDataRelease",
+
+    galaxy_server_url="https://usegalaxy.org",
+    galaxy_history_id="bbd44e69cb8906b53c9eaf6f96c3950e",
 )
 

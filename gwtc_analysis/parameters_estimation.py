@@ -11,7 +11,9 @@ Supported data repositories (data_repo):
   - "s3"     : MinIO bucket "gwtc"
   - "zenodo" : public Zenodo PEDataRelease records
   - "galaxy" : PE files staged by Galaxy collections under ./galaxy_inputs
-              (expected collection directories: GWTC-2.1-PE, GWTC-3-PE, GWTC-4-PE, GWTC-5-PE)
+              (expected collection directories: GWTC-2.1-PE, GWTC-3-PE, GWTC-4-PE, GWTC-5-PE).
+              If no staged file is found, falls back to downloading from the public
+              usegalaxy.org published history over HTTP (anonymous, no API key).
   - "local"  : look for PEDataRelease file in plots_dir (kept for dev/debug)
 
 Notes
@@ -237,6 +239,106 @@ def _maybe_use_unofficial_bundle(
     if log_cb:
         log_cb(f"ℹ️ [INFO] Using unofficial local PE bundle for {src_name}: {path}")
     return str(path)
+
+
+# ---------------------------------------------------------------------
+# Public Galaxy history PE helpers (usegalaxy.org)
+# ---------------------------------------------------------------------
+
+
+def _galaxy_history_datasets(history_id: str | None = None) -> list[dict[str, Any]]:
+    """Return the live (non-deleted) datasets of a public Galaxy history."""
+    from .data_repo import galaxy_contents_url
+
+    r = requests.get(
+        galaxy_contents_url(history_id),
+        params={"keys": "id,name,extension,deleted,history_content_type"},
+        timeout=(10, 120),
+        headers={"User-Agent": USER_AGENT},
+    )
+    r.raise_for_status()
+    return [
+        it for it in r.json()
+        if it.get("history_content_type") == "dataset" and not it.get("deleted")
+    ]
+
+
+def build_galaxy_pe_index(
+    *,
+    cache_dir: str | Path = ".cache_gwosc",
+    history_id: str | None = None,
+    force_refresh: bool = False,
+) -> dict[str, list[dict[str, Any]]]:
+    """
+    Build/return an index of the PEDataRelease files published in a public
+    Galaxy history:
+
+        index[event_id] = [{'name','filename','hda_id','extension','url'}, ...]
+
+    The download URLs are anonymous (no API key); they keep working as long as
+    the history stays published. Cached in: <cache_dir>/galaxy_pe_index.json
+    """
+    from .data_repo import galaxy_dataset_download_url
+
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / "galaxy_pe_index.json"
+
+    if (not force_refresh) and cache_path.exists() and cache_path.stat().st_size > 0:
+        return json.loads(cache_path.read_text(encoding="utf-8"))
+
+    index: dict[str, list[dict[str, Any]]] = {}
+    for it in _galaxy_history_datasets(history_id):
+        name = it.get("name") or ""
+        if "PEDataRelease" not in name:
+            continue
+        if not (name.endswith(".h5") or name.endswith(".hdf5")):
+            continue
+        ev = _extract_event_id_from_filename(name)
+        if not ev:
+            continue
+        ext = it.get("extension") or "data"
+        index.setdefault(ev, []).append({
+            "name": name,
+            "filename": name,            # so choose_best_pe_file() can be reused
+            "hda_id": it["id"],
+            "extension": ext,
+            "url": galaxy_dataset_download_url(it["id"], ext),
+        })
+
+    cache_path.write_text(json.dumps(index, indent=2), encoding="utf-8")
+    return index
+
+
+def download_galaxy_pe_file(
+    chosen: dict[str, Any],
+    *,
+    outdir: Path,
+    progress_cb: Callable[[str, int, str], None] | None = None,
+    log_cb: Callable[[str], None] | None = None,
+) -> Path:
+    """
+    Download a PE file from a public Galaxy history (anonymous), preserving the
+    original PEDataRelease filename. `chosen` must contain {'name', 'url'}.
+    """
+    fname = str(chosen["name"])
+    url = str(chosen["url"])
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    out_path = outdir / fname
+
+    if out_path.exists() and out_path.stat().st_size > 0:
+        if log_cb:
+            log_cb(f"ℹ️ [CACHE] Using existing Galaxy PE file: {out_path}")
+        return out_path
+
+    if log_cb:
+        log_cb(f"ℹ️ [DOWNLOAD] Galaxy PE: {fname}")
+    if progress_cb:
+        progress_cb("Download data", 15, f"Galaxy download: {fname}")
+
+    _download_http_with_progress(url, out_path, desc=f"Galaxy: {fname}")
+    return out_path
 
 
 # ---------------------------------------------------------------------
@@ -957,26 +1059,63 @@ def run_parameters_estimation(
                     )
 
         elif data_repo == "galaxy":
+            from difflib import get_close_matches
+            from .data_repo import galaxy_server_url
+
+            # 1) Prefer locally staged Galaxy collections (./galaxy_inputs/<CATALOG>-PE).
             pe_dirs = _guess_galaxy_pe_dirs(catalog)
-            if not pe_dirs:
-                pe_log("❌ [ERROR] Galaxy mode: ./galaxy_inputs/<CATALOG>-PE not found.", event_logs)
-                go_next_cell = False
+            found = _find_local_pe_file(src_name, pe_dirs) if pe_dirs else None
+
+            if found is not None:
+                local_pe_path = str(found)
+                pe_log(f"ℹ️ [INFO] Galaxy mode: using staged PE file {local_pe_path}", event_logs)
             else:
-                found = _find_local_pe_file(src_name, pe_dirs)
-                if found is None:
+                # 2) Fallback: resolve from the public usegalaxy.org history over HTTP.
+                index: dict[str, Any] = {}
+                chosen = None
+                try:
+                    index = build_galaxy_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
+                    if src_name not in index:
+                        pe_log(
+                            f"⚠️ [WARN] Event {src_name} not in cached Galaxy index. Refreshing…",
+                            event_logs,
+                        )
+                        index = build_galaxy_pe_index(cache_dir=".cache_gwosc", force_refresh=True)
+                    chosen = choose_best_pe_file(index.get(src_name, []))
+                except Exception as e:
+                    pe_log(
+                        f"⚠️ [WARN] Galaxy history lookup failed ({galaxy_server_url()}): "
+                        f"{type(e).__name__}: {e}",
+                        event_logs,
+                    )
+
+                if chosen is not None:
+                    pe_log(
+                        f"ℹ️ [INFO] Galaxy mode: fetching {chosen['name']} from {galaxy_server_url()}",
+                        event_logs,
+                    )
+                    local_path = download_galaxy_pe_file(
+                        chosen,
+                        outdir=outdir,
+                        progress_cb=_progress if pr is not None else None,
+                        log_cb=lambda m: pe_log(m, event_logs),
+                    )
+                    local_pe_path = str(local_path)
+                else:
+                    # 3) Last resort: unofficial local bundle.
                     local_pe_path = _maybe_use_unofficial_bundle(
                         src_name,
                         log_cb=lambda msg: pe_log(msg, event_logs),
                     )
                     if local_pe_path is None:
+                        sugg = get_close_matches(src_name, list(index.keys()), n=5, cutoff=0.6)
                         pe_log(
                             "❌ [ERROR] Galaxy mode: no PE file found for "
-                            f"{src_name} under: {', '.join(str(p) for p in pe_dirs)}", event_logs
+                            f"{src_name} (staged collections or public history). "
+                            f"Closest matches: {', '.join(sugg) if sugg else '(none)'}",
+                            event_logs,
                         )
                         go_next_cell = False
-                else:
-                    local_pe_path = str(found)
-                    pe_log(f"ℹ️ [INFO] Galaxy mode: using PE file {local_pe_path}", event_logs)
 
         else:
             # local/dev fallback
