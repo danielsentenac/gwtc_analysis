@@ -97,9 +97,23 @@ python -m gwtc_analysis.cli <MODE> -h
 
 The GWTC catalogs (Parameter Estimation and Skymaps) can be directly downloaded from different supports:
 
-- The Zenodo portal (official catalogs PE/skymaps tarballs) at https://zenodo.org/records/8177023|17014085|6513631. GWTC-5.0 (O4b) is split across two records: https://zenodo.org/records/20348005 (part 1, plus the archived skymaps tarball) and https://zenodo.org/records/20348006 (part 2).
+- The Zenodo portal (official catalogs PE/skymaps tarballs): GWTC-2.1 (https://zenodo.org/records/6513631), GWTC-3 (https://zenodo.org/records/22685054), GWTC-4.0 (https://zenodo.org/records/17602505) and GWTC-5.0, which is split across two records: https://zenodo.org/records/20348005 (part 1, plus the archived skymaps tarball) and https://zenodo.org/records/20348006 (part 2). These records are only the starting point: the Zenodo version used is resolved at run time (see [Zenodo release versions](#zenodo-release-versions)).
 - A s3 Minio bucket called gwtc on  https://minio-dev.odahub.fr
 - Galaxy collections under the name GWTC at https://usegalaxy.org. With `--data-repo galaxy`, parameter-estimation files are first looked up in locally staged Galaxy collections (`./galaxy_inputs/<CATALOG>-PE`) and, if none is found, downloaded over HTTP from the public usegalaxy.org **"GWTC" published history** (anonymous, no API key — works while the history stays published).
+
+### Zenodo release versions
+
+The Zenodo releases are versioned (for instance GWTC-3 has v1, v2 and v3). With `--data-repo zenodo`, each catalog uses its **latest** version by default; the version listings are fetched from the Zenodo API and cached for one day in `~/.cache_gwtc_analysis/zenodo`, so a new release is picked up automatically.
+
+To read an older version, pass `--zenodo-version CATALOG=VERSION` (modes `catalog_statistics`, `search_skymaps`, `parameters_estimation`). Versions are numbered from the oldest (`v1`); `latest` is also accepted:
+
+```bash
+python -m gwtc_analysis.cli zenodo_releases --catalogs GWTC-3 GWTC-4   # list the versions
+python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-3 --ra-deg 40 --dec-deg -30 --zenodo-version GWTC-3=v2
+python -m gwtc_analysis.cli parameters_estimation --src-name GW200105_162426 --zenodo-version GWTC-3=v2
+```
+
+Skymap tarballs are cached per Zenodo record (`.cache_gwosc/zenodo_<record>_<file>`), and the PE index is rebuilt when the selected records change. If zenodo.org is unreachable, the cached version listing is used; with no cache at all, the latest version falls back to the record listed above.
 
 ---
 
@@ -151,6 +165,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--area-cred` | `0.9` | Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95. |
 | `--plots-dir` | `cat_plots` | Directory for plots (default: cat_plots). |
 | `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
+| `--zenodo-version` | `` | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 
 ### `event_selection`
 
@@ -180,6 +195,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
 | `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
+| `--zenodo-version` | `` | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 
 ### `parameters_estimation`
 
@@ -189,6 +205,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `parameters_estimation.html` | Output HTML report path. |
 | `--src-name` | `` | Source event name (e.g. GW231223_032836). |
 | `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
+| `--zenodo-version` | `` | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 | `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
 | `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
@@ -216,6 +233,13 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--src-name` | `` | Source event name (e.g. GW170817). |
 | `--cache-dir` | `.cache_gwosc` | Cache root where unofficial_pe/<bundle>.h5 will be written. |
 | `--force` | `False` | Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date. |
+
+### `zenodo_releases`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--catalogs` | `['ALL']` | Catalog keys, space-separated (e.g. GWTC-3 GWTC-4). ALL key takes them all. |
 
 <!-- CLI_TABLES_END -->
 
