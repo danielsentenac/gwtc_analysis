@@ -287,19 +287,33 @@ For supported special-case events such as `GW170817`, `build_unofficial_pe`
 creates a PESummary-compatible `PEDataRelease` bundle from locally cached source
 products such as posterior samples, PSDs, and skymaps.
 
-- `GW170817` is reconstructed from separate GWTC-1-era pieces rather than a
-  single official PESummary release. The current recipe expects:
-  `~/.gwcache/GW170817_GWTC-1.hdf5`,
-  `~/.gwcache/GWTC1_GW170817_PSDs.dat`, and
-  `~/.gwcache/GW170817_skymap.fits.gz`.
-- The raw posterior samples do not provide `H1_time`, `L1_time`, or `V1_time`.
-  The bundle builder derives those detector arrival times from `geocent_time`,
-  `ra`, and `dec` with LAL detector delays, then stores them in the reconstructed
-  sample table. For the median GW170817 sky position and geocenter GPS
-  `1187008882.429464`, the arrivals are approximately H1
-  `1187008882.448258`, L1 `1187008882.444965`, and V1 `1187008882.423074`.
-- If any of the three source files above are absent, the bundle cannot be
-  rebuilt and strain overlays will not proceed from this special-case path.
+- `GW170817` is reconstructed from public GWTC-1 releases only, downloaded into
+  `~/.gwcache` the first time they are needed:
+
+  | Product | DCC release | File |
+  |---|---|---|
+  | Posterior samples (IMRPhenomPv2_NRTidal, low and high spin) | [LIGO-P1800370](https://dcc.ligo.org/LIGO-P1800370/public) | `GW170817_GWTC-1.hdf5` |
+  | PSDs (H1, L1, V1) | [LIGO-P1900011](https://dcc.ligo.org/LIGO-P1900011/public) | `GWTC1_GW170817_PSDs.dat` |
+  | Calibration uncertainty envelopes | [LIGO-P1900040](https://dcc.ligo.org/LIGO-P1900040/public) | `GWTC1_GW170817_CalEnv/GWTC1_GW170817_{H,L,V}_CalEnv.txt` |
+  | Skymap | [LIGO-P1800381](https://dcc.ligo.org/LIGO-P1800381/public) | `GW170817_skymap.fits.gz` |
+
+- The public samples carry no polarization, phase, coalescence time or
+  likelihood. The builder draws `psi` and `phase` from their priors, sets
+  `geocent_time` to the trigger time and derives a synthetic ranking
+  `log_likelihood`. For the sample it ranks first (the "maxL" sample used by the
+  strain overlay), it then fits `geocent_time`, `phase` and `psi` to the GWOSC
+  strain by maximizing the coherent network likelihood with the public PSDs,
+  keeping the intrinsic parameters and sky position. The build log reports the
+  recovered matched-filter SNRs (about H1 18, L1 25, network 31 for GW170817).
+  All other samples keep their prior-drawn extrinsic values.
+- Detector arrival times (`H1_time`, `L1_time`, `V1_time`) are derived from
+  `geocent_time`, `ra` and `dec` with LAL detector delays.
+- If a source file is missing and cannot be downloaded, the bundle is not built
+  and strain overlays will not proceed from this special-case path. The strain
+  fit needs network access to GWOSC; if it fails, the bundle is still built and
+  the log warns that the overlay will not be coherent.
+- The built bundle is cached with a recipe fingerprint
+  (`<bundle>.recipe.json`); it is rebuilt when the recipe or a source file changes.
 
 - Use `python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817` to
   build or reuse the cached unofficial bundle explicitly.
