@@ -112,3 +112,60 @@ def test_long_template_without_event_is_skipped():
     t, rho, logs = _run(_PEData(60.0), _strain(60.0, 14, 14))
     assert t is None and rho is None
     assert "Skipping matched-filter SNR" in logs
+
+
+def _rotated_strain(alpha: float, shift: float, seed: int = 3) -> TimeSeries:
+    """Noise plus the 2 s chirp shifted by `shift` s and phase-rotated by `alpha`."""
+    from scipy.signal import hilbert
+
+    rng = np.random.default_rng(seed)
+    start = T0 - 14
+    n = 28 * FS
+    x = rng.normal(0.0, SIGMA, n)
+    h = np.real(hilbert(_chirp(2.0, 1.0 / FS)) * np.exp(1j * alpha))
+    k0 = int(round((T0 + shift - 2.0 - start) * FS))  # the injection lands on the sample grid
+    x[k0:k0 + len(h)] += 6e-22 * h / np.std(h)
+    return TimeSeries(x, t0=start, dt=1.0 / FS)
+
+
+def _injected_shift(shift: float) -> float:
+    start = T0 - 14
+    return start + round((T0 + shift - 2.0 - start) * FS) / FS + 2.0 - T0
+
+
+class _ShiftedPosterior(_Posterior):
+    """Posterior whose maxL template is the aligned one."""
+
+    def __init__(self, duration, align):
+        super().__init__(duration)
+        self.align = align
+
+    def maxL_td_waveform(self, approximant, delta_t, f_low, f_ref, project):
+        return gu._align_template(super().maxL_td_waveform(approximant, delta_t, f_low, f_ref, project), *self.align)
+
+
+@pytest.mark.parametrize("alpha, shift", [(0.9, 0.004), (-2.0, -0.0063), (2.8, 0.0)])
+def test_alignment_moves_template_onto_the_signal(alpha, shift):
+    """The peak time/phase recovered from the matched filter align the template with the data."""
+    strain = _rotated_strain(alpha, shift)
+    t, rho, _ = _run(_PEData(2.0), strain)
+    dt, dphi, val = gu.matched_filter_alignment(t, rho, T0)
+    # recovered within the noise scatter of the injection (a few tenths of a ms at |rho|~50)
+    assert abs(dt - _injected_shift(shift)) < 5e-4
+    assert abs(np.angle(np.exp(1j * (dphi - alpha)))) < 0.15
+
+    aligned = _PEData(2.0)
+    aligned.samples_dict["C00:Fake"] = _ShiftedPosterior(2.0, (dt, dphi))
+    t2, rho2, _ = _run(aligned, strain)
+    dt2, dphi2, val2 = gu.matched_filter_alignment(t2, rho2, T0)
+    # the aligned template sits on the data's best fit: no residual shift/phase, full SNR in phase
+    assert abs(dt2) < 1e-4 and abs(dphi2) < 0.05
+    assert val2 == pytest.approx(val, rel=0.01)
+    assert rho2[int(np.argmin(np.abs(t2 - T0)))].real == pytest.approx(val, rel=0.01)
+
+
+def test_alignment_ignores_noise():
+    """Below the SNR threshold no alignment is returned."""
+    noise = TimeSeries(np.random.default_rng(9).normal(0.0, SIGMA, 28 * FS), t0=T0 - 14, dt=1.0 / FS)
+    t, rho, _ = _run(_PEData(2.0), noise)
+    assert gu.matched_filter_alignment(t, rho, T0) is None

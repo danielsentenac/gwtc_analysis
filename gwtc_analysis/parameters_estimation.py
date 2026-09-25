@@ -933,6 +933,7 @@ def run_parameters_estimation(
         plot_whitened_overlay,
         plot_time_frequency,
         compute_matched_filter_snr,
+        matched_filter_alignment,
         plot_matched_filter_snr,
         plot_basic_posteriors,
         plot_posterior_pairs,
@@ -1408,6 +1409,35 @@ def run_parameters_estimation(
                     f"PE label={pe_label_waveform}, PE rhs={pe_rhs}, engine requested={requested_engine_aprx}", event_logs
                 )
 
+                # Matched filter first: its peak time and phase align the overlay template.
+                snr_times = snr_complex = snr_aprx = None
+                align = None
+                try:
+                    snr_times, snr_complex, snr_aprx = compute_matched_filter_snr(
+                        strain=strain,
+                        pedata=data,
+                        det=det,
+                        label=pe_label_waveform,
+                        t0=t0,
+                        fmin=overlay_fmin,
+                        fmax=overlay_fmax,
+                        requested_approximant=requested_engine_aprx,
+                        allow_fallback=True,
+                        event_logs=event_logs,
+                        event=src_name,
+                    )
+                    align_info = matched_filter_alignment(snr_times, snr_complex, t0)
+                    if align_info is not None:
+                        align = align_info[:2]
+                    elif snr_times is not None:
+                        pe_log(
+                            f"ℹ️ [INFO] Matched-filter peak for {det} below |ρ|=8: overlay template "
+                            "left at the PE sample's time and phase.",
+                            event_logs,
+                        )
+                except Exception as e_mf:
+                    pe_log(f"⚠️ [WARN] Could not compute matched-filter SNR for {det}: {e_mf}", event_logs)
+
                 bp_cropped, crop_temp, used_aprx = generate_projected_waveform(
                     strain=strain,
                     event=src_name,
@@ -1420,6 +1450,7 @@ def run_parameters_estimation(
                     freqrange=(overlay_fmin, overlay_fmax),
                     time_window=(overlay_start_before, overlay_stop_after),
                     event_logs=event_logs,
+                    align=align,
                 )
 
                 if bp_cropped is not None and crop_temp is not None:
@@ -1466,19 +1497,6 @@ def run_parameters_estimation(
                     pe_log(f"⚠️ [WARN] Could not create q-transform for {det}: {e_q}", event_logs)
 
                 try:
-                    snr_times, snr_complex, snr_aprx = compute_matched_filter_snr(
-                        strain=strain,
-                        pedata=data,
-                        det=det,
-                        label=pe_label_waveform,
-                        t0=t0,
-                        fmin=overlay_fmin,
-                        fmax=overlay_fmax,
-                        requested_approximant=requested_engine_aprx,
-                        allow_fallback=True,
-                        event_logs=event_logs,
-                        event=src_name,
-                    )
                     if snr_times is not None and snr_complex is not None:
                         fname_snr = plot_matched_filter_snr(
                             snr_times,
