@@ -1048,8 +1048,13 @@ def generate_projected_waveform(
     requested_approximant: Optional[str] = None,
     allow_fallback: bool = True,
     event_logs: list[str] | None = None,
+    align: Optional[Tuple[float, float]] = None,
 ):
     """PEViewer-style projected waveform + whitened overlay inputs.
+
+    ``align`` = (dt, dphi) shifts the template by dt seconds and rotates its
+    phase by dphi (see ``matched_filter_alignment``), so the overlay shows the
+    template where the matched filter finds it in the data.
 
     This reproduces PEViewer's logic:
       - crop time window is centered on the event geocenter GPS (GWOSC datasets.event_gps),
@@ -1249,6 +1254,13 @@ def generate_projected_waveform(
         hp = hp.taper()
     except Exception:
         pass
+    if align is not None:
+        hp = _align_template(_as_gwpy_timeseries(hp, fs), float(align[0]), float(align[1]))
+        pe_log(
+            f"ℹ️ [INFO] Overlay template for {det} aligned to the matched-filter peak: "
+            f"shift {1e3 * float(align[0]):+.2f} ms, phase {float(align[1]):+.2f} rad.",
+            event_logs,
+        )
     try:
         hp = hp.pad(60 * fs)
     except Exception:
@@ -1367,6 +1379,52 @@ def plot_whitened_overlay(
 
     print(f"ℹ️ [OK] Saved {fname}")
     return fname
+
+
+def _align_template(h: GWpyTimeSeries, dt: float, dphi: float) -> GWpyTimeSeries:
+    """Template shifted by dt and phase-rotated by dphi: Re[analytic(h) e^{i dphi}]."""
+    import numpy as np
+    from scipy.signal import hilbert
+
+    x = np.asarray(h.value, dtype=float)
+    y = np.real(hilbert(x) * np.exp(1j * dphi))
+    return GWpyTimeSeries(y, t0=_sec(h.t0.value) + dt, dt=_sec(h.dt.value))
+
+
+def matched_filter_alignment(times, snr_complex, t0: float, *, min_snr: float = 8.0, window: float = 0.1):
+    """(dt, dphi, |rho|) of the matched-filter peak within ±window of t0, or None.
+
+    dt is the peak time relative to t0 (refined within the sample by a parabola
+    through |rho|) and dphi = arg(rho) there: data ~ Re[analytic(template)
+    shifted by dt, times e^{i dphi}]. None if the peak is below ``min_snr``, so
+    that the overlay is not moved onto a noise excursion.
+    """
+    import numpy as np
+
+    if times is None or snr_complex is None or len(times) < 3:
+        return None
+    t = np.asarray(times, dtype=float)
+    rho = np.asarray(snr_complex)
+    a = np.abs(rho)
+    near = np.abs(t - float(t0)) <= window
+    if not near.any():
+        return None
+    k = int(np.argmax(np.where(near, a, -np.inf)))
+    if a[k] < min_snr:
+        return None
+    # Refine within the sample: band-limited (FFT) upsampling of the complex SNR
+    # around the peak; 0.5 ms is already ~0.6 rad of phase at 200 Hz.
+    step = t[1] - t[0]
+    half, up = 32, 32
+    lo, hi = max(0, k - half), min(len(rho), k + half)
+    seg = rho[lo:hi]
+    if len(seg) >= 8:
+        from scipy.signal import resample
+
+        fine = resample(seg, len(seg) * up)
+        j = int(np.argmax(np.abs(fine)))
+        return float(t[lo] + j * step / up - float(t0)), float(np.angle(fine[j])), float(np.abs(fine[j]))
+    return float(t[k] - float(t0)), float(np.angle(rho[k])), float(a[k])
 
 
 @debug_wrap('compute_matched_filter_snr')
