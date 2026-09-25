@@ -107,3 +107,16 @@ def test_supplementary_psds_come_from_cache(tmp_path, monkeypatch):
 def test_approximant_from_label_rhs(rhs, approximant):
     """PE label suffixes are stripped to a waveform approximant name."""
     assert approximant_from_label_rhs(rhs) == approximant
+
+
+def test_clean_psd_drops_repeated_copy_and_restores_grid():
+    """A table stored twice with 6-digit frequencies becomes one strictly increasing grid."""
+    df = 1.0 / 128
+    f = np.arange(0, 2048, df)
+    table = np.column_stack([np.array([float(f"{x:.6g}") for x in f]), np.linspace(1, 2, len(f))])
+    doubled = np.vstack([table, table])
+    out = ps._clean_psd(doubled)
+    assert out.shape == table.shape
+    assert np.all(np.diff(out[:, 0]) > 0)
+    assert np.array_equal(out[:, 0], f)
+    assert np.array_equal(out[:, 1], table[:, 1])
