@@ -24,6 +24,12 @@
     #end if
     #set $cmd = $cmd + " --plots-dir '" + str($mode.plots_dir) + "'"
     #set $cmd = $cmd + " --data-repo '" + str($mode.data_repo) + "'"
+    #if str($mode.data_repo) == "zenodo" and str($mode.zenodo_version).strip():
+        #set $cmd = $cmd + " --zenodo-version"
+        #for $zv in str($mode.zenodo_version).split():
+            #set $cmd = $cmd + " '" + $zv + "'"
+        #end for
+    #end if
     $cmd && : > '$out_selection'
 
 #elif str($mode.analysis_mode) == "event_selection":
@@ -67,6 +73,12 @@
     #set $cmd = $cmd + " --out-report '" + str($out_report) + "'"
     #set $cmd = $cmd + " --plots-dir '" + str($mode.plots_dir) + "'"
     #set $cmd = $cmd + " --data-repo '" + str($mode.data_repo) + "'"
+    #if str($mode.data_repo) == "zenodo" and str($mode.zenodo_version).strip():
+        #set $cmd = $cmd + " --zenodo-version"
+        #for $zv in str($mode.zenodo_version).split():
+            #set $cmd = $cmd + " '" + $zv + "'"
+        #end for
+    #end if
     $cmd && : > '$out_selection'
 
 #elif str($mode.analysis_mode) == "parameters_estimation":
@@ -75,6 +87,12 @@
     #set $cmd = $cmd + " --out-report '" + str($out_report) + "'"
     #set $cmd = $cmd + " --plots-dir '" + str($mode.plots_dir) + "'"
     #set $cmd = $cmd + " --data-repo '" + str($mode.data_repo) + "'"
+    #if str($mode.data_repo) == "zenodo" and str($mode.zenodo_version).strip():
+        #set $cmd = $cmd + " --zenodo-version"
+        #for $zv in str($mode.zenodo_version).split():
+            #set $cmd = $cmd + " '" + $zv + "'"
+        #end for
+    #end if
 
     #if $mode.pe_vars:
         #set $cmd = $cmd + " --pe-vars"
@@ -152,6 +170,9 @@
           <option value="s3">s3</option>
           <option value="zenodo">zenodo</option>
         </param>
+        <param name="zenodo_version" type="text" value="" label="Zenodo release versions" help="Only with the zenodo repository: older release versions to read, as CATALOG=VERSION separated by spaces (e.g. GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1). Leave empty to read the latest release of each catalog.">
+          <validator type="regex" message="Use CATALOG=VERSION items separated by spaces, e.g. GWTC-3=v2">^\s*([A-Za-z0-9.\-]+=(v?[0-9]+|latest)\s*)*$</validator>
+        </param>
       </when>
 
       <when value="event_selection">
@@ -188,6 +209,9 @@
           <option value="s3">s3</option>
           <option value="zenodo">zenodo</option>
         </param>
+        <param name="zenodo_version" type="text" value="" label="Zenodo release versions" help="Only with the zenodo repository: older release versions to read, as CATALOG=VERSION separated by spaces (e.g. GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1). Leave empty to read the latest release of each catalog.">
+          <validator type="regex" message="Use CATALOG=VERSION items separated by spaces, e.g. GWTC-3=v2">^\s*([A-Za-z0-9.\-]+=(v?[0-9]+|latest)\s*)*$</validator>
+        </param>
       </when>
 
       <when value="parameters_estimation">
@@ -197,6 +221,9 @@
           <option value="galaxy" selected="true">galaxy</option>
           <option value="s3">s3</option>
           <option value="zenodo">zenodo</option>
+        </param>
+        <param name="zenodo_version" type="text" value="" label="Zenodo release versions" help="Only with the zenodo repository: older release versions to read, as CATALOG=VERSION separated by spaces (e.g. GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1). Leave empty to read the latest release of each catalog.">
+          <validator type="regex" message="Use CATALOG=VERSION items separated by spaces, e.g. GWTC-3=v2">^\s*([A-Za-z0-9.\-]+=(v?[0-9]+|latest)\s*)*$</validator>
         </param>
         <param name="pe_vars" type="text" optional="true" multiple="true" label="PE variables to plot (1D)" help="Space-separated parameters."/>
         <param name="pe_pairs" type="text" optional="true" multiple="true" label="PE variable pairs to plot (2D)" help="Space-separated parameter pairs like x:y (e.g. chi_eff:chi_p)."/>
