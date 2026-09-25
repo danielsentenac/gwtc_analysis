@@ -1595,8 +1595,9 @@ def plot_matched_filter_snr(
     pe_label: str | None = None,
     engine_used: str | None = None,
     window: tuple[float, float] = (0.5, 0.2),
+    peak_search_window: float = 0.1,
 ) -> str:
-    """Plot |ρ(t)| around the merger; mark the peak."""
+    """Plot |ρ(t)| around the merger; mark the peak within ±peak_search_window of it."""
     import numpy as np
     outdir = Path(outdir)
     ensure_outdir(outdir)
@@ -1608,8 +1609,9 @@ def plot_matched_filter_snr(
     if not np.any(mask):
         mask = np.ones_like(t_rel, dtype=bool)
 
-    # Peak within the plotted window around the merger, not a far noise excursion.
-    peak_idx = int(np.argmax(np.where(mask, snr_abs, -np.inf)))
+    # Same peak as compute_matched_filter_snr: near the merger, not a noise excursion.
+    near = np.abs(t_rel) <= float(peak_search_window)
+    peak_idx = int(np.argmax(np.where(near if near.any() else mask, snr_abs, -np.inf)))
     peak_t_rel = float(t_rel[peak_idx])
     peak_val = float(snr_abs[peak_idx])
 
