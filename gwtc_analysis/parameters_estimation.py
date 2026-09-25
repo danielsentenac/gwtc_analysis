@@ -1473,6 +1473,7 @@ def run_parameters_estimation(
                         requested_approximant=requested_engine_aprx,
                         allow_fallback=True,
                         event_logs=event_logs,
+                        event=src_name,
                     )
                     if snr_times is not None and snr_complex is not None:
                         fname_snr = plot_matched_filter_snr(
