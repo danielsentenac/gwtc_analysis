@@ -1,0 +1,114 @@
+"""Offline tests for ``compute_matched_filter_snr`` on injected signals.
+
+A chirp template is injected at a known time into white Gaussian noise; the
+matched filter must peak at that time with the injected SNR, both for a short
+(BBH-like) template and for a long (BNS-like) one that does not fit in the
+overlay strain segment and needs the longer fetch.
+"""
+from __future__ import annotations
+
+import numpy as np
+import pytest
+from gwpy.timeseries import TimeSeries
+
+from gwtc_analysis import gwpe_utils as gu
+
+FS = 4096
+T0 = 1_000_000_000.0          # merger arrival time in the detector
+SIGMA = 1e-21                 # white noise standard deviation per sample
+TARGET_SNR = 20.0
+
+
+def _chirp(duration: float, delta_t: float) -> np.ndarray:
+    """Chirp ending at t = 0, frequency rising to 200 Hz, tapered at the start."""
+    t = np.arange(-duration, 0.0, delta_t)
+    tau = np.maximum(-t, 1e-3)
+    f = np.minimum(200.0, 30.0 * (tau / duration) ** (-3.0 / 8.0))
+    phase = 2 * np.pi * np.cumsum(f) * delta_t
+    h = np.cos(phase)
+    ramp = min(len(h), int(1.0 / delta_t))
+    h[:ramp] *= 0.5 * (1 - np.cos(np.pi * np.arange(ramp) / ramp))
+    return h
+
+
+class _Posterior:
+    def __init__(self, duration):
+        self.duration = duration
+
+    def maxL_td_waveform(self, approximant, delta_t, f_low, f_ref, project):
+        h = _chirp(self.duration, delta_t)
+        return TimeSeries(h, t0=T0 - self.duration, dt=delta_t)
+
+
+class _PEData:
+    def __init__(self, duration):
+        self.labels = ["C00:Fake"]
+        self.approximant = ["Fake"]
+        self.samples_dict = {"C00:Fake": _Posterior(duration)}
+        self.config = {}
+
+
+def _strain(duration_tmpl: float, before: float, after: float, seed: int = 1) -> TimeSeries:
+    """White noise with the template injected at T0, scaled to TARGET_SNR."""
+    rng = np.random.default_rng(seed)
+    start = T0 - before
+    n = int((before + after) * FS)
+    x = rng.normal(0.0, SIGMA, n)
+    h = _chirp(duration_tmpl, 1.0 / FS)
+    band = 1.0 / FS
+    # optimal SNR of h in white noise restricted to 20-1024 Hz (the filter band)
+    hf = np.fft.rfft(h) / FS
+    fr = np.fft.rfftfreq(len(h), 1.0 / FS)
+    psd = 2 * SIGMA ** 2 * band
+    m = (fr >= 20) & (fr <= 1024)
+    snr1 = np.sqrt(4 * np.sum(np.abs(hf[m]) ** 2) / psd * (fr[1] - fr[0]))
+    k0 = int(round((T0 - duration_tmpl - start) * FS))
+    lo, hi = max(0, k0), min(n, k0 + len(h))
+    x[lo:hi] += (TARGET_SNR / snr1) * h[lo - k0:hi - k0]
+    return TimeSeries(x, t0=start, dt=1.0 / FS)
+
+
+def _run(pedata, strain, **kw):
+    logs = [""]
+    t, rho, _ = gu.compute_matched_filter_snr(
+        strain=strain, pedata=pedata, det="H1", label="C00:Fake", t0=T0,
+        fmin=20.0, fmax=1000.0, event_logs=logs, **kw,
+    )
+    return t, rho, logs[-1]
+
+
+def _peak(t, rho):
+    a = np.abs(rho)
+    k = int(np.argmax(a))
+    return float(a[k]), float(t[k] - T0)
+
+
+def test_short_template_peaks_at_the_merger():
+    """BBH-like 2 s template in 28 s of strain: peak at T0 with the injected SNR."""
+    t, rho, logs = _run(_PEData(2.0), _strain(2.0, 14, 14))
+    val, dt = _peak(t, rho)
+    assert abs(dt) < 1e-3, logs
+    assert 17 < val < 23, logs
+
+
+def test_long_template_fetches_longer_strain(monkeypatch):
+    """BNS-like 60 s template: longer strain is fetched and the peak is recovered."""
+    calls = []
+
+    def fake_load_strain(event, t0, detector, window=14.0, cache=True):
+        calls.append(window)
+        return _strain(60.0, window, window)
+
+    monkeypatch.setattr(gu, "load_strain", fake_load_strain)
+    t, rho, logs = _run(_PEData(60.0), _strain(60.0, 14, 14), event="GWFAKE")
+    assert calls and calls[0] >= 60, logs
+    val, dt = _peak(t, rho)
+    assert abs(dt) < 1e-3, logs
+    assert 17 < val < 23, logs
+
+
+def test_long_template_without_event_is_skipped():
+    """Without an event name to fetch more strain, a long template is skipped cleanly."""
+    t, rho, logs = _run(_PEData(60.0), _strain(60.0, 14, 14))
+    assert t is None and rho is None
+    assert "Skipping matched-filter SNR" in logs

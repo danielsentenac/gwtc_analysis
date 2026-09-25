@@ -1359,13 +1359,20 @@ def compute_matched_filter_snr(
     requested_approximant: Optional[str] = None,
     allow_fallback: bool = True,
     event_logs: list[str] | None = None,
+    event: Optional[str] = None,
+    max_strain_window: float = 512.0,
+    peak_search_window: float = 0.1,
 ):
     """Compute the matched-filter SNR time series for one detector.
 
     Generates the maxL projected waveform from the posterior and matched-filters
-    it against the strain using the per-detector PSD from ``pedata``. The peak
-    of |SNR(t)| should sit at the true coalescence time and rise to the recovered
-    detector SNR (~25–32 for GW170817 in L1/H1).
+    it against the strain, with a Welch PSD estimated from the conditioned data.
+    The peak of |SNR(t)| should sit at the merger arrival time ``t0`` and rise to
+    the recovered detector SNR (GW170817: about 18 in H1 and 25 in L1).
+
+    If the template (a long BNS inspiral) does not fit in ``strain``, a longer
+    segment of up to ±``max_strain_window`` s around ``t0`` is fetched for
+    ``event``; without ``event`` the matched filter is skipped.
 
     Returns
     -------
@@ -1400,8 +1407,6 @@ def compute_matched_filter_snr(
         except Exception:
             pass
 
-    fs = int(_scalar(strain.sample_rate.value))
-
     try:
         from pycbc.filter import highpass as pycbc_highpass, resample_to_delta_t
         from pycbc.psd import welch as pycbc_welch, interpolate as pycbc_psd_interp, inverse_spectrum_truncation
@@ -1415,20 +1420,32 @@ def compute_matched_filter_snr(
     # well below the band, downsample to a 2048 Hz grid (Nyquist 1024 Hz >> fmax),
     # then trim the filter transients from both edges so the PSD/correlation are
     # estimated on clean, stationary data.
-    strain_arr = np.asarray(strain.value, dtype=float)
-    strain_t0 = _sec(strain.t0.value)
-    data_pycbc = PyCBCTS(strain_arr, delta_t=1.0 / fs, epoch=strain_t0)
-    data_pycbc = pycbc_highpass(data_pycbc, 15.0)
-    target_dt = 1.0 / 2048 if fs > 2048 else 1.0 / fs
-    data_pycbc = resample_to_delta_t(data_pycbc, target_dt)
-    edge = 2.0
-    if float(data_pycbc.duration) > 4 * edge:
-        data_pycbc = data_pycbc.crop(edge, edge)
+    def _condition(ts):
+        fs_in = int(_scalar(ts.sample_rate.value))
+        d = PyCBCTS(np.asarray(ts.value, dtype=float), delta_t=1.0 / fs_in, epoch=_sec(ts.t0.value))
+        d = pycbc_highpass(d, 15.0)
+        d = resample_to_delta_t(d, 1.0 / 2048 if fs_in > 2048 else 1.0 / fs_in)
+        edge = 2.0
+        if float(d.duration) > 4 * edge:
+            d = d.crop(edge, edge)
+        # Autogate loud glitches (50 sigma in whitened data, as in PyCBC searches):
+        # with a long template, one glitch raises |rho| for the whole template
+        # duration after it (GW170817 L1 at -1.07 s). Never gate near the merger.
+        try:
+            from pycbc.strain import detect_loud_glitches
+            for tg in detect_loud_glitches(d, threshold=50.0, low_freq_cutoff=float(fmin)):
+                if abs(float(tg) - float(t0)) < 0.1:
+                    pe_log(f"⚠️ [WARN] Loud glitch in {det} at the merger time ({float(tg):.3f}); not gated.", event_logs)
+                    continue
+                d = d.gate(float(tg), window=0.25, method="taper", taper_width=0.25)
+                pe_log(f"ℹ️ [INFO] Gated a loud glitch in {det} at {float(tg):.3f} ({float(tg) - float(t0):+.2f}s rel. trigger).", event_logs)
+        except Exception as e:
+            pe_log(f"⚠️ [WARN] Glitch autogating skipped for {det}: {type(e).__name__}: {e}", event_logs)
+        return d
 
+    data_pycbc = _condition(strain)
     fs = int(round(1.0 / float(data_pycbc.delta_t)))
     delta_t = float(data_pycbc.delta_t)
-    n_data = len(data_pycbc)
-    data_t0 = _sec(data_pycbc.start_time)
 
     # --- Build the maxL projected template on the conditioned time grid. ---
     tries: List[str] = []
@@ -1459,44 +1476,54 @@ def compute_matched_filter_snr(
 
     template_arr = np.asarray(template.value, dtype=float)
     template_t0 = _sec(template.t0.value)
+    template_seconds = len(template_arr) * delta_t
 
-    # Gate out long-inspiral (BNS-like) signals. The template length (in band) is
-    # the proxy we trigger on, but note the real limitation is NOT data length:
-    # validated on GW170817, even with 400 s of clean strain and the full 219 s
-    # template placed at the merger, a single maxL point-estimate template recovers
-    # only |rho|~4 at the merger (vs ~18 expected) — over the BNS's thousands of
-    # inspiral cycles, tiny chirp-mass / phase / f_ref-convention differences
-    # accumulate and the SNR never builds up. Reliable BNS recovery needs a template
-    # bank, not more strain, so fetching a longer segment would only bypass this gate
-    # and emit a misleading ~4-sigma plot. Skip cleanly instead.
-    template_seconds = len(template_arr) / fs
-    usable_seconds = float(data_pycbc.duration) - 2 * 4.0
-    if template_seconds > usable_seconds:
+    # The data must hold the whole template plus the PSD/filter padding at both
+    # ends. Long (BNS-like) templates need far more than the few tens of seconds
+    # fetched for the overlay: fetch a longer segment around t0 when needed.
+    def _psd_seg(d):
+        return 16 if float(d.duration) >= 128 else min(4, max(1, int(float(d.duration) // 4)))
+
+    def _covers(d):
+        pad = _psd_seg(d) + 1.0
+        return (_sec(d.start_time) <= template_t0 - pad) and (_sec(d.end_time) >= float(t0) + pad)
+
+    if not _covers(data_pycbc):
+        window = int(np.ceil(max(float(t0) - template_t0, 0.0) + 2 * 16 + 8))
+        if event is None or window > max_strain_window:
+            pe_log(
+                f"⚠️ [WARN] Skipping matched-filter SNR for {det}: the maxL template is "
+                f"{template_seconds:.0f}s long and needs ±{window}s of strain around the merger"
+                + (" (above the limit)." if event is not None else " (no event name to fetch it)."),
+                event_logs,
+            )
+            return None, None, None
         pe_log(
-            f"⚠️ [WARN] Skipping matched-filter SNR for {det}: the maxL template is "
-            f"{template_seconds:.0f}s long (BNS-like). Single-template matched filtering "
-            "is reliable only for short (BBH-like) signals — a long BNS inspiral loses "
-            "most of its SNR to phase drift and needs a template bank, so this is not "
-            "fixable by fetching more strain.",
+            f"ℹ️ [INFO] maxL template for {det} is {template_seconds:.0f}s long; "
+            f"fetching ±{window}s of strain for the matched filter.",
             event_logs,
         )
-        return None, None, None
+        try:
+            data_pycbc = _condition(load_strain(event, float(t0), det, window=window))
+        except Exception as e:
+            pe_log(f"⚠️ [WARN] Could not fetch longer strain for {det}: {e}; skipping matched filter.", event_logs)
+            return None, None, None
+        if not _covers(data_pycbc):
+            pe_log(f"⚠️ [WARN] Fetched strain for {det} does not cover the template; skipping matched filter.", event_logs)
+            return None, None, None
 
-    # Embed the template onto the conditioned data's grid. matched_filter scans all
-    # lags, so this absolute placement only fixes where the SNR peak lands in time.
-    template_offset = int(round((template_t0 - data_t0) / delta_t))
-    embedded = np.zeros(n_data, dtype=float)
-    src_start = max(0, -template_offset)
-    src_end = min(len(template_arr), n_data - template_offset)
-    dst_start = max(0, template_offset)
-    dst_end = dst_start + (src_end - src_start)
-    if src_end > src_start:
-        embedded[dst_start:dst_end] = template_arr[src_start:src_end]
+    n_data = len(data_pycbc)
 
-    template_pycbc = PyCBCTS(embedded, delta_t=delta_t, epoch=data_t0)
+    # PyCBC convention: the template's reference time (the merger, t = 0 in the
+    # projected waveform whose times are shifted to the detector arrival t0) sits
+    # at index 0, the inspiral wrapping to the end of the array. Then |rho| at
+    # data time t measures a merger arriving at t.
+    template_pycbc = PyCBCTS(template_arr, delta_t=delta_t, epoch=template_t0 - float(t0))
+    template_pycbc.resize(n_data)
+    template_pycbc = template_pycbc.cyclic_time_shift(template_pycbc.start_time)
 
     # --- Noise PSD from the conditioned segment (Welch median), truncated. ---
-    psd_seg = min(4, max(1, int(float(data_pycbc.duration) // 4)))
+    psd_seg = _psd_seg(data_pycbc)
     seg_len = int(psd_seg * fs)
     psd_pycbc = pycbc_welch(data_pycbc, seg_len=seg_len, seg_stride=seg_len // 2, avg_method="median")
     psd_pycbc = pycbc_psd_interp(psd_pycbc, data_pycbc.delta_f)
@@ -1524,7 +1551,11 @@ def compute_matched_filter_snr(
     times = float(snr.start_time) + np.arange(len(snr_arr)) * delta_t
     if snr_arr.size:
         abs_snr = np.abs(snr_arr)
-        peak_loc = int(np.argmax(abs_snr))
+        # Look for the peak near the expected arrival: a weak detector (V1 for
+        # GW170817) would otherwise report a noise excursion far from the merger.
+        near = np.abs(times - float(t0)) <= peak_search_window
+        search = np.where(near, abs_snr, -np.inf) if near.any() else abs_snr
+        peak_loc = int(np.argmax(search))
         peak_val = float(abs_snr[peak_loc])
         peak_t = float(times[peak_loc])
 
@@ -1577,7 +1608,8 @@ def plot_matched_filter_snr(
     if not np.any(mask):
         mask = np.ones_like(t_rel, dtype=bool)
 
-    peak_idx = int(np.argmax(snr_abs))
+    # Peak within the plotted window around the merger, not a far noise excursion.
+    peak_idx = int(np.argmax(np.where(mask, snr_abs, -np.inf)))
     peak_t_rel = float(t_rel[peak_idx])
     peak_val = float(snr_abs[peak_idx])
 
