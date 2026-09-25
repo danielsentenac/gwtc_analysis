@@ -414,9 +414,13 @@ def run_catalog_statistics(
     ns_threshold: float = 3.0,
     data_repo: str = "s3",
     plots_dir: Optional[str] = None,
+    zenodo_versions: Optional[dict[str, str]] = None,
 ) -> None:
     """
     Fetch events from GWOSC jsonfull for one or more catalogs and compute basic derived columns.
+
+    `zenodo_versions` maps catalog keys to the Zenodo release version read with
+    data_repo="zenodo" (e.g. {"GWTC-3": "v2"}); other catalogs use the latest.
 
     Notes
     -----
@@ -550,6 +554,7 @@ def run_catalog_statistics(
                     cache_dir=zenodo_cache_dir,
                     progress=True,
                     verbose=False,
+                    zenodo_version=(zenodo_versions or {}).get(cat),
                 )
                 df.loc[m, area_column] = tmp[area_column].values
                 continue

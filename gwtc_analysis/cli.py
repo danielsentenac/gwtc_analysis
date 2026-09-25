@@ -9,6 +9,7 @@ from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
 from .unofficial_pe import build_unofficial_pe_bundle, get_unofficial_pe_spec, list_unofficial_pe_specs
 from .gw_stat import ALLOWED_CATALOGS as ALLOWED_CATALOGS
+from .data_repo import parse_zenodo_version, zenodo_catalogs
 import sys
 
 
@@ -41,6 +42,42 @@ def _parse_catalogs(items: Optional[List[str]]) -> List[str]:
     return out
 
 
+def _parse_zenodo_versions(items: Optional[List[str]], data_repo: str) -> Optional[dict[str, str]]:
+    """Parse --zenodo-version CAT=VER items into {catalog: version}."""
+    if not items:
+        return None
+    if data_repo != "zenodo":
+        raise ValueError("--zenodo-version only applies with --data-repo zenodo")
+    out: dict[str, str] = {}
+    for it in _parse_catalogs(items):
+        cat, sep, ver = it.partition("=")
+        cat, ver = cat.strip(), ver.strip()
+        if not sep or not cat or not ver:
+            raise ValueError(f"Invalid --zenodo-version {it!r}: expected CATALOG=VERSION, e.g. GWTC-3=v2")
+        if cat not in zenodo_catalogs():
+            raise ValueError(
+                f"No Zenodo release for catalog {cat!r} in --zenodo-version. "
+                f"Catalogs with Zenodo releases: {', '.join(zenodo_catalogs())}"
+            )
+        parse_zenodo_version(ver)  # validate the format early
+        out[cat] = ver
+    return out
+
+
+def _add_zenodo_version_arg(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--zenodo-version",
+        nargs="+",
+        default=None,
+        metavar="CATALOG=VERSION",
+        help=(
+            "With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest "
+            "(e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); "
+            "list them with the zenodo_releases mode."
+        ),
+    )
+
+
 def _none_if_empty(x):
     """Argparse with nargs can yield [] instead of None."""
     if x is None:
@@ -63,6 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
             "  gwtc_analysis build_unofficial_pe -h\n"
+            "  gwtc_analysis zenodo_releases -h\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -99,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
     p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
     p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
+    _add_zenodo_version_arg(p_cat)
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -143,6 +182,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sky.add_argument("--out-report", default="search_skymaps.html", help="Optional output HTML report path for hits.")
     p_sky.add_argument("--plots-dir", default="sky_plots", help="Directory for hit plots (default: sky_plots).")
     p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
+    _add_zenodo_version_arg(p_sky)
 
     # ---------------------------------------------------------------------
     # parameters_estimation
@@ -158,6 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_pe.add_argument("--out-report", default="parameters_estimation.html", help="Output HTML report path.")
     p_pe.add_argument("--src-name", dest="src_name", required=True, help="Source event name (e.g. GW231223_032836).")
     p_pe.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
+    _add_zenodo_version_arg(p_pe)
     p_pe.add_argument("--pe-vars", nargs="+", default=None, help=("Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance."))
     p_pe.add_argument("--pe-pairs", nargs="+", default=None, help=("Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p."))
     p_pe.add_argument("--plots-dir", default="pe_plots", help="Directory for output PE plots (default: pe_plots).")
@@ -210,7 +251,37 @@ def build_parser() -> argparse.ArgumentParser:
     p_unoff.add_argument("--cache-dir", default=".cache_gwosc", help="Cache root where unofficial_pe/<bundle>.h5 will be written.")
     p_unoff.add_argument("--force", action="store_true", help="Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date.")
 
+    # ---------------------------------------------------------------------
+    # zenodo_releases
+    # ---------------------------------------------------------------------
+    p_zen = sub.add_parser(
+        "zenodo_releases",
+        help="List the Zenodo release versions of each catalog (for --zenodo-version).",
+        description=(
+            "List the versions of the Zenodo PE/skymap releases, numbered from the oldest (v1).\n"
+            "With --data-repo zenodo the latest version is used, unless --zenodo-version selects another.\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_zen.add_argument("--catalogs", nargs="+", default=["ALL"], help="Catalog keys, space-separated (e.g. GWTC-3 GWTC-4). ALL key takes them all.")
+
     return p
+
+
+def _print_zenodo_releases(catalogs: list[str]) -> None:
+    from .data_repo import zenodo_release_parts, zenodo_release_versions
+
+    if "ALL" in catalogs:
+        catalogs = zenodo_catalogs()
+    for cat in catalogs:
+        parts = zenodo_release_parts(cat)
+        for n, part in enumerate(parts, 1):
+            title = cat if len(parts) == 1 else f"{cat} (part {n} of {len(parts)})"
+            print(title)
+            versions = zenodo_release_versions(part)
+            for i, v in enumerate(versions, 1):
+                latest = "  (latest, default)" if i == len(versions) else ""
+                print(f"  v{i}  record {v['record_id']:>9}  {v['publication_date']}{latest}")
 
 
 def main(argv=None) -> int:
@@ -230,6 +301,7 @@ def main(argv=None) -> int:
                 area_cred=args.area_cred,
                 data_repo=args.data_repo,
                 plots_dir=args.plots_dir,
+                zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
             )
             return 0
 
@@ -261,6 +333,7 @@ def main(argv=None) -> int:
                 plots_dir=args.plots_dir,
                 data_repo=args.data_repo,
                 skymap_label=args.skymap_label,
+                zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
             )
             return 0
 
@@ -287,6 +360,7 @@ def main(argv=None) -> int:
                 data_repo=args.data_repo,
                 pe_vars=args.pe_vars,
                 pe_pairs=args.pe_pairs,
+                zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
             )
             # Small manifest (like your previous behavior)
             for k, v in out.items():
@@ -314,6 +388,17 @@ def main(argv=None) -> int:
                     "See warnings above for the expected paths."
                 )
             print(out)
+            return 0
+
+        if args.mode == "zenodo_releases":
+            catalogs = _parse_catalogs(args.catalogs)
+            bad = [c for c in catalogs if c != "ALL" and c not in zenodo_catalogs()]
+            if bad:
+                raise ValueError(
+                    f"No Zenodo release for: {', '.join(bad)}. "
+                    f"Catalogs with Zenodo releases: {', '.join(zenodo_catalogs())}"
+                )
+            _print_zenodo_releases(catalogs)
             return 0
 
         raise SystemExit(f"Unsupported mode {args.mode}")

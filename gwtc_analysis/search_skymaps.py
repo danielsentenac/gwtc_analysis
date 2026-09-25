@@ -54,12 +54,14 @@ def run_search_skymaps(
     plots_dir: Optional[str] = None,
     data_repo: str = "s3",
     skymap_label: str = "Mixed",
+    zenodo_versions: Optional[dict[str, str]] = None,
 ) -> None:
     """
     Search GWTC sky localizations for whether a given (RA, Dec) lies inside a requested credible region.
 
     data_repo:
-      - "zenodo": use the official Zenodo skymap tarballs
+      - "zenodo": use the official Zenodo skymap tarballs (latest release version,
+                  or the one given per catalog in `zenodo_versions`, e.g. {"GWTC-3": "v2"})
       - "s3":     scan the gwtc bucket (minio)
       - "galaxy": use Galaxy-staged collections under galaxy_inputs/<CATALOG>-SKYMAPS
     """
@@ -106,7 +108,9 @@ def run_search_skymaps(
         pbar = tqdm(total=len(event_ids) if event_ids else None, unit=" event", desc="Zenodo skymaps") if tqdm else None
 
         for catalog in catalogs:
-            tar_path = download_zenodo_skymaps_tarball(catalog, progress=True, verbose=False)
+            tar_path = download_zenodo_skymaps_tarball(
+                catalog, progress=True, verbose=False, version=(zenodo_versions or {}).get(catalog)
+            )
             index = build_skymap_index_from_tar(tar_path, verbose=False)
 
             # If no filtering is provided, fall back to scanning all events in index (heavier)

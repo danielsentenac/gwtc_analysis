@@ -11,11 +11,9 @@ Why this exists
 ---------------
 The GWOSC v2 parameters endpoint often provides only a scalar `sky_area` for a subset
 of events and may not expose skymap links uniformly. However, the LVK "confident"
-catalog PE releases on Zenodo include comprehensive skymap tarballs, e.g.:
-- GWTC-5.0 archived skymaps tarball (Zenodo record 20348005)
-- GWTC-4 archived skymaps tarball (Zenodo record 17014085) citeturn26search0
-- GWTC-3.0 PE skylocalizations tarball (Zenodo record 8177023) citeturn26search1
-- GWTC-2.1 PE skymaps tarball (Zenodo record 6513631) citeturn26search2
+catalog PE releases on Zenodo include comprehensive skymap tarballs (GWTC-2.1,
+GWTC-3, GWTC-4.0, GWTC-5.0). The Zenodo record is resolved per catalog in
+data_repo.py: the latest version by default, or an explicitly requested one.
 
 This module provides:
 - download + cache of the tarball once per catalog
@@ -41,7 +39,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .data_repo import zenodo_skymap_url
+from .data_repo import zenodo_skymap_tarball
 
 FIGSIZE = (6, 4)
 
@@ -754,23 +752,27 @@ def download_zenodo_skymaps_tarball(
     cache_dir: str = ".cache_gwosc",
     progress: bool = True,
     verbose: bool = False,
+    version: str | int | None = None,
 ) -> str:
     """
     Download the official Zenodo skymap tarball for a confident catalog key.
     Returns local filepath.
 
-    The file is cached on disk; if already present, it is not downloaded again.
+    `version` selects the Zenodo release version ('latest' by default, or vN).
+    The file is cached on disk per Zenodo record; if already present, it is not
+    downloaded again.
 
     Adds streaming byte-progress via tqdm and supports resume (HTTP Range) when possible.
     """
-    url = zenodo_skymap_url(catalog_key)
+    record, filename = zenodo_skymap_tarball(catalog_key, version)
+    url = record.file_url(filename)
+    print(f"[gw_stat] {catalog_key} skymaps from Zenodo {record.label}: {filename}")
 
     # Respect explicit cache_dir argument (your previous code overwrote it)
     os.makedirs(cache_dir, exist_ok=True)
 
     if dest_path is None:
-        safe = catalog_key.replace("/", "_")
-        dest_path = os.path.join(cache_dir, f"{safe}_skymaps.tar.gz")
+        dest_path = os.path.join(cache_dir, f"zenodo_{record.record_id}_{filename}")
 
     # If already downloaded, use it
     if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
@@ -1173,9 +1175,11 @@ def add_localization_area_from_zenodo(
     cache_dir: str = ".cache_gwosc",
     progress: bool = True,
     verbose: bool = False,
+    zenodo_version: str | int | None = None,
 ) -> pd.DataFrame:
     """
     Compute credible area for events by reading the official Zenodo skymap tarball for the given confident catalog.
+    `zenodo_version` selects the release version ('latest' by default, or vN).
 
     This bypasses the GWOSC v2 parameters endpoint entirely and should yield credible area for (almost) all events
     whose skymap FITS is included in the tarball.
@@ -1183,7 +1187,7 @@ def add_localization_area_from_zenodo(
     Returns a copy of df with `column` filled where possible.
     """
     tar_path = download_zenodo_skymaps_tarball(
-        catalog_key, cache_dir=cache_dir, progress=progress, verbose=verbose
+        catalog_key, cache_dir=cache_dir, progress=progress, verbose=verbose, version=zenodo_version
     )
     index = build_skymap_index_from_tar(tar_path, verbose=verbose)
 

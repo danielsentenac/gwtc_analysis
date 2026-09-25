@@ -33,6 +33,7 @@ import warnings
 
 import requests
 
+from .data_repo import resolve_zenodo_records, zenodo_catalogs
 from .unofficial_pe import build_unofficial_pe_bundle
 
 
@@ -64,7 +65,6 @@ LAST_RESULT: Optional[PEResult] = None
 # Zenodo PE helpers
 # ---------------------------------------------------------------------
 
-ZENODO_PE_RECORD_IDS = [6513631, 8177023, 17014085, 20348005, 20348006]
 USER_AGENT = "gwtc_analysis (https://github.com/danielsentenac/gwtc_analysis)"
 
 def _tqdm_or_none():
@@ -153,35 +153,62 @@ def _zenodo_record_files(record_id: int) -> list[dict[str, Any]]:
     return j.get("files", []) or []
 
 
+def zenodo_pe_record_ids(zenodo_versions: dict[str, str] | None = None) -> list[str]:
+    """Zenodo PE record ids of every catalog: latest versions, unless a catalog
+    has a version in `zenodo_versions` (e.g. {"GWTC-3": "v2"})."""
+    versions = zenodo_versions or {}
+    rids: list[str] = []
+    for cat in zenodo_catalogs():
+        for rec in resolve_zenodo_records(cat, versions.get(cat)):
+            print(f"[pe][zenodo] {cat}: {rec.label}")
+            rids.append(rec.record_id)
+    return rids
+
+
 def build_zenodo_pe_index(
     *,
     cache_dir: str | Path = ".cache_gwosc",
-    record_ids: list[int] | None = None,
+    record_ids: list[int | str] | None = None,
     force_refresh: bool = False,
+    zenodo_versions: dict[str, str] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """
     Build/return an index:
         index[event_id] = [{'record_id','filename','url'}, ...]
 
-    Cached in: <cache_dir>/zenodo_pe_index.json
+    The records are `record_ids` if given, else the per-catalog records resolved
+    from `zenodo_versions` (latest release versions by default).
+
+    Cached in: <cache_dir>/zenodo_pe_index.json, together with the record ids it
+    was built from; a cache built from other records is rebuilt.
     """
-    record_ids = record_ids or ZENODO_PE_RECORD_IDS
+    rids = [str(r) for r in record_ids] if record_ids else zenodo_pe_record_ids(zenodo_versions)
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_path = cache_dir / "zenodo_pe_index.json"
 
-    if (not force_refresh) and cache_path.exists() and cache_path.stat().st_size > 0:
-        return json.loads(cache_path.read_text(encoding="utf-8"))
+    cached = None
+    if cache_path.exists() and cache_path.stat().st_size > 0:
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+        except ValueError:
+            cached = None
+    # Older caches are a bare index without the record ids: treat them as stale.
+    cached_ok = isinstance(cached, dict) and "record_ids" in cached and "index" in cached
+    if cached_ok and not force_refresh and cached["record_ids"] == rids:
+        return cached["index"]
 
     index: dict[str, list[dict[str, Any]]] = {}
+    fetched = 0
 
-    for rid in record_ids:
+    for rid in rids:
         try:
             files = _zenodo_record_files(rid)
         except Exception as e:
             # Zenodo can transiently fail (503, etc.). Do not fail the whole run.
             print(f"[pe][zenodo] WARN: could not fetch record {rid}: {type(e).__name__}: {e}")
             continue
+        fetched += 1
 
         for f in files:
             fname = f.get("key") or f.get("filename") or ""
@@ -192,7 +219,14 @@ def build_zenodo_pe_index(
             url = f"https://zenodo.org/records/{rid}/files/{fname}?download=1"
             index.setdefault(ev, []).append({"record_id": rid, "filename": fname, "url": url})
 
-    cache_path.write_text(json.dumps(index, indent=2), encoding="utf-8")
+    if fetched < len(rids):
+        # Partial index (Zenodo unreachable): use it, but do not cache it.
+        if not index and cached_ok:
+            print("[pe][zenodo] WARN: using the previously cached PE index")
+            return cached["index"]
+        return index
+
+    cache_path.write_text(json.dumps({"record_ids": rids, "index": index}, indent=2), encoding="utf-8")
     return index
 
 
@@ -776,9 +810,13 @@ def run_parameters_estimation(
     catalog: str | None = None,
     pe_vars: list[str] | None = None,
     pe_pairs: list[str] | None = None,
+    zenodo_versions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """
     Run the PE plotting pipeline and optionally write an HTML report.
+
+    With data_repo="zenodo", `zenodo_versions` maps catalog keys to the release
+    version to read (e.g. {"GWTC-3": "v2"}); other catalogs use the latest.
 
     Returns a dict of produced filenames (always relative/absolute paths as written).
     """
@@ -968,7 +1006,9 @@ def run_parameters_estimation(
         if data_repo == "zenodo":
             from difflib import get_close_matches
 
-            index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
+            index = build_zenodo_pe_index(
+                cache_dir=".cache_gwosc", force_refresh=False, zenodo_versions=zenodo_versions
+            )
             if src_name not in index:
                 local_pe_path = _maybe_use_unofficial_bundle(
                     src_name,
@@ -976,7 +1016,9 @@ def run_parameters_estimation(
                 )
                 if local_pe_path is None:
                     pe_log(f"⚠️ [WARN] Event {src_name} not found in cached Zenodo index. Refreshing index…", event_logs)
-                    index = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=True)
+                    index = build_zenodo_pe_index(
+                        cache_dir=".cache_gwosc", force_refresh=True, zenodo_versions=zenodo_versions
+                    )
 
             cands = index.get(src_name, [])
             chosen = choose_best_pe_file(cands)
