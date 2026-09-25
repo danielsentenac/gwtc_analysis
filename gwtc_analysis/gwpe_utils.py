@@ -590,6 +590,29 @@ def ensure_outdir(outdir: str) -> None:
 # Projected waveform utilities
 # ---------------------------------------------------------------------
 
+def approximant_from_label_rhs(rhs: str) -> str:
+    """Waveform approximant named by the right-hand side of a PE label.
+
+    Labels append prior or variant tags to the approximant:
+    'IMRPhenomPv2_NRTidal:HighSpin' -> 'IMRPhenomPv2_NRTidal',
+    'IMRPhenomPv2-NRTidalv2' -> 'IMRPhenomPv2_NRTidalv2',
+    'IMRPhenomXPHM-SpinTaylor' -> 'IMRPhenomXPHM'. The first candidate that
+    LALSimulation knows is returned; names it does not list (GWSignal models
+    such as SEOBNRv5PHM) are returned with the '-' suffix dropped.
+    """
+    base = str(rhs).strip().rstrip(",;").split(":")[0].strip()
+    candidates = [base, base.replace("-", "_"), base.split("-")[0]]
+    try:
+        import lalsimulation
+
+        for cand in candidates:
+            if cand and isinstance(getattr(lalsimulation, cand, None), int):
+                return cand
+    except Exception:
+        pass
+    return base.split("-")[0].strip()
+
+
 def _get_approximant_for_label(pedata, label: Optional[str]) -> str:
     """Return the approximant associated with a PE label, without inventing one.
 
@@ -619,7 +642,7 @@ def _get_approximant_for_label(pedata, label: Optional[str]) -> str:
     if label and isinstance(label, str) and ":" in label:
         rhs = label.split(":", 1)[1].strip()
         if rhs:
-            return rhs
+            return approximant_from_label_rhs(rhs)
 
     # 3) sometimes pedata.approximant is a single string
     if hasattr(pedata, "approximant"):

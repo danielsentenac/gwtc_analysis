@@ -322,6 +322,26 @@ products such as posterior samples, PSDs, and skymaps.
   cases, but the explicit builder is the recommended way to prepare an uploadable
   bundle for S3 or local inspection.
 
+### `parameters_estimation`: Missing PSDs and skymaps in official releases
+
+A few official PE files ship without noise PSDs (empty `psds` groups) or
+skymaps. The strain overlay needs a PSD to whiten the data, so the policy is:
+if a PE label has no PSD (or no skymap), the event is looked up in a registry of
+public supplementary releases (`gwtc_analysis/pe_supplements.py`), usually the
+data release of the event's discovery paper, and the missing product is taken
+from there and attached to every label that lacks one. Only the PSD group is
+read (over HTTP range requests where the server allows it), and the result is
+cached in `~/.gwcache/psd_supplements`. The log names the source and its caveat.
+
+| Event | Missing in | Supplementary source | Caveat |
+|---|---|---|---|
+| `GW230529_181500` | GWTC-4.0 / 4.1 (PSDs and skymaps) | Discovery release, [Zenodo 10845779](https://zenodo.org/records/10845779) | L1 PSD identical in all 15 discovery runs |
+| `GW190425_081805` | GWTC-2.1 (PSDs) | Discovery release, [LIGO-P2000026](https://dcc.ligo.org/LIGO-P2000026/public) | PSDs of the earlier LALInference analysis, not the GWTC-2.1 bilby ones |
+| `GW200105_162426` | GWTC-3 v1/v2 (PSDs; fixed in v3) | Discovery release, [LIGO-P2100143](https://dcc.ligo.org/LIGO-P2100143/public) | Agree with the GWTC-3 v3 PSDs to ~2% median, mostly differing on lines |
+
+Events with missing PSDs and no registered supplement are reported in the log,
+and the overlay then whitens with a PSD estimated from the strain.
+
 ### Choosing `--pe-label` and `--waveform-engine`
 
 The **parameter estimation** workflow distinguishes between **which PE label is used** (to read posteriors and metadata from the PE file) and **which waveform engine is requested** (to synthesize a time-domain signal for strain overlays).
