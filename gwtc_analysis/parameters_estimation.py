@@ -34,6 +34,7 @@ import warnings
 import requests
 
 from .data_repo import resolve_zenodo_records, zenodo_catalogs
+from .pe_supplements import fill_missing_psds, fill_missing_skymaps
 from .unofficial_pe import build_unofficial_pe_bundle
 
 
@@ -928,6 +929,7 @@ def run_parameters_estimation(
     from .gwpe_utils import (
         load_strain,
         generate_projected_waveform,
+        approximant_from_label_rhs,
         plot_whitened_overlay,
         plot_time_frequency,
         compute_matched_filter_snr,
@@ -1184,6 +1186,10 @@ def run_parameters_estimation(
             _progress("Read data", 25, "step 2")
             try:
                 data = read(local_pe_path)
+                # Some official releases ship without PSDs: take them from a
+                # registered public release of the same event (pe_supplements).
+                fill_missing_psds(data, src_name, log_cb=lambda m: pe_log(m, event_logs))
+                fill_missing_skymaps(data, src_name, log_cb=lambda m: pe_log(m, event_logs))
                 label_report(data, pe_label=pe_label, waveform_engine=waveform_engine)
             except Exception as e:
                 pe_log(f"❌ [ERROR] Failed reading PE data: {e}", event_logs)
@@ -1378,10 +1384,8 @@ def run_parameters_estimation(
                 if ":" in a and a.lstrip().startswith("C"):
                     # If user passed a full PE label like 'C00:SEOBNRv5PHM', take RHS
                     a = a.split(":", 1)[1].strip()
-                # Drop PE-specific suffixes that LAL/GWSignal doesn't understand
-                if "-" in a:
-                    a = a.split("-", 1)[0].strip()
-                return a or None
+                # Drop PE-specific suffixes (':HighSpin', '-SpinTaylor') that LAL/GWSignal don't understand
+                return approximant_from_label_rhs(a) or None
 
 
             for det, strain in strain_data.items():
@@ -1559,8 +1563,8 @@ def run_parameters_estimation(
                 fig_skymapList.append(PictureProduct.from_file(fname_sky))
 
         except Exception as e:
-            pe_log(f"❌ [ERROR] Failed creating skymap plot: {e}", event_logs)
-            go_next_cell = False
+            # Last step: the other outputs are already written, so do not fail the run.
+            pe_log(f"⚠️ [WARN] Could not create skymap plot: {e}", event_logs)
 
     _progress("Finish", 100, "step 6")
 
