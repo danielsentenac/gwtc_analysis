@@ -86,13 +86,39 @@ def _cache_dir() -> Path:
     return Path.home() / ".gwcache" / "psd_supplements"
 
 
+def _clean_psd(arr):
+    """Normalize a released (f, PSD) table.
+
+    Some releases store the table twice back to back (GW230529 discovery file:
+    two identical copies of 0-2048 Hz), and frequencies written with 6
+    significant digits repeat above 1 kHz. Keep the first copy and snap the
+    frequencies back onto their uniform grid.
+    """
+    import numpy as np
+
+    a = np.asarray(arr, dtype=float)
+    f = a[:, 0]
+    back = np.where(np.diff(f) < 0.5 * (f[-1] - f[0]) * -1)[0]  # jump back to the start
+    if back.size:
+        a = a[: back[0] + 1]
+        f = a[:, 0]
+    df = f[1] - f[0]
+    if df > 0:
+        grid = f[0] + np.arange(len(f)) * df
+        # accept the uniform grid if every stored value is it up to 6-digit rounding
+        if np.all(np.abs(f - grid) <= np.maximum(0.5 * df, 1e-5 * np.abs(grid))):
+            a = a.copy()
+            a[:, 0] = grid
+    return a
+
+
 def _read_psds(h5, run: Optional[str]) -> dict:
     import numpy as np
 
     labels = [run] if run else [k for k in h5 if hasattr(h5[k], "keys") and "psds" in h5[k]]
     for lab in labels:
         grp = h5[lab]["psds"]
-        psds = {det: np.asarray(grp[det][()], dtype=float) for det in grp}
+        psds = {det: _clean_psd(grp[det][()]) for det in grp}
         if psds:
             return psds
     raise KeyError(f"no PSDs found in run(s) {labels}")
@@ -117,7 +143,7 @@ def load_supplementary_psds(
             cached_url = None
         if cached_url == spec.url:
             with np.load(npz) as z:
-                return {det: z[det] for det in z.files}
+                return {det: _clean_psd(z[det]) for det in z.files}
 
     import h5py
 
