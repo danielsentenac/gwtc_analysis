@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -14,6 +16,18 @@ class UnofficialPEAnalysisSpec:
 
 
 @dataclass(frozen=True)
+class PublicSource:
+    """A public file the bundle is built from, downloaded when missing.
+
+    If ``member`` is set, ``url`` is a .tar.gz archive and ``path`` is the
+    local copy of that archive member.
+    """
+    url: str
+    path: Path
+    member: str | None = None
+
+
+@dataclass(frozen=True)
 class UnofficialPEBundleSpec:
     event_id: str
     raw_samples_path: Path | None
@@ -23,36 +37,64 @@ class UnofficialPEBundleSpec:
     analyses: tuple[UnofficialPEAnalysisSpec, ...]
     gps_time: float
     asd_paths: tuple[tuple[str, Path], ...] = ()
+    calibration_paths: tuple[tuple[str, Path], ...] = ()
+    downloads: tuple[PublicSource, ...] = ()
+    # Fit (geocent_time, phase, psi) of the maxL sample to the GWOSC strain, for
+    # samples released without them (the overlay would otherwise be incoherent).
+    fit_extrinsic: bool = False
 
 
-_PE_SAMPLES_REPO = Path.home() / "GW170817"
+# Bumped when the bundle layout or the build procedure changes, so cached
+# bundles built by an older recipe are rebuilt.
+_BUNDLE_RECIPE_VERSION = 2
 
+_GWCACHE = Path.home() / ".gwcache"
+_DCC = "https://dcc.ligo.org/public"
+
+# GW170817 from public GWTC-1 releases only:
+#   samples      LIGO-P1800370 (GWTC-1 PE sample release)
+#   PSDs         LIGO-P1900011 (GWTC-1 PSD release)
+#   calibration  LIGO-P1900040 (GWTC-1 calibration uncertainty envelopes)
+#   skymap       LIGO-P1800381 (GWTC-1 skymap release)
+# The public samples have no psi/phase/coalescence time/likelihood; they are
+# drawn from their priors, and fitted to the strain for the maxL sample.
+_GW170817_CALENV = _GWCACHE / "GWTC1_GW170817_CalEnv"
 GW170817_SPEC = UnofficialPEBundleSpec(
     event_id="GW170817",
-    raw_samples_path=Path.home() / ".gwcache" / "GW170817_GWTC-1.hdf5",
-    psd_path=Path.home() / ".gwcache" / "GWTC1_GW170817_PSDs.dat",
-    skymap_path=Path.home() / ".gwcache" / "GW170817_skymap.fits.gz",
+    raw_samples_path=_GWCACHE / "GW170817_GWTC-1.hdf5",
+    psd_path=_GWCACHE / "GWTC1_GW170817_PSDs.dat",
+    skymap_path=_GWCACHE / "GW170817_skymap.fits.gz",
     output_filename="Unofficial-GWTC1-GW170817_PEDataRelease.h5",
     analyses=(
         UnofficialPEAnalysisSpec(
             dataset_name="IMRPhenomPv2NRT_lowSpin_posterior",
             label="C02:IMRPhenomPv2_NRTidal-LowSpin",
             approximant="IMRPhenomPv2_NRTidal",
-            lalinference_samples_path=_PE_SAMPLES_REPO / "MCMC_IMRPPNRT_LowSpin_post.dat",
         ),
         UnofficialPEAnalysisSpec(
             dataset_name="IMRPhenomPv2NRT_highSpin_posterior",
             label="C02:IMRPhenomPv2_NRTidal-HighSpin",
             approximant="IMRPhenomPv2_NRTidal",
-            lalinference_samples_path=_PE_SAMPLES_REPO / "MCMC_IMRPPNRT_HighSpin_post.dat",
         ),
     ),
     gps_time=1187008882.429464,
-    asd_paths=(
-        ("H1", _PE_SAMPLES_REPO / "psd" / "BayesWave_PSD_H1_IFO0_asd_median.dat"),
-        ("L1", _PE_SAMPLES_REPO / "psd" / "BayesWave_PSD_L1_IFO0_asd_median.dat"),
-        ("V1", _PE_SAMPLES_REPO / "psd" / "BayesWave_PSD_V1_IFO0_asd_median.dat"),
+    calibration_paths=tuple(
+        (det, _GW170817_CALENV / f"GWTC1_GW170817_{det[0]}_CalEnv.txt") for det in ("H1", "L1", "V1")
     ),
+    downloads=(
+        PublicSource(f"{_DCC}/0157/P1800370/005/GW170817_GWTC-1.hdf5", _GWCACHE / "GW170817_GWTC-1.hdf5"),
+        PublicSource(f"{_DCC}/0158/P1900011/001/GWTC1_GW170817_PSDs.dat", _GWCACHE / "GWTC1_GW170817_PSDs.dat"),
+        PublicSource(f"{_DCC}/0157/P1800381/007/GW170817_skymap.fits.gz", _GWCACHE / "GW170817_skymap.fits.gz"),
+        *(
+            PublicSource(
+                f"{_DCC}/0158/P1900040/001/GWTC1_GW170817_CalEnv.tar.gz",
+                _GW170817_CALENV / f"GWTC1_GW170817_{d}_CalEnv.txt",
+                member=f"GWTC1_GW170817_CalEnv/GWTC1_GW170817_{d}_CalEnv.txt",
+            )
+            for d in ("H", "L", "V")
+        ),
+    ),
+    fit_extrinsic=True,
 )
 
 
@@ -69,6 +111,43 @@ def get_unofficial_pe_spec(src_name: str) -> UnofficialPEBundleSpec | None:
     return UNOFFICIAL_PE_BUNDLES.get(str(src_name).strip())
 
 
+def _download_public_sources(spec: UnofficialPEBundleSpec, log_cb: Callable[[str], None] | None) -> None:
+    """Download the spec's public source files that are not on disk yet."""
+    import io
+    import tarfile
+
+    import requests
+
+    archives: dict[str, bytes] = {}
+    for src in spec.downloads:
+        path = src.path.expanduser()
+        if path.exists() and path.stat().st_size > 0:
+            continue
+        try:
+            if src.url not in archives:
+                if log_cb:
+                    log_cb(f"ℹ️ [DOWNLOAD] {src.url}")
+                r = requests.get(src.url, timeout=(10, 600))
+                r.raise_for_status()
+                archives[src.url] = r.content
+            data = archives[src.url]
+            if src.member is not None:
+                with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
+                    member = next(m for m in tf.getmembers() if m.name.lstrip("./") == src.member)
+                    data = tf.extractfile(member).read()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_name(path.name + ".part")
+            tmp.write_bytes(data)
+            tmp.replace(path)
+        except Exception as e:  # reported as a missing source by the caller
+            if log_cb:
+                log_cb(f"⚠️ [WARN] Could not download {src.url}: {type(e).__name__}: {e}")
+
+
+def _recipe_fingerprint(spec: UnofficialPEBundleSpec) -> str:
+    return hashlib.sha256(f"{_BUNDLE_RECIPE_VERSION}|{spec!r}".encode()).hexdigest()[:16]
+
+
 def build_unofficial_pe_bundle(
     src_name: str,
     *,
@@ -80,11 +159,14 @@ def build_unofficial_pe_bundle(
     if spec is None:
         return None
 
+    _download_public_sources(spec, log_cb)
+
     sources: list[Path] = [spec.skymap_path.expanduser()]
     if spec.asd_paths:
         sources.extend(Path(p).expanduser() for _, p in spec.asd_paths)
     elif spec.psd_path is not None:
         sources.append(spec.psd_path.expanduser())
+    sources.extend(Path(p).expanduser() for _, p in spec.calibration_paths)
 
     needs_raw_hdf5 = any(a.lalinference_samples_path is None for a in spec.analyses)
     if needs_raw_hdf5:
@@ -113,20 +195,30 @@ def build_unofficial_pe_bundle(
     target_dir = Path(cache_dir) / "unofficial_pe"
     target_dir.mkdir(parents=True, exist_ok=True)
     target = target_dir / spec.output_filename
+    recipe_file = target.with_name(target.name + ".recipe.json")
+    fingerprint = _recipe_fingerprint(spec)
 
     if not force_rebuild and target.exists() and target.stat().st_size > 0:
+        try:
+            cached_fp = json.loads(recipe_file.read_text(encoding="utf-8")).get("fingerprint")
+        except (OSError, ValueError):
+            cached_fp = None  # bundle from an older recipe: rebuild it
         target_mtime = target.stat().st_mtime
-        if all(p.stat().st_mtime <= target_mtime for p in sources):
+        if cached_fp == fingerprint and all(p.stat().st_mtime <= target_mtime for p in sources):
             if log_cb:
                 log_cb(f"ℹ️ [CACHE] Using unofficial PE bundle: {target}")
             return target
 
     if log_cb:
-        if force_rebuild and target.exists():
+        if target.exists():
             log_cb(f"ℹ️ [BUILD] Rebuilding unofficial PE bundle for {spec.event_id}: {target}")
         log_cb(f"ℹ️ [BUILD] Building unofficial PE bundle for {spec.event_id} from local cache files")
 
     _write_unofficial_pesummary_bundle(spec, target, log_cb=log_cb)
+    recipe_file.write_text(
+        json.dumps({"fingerprint": fingerprint, "sources": [str(p) for p in sources]}, indent=2),
+        encoding="utf-8",
+    )
 
     if log_cb:
         log_cb(f"ℹ️ [OK] Built unofficial PE bundle: {target}")
@@ -169,7 +261,8 @@ def _write_unofficial_pesummary_bundle(
                 if log_cb:
                     log_cb(
                         f"⚠️ [INFO] {analysis.label}: using public {spec.raw_samples_path.name} dataset "
-                        f"{analysis.dataset_name!r} — psi/phase from priors, log_likelihood synthetic."
+                        f"{analysis.dataset_name!r} — psi/phase/time from priors, log_likelihood synthetic"
+                        + (" (maxL sample fitted to the strain below)." if spec.fit_extrinsic else ".")
                     )
                 if analysis.dataset_name not in h5f:
                     raise KeyError(
@@ -193,6 +286,27 @@ def _write_unofficial_pesummary_bundle(
     else:
         psds = {}
     skymap = _read_skymap(spec.skymap_path.expanduser(), event_id=spec.event_id, gps_time=spec.gps_time)
+    calibration = {det: np.genfromtxt(Path(p).expanduser()) for det, p in spec.calibration_paths}
+
+    if spec.fit_extrinsic:
+        for analysis in spec.analyses:
+            if analysis.lalinference_samples_path is not None:
+                continue  # full LALInference samples already carry the real values
+            try:
+                _fit_maxl_extrinsics(
+                    samples_by_label[analysis.label],
+                    approximant=analysis.approximant,
+                    psds=psds,
+                    gps_time=spec.gps_time,
+                    label=analysis.label,
+                    log_cb=log_cb,
+                )
+            except Exception as e:
+                if log_cb:
+                    log_cb(
+                        f"⚠️ [WARN] {analysis.label}: could not fit time/phase/polarization to the strain "
+                        f"({type(e).__name__}: {e}); the maxL waveform overlay will not be coherent."
+                    )
 
     labels = [analysis.label for analysis in spec.analyses]
     approximant = {analysis.label: analysis.approximant for analysis in spec.analyses}
@@ -200,6 +314,7 @@ def _write_unofficial_pesummary_bundle(
     file_kwargs = {label: {"sampler": {}, "meta_data": {}} for label in labels}
     psd_by_label = {label: psds for label in labels}
     skymap_by_label = {label: skymap for label in labels}
+    calibration_kwargs = {"calibration": {label: calibration for label in labels}} if calibration else {}
 
     if out_path.exists():
         out_path.unlink()
@@ -213,7 +328,157 @@ def _write_unofficial_pesummary_bundle(
         approximant=approximant,
         psd=psd_by_label,
         skymap=skymap_by_label,
+        **calibration_kwargs,
     )
+
+
+def _fit_maxl_extrinsics(
+    samples,
+    *,
+    approximant: str,
+    psds: dict,
+    gps_time: float,
+    label: str,
+    log_cb: Callable[[str], None] | None = None,
+    f_low: float = 23.0,
+    f_ref: float = 20.0,
+    duration: int = 256,
+    sample_rate: int = 4096,
+) -> dict[str, float]:
+    """Fit geocent_time, phase and psi of the maxL sample to the GWOSC strain.
+
+    Public sample releases (e.g. GWTC-1) omit the coalescence time, phase and
+    polarization, which the builder then draws from their priors: the maxL
+    waveform used for the strain overlay is then incoherent with the data (or
+    even sign-flipped). Keeping the sample's intrinsic parameters and sky
+    position, this maximizes the coherent network log-likelihood ratio
+
+        ln L = |sum_d F+_d Z+_d(t_d) + Fx_d Zx_d(t_d)| - 1/2 sum_d <h_d|h_d>
+
+    on a (geocent time, psi) grid, where Z are the complex correlations of the
+    data with h+ and hx; the phase maximization is analytic. The fitted values
+    replace psi, phase, geocent_time and the detector times of that sample only.
+    ``f_ref`` must match the one used for the overlay (20 Hz without a config).
+    """
+    import numpy as np
+    from gwpy.timeseries import TimeSeries
+    from pesummary.gw.waveform import fd_waveform
+    from pycbc.detector import Detector
+
+    dets = [d for d in ("H1", "L1", "V1") if d in psds]
+    i = int(np.argmax(np.asarray(samples["log_likelihood"], dtype=float)))
+    row = {k: np.array([float(samples[k][i])]) for k in samples.keys()}
+    ra, dec = float(row["ra"][0]), float(row["dec"][0])
+
+    start = int(gps_time) - duration + 16
+    n = duration * sample_rate
+    df = 1.0 / duration
+    freqs = np.arange(n // 2 + 1) * df
+    band = (freqs >= f_low) & (freqs <= sample_rate / 2)
+    taper = np.ones(n)
+    nt = sample_rate // 2
+    taper[:nt] = 0.5 * (1 - np.cos(np.pi * np.arange(nt) / nt))
+    taper[-nt:] = taper[:nt][::-1]
+
+    dtilde, invpsd = {}, {}
+    for det in dets:
+        ts = TimeSeries.fetch_open_data(det, start - 8, start + duration + 8, cache=True)
+        if int(round(ts.sample_rate.value)) != sample_rate:
+            ts = ts.resample(sample_rate)
+        x = ts.crop(start, start + duration).value[:n]
+        dtilde[det] = np.fft.rfft(x * taper) / sample_rate
+        psd = np.asarray(psds[det], dtype=float)
+        s = np.interp(freqs, psd[:, 0], psd[:, 1], left=np.inf, right=np.inf)
+        invpsd[det] = np.where(band & np.isfinite(s) & (s > 0), 1.0 / s, 0.0)
+
+    def polarizations(phase):
+        r = dict(row)
+        r["phase"] = np.array([phase])
+        h = fd_waveform(r, approximant, df, f_low, sample_rate / 2, f_ref=f_ref)
+        hp = np.zeros(len(freqs), complex)
+        hc = np.zeros(len(freqs), complex)
+        m = min(len(freqs), len(h["h_plus"]))
+        hp[:m] = h["h_plus"].value[:m]
+        hc[:m] = h["h_cross"].value[:m]
+        return hp, hc
+
+    def inner(a, b, det):  # <a|b> = 4 Re sum(a b* / S) df
+        return 4 * df * float(np.real(np.sum(a * np.conj(b) * invpsd[det])))
+
+    up = 4  # correlation time resolution: 1 / (up * sample_rate)
+
+    def correlation(h, det):
+        full = np.zeros(n * up, complex)
+        full[: len(freqs)] = 4 * df * dtilde[det] * np.conj(h) * invpsd[det]
+        return np.fft.ifft(full) * (n * up)
+
+    phase0 = float(row["phase"][0])
+    hp, hc = polarizations(phase0)
+    # How the overall frequency-domain phase moves with 'phase' (2 for the 22 mode).
+    hp_shift, _ = polarizations(phase0 + 0.1)
+    weight = np.abs(hp) ** 2 * invpsd[dets[0]]
+    kfac = float(np.angle(np.sum(hp_shift * np.conj(hp) * weight)) / 0.1)
+    if abs(kfac) < 0.5:
+        raise RuntimeError(f"waveform phase does not respond to 'phase' (d arg h / d phase = {kfac:.2f})")
+
+    corr = {d: (correlation(hp, d), correlation(hc, d)) for d in dets}
+    norms = {d: (inner(hp, hp, d), inner(hc, hc, d), inner(hp, hc, d)) for d in dets}
+    detectors = {d: Detector(d) for d in dets}
+    delays = {d: detectors[d].time_delay_from_earth_center(ra, dec, gps_time) for d in dets}
+    dt_up = 1.0 / (sample_rate * up)
+    tc_grid = gps_time + np.arange(-0.1, 0.1, dt_up)
+
+    best = (-np.inf, gps_time, 0.0, 0.0)
+    for psi in np.linspace(0.0, np.pi, 181)[:-1]:
+        coh = np.zeros(len(tc_grid), complex)
+        hh = 0.0
+        for d in dets:
+            fp, fx = detectors[d].antenna_pattern(ra, dec, psi, gps_time)
+            idx = np.round((tc_grid + delays[d] - start) / dt_up).astype(int)
+            coh += fp * corr[d][0][idx] + fx * corr[d][1][idx]
+            a, b, c = norms[d]
+            hh += fp * fp * a + fx * fx * b + 2 * fp * fx * c
+        lnl = np.abs(coh) - 0.5 * hh
+        j = int(np.argmax(lnl))
+        if lnl[j] > best[0]:
+            best = (float(lnl[j]), float(tc_grid[j]), float(psi), float(np.angle(coh[j])))
+    _, tc, psi, alpha = best
+
+    def network(phase):
+        hp_, hc_ = polarizations(phase)
+        lnl, snrs = 0.0, {}
+        for d in dets:
+            fp, fx = detectors[d].antenna_pattern(ra, dec, psi, tc)
+            shift = tc + detectors[d].time_delay_from_earth_center(ra, dec, tc) - start
+            h = (fp * hp_ + fx * hc_) * np.exp(-2j * np.pi * freqs * shift)
+            dh, hh_ = inner(dtilde[d], h, d), inner(h, h, d)
+            lnl += dh - 0.5 * hh_
+            snrs[d] = dh / np.sqrt(hh_) if hh_ > 0 else 0.0
+        return lnl, snrs
+
+    # 'phase' is defined modulo 2 pi / |kfac|: evaluate each branch with the full waveform.
+    branches = [
+        (phase0 + alpha / kfac + m * 2 * np.pi / abs(kfac)) % (2 * np.pi)
+        for m in range(max(1, int(round(abs(kfac)))))
+    ]
+    lnl, snrs, phase = max((network(p) + (p,) for p in branches), key=lambda x: x[0])
+
+    samples["geocent_time"][i] = tc
+    samples["phase"][i] = phase
+    samples["psi"][i] = psi
+    for d in ("H1", "L1", "V1"):
+        key = f"{d}_time"
+        if key in samples:
+            samples[key][i] = tc + Detector(d).time_delay_from_earth_center(ra, dec, tc)
+
+    if log_cb:
+        per_det = ", ".join(f"{d} {v:+.1f}" for d, v in snrs.items())
+        log_cb(
+            f"ℹ️ [FIT] {label}: maxL sample fitted to GWOSC strain: geocent_time={tc:.4f}, "
+            f"phase={phase:.3f}, psi={psi:.3f}; matched-filter SNR {per_det} "
+            f"(network {np.sqrt(max(2 * lnl, 0.0)):.1f})"
+        )
+    return {"geocent_time": tc, "phase": phase, "psi": psi, "log_likelihood_ratio": lnl, **snrs}
 
 
 def _build_samples_dict(dataset, *, gps_time: float):
