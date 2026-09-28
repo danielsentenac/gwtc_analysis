@@ -660,18 +660,13 @@ def add_localization_area_from_directory(
 
     found = ok = miss = errors = 0
 
+    known_events = {ev for ev, _approx in index}
     for idx_row, row in it:
         ev_id = row.get("event_id")
-        ev = _normalize_event_name(ev_id)
-        if ev is None:
+        ev_key = skymap_event_key(ev_id, known_events)
+        if ev_key is None:
             miss += 1
             continue
-
-        m = re.search(r"(GW\d{6}_\d{6})", str(ev))
-        if not m:
-            miss += 1
-            continue
-        ev_key = m.group(1)
 
         p = select_skymap_path(index, ev_key, prefer="Mixed")
         if p is None:
@@ -743,6 +738,31 @@ def _normalize_event_name(ev: str | None) -> str | None:
     # event_id in jsonfull looks like "GW200129_065458-v2"
     # skymap files usually include the base event name without "-vN"
     return re.sub(r"-v\d+$", "", s)
+
+
+def skymap_event_key(ev_id, known_events) -> str | None:
+    """Skymap event key of a catalog event id, among the events that have skymaps.
+
+    Skymap releases name events GWYYMMDD_HHMMSS, while GWOSC lists the GWTC-1
+    events by their short name (e.g. "GW150914-v4" for GW150914_095045). A short
+    name maps to the unique known event starting with it; None if there is no
+    such event or the short name is ambiguous.
+    """
+    ev = _normalize_event_name(ev_id)
+    if ev is None:
+        return None
+    m = re.search(r"(GW\d{6}_\d{6})", ev)
+    if m:
+        return m.group(1)
+    m = re.search(r"(GW\d{6})(?![\d_])", ev)
+    if not m:
+        return None
+    short = m.group(1)
+    known = set(known_events)
+    if short in known:
+        return short
+    candidates = [k for k in known if str(k).startswith(short + "_")]
+    return candidates[0] if len(candidates) == 1 else None
 
     
 def download_zenodo_skymaps_tarball(
@@ -1115,16 +1135,10 @@ def add_localization_area_from_s3(
 
     for idx, row in it:
         ev_id = row.get("event_id")
-        ev = _normalize_event_name(ev_id)
-        if ev is None:
+        ev_key = skymap_event_key(ev_id, index)
+        if ev_key is None:
             miss += 1
             continue
-
-        m = re.search(r"(GW\d{6}_\d{6})", str(ev))
-        if not m:
-            miss += 1
-            continue
-        ev_key = m.group(1)
 
         obj_name = index.get(ev_key)
         if obj_name is None:
@@ -1209,21 +1223,14 @@ def add_localization_area_from_zenodo(
 
     found = ok = miss = errors = 0
 
+    known_events = {ev for ev, _approx in index}
     with tarfile.open(tar_path, mode="r:gz") as tf:
         for idx, row in it:
             ev_id = row.get("event_id")
-            ev = _normalize_event_name(ev_id)
-
-            # fallback: try prefix match on GW id fragment
-            if ev is None:
+            ev_key = skymap_event_key(ev_id, known_events)
+            if ev_key is None:
                 miss += 1
                 continue
-
-            m = re.search(r"(GW\d{6}_\d{6})", str(ev))
-            if not m:
-                miss += 1
-                continue
-            ev_key = m.group(1)
 
             # Choose ONE member from the (event, approximant) index
             member = select_skymap_member(index, ev_key, prefer="Mixed")

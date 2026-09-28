@@ -91,6 +91,7 @@ def run_search_skymaps(
             build_skymap_index_from_tar,
             download_zenodo_skymaps_tarball,
             select_skymap_member,
+            skymap_event_key,
         )
 
         import tarfile
@@ -117,11 +118,12 @@ def run_search_skymaps(
             if not event_ids:
                 event_keys = sorted({ev for (ev, _approx) in index.keys()})
             else:
+                known_events = {ev for (ev, _approx) in index.keys()}
                 event_keys = []
                 for ev in event_ids:
-                    m = re.search(r"(GW\d{6}_\d{6})", str(ev))
-                    if m:
-                        event_keys.append(m.group(1))
+                    key = skymap_event_key(ev, known_events)
+                    if key:
+                        event_keys.append(key)
 
             with tarfile.open(tar_path, mode="r:gz") as tf:
                 for ev_key in event_keys:
