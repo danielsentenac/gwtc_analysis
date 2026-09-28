@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from typing import List, Optional
 
-from .catalogs import run_catalog_statistics, run_merger_rates
+from .catalogs import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES, run_catalog_statistics, run_merger_rates
 from .event_selection import run_event_selection
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
@@ -151,8 +151,8 @@ def build_parser() -> argparse.ArgumentParser:
             "N: GWOSC candidates (confident and marginal lists) inside the time span of the LVK\n"
             "search-sensitivity injections with FAR below --far-threshold, classified by median\n"
             "source-frame masses. <VT>: sensitive volume-time from the injections, reweighted to\n"
-            "fixed population models. Default injections: GWTC-4.0 cumulative O3+O4a release\n"
-            "(zenodo 16740128, ~400 MB, downloaded once).\n\n"
+            "fixed population models. The injection file of --sensitivity-release is retrieved\n"
+            "automatically from Zenodo (latest version of the record) and cached.\n\n"
             "Outputs:\n"
             "  --out-rates  : TSV of rates per population\n"
             "  --out-events : TSV of the events counted\n"
@@ -164,7 +164,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_rate.add_argument("--out-events", default="merger_rates_events.tsv", help="Output TSV of the events counted.")
     p_rate.add_argument("--out-report", default="merger_rates.html", help="Output HTML report path.")
     p_rate.add_argument("--plots-dir", default="rates_plots", help="Directory for plots (default: rates_plots).")
-    p_rate.add_argument("--sensitivity-file", default=None, help="Local LVK injection HDF file to use instead of the default release.")
+    p_rate.add_argument(
+        "--sensitivity-release",
+        choices=list(RATES_SENSITIVITY_RELEASES),
+        default=RATES_DEFAULT_RELEASE,
+        help="LVK search-sensitivity release retrieved automatically from Zenodo: "
+        + "; ".join(f"{k} = {v[1]}" for k, v in RATES_SENSITIVITY_RELEASES.items()) + ".",
+    )
+    p_rate.add_argument("--sensitivity-file", default=None, help="Local LVK injection HDF file to use instead of --sensitivity-release.")
     p_rate.add_argument("--far-threshold", type=float, default=1.0, help="FAR threshold [1/yr] for both injections and events.")
     p_rate.add_argument("--ns-max-mass", type=float, default=2.5, help="Maximum neutron-star mass [Msun] separating NS from BH.")
     p_rate.add_argument("--bbh-kappa", type=float, default=2.9, help="BBH rate evolution R ∝ (1+z)^kappa.")
@@ -345,6 +352,7 @@ def main(argv=None) -> int:
                 out_report_html=args.out_report,
                 plots_dir=args.plots_dir,
                 sensitivity_file=args.sensitivity_file,
+                sensitivity_release=args.sensitivity_release,
                 far_threshold=args.far_threshold,
                 ns_max_mass=args.ns_max_mass,
                 bbh_kappa=args.bbh_kappa,
