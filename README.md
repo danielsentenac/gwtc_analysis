@@ -178,7 +178,8 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-events` | `merger_rates_events.tsv` | Output TSV of the events counted. |
 | `--out-report` | `merger_rates.html` | Output HTML report path. |
 | `--plots-dir` | `rates_plots` | Directory for plots (default: rates_plots). |
-| `--sensitivity-file` | `` | Local LVK injection HDF file to use instead of the default release. |
+| `--sensitivity-release` | `gwtc5` | LVK search-sensitivity release retrieved automatically from Zenodo: gwtc5 = GWTC-5.0 cumulative, real O3 + O4a + O4b injections (~900 MB); gwtc4 = GWTC-4.0 cumulative, real O3 + O4a injections (~400 MB). |
+| `--sensitivity-file` | `` | Local LVK injection HDF file to use instead of --sensitivity-release. |
 | `--far-threshold` | `1.0` | FAR threshold [1/yr] for both injections and events. |
 | `--ns-max-mass` | `2.5` | Maximum neutron-star mass [Msun] separating NS from BH. |
 | `--bbh-kappa` | `2.9` | BBH rate evolution R ∝ (1+z)^kappa. |
@@ -265,17 +266,27 @@ python gwtc_analysis/gen_readme_cli_tables.py
 `rates` estimates the BNS, NSBH and BBH merger rates (per Gpc³ per year) as R = N / ⟨VT⟩:
 
 - **N**: GWOSC candidates (confident and marginal lists of GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0) inside the observing periods covered by the injections, with FAR below `--far-threshold` (default 1/yr), classified by their median source-frame masses (neutron stars below `--ns-max-mass`, default 2.5 M☉).
-- **⟨VT⟩**: the sensitive volume-time, from the LVK search-sensitivity injections (simulated signals added to the real data and searched by the real pipelines), reweighted to each population by importance sampling. Default: the GWTC-4.0 cumulative O3+O4a release ([Zenodo 16740128](https://zenodo.org/records/16740128), ~400 MB, downloaded once into `~/.cache_gwtc_analysis/zenodo`); `--sensitivity-file` uses another local file.
+- **⟨VT⟩**: the sensitive volume-time, from the LVK search-sensitivity injections (simulated signals added to the real data and searched by the real pipelines), reweighted to each population by importance sampling. The injection file is retrieved automatically from Zenodo (latest version of the record) and cached in `~/.cache_gwtc_analysis/zenodo`. Choose the release with `--sensitivity-release`:
+  - `gwtc5` (default): GWTC-5.0 cumulative, real O3 + O4a + O4b injections ([Zenodo 19500052](https://zenodo.org/records/19500052), ~900 MB);
+  - `gwtc4`: GWTC-4.0 cumulative, real O3 + O4a injections ([Zenodo 16740128](https://zenodo.org/records/16740128), ~400 MB).
+
+  `--sensitivity-file` uses a local injection file instead (same LVK mixture format).
 - **Populations** (fixed shapes): BNS with both masses uniform in [1, 2.5] M☉; NSBH with the black hole ∝ m^-2.35 on [2.5, 40] M☉; BBH with the GWTC-3 *Power Law + Peak* model, reported with R ∝ (1+z)^κ at z = 0.2 (`--bbh-kappa`, `--bbh-z-ref`) and without evolution.
 - **Intervals**: 90% Poisson (Jeffreys prior). The LVK population papers fit the population shapes together with the rates, so their intervals are wider and model-dependent.
 
 Outputs: `--out-rates` (TSV per population), `--out-events` (TSV of the events counted), `--out-report` (HTML report with the observed and the selection-corrected primary-mass distributions).
 
 ```bash
-python -m gwtc_analysis.cli rates
+python -m gwtc_analysis.cli rates                               # GWTC-5.0 injections (O3 + O4a + O4b)
+python -m gwtc_analysis.cli rates --sensitivity-release gwtc4   # GWTC-4.0 injections (O3 + O4a)
 ```
 
-With the defaults (O3 + O4a, 154 candidates), this gives about 43 [6, 143] Gpc⁻³ yr⁻¹ for BNS, 54 [21, 109] for NSBH and 26 [23, 30] for BBH at z = 0.2, consistent with [GWTC-4.0](https://arxiv.org/abs/2508.18083) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and [GWTC-3](https://arxiv.org/abs/2111.03634).
+| Release | Candidates | BNS | NSBH | BBH at z = 0.2 |
+|---|---|---|---|---|
+| `gwtc5` (O3–O4b, 2.5 yr) | 258 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] |
+| `gwtc4` (O3–O4a, 1.7 yr) | 154 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] |
+
+Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK population papers: [GWTC-5.0](https://arxiv.org/abs/2605.27226) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉), [GWTC-4.0](https://arxiv.org/abs/2508.18083) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and [GWTC-3](https://arxiv.org/abs/2111.03634).
 
 ### `parameters_estimation`: Shared Defaults And Overrides
 

@@ -148,3 +148,39 @@ def test_cli_rates_arguments():
     args = build_parser().parse_args(["rates", "--far-threshold", "0.5", "--bbh-kappa", "3.2"])
     assert args.mode == "rates" and args.far_threshold == 0.5 and args.bbh_kappa == 3.2
     assert args.ns_max_mass == 2.5 and args.bbh_z_ref == 0.2
+
+
+def test_sensitivity_release_is_retrieved_automatically(tmp_path, monkeypatch):
+    """--sensitivity-release resolves the latest Zenodo version and downloads its mixture file once."""
+    from gwtc_analysis import data_repo
+
+    listing = [{"record_id": "999", "publication_date": "2026-01-01", "files": [
+        {"key": "mixture-semi_o1_o2-real_o3_o4a_o4b-cartesian_spins_X.hdf"},
+        {"key": "mixture-real_o3_o4a_o4b-polar_spins_X.hdf"},
+        {"key": "mixture-real_o3_o4a_o4b-cartesian_spins_X-clipped.hdf"},
+        {"key": "psds-o1234ab.tar.gz"},
+    ]}]
+    monkeypatch.setattr(data_repo, "zenodo_release_versions", lambda release, **kw: listing)
+    monkeypatch.setattr(data_repo, "zenodo_cache_dir", lambda: tmp_path)
+    downloads = []
+
+    def fake_download(url, dest, **kw):
+        downloads.append(url)
+        dest.write_bytes(b"hdf")
+        return dest
+
+    monkeypatch.setattr(cat.gw, "_download_with_byte_progress", fake_download)
+    p = cat._rates_sensitivity_path(None, "gwtc5")
+    assert p.name == "zenodo_999_mixture-real_o3_o4a_o4b-cartesian_spins_X-clipped.hdf"
+    assert downloads == ["https://zenodo.org/records/999/files/mixture-real_o3_o4a_o4b-cartesian_spins_X-clipped.hdf?download=1"]
+    assert cat._rates_sensitivity_path(None, "gwtc5") == p and len(downloads) == 1   # cached
+    with pytest.raises(ValueError, match="Unknown sensitivity release"):
+        cat._rates_sensitivity_path(None, "gwtc9")
+
+
+def test_cli_sensitivity_release_choices():
+    """The CLI offers the registered releases, defaulting to the latest catalog."""
+    assert build_parser().parse_args(["rates"]).sensitivity_release == cat.RATES_DEFAULT_RELEASE == "gwtc5"
+    assert build_parser().parse_args(["rates", "--sensitivity-release", "gwtc4"]).sensitivity_release == "gwtc4"
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["rates", "--sensitivity-release", "gwtc3"])

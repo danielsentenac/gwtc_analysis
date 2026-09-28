@@ -815,9 +815,15 @@ def run_catalog_statistics(
 # same FAR threshold (confident and marginal lists), classified by their median
 # source-frame masses. The rate posterior uses a Jeffreys prior: Gamma(N+1/2)/<VT>.
 
-# GWTC-4.0 cumulative search sensitivity, real O3 + O4a injections (zenodo 16740128).
-RATES_SENSITIVITY_RECORD = "16740128"
-RATES_SENSITIVITY_FILE = "mixture-real_o3_o4a-cartesian_spins_20250503134659UTC.hdf"
+# LVK cumulative search-sensitivity releases usable by the rates mode: their
+# real-injection mixture with Cartesian spins. The file is found in the latest
+# version of the Zenodo record, so a new version is picked up automatically.
+RATES_SENSITIVITY_RELEASES = {
+    "gwtc5": ("19500052", "GWTC-5.0 cumulative, real O3 + O4a + O4b injections (~900 MB)"),
+    "gwtc4": ("16740128", "GWTC-4.0 cumulative, real O3 + O4a injections (~400 MB)"),
+}
+RATES_DEFAULT_RELEASE = "gwtc5"
+_SENSITIVITY_FILE_RE = r"^mixture-real_.*cartesian_spins.*\.hdf5?$"
 RATES_EVENT_LISTS = (
     "GWTC-2.1-confident", "GWTC-2.1-marginal",
     "GWTC-3-confident", "GWTC-3-marginal",
@@ -826,20 +832,37 @@ RATES_EVENT_LISTS = (
 _YEAR_S = 3.15576e7
 
 
-def _rates_sensitivity_path(sensitivity_file: str | Path | None) -> Path:
-    """Local injection file: the given path, or the default release (downloaded once)."""
+def _rates_sensitivity_path(sensitivity_file: str | Path | None = None,
+                            release: str = RATES_DEFAULT_RELEASE) -> Path:
+    """Local injection file: `sensitivity_file` if given, else the `release` file, retrieved once from Zenodo."""
+    import re
+
     if sensitivity_file:
         p = Path(sensitivity_file).expanduser()
         if not p.exists():
             raise ValueError(f"Sensitivity file not found: {p}")
         return p
-    from .data_repo import zenodo_cache_dir
+    if release not in RATES_SENSITIVITY_RELEASES:
+        raise ValueError(f"Unknown sensitivity release {release!r}; choose from {', '.join(RATES_SENSITIVITY_RELEASES)}")
+    from .data_repo import zenodo_cache_dir, zenodo_release_versions
+    from .repo_config import ZenodoRelease
 
-    dest = zenodo_cache_dir() / f"zenodo_{RATES_SENSITIVITY_RECORD}_{RATES_SENSITIVITY_FILE}"
+    record, label = RATES_SENSITIVITY_RELEASES[release]
+    try:
+        latest = zenodo_release_versions(ZenodoRelease(record_id=record))[-1]
+        record_id = latest["record_id"]
+        names = [f["key"] for f in latest["files"] if re.match(_SENSITIVITY_FILE_RE, f.get("key") or "")]
+    except Exception as e:
+        raise ValueError(f"Cannot list the Zenodo files of the {release} sensitivity release (record {record}): {e}") from e
+    if not names:
+        raise ValueError(f"No real-injection mixture file found in Zenodo record {record_id} ({label})")
+    name = sorted(names)[0]
+    dest = zenodo_cache_dir() / f"zenodo_{record_id}_{name}"
     if not (dest.exists() and dest.stat().st_size > 0):
-        url = f"https://zenodo.org/records/{RATES_SENSITIVITY_RECORD}/files/{RATES_SENSITIVITY_FILE}?download=1"
-        print(f"[rates] downloading LVK search-sensitivity injections (~400 MB): {url}")
+        url = f"https://zenodo.org/records/{record_id}/files/{name}?download=1"
+        print(f"[rates] retrieving LVK search-sensitivity injections, {label}: {url}")
         gw._download_with_byte_progress(url, dest)
+    print(f"[rates] sensitivity injections: {label}, record {record_id}: {dest.name}")
     return dest
 
 
@@ -1047,6 +1070,7 @@ def run_merger_rates(
     out_report_html: Optional[str | Path] = "merger_rates.html",
     plots_dir: Optional[str | Path] = "rates_plots",
     sensitivity_file: Optional[str | Path] = None,
+    sensitivity_release: str = RATES_DEFAULT_RELEASE,
     far_threshold: float = 1.0,
     ns_max_mass: float = 2.5,
     bbh_kappa: float = 2.9,
@@ -1060,7 +1084,7 @@ def run_merger_rates(
     without redshift evolution and with R ∝ (1+z)^bbh_kappa at z = bbh_z_ref.
     Returns the rates table (also written to `out_rates_tsv`).
     """
-    inj = _load_found_injections(_rates_sensitivity_path(sensitivity_file), far_threshold)
+    inj = _load_found_injections(_rates_sensitivity_path(sensitivity_file, sensitivity_release), far_threshold)
     events = _rates_events(inj["segments"], far_threshold, ns_max_mass)
     counts = events["class"].value_counts().to_dict()
     n_unknown = int(counts.get("unknown", 0))
