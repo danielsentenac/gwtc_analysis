@@ -69,10 +69,12 @@ usage: gwtc_analysis [-h] MODE ...
 positional arguments:
   MODE
     catalog_statistics
+    rates
     event_selection
     search_skymaps
     parameters_estimation
     build_unofficial_pe
+    zenodo_releases
 ```
 
 Each mode has its own help:
@@ -167,6 +169,21 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
 | `--zenodo-version` | `` | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 
+### `rates`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--out-rates` | `merger_rates.tsv` | Output TSV of rates per population. |
+| `--out-events` | `merger_rates_events.tsv` | Output TSV of the events counted. |
+| `--out-report` | `merger_rates.html` | Output HTML report path. |
+| `--plots-dir` | `rates_plots` | Directory for plots (default: rates_plots). |
+| `--sensitivity-file` | `` | Local LVK injection HDF file to use instead of the default release. |
+| `--far-threshold` | `1.0` | FAR threshold [1/yr] for both injections and events. |
+| `--ns-max-mass` | `2.5` | Maximum neutron-star mass [Msun] separating NS from BH. |
+| `--bbh-kappa` | `2.9` | BBH rate evolution R ∝ (1+z)^kappa. |
+| `--bbh-z-ref` | `0.2` | Redshift at which the evolving BBH rate is reported. |
+
 ### `event_selection`
 
 | Option | Default | Description |
@@ -242,6 +259,23 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--catalogs` | `['ALL']` | Catalog keys, space-separated (e.g. GWTC-3 GWTC-4). ALL key takes them all. |
 
 <!-- CLI_TABLES_END -->
+
+### `rates`: Merger Rates From The Catalogs
+
+`rates` estimates the BNS, NSBH and BBH merger rates (per Gpc³ per year) as R = N / ⟨VT⟩:
+
+- **N**: GWOSC candidates (confident and marginal lists of GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0) inside the observing periods covered by the injections, with FAR below `--far-threshold` (default 1/yr), classified by their median source-frame masses (neutron stars below `--ns-max-mass`, default 2.5 M☉).
+- **⟨VT⟩**: the sensitive volume-time, from the LVK search-sensitivity injections (simulated signals added to the real data and searched by the real pipelines), reweighted to each population by importance sampling. Default: the GWTC-4.0 cumulative O3+O4a release ([Zenodo 16740128](https://zenodo.org/records/16740128), ~400 MB, downloaded once into `~/.cache_gwtc_analysis/zenodo`); `--sensitivity-file` uses another local file.
+- **Populations** (fixed shapes): BNS with both masses uniform in [1, 2.5] M☉; NSBH with the black hole ∝ m^-2.35 on [2.5, 40] M☉; BBH with the GWTC-3 *Power Law + Peak* model, reported with R ∝ (1+z)^κ at z = 0.2 (`--bbh-kappa`, `--bbh-z-ref`) and without evolution.
+- **Intervals**: 90% Poisson (Jeffreys prior). The LVK population papers fit the population shapes together with the rates, so their intervals are wider and model-dependent.
+
+Outputs: `--out-rates` (TSV per population), `--out-events` (TSV of the events counted), `--out-report` (HTML report with the observed and the selection-corrected primary-mass distributions).
+
+```bash
+python -m gwtc_analysis.cli rates
+```
+
+With the defaults (O3 + O4a, 154 candidates), this gives about 43 [6, 143] Gpc⁻³ yr⁻¹ for BNS, 54 [21, 109] for NSBH and 26 [23, 30] for BBH at z = 0.2, consistent with [GWTC-4.0](https://arxiv.org/abs/2508.18083) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and [GWTC-3](https://arxiv.org/abs/2111.03634).
 
 ### `parameters_estimation`: Shared Defaults And Overrides
 
