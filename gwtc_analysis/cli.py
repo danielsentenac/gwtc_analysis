@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from typing import List, Optional
 
-from .catalogs import run_catalog_statistics
+from .catalogs import run_catalog_statistics, run_merger_rates
 from .event_selection import run_event_selection
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
@@ -96,6 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
             "GWTC analysis tool.\n\n"
             "Use one of the MODE subcommands below. Each mode has its own detailed help:\n"
             "  gwtc_analysis catalog_statistics -h\n"
+            "  gwtc_analysis rates -h\n"
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
@@ -138,6 +139,36 @@ def build_parser() -> argparse.ArgumentParser:
     p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
     p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
     _add_zenodo_version_arg(p_cat)
+
+    # ---------------------------------------------------------------------
+    # rates
+    # ---------------------------------------------------------------------
+    p_rate = sub.add_parser(
+        "rates",
+        help="Estimate BNS / NSBH / BBH merger rates (per Gpc^3 per year) from the catalogs.",
+        description=(
+            "Merger rates R = N / <VT> per population.\n\n"
+            "N: GWOSC candidates (confident and marginal lists) inside the time span of the LVK\n"
+            "search-sensitivity injections with FAR below --far-threshold, classified by median\n"
+            "source-frame masses. <VT>: sensitive volume-time from the injections, reweighted to\n"
+            "fixed population models. Default injections: GWTC-4.0 cumulative O3+O4a release\n"
+            "(zenodo 16740128, ~400 MB, downloaded once).\n\n"
+            "Outputs:\n"
+            "  --out-rates  : TSV of rates per population\n"
+            "  --out-events : TSV of the events counted\n"
+            "  --out-report : HTML report with observed and selection-corrected mass distributions\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_rate.add_argument("--out-rates", default="merger_rates.tsv", help="Output TSV of rates per population.")
+    p_rate.add_argument("--out-events", default="merger_rates_events.tsv", help="Output TSV of the events counted.")
+    p_rate.add_argument("--out-report", default="merger_rates.html", help="Output HTML report path.")
+    p_rate.add_argument("--plots-dir", default="rates_plots", help="Directory for plots (default: rates_plots).")
+    p_rate.add_argument("--sensitivity-file", default=None, help="Local LVK injection HDF file to use instead of the default release.")
+    p_rate.add_argument("--far-threshold", type=float, default=1.0, help="FAR threshold [1/yr] for both injections and events.")
+    p_rate.add_argument("--ns-max-mass", type=float, default=2.5, help="Maximum neutron-star mass [Msun] separating NS from BH.")
+    p_rate.add_argument("--bbh-kappa", type=float, default=2.9, help="BBH rate evolution R ∝ (1+z)^kappa.")
+    p_rate.add_argument("--bbh-z-ref", type=float, default=0.2, help="Redshift at which the evolving BBH rate is reported.")
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -302,6 +333,22 @@ def main(argv=None) -> int:
                 data_repo=args.data_repo,
                 plots_dir=args.plots_dir,
                 zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
+            )
+            return 0
+
+        if args.mode == "rates":
+            if args.far_threshold <= 0 or args.ns_max_mass <= 1:
+                raise ValueError("--far-threshold must be > 0 and --ns-max-mass > 1")
+            run_merger_rates(
+                out_rates_tsv=args.out_rates,
+                out_events_tsv=args.out_events,
+                out_report_html=args.out_report,
+                plots_dir=args.plots_dir,
+                sensitivity_file=args.sensitivity_file,
+                far_threshold=args.far_threshold,
+                ns_max_mass=args.ns_max_mass,
+                bbh_kappa=args.bbh_kappa,
+                bbh_z_ref=args.bbh_z_ref,
             )
             return 0
 
