@@ -393,6 +393,69 @@ def _run_runner(python: str, args: list[str]) -> None:
         raise ValueError(f"icarogw runner failed ({' '.join(args[:1])}, exit code {r.returncode})")
 
 
+def _last_line(log: Path, prefix: str = "[h0]") -> str:
+    try:
+        lines = [l for l in log.read_text(errors="replace").splitlines() if l.startswith(prefix)]
+    except OSError:
+        return ""
+    return lines[-1] if lines else ""
+
+
+def run_seeds_parallel(python: str, workdir: Path, seeds: list[int], parallel: int, run_args: list[str]) -> None:
+    """Up to `parallel` sampler runs at a time on this machine, each logging to <workdir>/logs/run_seed<N>.log.
+
+    Interrupting (Ctrl-C) stops the runs, which write their checkpoint and resume on the next launch.
+    """
+    import signal
+    import time
+
+    def _stop(signum, frame):
+        raise KeyboardInterrupt
+
+    previous = signal.signal(signal.SIGTERM, _stop)   # a killed launcher also stops (and checkpoints) its runs
+    cmd, env = _runner_command(python)
+    logs = workdir / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    todo, running, failed = list(seeds), {}, []
+    _log(f"{len(seeds)} run(s), {parallel} at a time; logs in {logs}")
+    try:
+        while todo or running:
+            while todo and len(running) < parallel:
+                seed = todo.pop(0)
+                log = logs / f"run_seed{seed}.log"
+                fh = open(log, "a")
+                running[seed] = (subprocess.Popen(cmd + ["run", "--workdir", str(workdir), "--seed", str(seed)] + run_args,
+                                                  env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                                  start_new_session=True), fh, log)   # signals reach the launcher only
+                _log(f"seed {seed}: started (pid {running[seed][0].pid})")
+            time.sleep(5)
+            for seed, (proc, fh, log) in list(running.items()):
+                if proc.poll() is None:
+                    continue
+                fh.close()
+                del running[seed]
+                if proc.returncode == 0:
+                    _log(f"seed {seed}: finished. {_last_line(log)}")
+                else:
+                    failed.append(seed)
+                    _log(f"seed {seed}: FAILED (exit code {proc.returncode}): {_last_line(log) or 'see ' + str(log)}")
+    except KeyboardInterrupt:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        _log(f"stopping seed(s) {sorted(running)}: they write their checkpoint first")
+        for proc, fh, _ in running.values():
+            proc.terminate()
+        for proc, fh, _ in running.values():
+            proc.wait()
+            fh.close()
+        raise ValueError("interrupted: the running seeds wrote their checkpoint and resume on the next launch")
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+    if failed:
+        raise ValueError(f"sampler run(s) failed for seed(s) {failed}; see {logs}")
+
+
 def _plot_h0(post: pd.DataFrame, published: Optional[dict], out_png: Path) -> Path:
     import matplotlib
     matplotlib.use("Agg")
@@ -500,6 +563,7 @@ def run_hubble_constant(
     pe_cache: Optional[str | Path] = None,
     keep_pe_files: bool = False,
     seeds: Iterable[int] = (1,),
+    parallel: int = 1,
     nlive: int = 100,
     npool: int = 4,
     naccept: int = 60,
@@ -519,10 +583,19 @@ def run_hubble_constant(
     if "sample" in stages:
         if not (workdir / "inputs.h5").exists():
             raise ValueError(f"{workdir / 'inputs.h5'} not found: run the prepare stage first")
-        for seed in seeds:
-            _run_runner(python, ["run", "--workdir", str(workdir), "--seed", str(seed), "--nlive", str(nlive),
-                                 "--npool", str(npool), "--naccept", str(naccept), "--pe-samples", str(pe_samples),
-                                 "--inj-fraction", str(inj_fraction)])
+        seeds = list(dict.fromkeys(int(x) for x in seeds))
+        run_args = ["--nlive", str(nlive), "--npool", str(npool), "--naccept", str(naccept),
+                    "--pe-samples", str(pe_samples), "--inj-fraction", str(inj_fraction)]
+        parallel = max(1, min(int(parallel), len(seeds)))
+        ncpu = os.cpu_count() or 1
+        if parallel * npool > ncpu:
+            _log(f"WARN: {parallel} parallel runs x {npool} processes = {parallel * npool} > {ncpu} CPUs; "
+                 "reduce --parallel or --npool")
+        if parallel == 1:
+            for seed in seeds:
+                _run_runner(python, ["run", "--workdir", str(workdir), "--seed", str(seed)] + run_args)
+        else:
+            run_seeds_parallel(python, workdir, seeds, parallel, run_args)
     if "combine" in stages:
         _run_runner(python, ["combine", "--workdir", str(workdir)])
     if "report" in stages and out_report_html:

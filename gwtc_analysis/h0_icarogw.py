@@ -15,8 +15,10 @@ numerical-stability diagnostics (effective numbers of injections and PE samples)
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import os
+import socket
 import sys
 from pathlib import Path
 
@@ -89,9 +91,44 @@ def _settings(workdir: Path) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _lock_seed(seed: int) -> None:
+    """One process per seed: result/plp_seed<N>.lock holds 'host pid' while the run is going (cwd = workdir)."""
+    lock = Path("result") / f"plp_seed{seed}.lock"
+    lock.parent.mkdir(exist_ok=True)
+    host = socket.gethostname()
+    for _ in range(2):
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            parts = lock.read_text().split()
+            h, pid = (parts + ["?", "-1"])[:2]
+            if h == host and not _pid_alive(int(pid)):
+                lock.unlink(missing_ok=True)       # stale: the process is gone
+                continue
+            raise SystemExit(f"[h0] seed {seed} is already running on {h} (pid {pid}); "
+                             f"if it is not, remove {lock.resolve()}")
+    else:
+        raise SystemExit(f"[h0] cannot take the lock {lock.resolve()}")
+    os.write(fd, f"{host} {os.getpid()}\n".encode())
+    os.close(fd)
+    atexit.register(lambda: lock.unlink(missing_ok=True))
+
+
 def run(workdir: Path, seed: int, nlive: int, npool: int, naccept: int, pe_samples: int, inj_fraction: float) -> Path:
     """One dynesty run; resumable from its checkpoint."""
     _enter(workdir)
+    _lock_seed(seed)
     import bilby
 
     s = dict(nlive=nlive, pe_samples=pe_samples, inj_fraction=inj_fraction)
