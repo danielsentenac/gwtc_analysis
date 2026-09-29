@@ -4,6 +4,8 @@ import argparse
 from typing import List, Optional
 
 from .catalogs import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES, run_catalog_statistics, run_merger_rates
+from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_RELEASE, H0_SENSITIVITY_RELEASES, STAGES as H0_STAGES,
+                              run_hubble_constant)
 from .event_selection import run_event_selection
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
@@ -97,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Use one of the MODE subcommands below. Each mode has its own detailed help:\n"
             "  gwtc_analysis catalog_statistics -h\n"
             "  gwtc_analysis rates -h\n"
+            "  gwtc_analysis hubble_constant -h\n"
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
@@ -176,6 +179,65 @@ def build_parser() -> argparse.ArgumentParser:
     p_rate.add_argument("--ns-max-mass", type=float, default=2.5, help="Maximum neutron-star mass [Msun] separating NS from BH.")
     p_rate.add_argument("--bbh-kappa", type=float, default=2.9, help="BBH rate evolution R ∝ (1+z)^kappa.")
     p_rate.add_argument("--bbh-z-ref", type=float, default=0.2, help="Redshift at which the evolving BBH rate is reported.")
+
+    # ---------------------------------------------------------------------
+    # hubble_constant
+    # ---------------------------------------------------------------------
+    p_h0 = sub.add_parser(
+        "hubble_constant",
+        help="Estimate the Hubble constant from the BBH mass spectrum (spectral siren, icarogw).",
+        description=(
+            "Spectral-siren H0: the Power Law + Peak BBH mass distribution and the Madau-Dickinson rate\n"
+            "evolution fitted together with H0 (flat LCDM, Om0 = 0.3065), with icarogw and bilby/dynesty.\n"
+            "The default setup reproduces the GWTC-4.0 cosmology paper (arXiv:2509.04348):\n"
+            "H0 = 112.7 (+51.0 / -35.9) km/s/Mpc.\n\n"
+            "Stages (--stages, default all, in this order):\n"
+            "  prepare : select the events, download their PE samples from Zenodo (tens of GB, cached in\n"
+            "            --pe-cache; only the extracted samples are kept unless --keep-pe-files), prepare\n"
+            "            the found injections of --sensitivity-release -> <workdir>/inputs.h5\n"
+            "  sample  : one dynesty run per --seeds value (hours each; resumable)\n"
+            "  combine : merge the runs, posterior + corner plot + stability diagnostics\n"
+            "  report  : HTML report and TSV summary\n\n"
+            "icarogw needs its own environment: pass its interpreter with --icarogw-python. The sampler\n"
+            "gwtc_analysis/h0_icarogw.py is standalone, so runs can also be started by hand on other\n"
+            "machines sharing <workdir>:  python h0_icarogw.py run --workdir DIR --seed N\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_h0.add_argument("--stages", nargs="+", choices=list(H0_STAGES), default=list(H0_STAGES),
+                      help="Stages to run (default: all).")
+    p_h0.add_argument("--workdir", default="hubble_constant_run", help="Work directory (inputs, runs, posterior).")
+    p_h0.add_argument("--out-report", default="hubble_constant.html", help="Output HTML report path.")
+    p_h0.add_argument("--out-summary", default="hubble_constant.tsv", help="Output TSV of the posterior quantiles.")
+    p_h0.add_argument(
+        "--sensitivity-release",
+        choices=list(H0_SENSITIVITY_RELEASES),
+        default=H0_DEFAULT_RELEASE,
+        help="LVK search-sensitivity release (and matching catalogs and runs): "
+        + "; ".join(f"{k} = {v['label']}" for k, v in H0_SENSITIVITY_RELEASES.items()) + ".",
+    )
+    p_h0.add_argument("--sensitivity-file", default=None,
+                      help="Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's.")
+    p_h0.add_argument("--far-threshold", type=float, default=0.25,
+                      help="FAR threshold [1/yr] for the events and the real injections.")
+    p_h0.add_argument("--snr-threshold", type=float, default=10.0,
+                      help="Network SNR threshold for the semi-analytic O1+O2 injections.")
+    p_h0.add_argument("--min-mass", type=float, default=3.0,
+                      help="Minimum source-frame mass [Msun] of both components (potential neutron stars excluded).")
+    p_h0.add_argument("--exclude", nargs="*", default=list(H0_DEFAULT_EXCLUDE), help="Events left out.")
+    p_h0.add_argument("--pe-cache", default=None,
+                      help="PE cache directory (files/, samples/, index/); default ~/.cache_gwtc_analysis/pe_catalog "
+                           "or $GWTC_PE_CACHE.")
+    p_h0.add_argument("--keep-pe-files", action="store_true", help="Keep the full PE files after extraction.")
+    p_h0.add_argument("--seeds", nargs="+", type=int, default=[1], help="One sampler run per seed.")
+    p_h0.add_argument("--nlive", type=int, default=100, help="dynesty live points per run.")
+    p_h0.add_argument("--npool", type=int, default=4, help="Processes per run.")
+    p_h0.add_argument("--naccept", type=int, default=60, help="dynesty accepted steps per MCMC walk.")
+    p_h0.add_argument("--pe-samples", type=int, default=1500, help="PE samples per event.")
+    p_h0.add_argument("--inj-fraction", type=float, default=0.1,
+                      help="Random fraction of the found injections used (1 = all; the result stays unbiased).")
+    p_h0.add_argument("--icarogw-python", default=None,
+                      help="Python interpreter of the icarogw environment (default: the current one).")
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -357,6 +419,32 @@ def main(argv=None) -> int:
                 ns_max_mass=args.ns_max_mass,
                 bbh_kappa=args.bbh_kappa,
                 bbh_z_ref=args.bbh_z_ref,
+            )
+            return 0
+
+        if args.mode == "hubble_constant":
+            if args.far_threshold <= 0 or not 0 < args.inj_fraction <= 1 or args.pe_samples < 10:
+                raise ValueError("--far-threshold must be > 0, --inj-fraction in (0, 1] and --pe-samples >= 10")
+            run_hubble_constant(
+                stages=args.stages,
+                workdir=args.workdir,
+                out_report_html=args.out_report,
+                out_summary_tsv=args.out_summary,
+                sensitivity_release=args.sensitivity_release,
+                sensitivity_file=args.sensitivity_file,
+                far_threshold=args.far_threshold,
+                snr_threshold=args.snr_threshold,
+                min_mass=args.min_mass,
+                exclude=args.exclude,
+                pe_cache=args.pe_cache,
+                keep_pe_files=args.keep_pe_files,
+                seeds=args.seeds,
+                nlive=args.nlive,
+                npool=args.npool,
+                naccept=args.naccept,
+                pe_samples=args.pe_samples,
+                inj_fraction=args.inj_fraction,
+                icarogw_python=args.icarogw_python,
             )
             return 0
 

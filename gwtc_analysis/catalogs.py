@@ -832,11 +832,34 @@ RATES_EVENT_LISTS = (
 _YEAR_S = 3.15576e7
 
 
+def _zenodo_sensitivity_file(record: str, label: str, pattern: str, tag: str = "rates") -> Path:
+    """File matching `pattern` in the latest version of Zenodo `record`, retrieved once into the Zenodo cache."""
+    import re
+
+    from .data_repo import zenodo_cache_dir, zenodo_release_versions
+    from .repo_config import ZenodoRelease
+
+    try:
+        latest = zenodo_release_versions(ZenodoRelease(record_id=record))[-1]
+        record_id = latest["record_id"]
+        names = [f["key"] for f in latest["files"] if re.match(pattern, f.get("key") or "")]
+    except Exception as e:
+        raise ValueError(f"Cannot list the Zenodo files of the sensitivity release {label} (record {record}): {e}") from e
+    if not names:
+        raise ValueError(f"No injection mixture file matching {pattern} in Zenodo record {record_id} ({label})")
+    name = sorted(names)[0]
+    dest = zenodo_cache_dir() / f"zenodo_{record_id}_{name}"
+    if not (dest.exists() and dest.stat().st_size > 0):
+        url = f"https://zenodo.org/records/{record_id}/files/{name}?download=1"
+        print(f"[{tag}] retrieving LVK search-sensitivity injections, {label}: {url}")
+        gw._download_with_byte_progress(url, dest)
+    print(f"[{tag}] sensitivity injections: {label}, record {record_id}: {dest.name}")
+    return dest
+
+
 def _rates_sensitivity_path(sensitivity_file: str | Path | None = None,
                             release: str = RATES_DEFAULT_RELEASE) -> Path:
     """Local injection file: `sensitivity_file` if given, else the `release` file, retrieved once from Zenodo."""
-    import re
-
     if sensitivity_file:
         p = Path(sensitivity_file).expanduser()
         if not p.exists():
@@ -844,26 +867,8 @@ def _rates_sensitivity_path(sensitivity_file: str | Path | None = None,
         return p
     if release not in RATES_SENSITIVITY_RELEASES:
         raise ValueError(f"Unknown sensitivity release {release!r}; choose from {', '.join(RATES_SENSITIVITY_RELEASES)}")
-    from .data_repo import zenodo_cache_dir, zenodo_release_versions
-    from .repo_config import ZenodoRelease
-
     record, label = RATES_SENSITIVITY_RELEASES[release]
-    try:
-        latest = zenodo_release_versions(ZenodoRelease(record_id=record))[-1]
-        record_id = latest["record_id"]
-        names = [f["key"] for f in latest["files"] if re.match(_SENSITIVITY_FILE_RE, f.get("key") or "")]
-    except Exception as e:
-        raise ValueError(f"Cannot list the Zenodo files of the {release} sensitivity release (record {record}): {e}") from e
-    if not names:
-        raise ValueError(f"No real-injection mixture file found in Zenodo record {record_id} ({label})")
-    name = sorted(names)[0]
-    dest = zenodo_cache_dir() / f"zenodo_{record_id}_{name}"
-    if not (dest.exists() and dest.stat().st_size > 0):
-        url = f"https://zenodo.org/records/{record_id}/files/{name}?download=1"
-        print(f"[rates] retrieving LVK search-sensitivity injections, {label}: {url}")
-        gw._download_with_byte_progress(url, dest)
-    print(f"[rates] sensitivity injections: {label}, record {record_id}: {dest.name}")
-    return dest
+    return _zenodo_sensitivity_file(record, label, _SENSITIVITY_FILE_RE)
 
 
 def _injection_segments(times: np.ndarray, max_gap_days: float = 7.0) -> list[tuple[float, float]]:
