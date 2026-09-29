@@ -208,7 +208,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--seeds` | `[1]` | One sampler run per seed. |
 | `--parallel` | `1` | Seeds run at the same time on this machine (each with --npool processes; logs in <workdir>/logs). |
 | `--nlive` | `100` | dynesty live points per run. |
-| `--npool` | `4` | Processes per run. |
+| `--npool` | `4` | Worker processes per run: random walks of one seed run at the same time. |
 | `--naccept` | `60` | dynesty accepted steps per MCMC walk. |
 | `--pe-samples` | `1500` | PE samples per event. |
 | `--inj-fraction` | `0.1` | Random fraction of the found injections used (1 = all; the result stays unbiased). |
@@ -340,13 +340,39 @@ The work is split into stages (`--stages`, all by default), sharing `--workdir`:
 icarogw needs its own environment (Python ≥ 3.12). Pass its interpreter with `--icarogw-python`: the `sample` and `combine` stages run the standalone sampler `gwtc_analysis/h0_icarogw.py` with it, in CPU mode and with the environment's `lib/` on `LD_LIBRARY_PATH`.
 
 ```bash
-# prepare in the gwtc_analysis environment, then 10 runs and the report
+# prepare in the gwtc_analysis environment, then 4 runs, 2 at a time with 2 processes each, and the report
 python -m gwtc_analysis.cli hubble_constant --stages prepare
 python -m gwtc_analysis.cli hubble_constant --stages sample combine report \
-    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 5 6 7 8 9 10 --parallel 2 --npool 4
+    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 
-**Seeds.** Each seed is an independent dynesty run (`result/plp_seed<N>_result.json`); `combine` merges all the finished ones, weighted by their evidence. All runs sample the same likelihood: the PE samples are shuffled once in `prepare` and the injection subset is drawn with a fixed seed, and `run_settings.json` refuses runs with other `--nlive`, `--pe-samples` or `--inj-fraction` values in the same work directory. Launching again resumes the interrupted runs from their checkpoint and skips the finished ones. A lock file (`result/plp_seed<N>.lock`) prevents the same seed from running twice at once; interrupting the launcher (Ctrl-C) stops its runs after they write their checkpoint. Keep `--parallel` × `--npool` within the number of CPUs.
+**Seeds.** Each seed is an independent dynesty run (`result/plp_seed<N>_result.json`); `combine` merges all the finished ones, weighted by their evidence. All runs sample the same likelihood: the PE samples are shuffled once in `prepare` and the injection subset is drawn with a fixed seed, and `run_settings.json` refuses runs with other `--nlive`, `--pe-samples` or `--inj-fraction` values in the same work directory. Launching again resumes the interrupted runs from their checkpoint and skips the finished ones. A lock file (`result/plp_seed<N>.lock`) prevents the same seed from running twice at once; interrupting the launcher (Ctrl-C) stops its runs after they write their checkpoint.
+
+**`--npool` and `--parallel`.** Nearly all the time of a run goes into likelihood evaluations. At each iteration dynesty replaces the live point of lowest likelihood L_min by a new point with L > L_min, found by a random walk (about `--naccept` accepted steps, one likelihood evaluation per step) from another live point. With `--npool N`, bilby starts N worker processes, each holding a copy of the likelihood, and dynesty runs N such walks at the same time; their new points replace the next N worst points. The walks all start from the same L_min, so some of their points are no longer good enough when used: N workers give less than N times the speed. `--npool` makes one seed finish sooner without changing its result; `--parallel` runs several seeds at the same time. The machine then runs `--parallel` × `--npool` processes, which should not exceed its number of CPUs, and each of them holds the likelihood data in memory. For the same CPUs, several seeds with few workers each use the machine better than one seed with many workers.
+
+| Machine | Suggested settings |
+|---|---|
+| 4 CPUs, 8 GB (laptop) | `--parallel 1 --npool 4`, or `--parallel 2 --npool 2` if memory allows |
+| 8 CPUs, 16 GB | `--parallel 2 --npool 4` |
+
+**How many seeds?** The seeds do not change the physics: they set how precisely the sampler describes the posterior. They serve two purposes:
+
+1. **Checking that the runs agree** (at least 2 seeds). The evidences ln Z of the runs should agree within their quoted errors (about 0.4), and so should their H₀ intervals. Runs that disagree beyond their errors are not fixed by more seeds but by more live points (`--nlive`).
+2. **Precision of the quoted numbers.** One run of 100 live points gives about 560 posterior samples, so its median wanders. In the 10 runs of the reproduction above, the per-run H₀ medians range from 111.7 to 126.1 km/s/Mpc (standard deviation 4.8), and the ln Z values have a standard deviation of 0.32, consistent with their errors. Combining N runs divides the scatter by about √N:
+
+| Seeds (100 live points) | Uncertainty on the H₀ median | Relative to the posterior width (±40) |
+|---|---|---|
+| 1 | ±4.8 km/s/Mpc | 12% |
+| 4 | ±2.4 km/s/Mpc | 6% |
+| 10 | ±1.5 km/s/Mpc | 4% |
+
+The PLP posterior is broad, so 3–5 seeds give the result to two significant digits; 10 seeds allow a comparison with a published value at the level of a few km/s/Mpc. The error is a fixed fraction of the posterior width, so the same numbers of seeds hold for narrower posteriors. Fewer runs with more live points are equivalent: 10 runs of 100 live points give about as many samples as one run of about 1000, but small runs can be spread over machines and interrupted, and each explores less carefully, which makes the agreement check more important.
+
+| Purpose | Settings |
+|---|---|
+| Quick look | 2 seeds |
+| Result to report | 4–5 seeds, or 2 seeds with `--nlive 500` |
+| Precise comparison with a paper | about 10 seeds |
 
 Runs can be spread over several machines that share the work directory: start `python gwtc_analysis/h0_icarogw.py run --workdir DIR --seed N` with the icarogw interpreter on each, then run the `combine` and `report` stages once.
 
