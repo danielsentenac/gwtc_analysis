@@ -131,7 +131,7 @@ Skymap tarballs are cached per Zenodo record (`.cache_gwosc/zenodo_<record>_<fil
 This tool is designed to run either on your laptop as a docker image or conda package, or on several user-friendly platforms:
 
 - [docker image](https://hub.docker.com/repository/docker/danielsentenac/gwtc-tool)
-- [conda package](https://anaconda.org/channels/danielsentenac/packages/gwtc_analysis/overview)
+- [conda package](https://anaconda.org/conda-forge/gwtc_analysis) on conda-forge: `conda install -c conda-forge gwtc_analysis`
 - [Galaxy tool](https://usegalaxy.org)
 - [MMODA-LIGO-VIRGO-KAGRA service](https://www.astro.unige.ch/mmoda/)
 
