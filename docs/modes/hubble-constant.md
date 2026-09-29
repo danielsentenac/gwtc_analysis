@@ -1,12 +1,12 @@
 # hubble_constant
 
 The Hubble constant from the binary-black-hole mass spectrum (**spectral siren**), with
-[icarogw](https://github.com/icarogw-developers/icarogw) and bilby/dynesty. The method, its
+[icarogw](https://github.com/icarogw-developers/icarogw) [\[52\]](../references.md#ref-52) and bilby [\[53\]](../references.md#ref-53)/dynesty [\[55\]](../references.md#ref-55). The method, its
 validation and its results are explained in
 [Hubble constant (spectral siren)](../science/spectral-siren.md); this page is about running it.
 
 The default setup reproduces the *Power Law + Peak* measurement of the
-[GWTC-4.0 cosmology paper](https://arxiv.org/abs/2509.04348),
+GWTC-4.0 cosmology paper [\[26\]](../references.md#ref-26),
 H₀ = 112.7 (+51.0 / −35.9) km/s/Mpc.
 
 ```bash
@@ -31,11 +31,11 @@ The work is split into stages (`--stages`, all by default) sharing a work direct
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--sensitivity-release` | `gwtc4` | injections and matching catalogs and runs: `gwtc4` = O1–O4a (validated against the paper), `gwtc5` = O1–O4b (not yet validated against a published result) |
+| `--sensitivity-release` | `gwtc4` | injections and matching catalogs and runs: `gwtc4` = O1–O4a (validated against the paper [\[26\]](../references.md#ref-26)), `gwtc5` = O1–O4b (not yet validated against a published result) |
 | `--far-threshold` | 0.25 per year | events, and real injections, below this false-alarm rate |
 | `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR |
 | `--min-mass` | 3 M☉ | both source-frame masses above it: potential neutron stars are left out |
-| `--exclude` | GW231123_135430, GW200105_162426 | as in the GWTC-4.0 cosmology analysis |
+| `--exclude` | GW231123_135430, GW200105_162426 | as in the GWTC-4.0 cosmology analysis [\[26\]](../references.md#ref-26) |
 
 ## icarogw
 
@@ -48,7 +48,7 @@ installed, through its public API.
   `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`), and the detector-frame conversion for each
   trial H₀.
 - **The driver** reads `inputs.h5` into icarogw's `posterior_samples` and `injections` objects,
-  chooses the model components and the priors (Tables 3 and 6 of the paper), runs bilby/dynesty,
+  chooses the model components and the priors (Tables 3 and 6 of the paper [\[26\]](../references.md#ref-26)), runs bilby/dynesty,
   merges the runs and computes the diagnostics with icarogw's own methods.
 - **The analysis choices made here**, outside icarogw, are the input preparation in
   `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw

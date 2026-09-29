@@ -1,7 +1,7 @@
 # build_unofficial_pe: GW170817
 
 GW170817, the binary neutron star seen with its electromagnetic counterpart
-([Abbott et al. 2017](https://arxiv.org/abs/1710.05832)), has no PESummary file in the catalog
+(Abbott et al. 2017 [\[36\]](../references.md#ref-36)), has no PESummary file in the catalog
 releases. `build_unofficial_pe` builds a PESummary-compatible `PEDataRelease` bundle for it, from
 public GWTC-1 products only, so that `parameters_estimation` can treat it like any other event.
 

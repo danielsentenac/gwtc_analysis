@@ -24,8 +24,8 @@ h \propto \frac{(G\mathcal{M})^{5/3} (\pi f)^{2/3}}{c^4\, D_L} \times (\text{ori
   spins from higher-order effects and from the merger and ringdown.
 - **The amplitude** falls as \(1/D_L\). Once the masses are known from the phase evolution, the
   amplitude gives the distance directly, with no cosmological model and no distance ladder: GW
-  sources are **standard sirens** ([Schutz 1986](https://doi.org/10.1038/323310a0),
-  [Holz & Hughes 2005](https://arxiv.org/abs/astro-ph/0504616)). The inclination of the orbit is
+  sources are **standard sirens** (Schutz 1986 [\[17\]](../references.md#ref-17),
+  Holz & Hughes 2005 [\[18\]](../references.md#ref-18)). The inclination of the orbit is
   partly degenerate with the distance, which is why distances are often uncertain by tens of percent.
 
 ## Redshift and the detector frame
@@ -64,8 +64,8 @@ measures \(H_0\):
 
 | Method | Where the redshift comes from | Example |
 |---|---|---|
-| Bright siren | an electromagnetic counterpart and its host galaxy | GW170817 ([Abbott et al. 2017](https://arxiv.org/abs/1710.05835)) |
-| Dark siren | a statistical association with the galaxies of a catalog | [Gray et al. 2023](https://arxiv.org/abs/2308.02281) |
+| Bright siren | an electromagnetic counterpart and its host galaxy | GW170817 (Abbott et al. 2017 [\[24\]](../references.md#ref-24)) |
+| Dark siren | a statistical association with the galaxies of a catalog | Gray et al. 2023 [\[23\]](../references.md#ref-23) |
 | Spectral siren | features in the source-frame mass distribution of the population | [Hubble constant](spectral-siren.md) |
 
 ## Comoving volume and the rate of mergers

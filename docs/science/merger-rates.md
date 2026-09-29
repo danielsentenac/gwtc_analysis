@@ -37,16 +37,16 @@ The events are classified by their median source-frame masses, neutron stars bei
 
 Each class has a fixed population model, used to compute its ⟨VT⟩
 ([table](../modes/rates.md#population-models)). The BBH model is the GWTC-3 *Power Law + Peak*
-([Talbot & Thrane 2018](https://arxiv.org/abs/1801.02699); parameters of
-[GWTC-3 population](https://arxiv.org/abs/2111.03634)): a power law in the primary mass with a Gaussian
+(Talbot & Thrane 2018 [\[15\]](../references.md#ref-15); parameters of
+GWTC-3 population [\[12\]](../references.md#ref-12)): a power law in the primary mass with a Gaussian
 peak near 34 M☉ and a smooth low-mass turn-on.
 
 The BBH rate is reported two ways:
 
 - **constant** rate per comoving volume;
 - **evolving** as \(R(z) = R_0 (1+z)^\kappa\), with \(\kappa = 2.9\) (close to the slope of the cosmic
-  star-formation rate at low redshift, [Madau & Dickinson 2014](https://arxiv.org/abs/1403.0007)), and
-  quoted at \(z = 0.2\), where the BBH detections constrain it best, as in the LVK papers.
+  star-formation rate at low redshift, Madau & Dickinson 2014 [\[16\]](../references.md#ref-16)), and
+  quoted at \(z = 0.2\), where the BBH detections constrain it best, as in the LVK papers [\[12\]](../references.md#ref-12) [\[13\]](../references.md#ref-13).
 
 The two differ because detected BBHs lie at \(z \sim 0.2\)–1: if the rate grows with redshift, part of
 what is seen far away comes from the higher rate there, and the local rate is lower.
@@ -61,8 +61,8 @@ Rates in Gpc⁻³ yr⁻¹, median [90%], from 1 BNS (GW190425), 4 NSBH and 248 B
 below 1 per year. GW170817 is not counted: it is in O2, before the injection periods.
 
 These values fall in the ranges of the LVK population analyses
-([GWTC-3](https://arxiv.org/abs/2111.03634), [GWTC-4.0](https://arxiv.org/abs/2508.18083),
-[GWTC-5.0](https://arxiv.org/abs/2605.27226)). The LVK intervals are wider because they fit the
+(GWTC-3 [\[12\]](../references.md#ref-12), GWTC-4.0 [\[13\]](../references.md#ref-13),
+GWTC-5.0 [\[14\]](../references.md#ref-14)). The LVK intervals are wider because they fit the
 population shape together with the rate: the BNS rate in particular rests on one or two events and
 depends strongly on the assumed mass distribution.
 
