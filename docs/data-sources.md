@@ -70,7 +70,7 @@ from the latest version of their Zenodo record and cached:
 The *real* mixtures cover O3 onward, with signals injected in the real data. The *semi* mixtures add
 semi-analytic O1+O2 injections (detection from the SNR computed on the noise spectra of the time),
 so that the whole catalog since 2015 can be used. The release is described in
-[Essick et al. 2025](https://arxiv.org/abs/2508.10638).
+Essick et al. 2025 [\[34\]](references.md#ref-34).
 
 ## Special case: GW170817
 

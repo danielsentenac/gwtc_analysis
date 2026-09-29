@@ -21,7 +21,7 @@ signals are added to the real detector data, and the same search pipelines that 
 analyse them; each injection is recorded with the false-alarm rate (FAR) assigned by every pipeline.
 For O1 and O2 the LVK uses a **semi-analytic** estimate: the SNR each signal would have had in the
 measured noise spectrum of the time. The campaigns and their file format are described in
-[Essick et al. 2025](https://arxiv.org/abs/2508.10638); the files are on Zenodo
+Essick et al. 2025 [\[34\]](../references.md#ref-34); the files are on Zenodo
 ([Data sources](../data-sources.md#search-sensitivity-injections)).
 
 Each injection file holds, per injection:
@@ -74,7 +74,7 @@ n_\text{eff} = \frac{\left(\sum_j x_j\right)^2}{\sum_j x_j^2}, \qquad x_j = \fra
 \]
 
 In a population analysis of \(N\) events, the selection term enters as \(\xi^N\), so its relative
-error is multiplied by \(N\). [Farr (2019)](https://arxiv.org/abs/1904.10879) showed that
+error is multiplied by \(N\). Farr (2019) [\[33\]](../references.md#ref-33) showed that
 \(n_\text{eff} > 4N\) keeps the resulting bias small; icarogw rejects the points of parameter space
 where this fails. The same statistic, computed over the PE samples of each event, measures the
 reliability of the per-event sums of the [hierarchical likelihood](spectral-siren.md#the-hierarchical-likelihood).
@@ -88,4 +88,4 @@ Mpc, a heavy BBH out to several Gpc, and the sensitive volume grows as the cube 
 6.0 Gpc³ yr for BBH, a factor ~130 that offsets most of the factor 248 in the counts
 ([Merger rates](merger-rates.md)). The LVK population analyses even find the BNS rate likely higher
 than the BBH one (GWTC-3: 10–1700 against 17.9–44 Gpc⁻³ yr⁻¹,
-[Abbott et al. 2023](https://arxiv.org/abs/2111.03634)).
+Abbott et al. 2023 [\[12\]](../references.md#ref-12)).
