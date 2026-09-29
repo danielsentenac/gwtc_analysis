@@ -1,11 +1,12 @@
-"""icarogw sampler of the `hubble_constant` mode (spectral siren, Power Law + Peak BBH mass model).
+"""icarogw sampler of the `hubble_constant` mode (spectral siren; Power Law + Peak or Multi Peak BBH mass model).
 
 This file is self-contained on purpose: icarogw needs its own Python environment (Python >= 3.12,
 CPU mode through a `config.py` holding CUPY=False), which usually does not have gwtc_analysis
 installed. It only needs numpy, h5py, icarogw and bilby, and reads the `inputs.h5` written by the
 `prepare` stage of `gwtc_analysis hubble_constant`.
 
-    python h0_icarogw.py run --workdir DIR --seed 1 [--nlive 100 --npool 4 --naccept 60 --pe-samples 1500 --inj-fraction 0.1]
+    python h0_icarogw.py run --workdir DIR --seed 1 [--mass-model plp|mltp --nlive 100 --npool 4 --naccept 60
+                                                    --pe-samples 1500 --inj-fraction 0.1]
     python h0_icarogw.py combine --workdir DIR
 
 Independent runs (different seeds, possibly on different machines sharing DIR) are merged by
@@ -24,8 +25,16 @@ from pathlib import Path
 
 import numpy as np
 
-POP_PARAMS = ("H0", "alpha", "beta", "mmin", "mmax", "delta_m", "mu_g", "sigma_g", "lambda_peak",
-              "gamma", "kappa", "zp")
+# BBH primary-mass models of the GWTC-4.0 cosmology paper (arXiv:2509.04348): the icarogw mass prior and
+# the population parameters, in the order of the posterior tables
+MASS_MODELS = {
+    "plp": dict(name="Power Law + Peak", prior="massprior_PowerLawPeak",
+                params=("H0", "alpha", "beta", "mmin", "mmax", "delta_m", "mu_g", "sigma_g", "lambda_peak",
+                        "gamma", "kappa", "zp")),
+    "mltp": dict(name="Multi Peak", prior="massprior_MultiPeak",
+                 params=("H0", "alpha", "beta", "mmin", "mmax", "delta_m", "mu_g_low", "sigma_g_low", "mu_g_high",
+                         "sigma_g_high", "lambda_g", "lambda_g_low", "gamma", "kappa", "zp")),
+}
 OM0 = 0.3065
 NEFF_PE = 10
 
@@ -38,7 +47,7 @@ def _enter(workdir: Path) -> None:
     sys.path.insert(0, str(workdir))
 
 
-def build_likelihood(pe_samples: int, inj_fraction: float):
+def build_likelihood(pe_samples: int, inj_fraction: float, mass_model: str = "plp"):
     """Hierarchical likelihood on the events and found injections of inputs.h5 (cwd)."""
     import h5py
     import icarogw
@@ -64,15 +73,15 @@ def build_likelihood(pe_samples: int, inj_fraction: float):
     cat = icarogw.posterior_samples.posterior_samples_catalog(pes)
     rate = icarogw.rates.CBC_vanilla_rate(
         icarogw.wrappers.FlatLambdaCDM_wrap(zmax=20.0),
-        icarogw.wrappers.m1m2_conditioned_lowpass(icarogw.wrappers.massprior_PowerLawPeak()),
+        icarogw.wrappers.m1m2_conditioned_lowpass(getattr(icarogw.wrappers, MASS_MODELS[mass_model]["prior"])()),
         icarogw.wrappers.rateevolution_Madau(), scale_free=True)
     like = icarogw.likelihood.hierarchical_likelihood(cat, inj, rate, nparallel=pe_samples, neffPE=NEFF_PE,
                                                       neffINJ=None)
     return like, rate, cat, inj
 
 
-def priors():
-    """GWTC-4.0 cosmology paper (arXiv:2509.04348), Tables 3 (PLP) and 6 (Madau-Dickinson)."""
+def priors(mass_model: str = "plp"):
+    """GWTC-4.0 cosmology paper (arXiv:2509.04348): Tables 3 (PLP), 4 (MLTP) and 6 (Madau-Dickinson)."""
     import bilby
 
     U = bilby.core.prior.Uniform
@@ -81,14 +90,24 @@ def priors():
     P["Om0"] = OM0
     P["alpha"], P["beta"] = U(1.5, 12, "alpha"), U(-4, 12, "beta")
     P["mmin"], P["mmax"], P["delta_m"] = U(2, 10, "mmin"), U(50, 200, "mmax"), U(1e-3, 10, "delta_m")
-    P["mu_g"], P["sigma_g"], P["lambda_peak"] = U(20, 50, "mu_g"), U(0.4, 10, "sigma_g"), U(0, 1, "lambda_peak")
+    if mass_model == "plp":
+        P["mu_g"], P["sigma_g"], P["lambda_peak"] = U(20, 50, "mu_g"), U(0.4, 10, "sigma_g"), U(0, 1, "lambda_peak")
+    elif mass_model == "mltp":
+        P["mu_g_low"], P["sigma_g_low"] = U(5, 100, "mu_g_low"), U(0.4, 5, "sigma_g_low")
+        P["mu_g_high"], P["sigma_g_high"] = U(5, 100, "mu_g_high"), U(0.4, 10, "sigma_g_high")
+        P["lambda_g"], P["lambda_g_low"] = U(0, 1, "lambda_g"), U(0, 1, "lambda_g_low")
+    else:
+        raise SystemExit(f"[h0] unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
     P["gamma"], P["kappa"], P["zp"] = U(0, 12, "gamma"), U(0, 6, "kappa"), U(0, 4, "zp")
     return P
 
 
 def _settings(workdir: Path) -> dict:
     p = workdir / "run_settings.json"
-    return json.loads(p.read_text()) if p.exists() else {}
+    s = json.loads(p.read_text()) if p.exists() else {}
+    if s:
+        s.setdefault("mass_model", "plp")        # work directories made before the model choice existed
+    return s
 
 
 def _pid_alive(pid: int) -> bool:
@@ -101,9 +120,9 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
-def _lock_seed(seed: int) -> None:
-    """One process per seed: result/plp_seed<N>.lock holds 'host pid' while the run is going (cwd = workdir)."""
-    lock = Path("result") / f"plp_seed{seed}.lock"
+def _lock_seed(seed: int, mass_model: str = "plp") -> None:
+    """One process per seed: result/<model>_seed<N>.lock holds 'host pid' while the run is going (cwd = workdir)."""
+    lock = Path("result") / f"{mass_model}_seed{seed}.lock"
     lock.parent.mkdir(exist_ok=True)
     host = socket.gethostname()
     for _ in range(2):
@@ -125,32 +144,36 @@ def _lock_seed(seed: int) -> None:
     atexit.register(lambda: lock.unlink(missing_ok=True))
 
 
-def run(workdir: Path, seed: int, nlive: int, npool: int, naccept: int, pe_samples: int, inj_fraction: float) -> Path:
+def run(workdir: Path, seed: int, nlive: int, npool: int, naccept: int, pe_samples: int, inj_fraction: float,
+        mass_model: str = "plp") -> Path:
     """One dynesty run; resumable from its checkpoint."""
+    if mass_model not in MASS_MODELS:
+        raise SystemExit(f"[h0] unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
     _enter(workdir)
-    _lock_seed(seed)
+    _lock_seed(seed, mass_model)
     import bilby
 
-    s = dict(nlive=nlive, pe_samples=pe_samples, inj_fraction=inj_fraction)
+    s = dict(nlive=nlive, pe_samples=pe_samples, inj_fraction=inj_fraction, mass_model=mass_model)
     old = _settings(workdir)
     if old and old != s:
         raise SystemExit(f"[h0] {workdir} holds runs made with {old}; runs with {s} cannot be combined with them. "
                          "Use another work directory.")
     (workdir / "run_settings.json").write_text(json.dumps(s))
-    like, _, _, _ = build_likelihood(pe_samples, inj_fraction)
-    res = bilby.run_sampler(like, priors(), sampler="dynesty", nlive=nlive, npool=npool, outdir="result",
-                            label=f"plp_seed{seed}", sample="acceptance-walk", naccept=naccept, seed=seed,
+    like, _, _, _ = build_likelihood(pe_samples, inj_fraction, mass_model)
+    res = bilby.run_sampler(like, priors(mass_model), sampler="dynesty", nlive=nlive, npool=npool, outdir="result",
+                            label=f"{mass_model}_seed{seed}", sample="acceptance-walk", naccept=naccept, seed=seed,
                             resume=True, check_point_delta_t=600)
     q = np.quantile(res.posterior["H0"], [0.05, 0.16, 0.5, 0.84, 0.95])
     print(f"[h0] seed {seed}: H0 = {q[2]:.1f} (+{q[3] - q[2]:.1f} / -{q[2] - q[1]:.1f}) km/s/Mpc [68%], "
           f"90%: {q[0]:.1f}-{q[4]:.1f}; ln Z = {res.log_evidence:.2f}", flush=True)
-    return workdir / "result" / f"plp_seed{seed}_result.json"
+    return workdir / "result" / f"{mass_model}_seed{seed}_result.json"
 
 
 def _diagnostics(post, n_points: int = 200) -> dict:
     """Effective numbers of injections and PE samples over posterior draws (icarogw's stability criteria)."""
     s = _settings(Path.cwd())
-    like, rate, cat, inj = build_likelihood(int(s.get("pe_samples", 1500)), float(s.get("inj_fraction", 1.0)))
+    like, rate, cat, inj = build_likelihood(int(s.get("pe_samples", 1500)), float(s.get("inj_fraction", 1.0)),
+                                            s.get("mass_model", "plp"))
     rows = post.sample(min(n_points, len(post)), random_state=1)
     neff_inj, neff_pe, worst = [], [], {}
     names = list(cat.posterior_samples_dict.keys()) if hasattr(cat, "posterior_samples_dict") else None
@@ -176,21 +199,23 @@ def combine(workdir: Path, diagnostics: bool = True) -> dict:
     _enter(workdir)
     import bilby
 
-    files = sorted(Path("result").glob("plp_seed*_result.json"))
+    model = _settings(Path.cwd()).get("mass_model", "plp")
+    params = MASS_MODELS[model]["params"]
+    files = sorted(Path("result").glob(f"{model}_seed*_result.json"))
     if not files:
         raise SystemExit(f"[h0] no finished run in {workdir / 'result'}")
     results = [bilby.core.result.read_in_result(str(f)) for f in files]
     res = bilby.core.result.ResultList(results).combine() if len(results) > 1 else results[0]
-    res.label, res.outdir = "plp_combined", "result"
+    res.label, res.outdir = f"{model}_combined", "result"
     res.save_to_file(overwrite=True, extension="json")
     post = res.posterior
-    post[[k for k in POP_PARAMS if k in post]].to_csv("posterior.tsv", sep="\t", index=False, float_format="%.6g")
-    res.plot_corner(parameters=[k for k in POP_PARAMS if k in post], filename="corner.png", quantiles=[0.05, 0.95])
+    post[[k for k in params if k in post]].to_csv("posterior.tsv", sep="\t", index=False, float_format="%.6g")
+    res.plot_corner(parameters=[k for k in params if k in post], filename="corner.png", quantiles=[0.05, 0.95])
     quant = {}
-    for k in POP_PARAMS:
+    for k in params:
         if k in post:
             quant[k] = [float(x) for x in np.quantile(post[k], [0.05, 0.16, 0.5, 0.84, 0.95])]
-    summary = dict(n_runs=len(results), runs=[f.name for f in files], n_samples=len(post),
+    summary = dict(mass_model=model, n_runs=len(results), runs=[f.name for f in files], n_samples=len(post),
                    log_evidence=float(res.log_evidence), log_evidence_err=float(res.log_evidence_err),
                    run_log_evidences=[float(r.log_evidence) for r in results], quantiles=quant,
                    settings=_settings(Path.cwd()))
@@ -209,6 +234,7 @@ def main(argv=None) -> int:
     r = sub.add_parser("run")
     r.add_argument("--workdir", required=True)
     r.add_argument("--seed", type=int, default=1)
+    r.add_argument("--mass-model", choices=list(MASS_MODELS), default="plp")
     r.add_argument("--nlive", type=int, default=100)
     r.add_argument("--npool", type=int, default=4)
     r.add_argument("--naccept", type=int, default=60)
@@ -220,7 +246,7 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
     wd = Path(a.workdir).expanduser().resolve()
     if a.cmd == "run":
-        run(wd, a.seed, a.nlive, a.npool, a.naccept, a.pe_samples, a.inj_fraction)
+        run(wd, a.seed, a.nlive, a.npool, a.naccept, a.pe_samples, a.inj_fraction, a.mass_model)
     else:
         combine(wd, diagnostics=not a.no_diagnostics)
     return 0

@@ -193,6 +193,7 @@ def test_cli_hubble_constant_arguments():
                                    "--icarogw-python", "/env/bin/python"])
     assert a.stages == ["combine", "report"] and a.seeds == [1, 2, 3] and a.icarogw_python == "/env/bin/python"
     assert a.parallel == 1 and build_parser().parse_args(["hubble_constant", "--parallel", "4"]).parallel == 4
+    assert a.mass_model == "plp" and build_parser().parse_args(["hubble_constant", "--mass-model", "mltp"]).mass_model == "mltp"
 
 
 def test_seed_lock(tmp_path, monkeypatch):
@@ -237,3 +238,33 @@ def test_parallel_runs_report_failures(tmp_path, monkeypatch):
     assert logs == [f"run_seed{i}.log" for i in (1, 2, 3, 4)]
     assert "H0 = 100" in (tmp_path / "logs" / "run_seed2.log").read_text()
     assert time.monotonic() - t0 < 3.5                      # four 1-second runs at once, not in sequence
+
+
+def test_mass_model_priors_match_the_paper():
+    """PLP and MLTP priors (Tables 3 and 4 of the paper) cover exactly the parameters of each icarogw model."""
+    pytest.importorskip("bilby")
+    from gwtc_analysis import h0_icarogw as runner
+
+    for model, cfg in runner.MASS_MODELS.items():
+        P = runner.priors(model)
+        assert set(P) == set(cfg["params"]) | {"Om0"}
+    P = runner.priors("mltp")
+    assert (P["mu_g_low"].minimum, P["mu_g_low"].maximum) == (5, 100)
+    assert (P["sigma_g_low"].minimum, P["sigma_g_low"].maximum) == (0.4, 5)
+    assert (P["sigma_g_high"].minimum, P["sigma_g_high"].maximum) == (0.4, 10)
+    with pytest.raises(SystemExit, match="unknown mass model"):
+        runner.priors("bpl")
+
+
+def test_report_compares_with_the_published_value_of_its_model(tmp_path):
+    """The report quotes the published H0 of the mass model the runs used."""
+    w = tmp_path / "work"
+    w.mkdir()
+    post = pd.DataFrame({"H0": np.random.default_rng(2).uniform(40, 120, 300)})
+    post.to_csv(w / "posterior.tsv", sep="\t", index=False)
+    (w / "summary.json").write_text(json.dumps(dict(
+        mass_model="mltp", n_runs=1, n_samples=300, log_evidence=-1.0, log_evidence_err=0.1, run_log_evidences=[-1.0],
+        quantiles={"H0": list(np.quantile(post["H0"], [0.05, 0.16, 0.5, 0.84, 0.95]))}, settings={})))
+    hc.write_h0_report(w, tmp_path / "h0.html", None, "gwtc4")
+    html = (tmp_path / "h0.html").read_text()
+    assert "Multi Peak" in html and "72.3" in html and "(MLTP)" in html
