@@ -11,7 +11,7 @@
 | **BBH / BNS / NSBH** | Binary black hole / binary neutron star / neutron star–black hole binary |
 | **PE** | Parameter estimation: the Bayesian inference of one event's masses, spins, distance, sky position… |
 | **PE label** | One analysis in a PE file (waveform, settings), e.g. `C00:IMRPhenomXPHM-SpinTaylor`; `Mixed` combines several |
-| **PESummary** | The LVK file format and library for PE results (Hoy & Raymond 2021 [\[56\]](../references.md#ref-56)) |
+| **PESummary** | The LVK file format and library for PE results (Hoy & Raymond 2021 [\[58\]](../references.md#ref-58)) |
 | **PSD** | Power spectral density, the detector noise spectrum, used to whiten the data |
 | **Calibration envelope** | Uncertainty of the detector calibration in amplitude and phase, marginalized in PE |
 | **FAR** | False-alarm rate: how often noise alone produces a candidate at least this significant (per year) |
@@ -35,16 +35,16 @@
 | **Hierarchical inference** | Inference of population parameters from many events, each with its own uncertain parameters |
 | **Hyperprior** | Prior on population (and cosmological) parameters |
 | **PLP** | Power Law + Peak: BBH primary-mass model, a power law with a Gaussian peak and a smooth low-mass turn-on [\[15\]](../references.md#ref-15) [\[11\]](../references.md#ref-11) |
-| **MLTP** | Multi-peak model: power law with two Gaussian peaks (near 10 and 35 M☉) [\[26\]](../references.md#ref-26) |
-| **FullPop-4.0** | GWTC-4.0 model of the full compact-binary population (neutron stars, mass gap, black holes) [\[13\]](../references.md#ref-13) [\[26\]](../references.md#ref-26) |
+| **MLTP** | Multi-peak model: power law with two Gaussian peaks (near 10 and 35 M☉) [\[27\]](../references.md#ref-27) |
+| **FullPop-4.0** | GWTC-4.0 model of the full compact-binary population (neutron stars, mass gap, black holes) [\[13\]](../references.md#ref-13) [\[27\]](../references.md#ref-27) |
 | **Madau–Dickinson** | Shape of the merger rate with redshift: rises as (1+z)^γ, peaks near z_p, falls as (1+z)^−κ [\[16\]](../references.md#ref-16) |
 | **Nested sampling** | Bayesian sampling that computes the evidence and the posterior together (dynesty) |
 | **Live points** | The set of samples nested sampling evolves; more live points, finer exploration |
 | **ln Z** | Log Bayesian evidence |
 | **Seed** | Initialization of the random generator of one sampler run |
-| **icarogw** | Python package for population and cosmology inference with GW events (Mastrogiovanni et al. 2024 [\[52\]](../references.md#ref-52)) |
-| **bilby / dynesty** | Bayesian inference library (Ashton et al. 2019 [\[53\]](../references.md#ref-53)) / its nested sampler (Speagle 2020 [\[55\]](../references.md#ref-55)) |
-| **IMRPhenomXPHM** | Frequency-domain waveform model with precession and higher modes (Pratten et al. 2021 [\[46\]](../references.md#ref-46)) |
-| **XPHM-SpinTaylor** | IMRPhenomXPHM with numerically evolved spin precession (Colleoni et al. 2024 [\[47\]](../references.md#ref-47)) |
+| **icarogw** | Python package for population and cosmology inference with GW events (Mastrogiovanni et al. 2024 [\[54\]](../references.md#ref-54)) |
+| **bilby / dynesty** | Bayesian inference library (Ashton et al. 2019 [\[55\]](../references.md#ref-55)) / its nested sampler (Speagle 2020 [\[57\]](../references.md#ref-57)) |
+| **IMRPhenomXPHM** | Frequency-domain waveform model with precession and higher modes (Pratten et al. 2021 [\[48\]](../references.md#ref-48)) |
+| **XPHM-SpinTaylor** | IMRPhenomXPHM with numerically evolved spin precession (Colleoni et al. 2024 [\[49\]](../references.md#ref-49)) |
 | **q-transform** | Time–frequency representation of the strain, showing the chirp |
 | **Whitening** | Dividing the data by the noise amplitude spectrum, so that all frequencies have equal noise |

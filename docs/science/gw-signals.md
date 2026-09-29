@@ -64,8 +64,8 @@ measures \(H_0\):
 
 | Method | Where the redshift comes from | Example |
 |---|---|---|
-| Bright siren | an electromagnetic counterpart and its host galaxy | GW170817 (Abbott et al. 2017 [\[24\]](../references.md#ref-24)) |
-| Dark siren | a statistical association with the galaxies of a catalog | Gray et al. 2023 [\[23\]](../references.md#ref-23) |
+| Bright siren | an electromagnetic counterpart and its host galaxy | GW170817 (Abbott et al. 2017 [\[25\]](../references.md#ref-25)) |
+| Dark siren | a statistical association with the galaxies of a catalog | Gray et al. 2023 [\[24\]](../references.md#ref-24) |
 | Spectral siren | features in the source-frame mass distribution of the population | [Hubble constant](spectral-siren.md) |
 
 ## Comoving volume and the rate of mergers

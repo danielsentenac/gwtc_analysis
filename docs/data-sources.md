@@ -8,13 +8,32 @@ Event metadata (names, GPS times, false-alarm rates, median masses and distances
 from the event API of the [Gravitational Wave Open Science Center](https://gwosc.org)
 (`https://gwosc.org/eventapi/jsonfull/<list>/`). The catalog keys map to these lists:
 
-| Key | GWOSC list | Zenodo PE and skymap release |
+| Key | GWOSC list | Observing runs of its events | Events | Zenodo PE and skymap release |
+|---|---|---|---|---|
+| `GWTC-1` | `GWTC-1-confident` | O1 (3), O2 (8) | 11 | (no separate skymaps; GWTC-2.1 covers O1–O2) |
+| `GWTC-2.1` | `GWTC-2.1-confident` | O3a (44), plus O1 (3) and O2 (7) re-analysed | 54 | [Zenodo 6513631](https://zenodo.org/records/6513631) |
+| `GWTC-3` | `GWTC-3-confident` | O3b | 35 | [Zenodo 22685054](https://zenodo.org/records/22685054) |
+| `GWTC-4` | `GWTC-4.0` | O4a (128), plus GW230518 from the engineering run ER15 | 129 | [Zenodo 17602505](https://zenodo.org/records/17602505) |
+| `GWTC-5` | `GWTC-5.0` | O4b (156), plus 5 events of 6–8 April 2024, just before the start of O4b | 161 | [Zenodo 20348005](https://zenodo.org/records/20348005) (part 1, with the skymaps) and [20348006](https://zenodo.org/records/20348006) (part 2) |
+
+Event counts of the GWOSC lists in September 2026. A catalog key holds the events of *its* release
+only: GWTC-4.0, for instance, does not repeat the O1–O3 events. The exception is GWTC-2.1, whose list
+also has 10 O1–O2 events re-analysed with the GWTC-2.1 methods; the same events are in GWTC-1. Events outside the observing runs
+(engineering runs) are left out by the `rates` and `hubble_constant` modes, which select events by
+the periods covered by the injections or by the run dates.
+
+## Observing runs
+
+| Run | Start (UTC) | End (UTC) |
 |---|---|---|
-| `GWTC-1` | `GWTC-1-confident` | (no separate skymaps; GWTC-2.1 covers O1–O2) |
-| `GWTC-2.1` | `GWTC-2.1-confident` | [Zenodo 6513631](https://zenodo.org/records/6513631) |
-| `GWTC-3` | `GWTC-3-confident` | [Zenodo 22685054](https://zenodo.org/records/22685054) |
-| `GWTC-4` | `GWTC-4.0` | [Zenodo 17602505](https://zenodo.org/records/17602505) |
-| `GWTC-5` | `GWTC-5.0` | [Zenodo 20348005](https://zenodo.org/records/20348005) (part 1, with the skymaps) and [20348006](https://zenodo.org/records/20348006) (part 2) |
+| O1 | 2015-09-12 | 2016-01-19 |
+| O2 | 2016-11-30 | 2017-08-25 |
+| O3a | 2019-04-01 | 2019-10-01 |
+| O3b | 2019-11-01 | 2020-03-27 |
+| O4a | 2023-05-24 | 2024-01-16 |
+| O4b | 2024-04-10 | 2025-01-28 |
+
+These are the GWOSC run boundaries used by the `hubble_constant` event selection.
 
 The `rates` and `hubble_constant` modes also read the **marginal** lists (`GWTC-2.1-marginal`,
 `GWTC-3-marginal`): some events used by the LVK population and cosmology analyses are only there
@@ -70,7 +89,7 @@ from the latest version of their Zenodo record and cached:
 The *real* mixtures cover O3 onward, with signals injected in the real data. The *semi* mixtures add
 semi-analytic O1+O2 injections (detection from the SNR computed on the noise spectra of the time),
 so that the whole catalog since 2015 can be used. The release is described in
-Essick et al. 2025 [\[34\]](references.md#ref-34).
+Essick et al. 2025 [\[35\]](references.md#ref-35).
 
 ## Special case: GW170817
 

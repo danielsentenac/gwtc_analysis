@@ -52,14 +52,16 @@ These mergers are detected by the **LVK detector network**:
 
 Catalog identifiers are **case-sensitive**:
 
-| Catalog name | Description |
-|---|---|
-| `GWTC-1` | Confident subset of GWTC-1 |
-| `GWTC-2.1` | Confident subset of GWTC-2.1 |
-| `GWTC-3` | Confident subset of GWTC-3 |
-| `GWTC-4` | GWTC-4 public release |
-| `GWTC-5` | GWTC-5.0 public release (O4b) |
-| `ALL` | Expands to all catalogs above |
+| Catalog name | Description | Observing runs of its events | Events |
+|---|---|---|---|
+| `GWTC-1` | Confident subset of GWTC-1 | O1, O2 | 11 |
+| `GWTC-2.1` | Confident subset of GWTC-2.1 | O3a, plus 10 O1–O2 events re-analysed | 54 |
+| `GWTC-3` | Confident subset of GWTC-3 | O3b | 35 |
+| `GWTC-4` | GWTC-4.0 public release | O4a, plus GW230518 from the engineering run ER15 | 129 |
+| `GWTC-5` | GWTC-5.0 public release | O4b, plus 5 events of 6–8 April 2024, just before O4b | 161 |
+| `ALL` | Expands to all catalogs above | O1 to O4b | |
+
+Event counts of the GWOSC lists in September 2026.
 
 `GWTC-5` resolves to the GWOSC `GWTC-5.0` endpoint and to the Zenodo records below.
 
