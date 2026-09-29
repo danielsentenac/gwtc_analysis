@@ -52,16 +52,18 @@ These mergers are detected by the **LVK detector network**:
 
 Catalog identifiers are **case-sensitive**:
 
-| Catalog name | Description | Observing runs of its events | Events |
-|---|---|---|---|
-| `GWTC-1` | Confident subset of GWTC-1 | O1, O2 | 11 |
-| `GWTC-2.1` | Confident subset of GWTC-2.1 | O3a, plus 10 O1–O2 events re-analysed | 54 |
-| `GWTC-3` | Confident subset of GWTC-3 | O3b | 35 |
-| `GWTC-4` | GWTC-4.0 public release | O4a, plus GW230518 from the engineering run ER15 | 129 |
-| `GWTC-5` | GWTC-5.0 public release | O4b, plus 5 events of 6–8 April 2024, just before O4b | 161 |
-| `ALL` | Expands to all catalogs above | O1 to O4b | |
+| Catalog name | Confident events of | Observing runs of its events | Events | PE and skymaps on Zenodo |
+|---|---|---|---|---|
+| `GWTC-1` | GWTC-1 | O1, O2 | 11 | the GWTC-2.1 release, [Zenodo 6513631](https://zenodo.org/records/6513631), which re-analysed O1–O2 |
+| `GWTC-2.1` | GWTC-2.1 | O3a, plus 10 O1–O2 events re-analysed | 54 | [Zenodo 6513631](https://zenodo.org/records/6513631) |
+| `GWTC-3` | GWTC-3 | O3b | 35 | [Zenodo 22685054](https://zenodo.org/records/22685054) |
+| `GWTC-4` | GWTC-4.0 | O4a, plus GW230518 from the engineering run ER15 | 129 | [Zenodo 17602505](https://zenodo.org/records/17602505) |
+| `GWTC-5` | GWTC-5.0 | O4b, plus 5 events of 6–8 April 2024, just before O4b | 161 | [Zenodo 20348005](https://zenodo.org/records/20348005) (part 1, with the skymaps) and [20348006](https://zenodo.org/records/20348006) (part 2) |
+| `ALL` | all catalogs above | O1 to O4b | | |
 
-Event counts of the GWOSC lists in September 2026.
+All the keys are confident catalogs: every event of their GWOSC lists has p_astro ≥ 0.5 (the
+re-analysed O1–O2 events of GWTC-2.1 carry no p_astro value). Event counts of the GWOSC lists in
+September 2026; the Zenodo version read is resolved at run time (see below).
 
 `GWTC-5` resolves to the GWOSC `GWTC-5.0` endpoint and to the Zenodo records below.
 
