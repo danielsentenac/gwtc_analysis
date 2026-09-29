@@ -195,7 +195,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  prepare : select the events, download their PE samples from Zenodo (tens of GB, cached in\n"
             "            --pe-cache; only the extracted samples are kept unless --keep-pe-files), prepare\n"
             "            the found injections of --sensitivity-release -> <workdir>/inputs.h5\n"
-            "  sample  : one dynesty run per --seeds value (hours each; resumable)\n"
+            "  sample  : one dynesty run per --seeds value (hours each; resumable), --parallel at a time\n"
             "  combine : merge the runs, posterior + corner plot + stability diagnostics\n"
             "  report  : HTML report and TSV summary\n\n"
             "icarogw needs its own environment: pass its interpreter with --icarogw-python. The sampler\n"
@@ -230,6 +230,9 @@ def build_parser() -> argparse.ArgumentParser:
                            "or $GWTC_PE_CACHE.")
     p_h0.add_argument("--keep-pe-files", action="store_true", help="Keep the full PE files after extraction.")
     p_h0.add_argument("--seeds", nargs="+", type=int, default=[1], help="One sampler run per seed.")
+    p_h0.add_argument("--parallel", type=int, default=1,
+                      help="Seeds run at the same time on this machine (each with --npool processes; "
+                           "logs in <workdir>/logs).")
     p_h0.add_argument("--nlive", type=int, default=100, help="dynesty live points per run.")
     p_h0.add_argument("--npool", type=int, default=4, help="Processes per run.")
     p_h0.add_argument("--naccept", type=int, default=60, help="dynesty accepted steps per MCMC walk.")
@@ -423,8 +426,9 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "hubble_constant":
-            if args.far_threshold <= 0 or not 0 < args.inj_fraction <= 1 or args.pe_samples < 10:
-                raise ValueError("--far-threshold must be > 0, --inj-fraction in (0, 1] and --pe-samples >= 10")
+            if args.far_threshold <= 0 or not 0 < args.inj_fraction <= 1 or args.pe_samples < 10 or args.parallel < 1:
+                raise ValueError("--far-threshold must be > 0, --inj-fraction in (0, 1], --pe-samples >= 10 "
+                                 "and --parallel >= 1")
             run_hubble_constant(
                 stages=args.stages,
                 workdir=args.workdir,
@@ -439,6 +443,7 @@ def main(argv=None) -> int:
                 pe_cache=args.pe_cache,
                 keep_pe_files=args.keep_pe_files,
                 seeds=args.seeds,
+                parallel=args.parallel,
                 nlive=args.nlive,
                 npool=args.npool,
                 naccept=args.naccept,

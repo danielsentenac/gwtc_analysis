@@ -192,3 +192,48 @@ def test_cli_hubble_constant_arguments():
     a = build_parser().parse_args(["hubble_constant", "--stages", "combine", "report", "--seeds", "1", "2", "3",
                                    "--icarogw-python", "/env/bin/python"])
     assert a.stages == ["combine", "report"] and a.seeds == [1, 2, 3] and a.icarogw_python == "/env/bin/python"
+    assert a.parallel == 1 and build_parser().parse_args(["hubble_constant", "--parallel", "4"]).parallel == 4
+
+
+def test_seed_lock(tmp_path, monkeypatch):
+    """A seed cannot run twice at once; the lock of a process that died is taken over."""
+    import os
+    import socket
+
+    from gwtc_analysis import h0_icarogw as runner
+
+    monkeypatch.chdir(tmp_path)
+    runner._lock_seed(1)
+    lock = tmp_path / "result" / "plp_seed1.lock"
+    assert lock.read_text().split() == [socket.gethostname(), str(os.getpid())]
+    with pytest.raises(SystemExit, match="already running"):
+        runner._lock_seed(1)
+    (tmp_path / "result" / "plp_seed2.lock").write_text(f"{socket.gethostname()} 999999999\n")   # stale
+    runner._lock_seed(2)
+    assert (tmp_path / "result" / "plp_seed2.lock").read_text().split()[1] == str(os.getpid())
+    (tmp_path / "result" / "plp_seed3.lock").write_text("farmn7 1234\n")                        # other host
+    with pytest.raises(SystemExit, match="farmn7"):
+        runner._lock_seed(3)
+
+
+def test_parallel_runs_report_failures(tmp_path, monkeypatch):
+    """Seeds run concurrently with one log each; a failed seed is reported after the others finish."""
+    import sys
+    import time
+
+    fake = tmp_path / "fake_runner.py"
+    fake.write_text(
+        "import sys, time\n"
+        "seed = int(sys.argv[sys.argv.index('--seed') + 1])\n"
+        "time.sleep(1)\n"
+        "print(f'[h0] seed {seed}: H0 = 100')\n"
+        "sys.exit(1 if seed == 3 else 0)\n")
+    monkeypatch.setattr(hc, "_runner_command", lambda python: ([sys.executable, str(fake)], None))
+    monkeypatch.setattr(time, "sleep", lambda s: None)      # no 5-second polling in the test
+    t0 = time.monotonic()
+    with pytest.raises(ValueError, match=r"seed\(s\) \[3\]"):
+        hc.run_seeds_parallel(sys.executable, tmp_path, [1, 2, 3, 4], 4, [])
+    logs = sorted(p.name for p in (tmp_path / "logs").iterdir())
+    assert logs == [f"run_seed{i}.log" for i in (1, 2, 3, 4)]
+    assert "H0 = 100" in (tmp_path / "logs" / "run_seed2.log").read_text()
+    assert time.monotonic() - t0 < 3.5                      # four 1-second runs at once, not in sequence

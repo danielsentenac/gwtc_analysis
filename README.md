@@ -206,6 +206,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--pe-cache` | `` | PE cache directory (files/, samples/, index/); default ~/.cache_gwtc_analysis/pe_catalog or $GWTC_PE_CACHE. |
 | `--keep-pe-files` | `False` | Keep the full PE files after extraction. |
 | `--seeds` | `[1]` | One sampler run per seed. |
+| `--parallel` | `1` | Seeds run at the same time on this machine (each with --npool processes; logs in <workdir>/logs). |
 | `--nlive` | `100` | dynesty live points per run. |
 | `--npool` | `4` | Processes per run. |
 | `--naccept` | `60` | dynesty accepted steps per MCMC walk. |
@@ -332,7 +333,7 @@ The work is split into stages (`--stages`, all by default), sharing `--workdir`:
 | Stage | Does | Cost |
 |---|---|---|
 | `prepare` | selects the events, downloads their PE files (restartable; only the extracted samples are kept in `--pe-cache` unless `--keep-pe-files`), prepares the injections → `inputs.h5`, `events.tsv` | ~35 GB of downloads the first time |
-| `sample` | one dynesty run per `--seeds` value (`--nlive`, `--npool`, `--naccept`, `--pe-samples`, `--inj-fraction`); resumable from its checkpoint | hours per run |
+| `sample` | one dynesty run per `--seeds` value (`--nlive`, `--npool`, `--naccept`, `--pe-samples`, `--inj-fraction`), `--parallel` of them at a time on this machine (logs in `<workdir>/logs`); resumable from its checkpoint | hours per run |
 | `combine` | merges the runs → `posterior.tsv`, `corner.png`, `summary.json`, with the effective numbers of injections and PE samples over the posterior (icarogw's stability criteria) | minutes |
 | `report` | `--out-report` (HTML) and `--out-summary` (TSV of the posterior quantiles) | seconds |
 
@@ -342,8 +343,10 @@ icarogw needs its own environment (Python ≥ 3.12). Pass its interpreter with `
 # prepare in the gwtc_analysis environment, then 10 runs and the report
 python -m gwtc_analysis.cli hubble_constant --stages prepare
 python -m gwtc_analysis.cli hubble_constant --stages sample combine report \
-    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 5 6 7 8 9 10
+    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 5 6 7 8 9 10 --parallel 2 --npool 4
 ```
+
+**Seeds.** Each seed is an independent dynesty run (`result/plp_seed<N>_result.json`); `combine` merges all the finished ones, weighted by their evidence. All runs sample the same likelihood: the PE samples are shuffled once in `prepare` and the injection subset is drawn with a fixed seed, and `run_settings.json` refuses runs with other `--nlive`, `--pe-samples` or `--inj-fraction` values in the same work directory. Launching again resumes the interrupted runs from their checkpoint and skips the finished ones. A lock file (`result/plp_seed<N>.lock`) prevents the same seed from running twice at once; interrupting the launcher (Ctrl-C) stops its runs after they write their checkpoint. Keep `--parallel` × `--npool` within the number of CPUs.
 
 Runs can be spread over several machines that share the work directory: start `python gwtc_analysis/h0_icarogw.py run --workdir DIR --seed N` with the icarogw interpreter on each, then run the `combine` and `report` stages once.
 
