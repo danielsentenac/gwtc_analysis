@@ -53,8 +53,8 @@ overlay stays coherent even when the stored maximum-likelihood extrinsic paramet
 ## Matched-filter SNR
 
 For each detector, the maximum-likelihood projected waveform is matched-filtered against the strain
-(PyCBC; Allen et al. 2012 [\[50\]](../references.md#ref-50),
-Usman et al. 2016 [\[51\]](../references.md#ref-51)). The resulting |ρ(t)| should peak at the
+(PyCBC; Allen et al. 2012 [\[51\]](../references.md#ref-51),
+Usman et al. 2016 [\[52\]](../references.md#ref-52)). The resulting |ρ(t)| should peak at the
 coalescence time, at about the detector's recovered SNR.
 
 - The strain is conditioned the standard PyCBC way (high-pass at 15 Hz, resampled to 2048 Hz, edges

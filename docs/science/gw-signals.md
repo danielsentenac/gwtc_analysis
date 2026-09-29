@@ -57,7 +57,7 @@ where \(H_0\) is the Hubble constant and \(\Omega_m\) the matter density. So:
 
 - a measured \(D_L\) gives \(z\) **only for an assumed \(H_0\)** (and \(\Omega_m\));
 - source-frame masses, and every population property in the source frame, depend on the assumed
-  cosmology. The catalogs quote them for the Planck 2015 cosmology.
+  cosmology. The catalogs quote them for the [Planck 2015 cosmology](redshift.md#the-planck-2015-cosmology).
 
 Conversely, if the redshift of GW sources can be found by another route, the \(D_L\)–\(z\) relation
 measures \(H_0\):

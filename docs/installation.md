@@ -36,7 +36,7 @@ python -m gwtc_analysis.cli -h
 ## icarogw, for the `hubble_constant` mode
 
 The `sample` and `combine` stages of [`hubble_constant`](modes/hubble-constant.md) need
-[icarogw](https://github.com/icarogw-developers/icarogw) [\[54\]](references.md#ref-54) and bilby [\[55\]](references.md#ref-55). icarogw requires Python ≥ 3.12
+[icarogw](https://github.com/icarogw-developers/icarogw) [\[55\]](references.md#ref-55) and bilby [\[56\]](references.md#ref-56). icarogw requires Python ≥ 3.12
 and is not on PyPI, so it usually lives in an environment of its own:
 
 ```bash

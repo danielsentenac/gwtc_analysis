@@ -36,7 +36,7 @@ The NSBH event GW200105_162426 is listed by GWOSC only in `GWTC-3-marginal` (p_a
 FAR = 0.2 per year), not in `GWTC-3-confident` nor in the cumulative list of confident events. Yet
 the GWTC-3 PE release presents it together with the confident events ("plus GW200105_162426, which is
 a clear outlier from the noise background"), and it is one of the two NSBH detections of its
-discovery paper [\[41\]](references.md#ref-41).
+discovery paper [\[42\]](references.md#ref-42).
 
 A tool that builds its event list from the confident lists therefore misses GW200105, while its
 sibling GW200115 is there. The `rates` and `hubble_constant` modes read the marginal lists too and

@@ -21,10 +21,29 @@ With \(H_0\) and \(\Omega_m\) fixed (the catalogs use the Planck 2015 values), e
 files are obtained this way: they are **not measurements of the redshift**, and they depend on the
 assumed \(H_0\).
 
+### The Planck 2015 cosmology
+
+It is the flat ΛCDM cosmology whose parameters were measured by the Planck satellite from the cosmic
+microwave background, in its 2015 release
+(Planck Collaboration 2016 [\[30\]](../references.md#ref-30)). The GW software uses it as a fixed
+reference, in two versions:
+
+| Name | H₀ (km/s/Mpc) | Ω_m | Definition | Where it appears |
+|---|---|---|---|---|
+| `Planck15` (astropy) | 67.74 | 0.3075, including massive neutrinos (Σm_ν = 0.06 eV) | Paper XIII, Table 4, TT,TE,EE+lowP+lensing+ext; with radiation (T_CMB = 2.7255 K) | redshifts and source-frame quantities computed with astropy |
+| `Planck15_LAL` (LAL, bilby) | 67.90 | 0.3065 | Planck 2015 values as defined in LAL; no radiation (T_CMB = 0) | the PE distance prior of O4a (`UniformSourceFrame(cosmology='Planck15_LAL')`); the Ω_m fixed by the GWTC-4.0 cosmology analysis (LVK 2025 [\[27\]](../references.md#ref-27)) and by `hubble_constant` |
+
+The 2015 values became the convention of the LVK software during O1–O2 and were kept so that the
+catalogs stay consistent with one another. The newer Planck 2018 values
+(Planck Collaboration 2020 [\[31\]](../references.md#ref-31): H₀ = 67.4, Ω_m = 0.315) change the
+redshift inferred from a given distance by about 0.5%, far below the typical 20–40% distance
+uncertainty of an event. When H₀ itself is measured, the reference cosmology enters only through the
+PE prior, which is divided out exactly.
+
 ## 2. Identify the host galaxy (bright siren)
 
 If an electromagnetic counterpart is observed, as for GW170817 and its kilonova in the galaxy NGC 4993
-(LVK et al. 2017 [\[38\]](../references.md#ref-38)), the redshift comes from the spectrum of the host
+(LVK et al. 2017 [\[39\]](../references.md#ref-39)), the redshift comes from the spectrum of the host
 galaxy (z ≈ 0.01), corrected for the galaxy's own peculiar velocity. Combined with the GW distance,
 this measures \(H_0\) directly: 70 (+12 / −8) km/s/Mpc
 (LVK et al. 2017 [\[25\]](../references.md#ref-25)).
