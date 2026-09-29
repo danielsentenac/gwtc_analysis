@@ -58,5 +58,17 @@ def main() -> None:
     readme_path.write_text(new_txt, encoding="utf-8")
     print("✔ README.md updated from cli.py")
 
+    docs_path = Path("docs") / "cli-reference.md"
+    if docs_path.parent.is_dir():
+        docs_path.write_text(
+            "# CLI reference\n\n"
+            "Every option of every mode, generated from `gwtc_analysis/cli.py` by\n"
+            "`python gwtc_analysis/gen_readme_cli_tables.py`. Each mode also has its own help:\n"
+            "`python -m gwtc_analysis.cli <MODE> -h`.\n\n"
+            + tables.replace("### `", "## `"),
+            encoding="utf-8",
+        )
+        print("✔ docs/cli-reference.md updated from cli.py")
+
 if __name__ == "__main__":
     main()

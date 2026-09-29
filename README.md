@@ -17,6 +17,8 @@ The tool provides:
 All gravitational-wave data products are retrieved from the **Gravitational Wave Open Science Center (GWOSC)**,
 or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
 
+📖 **Documentation:** https://danielsentenac.github.io/gwtc_analysis/ (user guide, methods of the rates and Hubble-constant modes, references).
+
 > **New:** the **GWTC-5.0** catalog (O4b observing run) is now available and fully supported — use the `GWTC-5` catalog key.
 
 ---
