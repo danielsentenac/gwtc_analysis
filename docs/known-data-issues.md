@@ -36,12 +36,12 @@ The NSBH event GW200105_162426 is listed by GWOSC only in `GWTC-3-marginal` (p_a
 FAR = 0.2 per year), not in `GWTC-3-confident` nor in the cumulative list of confident events. Yet
 the GWTC-3 PE release presents it together with the confident events ("plus GW200105_162426, which is
 a clear outlier from the noise background"), and it is one of the two NSBH detections of its
-discovery paper [\[39\]](references.md#ref-39).
+discovery paper [\[41\]](references.md#ref-41).
 
 A tool that builds its event list from the confident lists therefore misses GW200105, while its
 sibling GW200115 is there. The `rates` and `hubble_constant` modes read the marginal lists too and
 select events by false-alarm rate, as the LVK population analyses do [\[12\]](references.md#ref-12) [\[13\]](references.md#ref-13). (The `hubble_constant` mode then
-leaves GW200105 out, as the GWTC-4.0 cosmology analysis [\[26\]](references.md#ref-26) does, because it is an NSBH.)
+leaves GW200105 out, as the GWTC-4.0 cosmology analysis [\[27\]](references.md#ref-27) does, because it is an NSBH.)
 
 ## Version changes without a changelog
 

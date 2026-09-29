@@ -17,20 +17,18 @@ theme:
     - search.highlight
     - content.code.copy
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: deep orange
-      toggle:
-        icon: material/weather-night
-        name: Dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+    - scheme: slate
       primary: indigo
       accent: deep orange
       toggle:
         icon: material/weather-sunny
         name: Light mode
+    - scheme: default
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
 
 markdown_extensions:
   - admonition
@@ -67,6 +65,7 @@ nav:
       - hubble_constant: modes/hubble-constant.md
   - Science and methods:
       - What a GW signal measures: science/gw-signals.md
+      - How the redshift is obtained: science/redshift.md
       - Selection effects and injections: science/selection-effects.md
       - Merger rates: science/merger-rates.md
       - Hubble constant (spectral siren): science/spectral-siren.md

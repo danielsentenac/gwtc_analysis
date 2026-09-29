@@ -23,7 +23,7 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 ## Highlights
 
 - **Hubble constant from black holes alone.** The `hubble_constant` mode reproduces the
-  *Power Law + Peak* spectral-siren measurement of the GWTC-4.0 cosmology paper [\[26\]](references.md#ref-26):
+  *Power Law + Peak* spectral-siren measurement of the GWTC-4.0 cosmology paper [\[27\]](references.md#ref-27):
   H₀ = 119.3 (+46.1 / −34.9) km/s/Mpc against the published 112.7 (+51.0 / −35.9), with the same
   136 binary black holes, PE samples, injections and priors. See
   [Hubble constant (spectral siren)](science/spectral-siren.md).
