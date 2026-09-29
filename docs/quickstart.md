@@ -7,16 +7,16 @@ python -m gwtc_analysis.cli -h
 python -m gwtc_analysis.cli <MODE> -h
 ```
 
-Catalogs are named by case-sensitive keys:
+Catalogs are named by case-sensitive keys. All of them are **confident catalogs** (see below):
 
-| Key | Confident events of | Observing runs of its events | Events | PE and skymaps on Zenodo |
+| Key | Catalog | Observing runs of its events | Events | PE and skymaps on Zenodo |
 |---|---|---|---|---|
 | `GWTC-1` | GWTC-1 | O1, O2 | 11 | the GWTC-2.1 release, [Zenodo 6513631](https://zenodo.org/records/6513631), which re-analysed O1–O2 |
 | `GWTC-2.1` | GWTC-2.1 | O3a, plus 10 O1–O2 events re-analysed | 54 | [Zenodo 6513631](https://zenodo.org/records/6513631) |
 | `GWTC-3` | GWTC-3 | O3b | 35 | [Zenodo 22685054](https://zenodo.org/records/22685054) |
 | `GWTC-4` | GWTC-4.0 | O4a, plus GW230518 from the engineering run ER15 | 129 | [Zenodo 17602505](https://zenodo.org/records/17602505) |
 | `GWTC-5` | GWTC-5.0 | O4b, plus 5 events of 6–8 April 2024, just before O4b | 161 | [Zenodo 20348005](https://zenodo.org/records/20348005) (part 1, with the skymaps) and [20348006](https://zenodo.org/records/20348006) (part 2) |
-| `ALL` | all of the above | O1 to O4b | | |
+| `ALL` | all the catalogs above | O1 to O4b | | |
 
 All the keys are **confident** catalogs: every event of their GWOSC lists has a probability of
 astrophysical origin p_astro ≥ 0.5 (the re-analysed O1–O2 events of GWTC-2.1 carry no p_astro value).
