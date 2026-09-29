@@ -25,8 +25,8 @@ is consistent with the sampling noise ([seeds](../modes/hubble-constant.md#how-m
 
 H₀ is measured only broadly: values below about 60 km/s/Mpc are excluded, but the posterior still has
 weight at 200 km/s/Mpc, the upper edge of the prior. This is not yet competitive with the cosmic
-microwave background (Planck 2018 [\[30\]](../references.md#ref-30): 67.4 ± 0.5) or the distance
-ladder (SH0ES 2022 [\[31\]](../references.md#ref-31): 73.0 ± 1.0). Richer mass models do better
+microwave background (Planck 2018 [\[31\]](../references.md#ref-31): 67.4 ± 0.5) or the distance
+ladder (SH0ES 2022 [\[32\]](../references.md#ref-32): 73.0 ± 1.0). Richer mass models do better
 ([below](#other-mass-models-and-published-results)).
 
 ## The idea
@@ -57,8 +57,8 @@ gives a biased and falsely precise H₀ (Mastrogiovanni et al. 2021 [\[23\]](../
 
 The question is: *if the Universe had this population of black holes and this H₀, how probable is the
 set of signals actually recorded?* The problem has two levels, hence *hierarchical*
-(Mandel, Farr & Gair 2019 [\[32\]](../references.md#ref-32);
-Thrane & Talbot 2019 [\[33\]](../references.md#ref-33)):
+(Mandel, Farr & Gair 2019 [\[33\]](../references.md#ref-33);
+Thrane & Talbot 2019 [\[34\]](../references.md#ref-34)):
 
 ```
  Λ, H₀            population and cosmology      (inferred)
@@ -224,14 +224,14 @@ set by the data.
 1. **Events.** From the GWOSC confident and marginal lists of GWTC-1 to GWTC-4.0: events of O1–O4a with
    lowest FAR below 0.25 per year and both source-frame masses above 3 M☉ (the GWTC-4.0 criterion for
    potential neutron stars). GW231123, whose PE depends strongly on the waveform model
-   (LVK 2025 [\[43\]](../references.md#ref-43)), and the NSBH GW200105 are left out, as in the paper;
+   (LVK 2025 [\[44\]](../references.md#ref-44)), and the NSBH GW200105 are left out, as in the paper;
    candidates of the engineering run ER15 fall outside the run windows. Result: **136 BBHs** (O1 3,
    O2 7, O3a 31, O3b 20, O4a 75). The mass cut matters: with GW190814 (secondary of 2.6 M☉,
-   LVK 2020 [\[40\]](../references.md#ref-40)), no PE sample overlaps the BBH model and the likelihood
+   LVK 2020 [\[41\]](../references.md#ref-41)), no PE sample overlaps the BBH model and the likelihood
    is zero everywhere.
 2. **PE samples.** From the Zenodo PE releases (33 GB for 159 events): `C01:IMRPhenomXPHM`
-   (Pratten et al. 2021 [\[48\]](../references.md#ref-48)) for O1–O3 and
-   `C00:IMRPhenomXPHM-SpinTaylor` (Colleoni et al. 2024 [\[49\]](../references.md#ref-49)) for O4a,
+   (Pratten et al. 2021 [\[49\]](../references.md#ref-49)) for O1–O3 and
+   `C00:IMRPhenomXPHM-SpinTaylor` (Colleoni et al. 2024 [\[50\]](../references.md#ref-50)) for O4a,
    reduced to \((m_{1,\text{det}}, m_{2,\text{det}}, D_L)\), 1500 samples per event in the runs.
 3. **PE priors,** read from each file (above).
 4. **Injections.** The GWTC-4.0 mixture of semi-analytic O1+O2 and real O3+O4a injections
@@ -242,11 +242,11 @@ set by the data.
    the spin part is divided out (the population spins are then the injected, isotropic ones, as in
    the PE prior), and the mixture weights applied. A random 10% subset is used, with \(N_\text{gen}\)
    scaled by the same factor, which keeps the estimate unbiased.
-5. **Likelihood.** icarogw 2.0.3 (Mastrogiovanni et al. 2024 [\[54\]](../references.md#ref-54)):
+5. **Likelihood.** icarogw 2.0.3 (Mastrogiovanni et al. 2024 [\[55\]](../references.md#ref-55)):
    `CBC_vanilla_rate(FlatLambdaCDM_wrap, m1m2_conditioned_lowpass(massprior_PowerLawPeak), rateevolution_Madau, scale_free=True)`
    in `hierarchical_likelihood`.
-6. **Sampling.** bilby (Ashton et al. 2019 [\[55\]](../references.md#ref-55)) with the dynesty nested
-   sampler (Speagle 2020 [\[57\]](../references.md#ref-57)): 10 independent runs of 100 live points,
+6. **Sampling.** bilby (Ashton et al. 2019 [\[56\]](../references.md#ref-56)) with the dynesty nested
+   sampler (Speagle 2020 [\[58\]](../references.md#ref-58)): 10 independent runs of 100 live points,
    seeds 1–10.
 7. **Combination.** The runs are merged, weighted by their evidence (bilby `ResultList.combine`). Their
    evidences agree to within their errors, so all found the same posterior.
@@ -319,8 +319,8 @@ mass spectrum has, the better it pins the redshift:
 | GWTC-4.0, FullPop-4.0 (BNS, NSBH and BBH in one mass distribution) [\[27\]](../references.md#ref-27) | 76.4 (+23.0 / −18.1) |
 | GWTC-5.0, combined (LVK 2026 [\[28\]](../references.md#ref-28)) | 71.7 (+9.4 / −7.5) |
 | GW170817 bright siren (LVK 2017 [\[25\]](../references.md#ref-25)) | 70 (+12 / −8) |
-| Planck 2018 (Planck 2020 [\[30\]](../references.md#ref-30)) | 67.4 ± 0.5 |
-| SH0ES (Riess et al. 2022 [\[31\]](../references.md#ref-31)) | 73.0 ± 1.0 |
+| Planck 2018 (Planck 2020 [\[31\]](../references.md#ref-31)) | 67.4 ± 0.5 |
+| SH0ES (Riess et al. 2022 [\[32\]](../references.md#ref-32)) | 73.0 ± 1.0 |
 
 Only PLP is implemented in gwtc_analysis. icarogw provides the two-peak model (`massprior_MultiPeak`),
 so MLTP is a small extension; FullPop-4.0 needs the neutron-star events and a more complex model.

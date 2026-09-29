@@ -1,7 +1,7 @@
 # hubble_constant
 
 The Hubble constant from the binary-black-hole mass spectrum (**spectral siren**), with
-[icarogw](https://github.com/icarogw-developers/icarogw) [\[54\]](../references.md#ref-54) and bilby [\[55\]](../references.md#ref-55)/dynesty [\[57\]](../references.md#ref-57). The method, its
+[icarogw](https://github.com/icarogw-developers/icarogw) [\[55\]](../references.md#ref-55) and bilby [\[56\]](../references.md#ref-56)/dynesty [\[58\]](../references.md#ref-58). The method, its
 validation and its results are explained in
 [Hubble constant (spectral siren)](../science/spectral-siren.md); this page is about running it.
 
