@@ -12,6 +12,7 @@ The tool provides:
 - Selection of events based on physical constraints (masses, distance)
 - Global catalog statistics, including detector-network participation and sky-localization performance
 - BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
+- Hubble-constant estimate from the BBH mass spectrum (spectral siren, with icarogw)
 
 All gravitational-wave data products are retrieved from the **Gravitational Wave Open Science Center (GWOSC)**,
 or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
@@ -71,6 +72,7 @@ positional arguments:
   MODE
     catalog_statistics
     rates
+    hubble_constant
     event_selection
     search_skymaps
     parameters_estimation
@@ -186,6 +188,31 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--bbh-kappa` | `2.9` | BBH rate evolution R ∝ (1+z)^kappa. |
 | `--bbh-z-ref` | `0.2` | Redshift at which the evolving BBH rate is reported. |
 
+### `hubble_constant`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--stages` | `['prepare', 'sample', 'combine', 'report']` | Stages to run (default: all). |
+| `--workdir` | `hubble_constant_run` | Work directory (inputs, runs, posterior). |
+| `--out-report` | `hubble_constant.html` | Output HTML report path. |
+| `--out-summary` | `hubble_constant.tsv` | Output TSV of the posterior quantiles. |
+| `--sensitivity-release` | `gwtc4` | LVK search-sensitivity release (and matching catalogs and runs): gwtc4 = GWTC-4.0 cumulative, semi-analytic O1+O2 + real O3+O4a injections; gwtc5 = GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections. |
+| `--sensitivity-file` | `` | Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's. |
+| `--far-threshold` | `0.25` | FAR threshold [1/yr] for the events and the real injections. |
+| `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections. |
+| `--min-mass` | `3.0` | Minimum source-frame mass [Msun] of both components (potential neutron stars excluded). |
+| `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
+| `--pe-cache` | `` | PE cache directory (files/, samples/, index/); default ~/.cache_gwtc_analysis/pe_catalog or $GWTC_PE_CACHE. |
+| `--keep-pe-files` | `False` | Keep the full PE files after extraction. |
+| `--seeds` | `[1]` | One sampler run per seed. |
+| `--nlive` | `100` | dynesty live points per run. |
+| `--npool` | `4` | Processes per run. |
+| `--naccept` | `60` | dynesty accepted steps per MCMC walk. |
+| `--pe-samples` | `1500` | PE samples per event. |
+| `--inj-fraction` | `0.1` | Random fraction of the found injections used (1 = all; the result stays unbiased). |
+| `--icarogw-python` | `` | Python interpreter of the icarogw environment (default: the current one). |
+
 ### `event_selection`
 
 | Option | Default | Description |
@@ -288,6 +315,39 @@ python -m gwtc_analysis.cli rates --sensitivity-release gwtc4   # GWTC-4.0 injec
 | `gwtc4` (O3–O4a, 1.7 yr) | 154 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] |
 
 Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK population papers: [GWTC-5.0](https://arxiv.org/abs/2605.27226) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉), [GWTC-4.0](https://arxiv.org/abs/2508.18083) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and [GWTC-3](https://arxiv.org/abs/2111.03634).
+
+### `hubble_constant`: Hubble Constant From The BBH Mass Spectrum
+
+`hubble_constant` measures H₀ with the **spectral-siren** method. Each event gives its luminosity distance D_L and its detector-frame masses m_det = m_src (1+z), but not its redshift. The redshift comes from the population: for a trial H₀, every D_L gives a z and every m_det a source-frame mass, and only the right H₀ makes the events near and far fall on one distance-independent mass distribution. The *Power Law + Peak* (PLP) mass model and the Madau–Dickinson rate evolution are therefore fitted together with H₀ (flat ΛCDM, Ω_m = 0.3065), with the hierarchical likelihood of [icarogw](https://github.com/icarogw-developers/icarogw) and bilby/dynesty. Selection effects are corrected with the LVK search-sensitivity injections.
+
+The default setup reproduces the PLP measurement of the [GWTC-4.0 cosmology paper](https://arxiv.org/abs/2509.04348), H₀ = 112.7 (+51.0 / −35.9) km/s/Mpc:
+
+- **Events**: BBHs of O1–O4a from the GWOSC confident and marginal lists, lowest FAR below 0.25/yr (`--far-threshold`), both source-frame masses above 3 M☉ (`--min-mass`), GW231123 and GW200105 left out (`--exclude`): 136 events.
+- **PE samples**: from the Zenodo PE releases, `C01:IMRPhenomXPHM` up to O3 and `C00:IMRPhenomXPHM-SpinTaylor` in O4a, reduced to (m1_det, m2_det, D_L). The PE distance prior of each event is read from its file (D_L² up to O3, uniform in source-frame comoving volume in O4a) and divided out.
+- **Injections** (`--sensitivity-release`): `gwtc4` (default), the GWTC-4.0 semi-analytic O1+O2 + real O3+O4a mixture ([Zenodo 16740128](https://zenodo.org/records/16740128)), found when the semi-analytic SNR exceeds 10 (`--snr-threshold`) or the lowest search FAR is below the threshold; `gwtc5` adds GWTC-5.0 and O4b ([Zenodo 19500052](https://zenodo.org/records/19500052)) and is not yet validated against a published result.
+- **Priors**: those of the paper (Tables 3 and 6), H₀ uniform in [10, 200] km/s/Mpc.
+
+The work is split into stages (`--stages`, all by default), sharing `--workdir`:
+
+| Stage | Does | Cost |
+|---|---|---|
+| `prepare` | selects the events, downloads their PE files (restartable; only the extracted samples are kept in `--pe-cache` unless `--keep-pe-files`), prepares the injections → `inputs.h5`, `events.tsv` | ~35 GB of downloads the first time |
+| `sample` | one dynesty run per `--seeds` value (`--nlive`, `--npool`, `--naccept`, `--pe-samples`, `--inj-fraction`); resumable from its checkpoint | hours per run |
+| `combine` | merges the runs → `posterior.tsv`, `corner.png`, `summary.json`, with the effective numbers of injections and PE samples over the posterior (icarogw's stability criteria) | minutes |
+| `report` | `--out-report` (HTML) and `--out-summary` (TSV of the posterior quantiles) | seconds |
+
+icarogw needs its own environment (Python ≥ 3.12). Pass its interpreter with `--icarogw-python`: the `sample` and `combine` stages run the standalone sampler `gwtc_analysis/h0_icarogw.py` with it, in CPU mode and with the environment's `lib/` on `LD_LIBRARY_PATH`.
+
+```bash
+# prepare in the gwtc_analysis environment, then 10 runs and the report
+python -m gwtc_analysis.cli hubble_constant --stages prepare
+python -m gwtc_analysis.cli hubble_constant --stages sample combine report \
+    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 5 6 7 8 9 10
+```
+
+Runs can be spread over several machines that share the work directory: start `python gwtc_analysis/h0_icarogw.py run --workdir DIR --seed N` with the icarogw interpreter on each, then run the `combine` and `report` stages once.
+
+With 10 runs of 100 live points, 1500 PE samples per event and 10% of the found injections, the result is H₀ = 119.3 (+46.1 / −34.9) km/s/Mpc [68%], 90%: 62.9–186.1, and the mass peak μ_g = 27.8 (+4.0 / −4.7) M☉, against 28.6 (+3.9 / −4.9) M☉ in the paper. H₀ is strongly anti-correlated with μ_g, and the upper part of its interval depends on the prior bound of 200 km/s/Mpc. The richer mass models of the paper give tighter results (MLTP 77.1, FullPop-4.0 76.4 km/s/Mpc); only PLP is implemented here.
 
 ### `parameters_estimation`: Shared Defaults And Overrides
 
