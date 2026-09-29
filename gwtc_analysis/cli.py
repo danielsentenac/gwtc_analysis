@@ -234,7 +234,8 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Seeds run at the same time on this machine (each with --npool processes; "
                            "logs in <workdir>/logs).")
     p_h0.add_argument("--nlive", type=int, default=100, help="dynesty live points per run.")
-    p_h0.add_argument("--npool", type=int, default=4, help="Processes per run.")
+    p_h0.add_argument("--npool", type=int, default=4,
+                      help="Worker processes per run: random walks of one seed run at the same time.")
     p_h0.add_argument("--naccept", type=int, default=60, help="dynesty accepted steps per MCMC walk.")
     p_h0.add_argument("--pe-samples", type=int, default=1500, help="PE samples per event.")
     p_h0.add_argument("--inj-fraction", type=float, default=0.1,
