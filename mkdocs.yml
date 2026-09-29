@@ -1,0 +1,81 @@
+site_name: GWTC Analysis
+site_description: Command-line analysis of the LIGO-Virgo-KAGRA gravitational-wave transient catalogs
+site_url: https://danielsentenac.github.io/gwtc_analysis/
+repo_url: https://github.com/danielsentenac/gwtc_analysis
+repo_name: danielsentenac/gwtc_analysis
+edit_uri: edit/main/docs/
+copyright: MIT License
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: installation.md
+      - Quick start: quickstart.md
+  - Data:
+      - Data sources and versions: data-sources.md
+      - Known issues in the public releases: known-data-issues.md
+  - User guide:
+      - catalog_statistics: modes/catalog-statistics.md
+      - event_selection: modes/event-selection.md
+      - search_skymaps: modes/search-skymaps.md
+      - parameters_estimation: modes/parameters-estimation.md
+      - build_unofficial_pe (GW170817): modes/unofficial-pe.md
+      - rates: modes/rates.md
+      - hubble_constant: modes/hubble-constant.md
+  - Science and methods:
+      - What a GW signal measures: science/gw-signals.md
+      - Selection effects and injections: science/selection-effects.md
+      - Merger rates: science/merger-rates.md
+      - Hubble constant (spectral siren): science/spectral-siren.md
+      - Glossary: science/glossary.md
+  - CLI reference: cli-reference.md
+  - References: references.md
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

@@ -42,3 +42,4 @@ gwtc_analysis-feedstock/
 
 # pytest
 .pytest_cache/
+site/
