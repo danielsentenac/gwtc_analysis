@@ -337,7 +337,19 @@ The work is split into stages (`--stages`, all by default), sharing `--workdir`:
 | `combine` | merges the runs → `posterior.tsv`, `corner.png`, `summary.json`, with the effective numbers of injections and PE samples over the posterior (icarogw's stability criteria) | minutes |
 | `report` | `--out-report` (HTML) and `--out-summary` (TSV of the posterior quantiles) | seconds |
 
-icarogw needs its own environment (Python ≥ 3.12). Pass its interpreter with `--icarogw-python`: the `sample` and `combine` stages run the standalone sampler `gwtc_analysis/h0_icarogw.py` with it, in CPU mode and with the environment's `lib/` on `LD_LIBRARY_PATH`.
+**icarogw.** `gwtc_analysis/h0_icarogw.py` is a driver of icarogw, not a modified copy: icarogw is used as installed, through its public API. icarogw provides the hierarchical likelihood (PE and injection reweighting, selection term, scale-free rate marginalisation, effective-sample-size checks), the population models (`massprior_PowerLawPeak` with the `m1m2_conditioned_lowpass` smoothing, `rateevolution_Madau`, `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`) and the detector-frame conversion for each trial H₀. The driver reads `inputs.h5` into icarogw's `posterior_samples` and `injections` objects, chooses the model components and the priors (Tables 3 and 6 of the paper), runs bilby/dynesty, merges the runs and computes the diagnostics with icarogw's own methods. The analysis choices made here, outside icarogw, are the input preparation in `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw density carried to the detector frame with the spin part divided out and the mixture weights applied) and three settings of the driver: at least 10 effective PE samples per event (icarogw's default is 20), at least 4 × N_events effective injections (icarogw's default), and the `--inj-fraction` subset of the injections.
+
+Only the `sample` and `combine` stages need icarogw; `prepare` and `report` run in the gwtc_analysis environment. icarogw needs Python ≥ 3.12, so it usually has its own environment; pass its interpreter with `--icarogw-python` (default: the interpreter running gwtc_analysis; the mode stops with an error before sampling if icarogw or bilby cannot be imported there). The stages run `h0_icarogw.py` with it, in CPU mode (a `config.py` with `CUPY=False` in the work directory) and with the environment's `lib/` on `LD_LIBRARY_PATH` (for its `libstdc++`). icarogw is not on PyPI; an installation that works:
+
+```bash
+conda create -n icarogw python=3.12
+conda activate icarogw
+export TMPDIR=~/tmp                                                  # the torch wheels are large
+pip install torch --index-url https://download.pytorch.org/whl/cpu   # CPU torch first, not the CUDA build
+pip install git+https://github.com/icarogw-developers/icarogw.git
+```
+
+If other packages in that environment need an older numpy (e.g. ligo.skymap), pin it (`numpy==2.1.1 scipy==1.14.1` worked).
 
 ```bash
 # prepare in the gwtc_analysis environment, then 4 runs, 2 at a time with 2 processes each, and the report
@@ -375,6 +387,12 @@ The PLP posterior is broad, so 3–5 seeds give the result to two significant di
 | Precise comparison with a paper | about 10 seeds |
 
 Runs can be spread over several machines that share the work directory: start `python gwtc_analysis/h0_icarogw.py run --workdir DIR --seed N` with the icarogw interpreter on each, then run the `combine` and `report` stages once.
+
+**Without icarogw on the local machine.** `h0_icarogw.py` only needs numpy, h5py, icarogw and bilby, so the sampling can run on another machine that has icarogw (e.g. a computing cluster):
+
+1. locally: `hubble_constant --stages prepare --workdir DIR`, then copy `DIR/inputs.h5` (about 45 MB) and `gwtc_analysis/h0_icarogw.py` to a work directory on the remote machine;
+2. remotely, with the icarogw interpreter (and `LD_LIBRARY_PATH=<env>/lib` if needed): `python h0_icarogw.py run --workdir RDIR --seed N` for each seed, then `python h0_icarogw.py combine --workdir RDIR`;
+3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` and `RDIR/corner.png` (a few MB) back into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
 
 With 10 runs of 100 live points, 1500 PE samples per event and 10% of the found injections, the result is H₀ = 119.3 (+46.1 / −34.9) km/s/Mpc [68%], 90%: 62.9–186.1, and the mass peak μ_g = 27.8 (+4.0 / −4.7) M☉, against 28.6 (+3.9 / −4.9) M☉ in the paper. H₀ is strongly anti-correlated with μ_g, and the upper part of its interval depends on the prior bound of 200 km/s/Mpc. The richer mass models of the paper give tighter results (MLTP 77.1, FullPop-4.0 76.4 km/s/Mpc); only PLP is implemented here.
 
