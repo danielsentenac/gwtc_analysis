@@ -2,7 +2,7 @@
 
 Working with the releases exposed a few events whose files lack products that the release
 descriptions announce. `gwtc_analysis` works around them, and this page records what is missing,
-where it can be found, and how the tool handles it. The GW230529 case was reported to the GWOSC team.
+where it can be found, and how the tool handles it.
 
 ## Missing PSDs and calibration envelopes
 
