@@ -11,6 +11,7 @@ The tool provides:
 - Visualization of parameter-estimation results for individual events
 - Selection of events based on physical constraints (masses, distance)
 - Global catalog statistics, including detector-network participation and sky-localization performance
+- BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
 
 All gravitational-wave data products are retrieved from the **Gravitational Wave Open Science Center (GWOSC)**,
 or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
