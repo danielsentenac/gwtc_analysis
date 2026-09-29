@@ -5,9 +5,10 @@ The Hubble constant from the binary-black-hole mass spectrum (**spectral siren**
 validation and its results are explained in
 [Hubble constant (spectral siren)](../science/spectral-siren.md); this page is about running it.
 
-The default setup reproduces the *Power Law + Peak* measurement of the
-GWTC-4.0 cosmology paper [\[27\]](../references.md#ref-27),
-H₀ = 112.7 (+51.0 / −35.9) km/s/Mpc.
+The default setup reproduces the spectral-siren measurements of the GWTC-4.0 cosmology paper [\[27\]](../references.md#ref-27)
+(published version v3): H₀ = 105.5 (+46.4 / −35.8) km/s/Mpc with the *Power Law + Peak* mass model
+(`--mass-model plp`, the default) and 72.3 (+42.5 / −25.6) km/s/Mpc with the *Multi Peak* model
+(`--mass-model mltp`). Use one work directory per mass model.
 
 ```bash
 # prepare in the gwtc_analysis environment, then 4 runs, 2 at a time with 2 processes each, and the report
@@ -35,6 +36,7 @@ The work is split into stages (`--stages`, all by default) sharing a work direct
 | `--far-threshold` | 0.25 per year | events, and real injections, below this false-alarm rate |
 | `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR |
 | `--min-mass` | 3 M☉ | both source-frame masses above it: potential neutron stars are left out |
+| `--mass-model` | `plp` | BBH primary-mass model: `plp` (Power Law + Peak, Table 3 of the paper) or `mltp` (Multi Peak: power law and two Gaussian peaks, Table 4) |
 | `--exclude` | GW231123_135430, GW200105_162426 | as in the GWTC-4.0 cosmology analysis [\[27\]](../references.md#ref-27) |
 
 ## icarogw
@@ -66,15 +68,15 @@ environment's `lib/` on `LD_LIBRARY_PATH`.
 
 ## Seeds
 
-Each seed is an independent dynesty run (`result/plp_seed<N>_result.json`); `combine` merges all the
+Each seed is an independent dynesty run (`result/<model>_seed<N>_result.json`, with `<model>` = `plp` or `mltp`); `combine` merges all the
 finished ones, weighted by their evidence.
 
 - **All runs sample the same likelihood.** The PE samples are shuffled once in `prepare`, and the
-  injection subset is drawn with a fixed seed. `run_settings.json` refuses runs with other `--nlive`,
+  injection subset is drawn with a fixed seed. `run_settings.json` refuses runs with another `--mass-model`, `--nlive`,
   `--pe-samples` or `--inj-fraction` values in the same work directory.
 - **Restarting is safe.** Launching again resumes the interrupted runs from their checkpoint and skips
   the finished ones.
-- **One process per seed.** A lock file (`result/plp_seed<N>.lock`, holding the host and process ID)
+- **One process per seed.** A lock file (`result/<model>_seed<N>.lock`, holding the host and process ID)
   prevents a seed from running twice at once; a lock left by a process that died on the same host is
   taken over.
 - **Interrupting** the launcher (Ctrl-C) stops its runs after they write their checkpoint.

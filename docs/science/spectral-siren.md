@@ -7,19 +7,28 @@ galaxy catalog, and how its result compares with the published LVK measurement.
 ## Result
 
 The mode reproduces the *Power Law + Peak* (PLP) spectral-siren measurement of the GWTC-4.0
-cosmology paper (LVK 2025 [\[27\]](../references.md#ref-27)), with the same event selection, PE
-samples, injections, population model and priors:
+cosmology paper (LVK 2026 [\[27\]](../references.md#ref-27), published version v3), with the same event
+selection, PE samples, injections, population model and priors:
 
 | Quantity | gwtc_analysis | GWTC-4.0 paper (PLP) [\[27\]](../references.md#ref-27) |
 |---|---|---|
-| H₀, median and 68% interval (km/s/Mpc) | **119.3 (+46.1 / −34.9)** | 112.7 (+51.0 / −35.9) |
-| H₀, 90% interval (km/s/Mpc) | 62.9 – 186.1 | 57.6 – 186.7 |
-| Position of the mass peak μ_g (M☉) | 27.8 (+4.0 / −4.7) | 28.6 (+3.9 / −4.9) |
-| BBH events | 136 | about 137 |
+| H₀, median and 68% interval (km/s/Mpc) | **119.3 (+46.1 / −34.9)** | 105.5 (+46.4 / −35.8) |
+| H₀, 90% interval (km/s/Mpc) | 62.9 – 186.1 | 50.5 – 176.1 |
+| Position of the mass peak μ_g (M☉) | 27.8 (+4.0 / −4.7) | 28.3 (+4.1 / −4.4) |
+| BBH events | 136 | 137 |
 
-The medians differ by 6.6 km/s/Mpc, about 0.15σ, and the 90% intervals are nearly identical. The
-result comes from 10 independent runs (3582 posterior samples, ln Z = −3824.11 ± 0.40), whose spread
-is consistent with the sampling noise ([seeds](../modes/hubble-constant.md#how-many-seeds)).
+The peak position agrees closely; the H₀ medians differ by 13.8 km/s/Mpc, about 0.35σ of the posterior
+width, and the 90% intervals overlap over most of their range, ours being shifted up by about
+10 km/s/Mpc. The result comes from 10 independent runs (3582 posterior samples,
+ln Z = −3824.11 ± 0.40), whose spread is consistent with the sampling noise
+([seeds](../modes/hubble-constant.md#how-many-seeds)).
+
+!!! note "Versions of the paper"
+    The first two arXiv versions of the paper (v1 and v2, 2025) quoted PLP 112.7 (+51.0 / −35.9)
+    km/s/Mpc, 90%: 57.6–186.7, with the peak at 28.6 (+3.9 / −4.9) M☉, MLTP 77.1 (+40.8 / −26.3) and
+    FullPop-4.0 76.4 (+23.0 / −18.1); our PLP result agrees with those to about 0.15σ. The published
+    version (v3, August 2026) revised all the spectral-siren values to those quoted here. The paper does
+    not describe the changes between versions, and we have not identified their cause.
 
 ![H0 posterior](../img/h0_posterior.png)
 
@@ -309,27 +318,59 @@ stability limit, and more PE samples per event (`--pe-samples 3000`) would remov
 
 ## Other mass models and published results
 
-The PLP model gives the least constraining result of the GWTC-4.0 paper [\[27\]](../references.md#ref-27). The more sharp features the
-mass spectrum has, the better it pins the redshift:
+The PLP model gives the least constraining result of the GWTC-4.0 paper [\[27\]](../references.md#ref-27). The more sharp
+features the mass spectrum has, the better it pins the redshift (spectral sirens alone unless stated):
 
 | Analysis | H₀ (km/s/Mpc, median and 68%) |
 |---|---|
-| GWTC-4.0, PLP (reproduced here) [\[27\]](../references.md#ref-27) | 112.7 (+51.0 / −35.9) |
-| GWTC-4.0, MLTP (power law with two peaks) [\[27\]](../references.md#ref-27) | 77.1 (+40.8 / −26.3) |
-| GWTC-4.0, FullPop-4.0 (BNS, NSBH and BBH in one mass distribution) [\[27\]](../references.md#ref-27) | 76.4 (+23.0 / −18.1) |
-| GWTC-5.0, combined (LVK 2026 [\[28\]](../references.md#ref-28)) | 71.7 (+9.4 / −7.5) |
+| GWTC-4.0, PLP (reproduced here) [\[27\]](../references.md#ref-27) | 105.5 (+46.4 / −35.8) |
+| GWTC-4.0, MLTP (power law with two peaks) [\[27\]](../references.md#ref-27) | 72.3 (+42.5 / −25.6) |
+| GWTC-4.0, FullPop-4.0 (BNS, NSBH and BBH in one mass distribution) [\[27\]](../references.md#ref-27) | 72.9 (+21.9 / −18.8) |
+| GWTC-4.0, FullPop-4.0 + GW170817 [\[27\]](../references.md#ref-27) | 73.4 (+12.8 / −8.6) |
+| GWTC-5.0, spectral sirens + GW170817 + DES-Y6 galaxies (LVK 2026 [\[28\]](../references.md#ref-28)) | 71.7 (+9.4 / −7.5) |
 | GW170817 bright siren (LVK 2017 [\[25\]](../references.md#ref-25)) | 70 (+12 / −8) |
 | Planck 2018 (Planck 2020 [\[31\]](../references.md#ref-31)) | 67.4 ± 0.5 |
 | SH0ES (Riess et al. 2022 [\[32\]](../references.md#ref-32)) | 73.0 ± 1.0 |
 
-Only PLP is implemented in gwtc_analysis. icarogw provides the two-peak model (`massprior_MultiPeak`),
-so MLTP is a small extension; FullPop-4.0 needs the neutron-star events and a more complex model.
+gwtc_analysis implements PLP and MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`);
+FullPop-4.0 needs the neutron-star events and a more complex model.
+
+### Why the Multi Peak model gives a tighter and lower H₀
+
+Only the primary-mass model changes: the events, PE samples, injections, secondary-mass power law,
+low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the same.
+
+| | PLP | MLTP (Multi Peak) |
+|---|---|---|
+| \(p(m_1)\) | \((1-\lambda)\,\mathcal{P} + \lambda\, \mathcal{G}(\mu_g, \sigma_g)\) | \((1-\lambda_g)\,\mathcal{P} + \lambda_g \left[\lambda_\text{low}\, \mathcal{G}(\mu_\text{low}, \sigma_\text{low}) + (1-\lambda_\text{low})\, \mathcal{G}(\mu_\text{high}, \sigma_\text{high})\right]\) |
+| Peak priors | μ_g ∈ U(20, 50), σ_g ∈ U(0.4, 10) M☉ | μ_low, μ_high ∈ U(5, 100); σ_low ∈ U(0.4, 5); σ_high ∈ U(0.4, 10) M☉; λ_low ∈ U(0, 1) |
+| Mass parameters | 8 | 11 |
+| Peaks found [\[27\]](../references.md#ref-27) | one, at 28.3 M☉ | 8.9 ± 0.5 M☉ and 26.6 ± 3 M☉ |
+
+1. **The BBH mass spectrum has a peak near 9–10 M☉,** its strongest feature once selection effects are
+   removed ([Merger rates](merger-rates.md#selection-corrected-mass-distribution)). PLP cannot represent
+   it: its single Gaussian goes to the ~28 M☉ bump, and the power law bends (α, m_min, δ_m) to mimic the
+   low-mass excess.
+2. **A sharp feature gives a sharp redshift.** The spectral siren measures the shift of a feature by
+   \(1+z\); the precision grows as the feature narrows relative to its position and as more events
+   populate it. The 9 M☉ peak has σ/μ ≈ 6%, the 28 M☉ bump ≈ 20%, and light BBHs are numerous.
+3. **Two rulers at different distances.** Light BBHs are detected nearby, heavy ones far away: the two
+   peaks anchor the distance–redshift relation over two redshift ranges.
+4. **PLP is pulled high.** In the PLP posterior α is correlated with H₀ (+0.52,
+   [above](#results-in-detail)): when the power law steepens to absorb the low-mass excess, H₀ goes up.
+   The paper finds the same ("a single peak is unable to fit the complex low-mass structure"), and the
+   data mildly prefer MLTP over PLP.
+
+FullPop-4.0 goes further (72.9 (+21.9 / −18.8)): it adds the neutron-star events (141 events) and models
+the gap between neutron stars and black holes, whose edges are further sharp features at known masses.
 
 ## Limitations
 
 - **Monte Carlo approximations:** 10% of the injections, 1500 PE samples per event, 100 live points per
-  run. The residual difference from the paper [\[27\]](../references.md#ref-27) (0.15σ) is consistent with this sampling noise.
-- **One fewer event** than the paper [\[27\]](../references.md#ref-27) (136 against about 137), probably from how the lowest FAR is taken
-  across catalogs.
+  run. The difference from the published value [\[27\]](../references.md#ref-27) (about 0.35σ) is compatible with this sampling
+  noise and with the event difference below; the paper does not document why its v3 values differ from
+  v1–v2.
+- **One fewer event** than the paper [\[27\]](../references.md#ref-27) (136 against 137), probably from how the lowest FAR is
+  taken across catalogs.
 - **Prior dependence** of the upper part of the H₀ interval.
 - **`gwtc5` release** (O1–O4b) not yet validated against a published result.

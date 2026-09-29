@@ -12,8 +12,9 @@ Stages of `run_hubble_constant`:
 - ``combine``: the runs merged, with numerical-stability diagnostics.
 - ``report``: HTML report.
 
-The default setup reproduces the Power Law + Peak measurement of the GWTC-4.0 cosmology paper
-(arXiv:2509.04348): H0 = 112.7 (+51.0 / -35.9) km/s/Mpc.
+The default setup reproduces the spectral-siren measurements of the GWTC-4.0 cosmology paper
+(arXiv:2509.04348, published version v3): H0 = 105.5 (+46.4 / -35.8) km/s/Mpc with the Power Law + Peak
+mass model (`plp`), 72.3 (+42.5 / -25.6) with the Multi Peak model (`mltp`).
 """
 from __future__ import annotations
 
@@ -48,8 +49,13 @@ H0_SENSITIVITY_RELEASES = {
         runs=("O1", "O2", "O3a", "O3b", "O4a"),
         catalogs=("GWTC-1-confident", "GWTC-2.1-confident", "GWTC-2.1-marginal", "GWTC-3-confident",
                   "GWTC-3-marginal", "GWTC-4.0"),
-        published=dict(ref="GWTC-4.0 cosmology, arXiv:2509.04348 (PLP)", median=112.7, plus=51.0, minus=35.9,
-                       lo90=57.6, hi90=186.7),
+        # spectral sirens, GWTC-4.0 cosmology paper v3 (the published version); 90% bounds from the quoted intervals
+        published={
+            "plp": dict(ref="GWTC-4.0 cosmology, arXiv:2509.04348 (PLP)", median=105.5, plus=46.4, minus=35.8,
+                        lo90=50.5, hi90=176.1),
+            "mltp": dict(ref="GWTC-4.0 cosmology, arXiv:2509.04348 (MLTP)", median=72.3, plus=42.5, minus=25.6,
+                         lo90=34.2, hi90=154.1),
+        },
     ),
     "gwtc5": dict(
         record="19500052", label="GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections",
@@ -69,6 +75,8 @@ _PE_COLUMNS = ("mass_1", "mass_2", "luminosity_distance")
 _LNPDRAW = "lnpdraw_mass1_source_mass2_source_redshift_spin1x_spin1y_spin1z_spin2x_spin2y_spin2z"
 _YEAR_S = 3.15576e7
 STAGES = ("prepare", "sample", "combine", "report")
+MASS_MODELS = {"plp": "Power Law + Peak", "mltp": "Multi Peak"}
+H0_DEFAULT_MASS_MODEL = "plp"
 
 
 def default_pe_cache() -> Path:
@@ -456,7 +464,7 @@ def run_seeds_parallel(python: str, workdir: Path, seeds: list[int], parallel: i
         raise ValueError(f"sampler run(s) failed for seed(s) {failed}; see {logs}")
 
 
-def _plot_h0(post: pd.DataFrame, published: Optional[dict], out_png: Path) -> Path:
+def _plot_h0(post: pd.DataFrame, published: Optional[dict], out_png: Path, model_name: str = "Power Law + Peak") -> Path:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -467,7 +475,7 @@ def _plot_h0(post: pd.DataFrame, published: Optional[dict], out_png: Path) -> Pa
     fig, ax = plt.subplots(figsize=(8.2, 4.2), dpi=150)
     fig.patch.set_facecolor(surface); ax.set_facecolor(surface)
     ax.hist(h0, bins=np.linspace(10, 200, 39), density=True, color=blue, alpha=0.85, linewidth=0, zorder=2,
-            label=f"This run: {q[1]:.0f}, 90% {q[0]:.0f}–{q[2]:.0f}")
+            label=f"gwtc_analysis: {q[1]:.0f}, 90% {q[0]:.0f}–{q[2]:.0f}")
     if published:
         ax.axvspan(published["lo90"], published["hi90"], color=orange, alpha=0.12, zorder=1, linewidth=0)
         ax.axvline(published["median"], color=orange, lw=2, zorder=3,
@@ -487,7 +495,7 @@ def _plot_h0(post: pd.DataFrame, published: Optional[dict], out_png: Path) -> Pa
     for s in ("left", "bottom"):
         ax.spines[s].set_color(grid)
     ax.tick_params(colors=ink2, labelsize=9)
-    ax.set_title("Hubble constant from the BBH mass spectrum (Power Law + Peak)", color=ink, fontsize=10.5, loc="left",
+    ax.set_title(f"Hubble constant from the BBH mass spectrum ({model_name})", color=ink, fontsize=10.5, loc="left",
                  pad=34)
     ax.legend(frameon=False, fontsize=8.5, labelcolor=ink2, loc="lower left", bbox_to_anchor=(0, 1.0), ncol=2,
               borderaxespad=0.3, handlelength=1.2)
@@ -501,7 +509,9 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     summary = json.loads((workdir / "summary.json").read_text())
     post = pd.read_csv(workdir / "posterior.tsv", sep="\t")
     events = pd.read_csv(workdir / "events.tsv", sep="\t") if (workdir / "events.tsv").exists() else pd.DataFrame()
-    published = H0_SENSITIVITY_RELEASES.get(release, {}).get("published")
+    model = summary.get("mass_model", "plp")
+    model_name = MASS_MODELS.get(model, model)
+    published = (H0_SENSITIVITY_RELEASES.get(release, {}).get("published") or {}).get(model)
     rows = [dict(parameter=k, median=q[2], minus_68=q[2] - q[1], plus_68=q[3] - q[2], low_90=q[0], high_90=q[4])
             for k, q in summary["quantiles"].items()]
     table = pd.DataFrame(rows)
@@ -510,7 +520,7 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
         table.to_csv(out_summary_tsv, sep="\t", index=False, float_format="%.6g")
     plots = workdir / "plots"
     plots.mkdir(exist_ok=True)
-    images = [_plot_h0(post, published, plots / "h0_posterior.png")]
+    images = [_plot_h0(post, published, plots / "h0_posterior.png", model_name)]
     if (workdir / "corner.png").exists():
         images.append(workdir / "corner.png")
     q = summary["quantiles"]["H0"]
@@ -518,7 +528,7 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     paras = [
         f"H<sub>0</sub> = <b>{q[2]:.1f} (+{q[3] - q[2]:.1f} / −{q[2] - q[1]:.1f}) km/s/Mpc</b> (median, 68%); "
         f"90%: {q[0]:.1f}–{q[4]:.1f}. Spectral siren with {len(events) or '?'} BBH events: the redshift comes from the "
-        "source-frame mass distribution (Power Law + Peak, fitted together with H<sub>0</sub>) and the "
+        f"source-frame mass distribution ({model_name}, fitted together with H<sub>0</sub>) and the "
         "Madau–Dickinson rate evolution, with flat ΛCDM (Ω<sub>m</sub> = 0.3065).",
         f"{summary['n_runs']} dynesty run(s) of {s.get('nlive', '?')} live points, {summary['n_samples']} posterior samples, "
         f"ln Z = {summary['log_evidence']:.2f} ± {summary['log_evidence_err']:.2f} (runs: "
@@ -564,6 +574,7 @@ def run_hubble_constant(
     keep_pe_files: bool = False,
     seeds: Iterable[int] = (1,),
     parallel: int = 1,
+    mass_model: str = H0_DEFAULT_MASS_MODEL,
     nlive: int = 100,
     npool: int = 4,
     naccept: int = 60,
@@ -571,7 +582,9 @@ def run_hubble_constant(
     inj_fraction: float = 0.1,
     icarogw_python: Optional[str] = None,
 ) -> Optional[pd.DataFrame]:
-    """Spectral-siren H0 with the Power Law + Peak model; see the module docstring for the stages."""
+    """Spectral-siren H0 with the `mass_model` BBH mass distribution; see the module docstring for the stages."""
+    if mass_model not in MASS_MODELS:
+        raise ValueError(f"Unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
     stages = [s for s in STAGES if s in set(stages)]
     workdir = Path(workdir).expanduser().resolve()
     python = icarogw_python or sys.executable
@@ -584,7 +597,7 @@ def run_hubble_constant(
         if not (workdir / "inputs.h5").exists():
             raise ValueError(f"{workdir / 'inputs.h5'} not found: run the prepare stage first")
         seeds = list(dict.fromkeys(int(x) for x in seeds))
-        run_args = ["--nlive", str(nlive), "--npool", str(npool), "--naccept", str(naccept),
+        run_args = ["--mass-model", mass_model, "--nlive", str(nlive), "--npool", str(npool), "--naccept", str(naccept),
                     "--pe-samples", str(pe_samples), "--inj-fraction", str(inj_fraction)]
         parallel = max(1, min(int(parallel), len(seeds)))
         ncpu = os.cpu_count() or 1

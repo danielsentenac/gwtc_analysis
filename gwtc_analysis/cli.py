@@ -4,8 +4,8 @@ import argparse
 from typing import List, Optional
 
 from .catalogs import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES, run_catalog_statistics, run_merger_rates
-from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_RELEASE, H0_SENSITIVITY_RELEASES, STAGES as H0_STAGES,
-                              run_hubble_constant)
+from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFAULT_RELEASE, H0_SENSITIVITY_RELEASES,
+                              MASS_MODELS as H0_MASS_MODELS, STAGES as H0_STAGES, run_hubble_constant)
 from .event_selection import run_event_selection
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
@@ -187,10 +187,10 @@ def build_parser() -> argparse.ArgumentParser:
         "hubble_constant",
         help="Estimate the Hubble constant from the BBH mass spectrum (spectral siren, icarogw).",
         description=(
-            "Spectral-siren H0: the Power Law + Peak BBH mass distribution and the Madau-Dickinson rate\n"
-            "evolution fitted together with H0 (flat LCDM, Om0 = 0.3065), with icarogw and bilby/dynesty.\n"
-            "The default setup reproduces the GWTC-4.0 cosmology paper (arXiv:2509.04348):\n"
-            "H0 = 112.7 (+51.0 / -35.9) km/s/Mpc.\n\n"
+            "Spectral-siren H0: the BBH mass distribution (--mass-model: Power Law + Peak or Multi Peak) and\n"
+            "the Madau-Dickinson rate evolution fitted together with H0 (flat LCDM, Om0 = 0.3065), with icarogw\n"
+            "and bilby/dynesty. The default setup reproduces the GWTC-4.0 cosmology paper (arXiv:2509.04348, v3):\n"
+            "H0 = 105.5 (+46.4 / -35.8) km/s/Mpc (plp), 72.3 (+42.5 / -25.6) km/s/Mpc (mltp).\n\n"
             "Stages (--stages, default all, in this order):\n"
             "  prepare : select the events, download their PE samples from Zenodo (tens of GB, cached in\n"
             "            --pe-cache; only the extracted samples are kept unless --keep-pe-files), prepare\n"
@@ -229,6 +229,9 @@ def build_parser() -> argparse.ArgumentParser:
                       help="PE cache directory (files/, samples/, index/); default ~/.cache_gwtc_analysis/pe_catalog "
                            "or $GWTC_PE_CACHE.")
     p_h0.add_argument("--keep-pe-files", action="store_true", help="Keep the full PE files after extraction.")
+    p_h0.add_argument("--mass-model", choices=list(H0_MASS_MODELS), default=H0_DEFAULT_MASS_MODEL,
+                      help="BBH primary-mass model: " + "; ".join(f"{k} = {v}" for k, v in H0_MASS_MODELS.items())
+                      + ". Use one work directory per model.")
     p_h0.add_argument("--seeds", nargs="+", type=int, default=[1], help="One sampler run per seed.")
     p_h0.add_argument("--parallel", type=int, default=1,
                       help="Seeds run at the same time on this machine (each with --npool processes; "
@@ -445,6 +448,7 @@ def main(argv=None) -> int:
                 keep_pe_files=args.keep_pe_files,
                 seeds=args.seeds,
                 parallel=args.parallel,
+                mass_model=args.mass_model,
                 nlive=args.nlive,
                 npool=args.npool,
                 naccept=args.naccept,

@@ -52,6 +52,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
 | `--pe-cache` | `` | PE cache directory (files/, samples/, index/); default ~/.cache_gwtc_analysis/pe_catalog or $GWTC_PE_CACHE. |
 | `--keep-pe-files` | `False` | Keep the full PE files after extraction. |
+| `--mass-model` | `plp` | BBH primary-mass model: plp = Power Law + Peak; mltp = Multi Peak. Use one work directory per model. |
 | `--seeds` | `[1]` | One sampler run per seed. |
 | `--parallel` | `1` | Seeds run at the same time on this machine (each with --npool processes; logs in <workdir>/logs). |
 | `--nlive` | `100` | dynesty live points per run. |
