@@ -10,11 +10,15 @@ from the event API of the [Gravitational Wave Open Science Center](https://gwosc
 
 | Key | GWOSC list | Observing runs of its events | Events | Zenodo PE and skymap release |
 |---|---|---|---|---|
-| `GWTC-1` | `GWTC-1-confident` | O1 (3), O2 (8) | 11 | (no separate skymaps; GWTC-2.1 covers O1–O2) |
+| `GWTC-1` | `GWTC-1-confident` | O1 (3), O2 (8) | 11 | none of its own: the GWTC-2.1 release, [Zenodo 6513631](https://zenodo.org/records/6513631), which re-analysed O1–O2 |
 | `GWTC-2.1` | `GWTC-2.1-confident` | O3a (44), plus O1 (3) and O2 (7) re-analysed | 54 | [Zenodo 6513631](https://zenodo.org/records/6513631) |
 | `GWTC-3` | `GWTC-3-confident` | O3b | 35 | [Zenodo 22685054](https://zenodo.org/records/22685054) |
 | `GWTC-4` | `GWTC-4.0` | O4a (128), plus GW230518 from the engineering run ER15 | 129 | [Zenodo 17602505](https://zenodo.org/records/17602505) |
 | `GWTC-5` | `GWTC-5.0` | O4b (156), plus 5 events of 6–8 April 2024, just before the start of O4b | 161 | [Zenodo 20348005](https://zenodo.org/records/20348005) (part 1, with the skymaps) and [20348006](https://zenodo.org/records/20348006) (part 2) |
+
+All the keys are **confident** catalogs: every event of these lists has a probability of
+astrophysical origin p_astro ≥ 0.5 (the re-analysed O1–O2 events of GWTC-2.1 carry no p_astro value).
+The marginal lists are read only by the `rates` and `hubble_constant` modes (below).
 
 Event counts of the GWOSC lists in September 2026. A catalog key holds the events of *its* release
 only: GWTC-4.0, for instance, does not repeat the O1–O3 events. The exception is GWTC-2.1, whose list
