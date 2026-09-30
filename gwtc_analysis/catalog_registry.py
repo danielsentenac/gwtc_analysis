@@ -150,6 +150,9 @@ IGNORED_GWOSC_LISTS: dict[str, str] = {
 DEFAULT_RATES_RELEASE = "gwtc5"       # the latest release
 DEFAULT_H0_RELEASE = "gwtc4"          # the release of the reproduced, published analysis
 
+# Date of the last `gwtc_analysis check_catalogs` finding nothing new: update it with each registry check
+REGISTRY_CHECKED = "2026-09-30"
+
 
 # ---------------------------------------------------------------------------
 # Derived views
@@ -191,6 +194,32 @@ def catalog_help(examples: Optional[Iterable[str]] = None) -> str:
 def update_help() -> str:
     """'GWTC-4.1, update of GWTC-4' for the help texts."""
     return "; ".join(f"{c.key}, update of {c.update_of}" for c in CATALOGS.values() if c.update_of)
+
+
+def catalog_name(key: str) -> str:
+    """Published name of a catalog: 'GWTC-4' -> 'GWTC-4.0', 'GWTC-1' -> 'GWTC-1'."""
+    return CATALOGS[key].gwosc_list.removesuffix("-confident")
+
+
+def latest_catalog() -> Catalog:
+    """The most recent catalog (not an update) of the registry."""
+    return [c for c in CATALOGS.values() if not c.update_of][-1]
+
+
+def coverage_text(version: Optional[str] = None, markdown: bool = False) -> str:
+    """The catalogs covered by this version of the package, for --version, the README and the docs."""
+    b = (lambda t: f"**{t}**") if markdown else (lambda t: t)
+    keys = default_catalog_keys()
+    updates = [c.key for c in CATALOGS.values() if c.update_of]
+    runs = list(OBSERVING_RUNS)
+    last = latest_catalog()
+    names = ", ".join(catalog_name(k) for k in keys) + "".join(
+        f", and the update {catalog_name(u)} (of {catalog_name(CATALOGS[u].update_of)})" for u in updates)
+    head = f"Catalogs in version {version}" if version else "Catalogs covered"
+    return (f"{b(head)}: {names}, observing runs {runs[0]} to {runs[-1]}. "
+            f"{b(f'Latest catalog: {catalog_name(last.key)} ({chr(43).join(last.runs)})')}. "
+            f"Registry checked against GWOSC and Zenodo on {REGISTRY_CHECKED}; catalogs published later need a "
+            f"newer version of the package (`gwtc_analysis check_catalogs` tells whether GWOSC has published one).")
 
 
 def gwosc_list(key: str) -> str:

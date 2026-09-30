@@ -144,7 +144,9 @@ instance the one of the O4c run):
    `prepare` stage with an error), the priors of a new cosmology paper (`h0_icarogw.PRIOR_SETS`), and
    events with missing products (`pe_supplements.py`).
 5. Upload the new release to the S3 bucket and the Galaxy history if these repositories are used, then
-   update the catalog tables of these pages.
+   update the catalog tables of these pages, set `REGISTRY_CHECKED` to the date of the check, and
+   regenerate the README and docs blocks (`python gwtc_analysis/gen_readme_cli_tables.py`), which name
+   the catalogs of the version.
 
 `tests/test_catalog_registry.py` checks the consistency of the registry, and that a new entry reaches
 every derived table.

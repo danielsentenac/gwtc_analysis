@@ -13,6 +13,9 @@ if str(PKG_ROOT) not in sys.path:
 import gwtc_analysis.cli as cli
 
 
+CATALOGS_START = "<!-- CATALOG_COVERAGE_BEGIN -->"
+CATALOGS_END = "<!-- CATALOG_COVERAGE_END -->"
+
 START = "<!-- CLI_TABLES_BEGIN -->"
 END = "<!-- CLI_TABLES_END -->"
 
@@ -43,6 +46,18 @@ def _parser_to_md_tables(parser: argparse.ArgumentParser) -> str:
         lines.append("")
     return "\n".join(lines).strip() + "\n"
 
+def _fill_coverage(txt: str) -> str:
+    """The block naming the catalogs of this version, generated from the catalog registry."""
+    if CATALOGS_START not in txt:
+        return txt
+    from gwtc_analysis import __version__
+    from gwtc_analysis import catalog_registry as reg
+    before, rest = txt.split(CATALOGS_START, 1)
+    after = rest.split(CATALOGS_END, 1)[1]
+    return (before + CATALOGS_START + "\n> " + reg.coverage_text(__version__, markdown=True) + "\n"
+            + CATALOGS_END + after)
+
+
 def main() -> None:
     parser = cli.build_parser()
     tables = _parser_to_md_tables(parser)
@@ -55,6 +70,7 @@ def main() -> None:
     before = txt.split(START)[0]
     after = txt.split(END)[1]
     new_txt = before + START + "\n\n" + tables + "\n" + END + after
+    new_txt = _fill_coverage(new_txt)
     readme_path.write_text(new_txt, encoding="utf-8")
     print("✔ README.md updated from cli.py")
 
@@ -69,6 +85,11 @@ def main() -> None:
             encoding="utf-8",
         )
         print("✔ docs/cli-reference.md updated from cli.py")
+
+    index_path = Path("docs") / "index.md"
+    if index_path.is_file():
+        index_path.write_text(_fill_coverage(index_path.read_text(encoding="utf-8")), encoding="utf-8")
+        print("✔ docs/index.md catalog coverage updated from the registry")
 
 if __name__ == "__main__":
     main()

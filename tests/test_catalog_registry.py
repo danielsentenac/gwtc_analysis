@@ -51,3 +51,15 @@ def test_a_new_catalog_is_one_registry_entry(monkeypatch):
     assert "GWTC-6: O4c" in reg.catalog_runs_help()
     with pytest.raises(KeyError):
         reg.release_catalogs("gwtc7")
+
+
+def test_readme_and_docs_name_the_catalogs_of_this_version():
+    """The coverage blocks of the README and the docs home page match the registry and the package version
+    (regenerate them with `python gwtc_analysis/gen_readme_cli_tables.py`)."""
+    from pathlib import Path
+    from gwtc_analysis import __version__
+    root = Path(__file__).resolve().parents[1]
+    expected = reg.coverage_text(__version__, markdown=True)
+    for f in ("README.md", "docs/index.md"):
+        assert expected in (root / f).read_text(encoding="utf-8"), f
+    assert reg.catalog_name("GWTC-4") == "GWTC-4.0" and reg.latest_catalog().key == "GWTC-5"

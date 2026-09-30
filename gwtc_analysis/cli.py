@@ -126,6 +126,12 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
     )
 
+    from . import __version__
+    from . import catalog_registry as _reg_v
+    p.add_argument("--version", action="version",
+                   version=f"gwtc_analysis {__version__}\n" + _reg_v.coverage_text(__version__).replace("`", ""),
+                   help="Show the version and the catalogs it covers, then exit.")
+
     sub = p.add_subparsers(dest="mode", required=True, metavar="MODE")
 
     # ---------------------------------------------------------------------
