@@ -35,7 +35,7 @@ The work is split into stages (`--stages`, all by default) sharing a work direct
 |---|---|---|
 | `--catalogs` | all the runs of the release | catalog keys (GWTC-1 … GWTC-5, or ALL): events and injections restricted to their observing runs (GWTC-1: O1–O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b). The published comparison is shown only for the release's own selection |
 | `--sensitivity-release` | `gwtc4` | injections and matching catalogs and runs: `gwtc4` = O1–O4a (validated against the paper [\[27\]](../references.md#ref-27)), `gwtc5` = O1–O4b (not yet validated against a published result) |
-| `--far-threshold` | 0.25 per year | events, and real injections, below this false-alarm rate |
+| `--far-threshold` | 0.25 per year | events (published FARs, rounded, compared inclusively: FAR ≤ threshold), and real injections (full precision, FAR < threshold), below this false-alarm rate |
 | `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR |
 | `--min-mass` | 3 M☉ | both source-frame masses above it: potential neutron stars are left out |
 | `--inj-fraction` | `auto` | injections used by the sampler runs: `auto` (the probe chooses the fastest reliable subset, then the posterior is reweighted to all the injections) or a fraction in (0, 1] (1 = all, as in the paper) |
@@ -103,7 +103,10 @@ Validation on the PLP reproduction:
 
 The reweighting stage reproduces the result computed independently: H₀ = 106.5 (+45.0 / −34.0) with
 all the injections, effective sample size 2564 of 3582. For MLTP it gives 78.5 (+38.7 / −26.7), from
-89.1 with the subset, effective sample size 2592 of 3862. A numeric `--inj-fraction` bypasses the
+89.1 with the subset, effective sample size 2592 of 3862. The runner's `reweight --target-inputs`
+also reweights to a likelihood with other inputs: adding the 137th event of the paper (GW191127) this
+way gives 105.8 (+44.7 / −33.2) for PLP and 78.6 (+38.0 / −26.5) for MLTP, with effective sample sizes
+of 68% and 66%. A numeric `--inj-fraction` bypasses the
 probe; `--inj-fraction 1` samples with all the injections, as the paper does, and needs no
 reweighting.
 
