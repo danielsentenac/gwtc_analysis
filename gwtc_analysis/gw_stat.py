@@ -43,14 +43,10 @@ from .data_repo import zenodo_skymap_tarball
 
 FIGSIZE = (6, 4)
 
-ALLOWED_CATALOGS = (
-    "GWTC-1",
-    "GWTC-2.1",
-    "GWTC-3",
-    "GWTC-4",
-    "GWTC-5",
-    "ALL",
-)
+from .catalog_registry import allowed_catalogs as _allowed_catalogs, products_catalog as _products_catalog, \
+    s3_prefix as _s3_prefix
+
+ALLOWED_CATALOGS = _allowed_catalogs()
 def _download_with_byte_progress(
     url: str,
     dest: Path,
@@ -503,8 +499,7 @@ def _galaxy_effective_catalog(catalog: str) -> str:
     """
     Galaxy staging convention: GWTC-1 events are contained in GWTC-2.1.
     """
-    c = (catalog or "").strip()
-    return "GWTC-2.1" if c == "GWTC-1" else c
+    return _products_catalog(catalog)
 
 def resolve_galaxy_inputs_dir(
     *,
@@ -1014,20 +1009,8 @@ def _s3_client_from_env() -> Minio:
     )
 
 def _catalog_to_s3_prefix(catalog_key: str) -> str:
-    """
-    Map your CLI catalog keys to S3 folder names.
-    Adjust if you want GWTC-3 to point to GWTC-3/, etc.
-    """
-    if catalog_key.startswith("GWTC-2.1"):
-        return "GWTC-2.1/"
-    if catalog_key.startswith("GWTC-3"):
-        return "GWTC-3/"
-    if catalog_key.startswith("GWTC-4"):
-        return "GWTC-4/"
-    if catalog_key.startswith("GWTC-5"):
-        return "GWTC-5/"
-    # fallback: try exact
-    return f"{catalog_key}/"
+    """Map the CLI catalog keys to S3 folder names (catalog_registry)."""
+    return _s3_prefix(catalog_key)
 
 def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False) -> dict[str, str]:
     """

@@ -47,7 +47,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-report` | `hubble_constant.html` | Output HTML report path. |
 | `--out-summary` | `hubble_constant.tsv` | Output TSV of the posterior quantiles. |
 | `--sensitivity-release` | `gwtc4` | LVK search-sensitivity release (and matching catalogs and runs): gwtc4 = GWTC-4.0 cumulative, semi-analytic O1+O2 + real O3+O4a injections; gwtc5 = GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections. |
-| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are restricted to their observing runs. Default: all the runs of --sensitivity-release (gwtc4: O1-O4a, the published analysis; gwtc5: O1-O4b). |
+| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are restricted to their observing runs. Default: all the runs of --sensitivity-release (gwtc4: O1-O4a; gwtc5: O1-O4b; gwtc4: the published analysis). |
 | `--sensitivity-file` | `` | Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's. |
 | `--far-threshold` | `0.25` | FAR threshold [1/yr] for the events and the real injections. |
 | `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections. |

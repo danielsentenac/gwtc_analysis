@@ -99,3 +99,28 @@ Essick et al. 2025 [\[38\]](references.md#ref-38).
 
 GW170817 has no PESummary file in the catalog releases. `build_unofficial_pe` rebuilds one from the
 public GWTC-1 products of the LIGO DCC: see [build_unofficial_pe](modes/unofficial-pe.md).
+
+## Adding a new catalog
+
+All the catalogs, observing runs and sensitivity releases are described in one module,
+`gwtc_analysis/catalog_registry.py`; every other table of the package (catalog keys, GWOSC list names,
+Zenodo records, S3 prefixes, run mappings, the `ALL` expansions, the releases of `rates` and
+`hubble_constant`, the help texts) is derived from it. When the LVK publishes a new catalog (for
+instance the one of the O4c run):
+
+1. **`OBSERVING_RUNS`**: add the run with its GWOSC GPS boundaries.
+2. **`CATALOGS`**: add an entry with the catalog key, its GWOSC event list, its run(s), its Zenodo
+   record(s) (one per part of a split release, the first one with the skymap tarball name) and its S3
+   prefix. The record IDs are only starting points: the latest version of each is resolved at run time.
+3. **`SENSITIVITY_RELEASES`**, if the catalog comes with injections: its Zenodo record, the covered runs
+   and the patterns of its real and semi-analytic mixture files; set `DEFAULT_RATES_RELEASE` to it. The
+   spectral-siren values of the matching cosmology paper, when published, go in `published`.
+4. Check what the registry cannot know in advance: the PE labels of the new files (`hubble_constant`
+   prefers `IMRPhenomXPHM-SpinTaylor`), any new PE distance-prior class (unknown ones stop the
+   `prepare` stage with an error), the priors of a new cosmology paper (`h0_icarogw.PRIOR_SETS`), and
+   events with missing products (`pe_supplements.py`).
+5. Upload the new release to the S3 bucket and the Galaxy history if these repositories are used, then
+   update the catalog tables of these pages.
+
+`tests/test_catalog_registry.py` checks the consistency of the registry, and that a new entry reaches
+every derived table.
