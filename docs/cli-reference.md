@@ -9,7 +9,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all. |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5). ALL takes them all except the updates (GWTC-4.1, update of GWTC-4), which are used only when named. |
 | `--out-events` | `catalogs_statistics.tsv` | Output TSV path (per-event table). |
 | `--out-report` | `catalogs_statistics.html` | Output HTML report path. |
 | `--include-detectors` | `False` | Include detector network via GWOSC v2 calls. |
@@ -34,7 +34,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--ns-max-mass` | `2.5` | Maximum neutron-star mass [Msun] separating NS from BH. |
 | `--bbh-kappa` | `2.9` | BBH rate evolution R ∝ (1+z)^kappa. |
 | `--bbh-z-ref` | `0.2` | Redshift at which the evolving BBH rate is reported. |
-| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are restricted to their observing runs (GWTC-1: O1-O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b). Default: the runs of the real-injection mixture (O3 onward). |
+| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5, or ALL): events and injections are restricted to their observing runs (GWTC-1: O1-O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-4.1: O4a, GWTC-5: O4b). Default: the runs of the real-injection mixture (O3 onward). |
 | `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1). |
 
 ## `hubble_constant`
@@ -47,7 +47,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-report` | `hubble_constant.html` | Output HTML report path. |
 | `--out-summary` | `hubble_constant.tsv` | Output TSV of the posterior quantiles. |
 | `--sensitivity-release` | `gwtc4` | LVK search-sensitivity release (and matching catalogs and runs): gwtc4 = GWTC-4.0 cumulative, semi-analytic O1+O2 + real O3+O4a injections; gwtc5 = GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections. |
-| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are restricted to their observing runs. Default: all the runs of --sensitivity-release (gwtc4: O1-O4a; gwtc5: O1-O4b; gwtc4: the published analysis). |
+| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5, or ALL): events and injections are restricted to their observing runs. Default: all the runs of --sensitivity-release (gwtc4: O1-O4a; gwtc5: O1-O4b; gwtc4: the published analysis). |
 | `--sensitivity-file` | `` | Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's. |
 | `--far-threshold` | `0.25` | FAR threshold [1/yr] for the events and the real injections. |
 | `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections. |
@@ -73,7 +73,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all. |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5). ALL takes them all except the updates (GWTC-4.1, update of GWTC-4), which are used only when named. |
 | `--out-selection` | `event_selection.tsv` | Output TSV path for the selected events. |
 | `--m1-min` | `` | Minimum primary mass (source frame). |
 | `--m1-max` | `` | Maximum primary mass (source frame). |
@@ -88,7 +88,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all. |
+| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5). ALL takes them all except the updates (GWTC-4.1, update of GWTC-4), which are used only when named. |
 | `--ra-deg` | `` | Right ascension (deg). |
 | `--dec-deg` | `` | Declination (deg). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
@@ -135,6 +135,14 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--src-name` | `` | Source event name (e.g. GW170817). |
 | `--cache-dir` | `.cache_gwosc` | Cache root where unofficial_pe/<bundle>.h5 will be written. |
 | `--force` | `False` | Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date. |
+
+## `check_catalogs`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--out-json` | `` | Optional JSON file with the full report. |
+| `--sample-events` | `3` | Events of each new list whose PE links are used to find its Zenodo records. |
 
 ## `zenodo_releases`
 

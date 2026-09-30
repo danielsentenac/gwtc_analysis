@@ -20,8 +20,13 @@ def test_registry_is_consistent():
         assert all(r in reg.OBSERVING_RUNS for r in s.runs)
     assert reg.DEFAULT_RATES_RELEASE in reg.SENSITIVITY_RELEASES and reg.DEFAULT_H0_RELEASE in reg.SENSITIVITY_RELEASES
     # the historical tables are reproduced
-    assert reg.allowed_catalogs() == ("GWTC-1", "GWTC-2.1", "GWTC-3", "GWTC-4", "GWTC-5", "ALL")
-    assert list(reg.zenodo_releases()) == ["GWTC-5", "GWTC-4", "GWTC-3", "GWTC-2.1"]     # newest first
+    assert reg.allowed_catalogs() == ("GWTC-1", "GWTC-2.1", "GWTC-3", "GWTC-4", "GWTC-4.1", "GWTC-5", "ALL")
+    assert list(reg.zenodo_releases()) == ["GWTC-5", "GWTC-4.1", "GWTC-4", "GWTC-3", "GWTC-2.1"]     # newest first
+    # the update GWTC-4.1 (a re-analysis of O4a) is used only when named: ALL and the defaults are unchanged
+    assert reg.default_catalog_keys() == ("GWTC-1", "GWTC-2.1", "GWTC-3", "GWTC-4", "GWTC-5")
+    assert tuple(reg.expand_all(["ALL"])) == reg.default_catalog_keys()
+    assert reg.update_catalogs(["GWTC-4.1", "GWTC-5"]) == ("GWTC-4.1",) and reg.is_update("GWTC-4.1")
+    assert "GWTC-4.1" not in reg.skymap_catalogs() and "GWTC-4.1" not in reg.gwosc_lists()
     assert reg.products_catalog("GWTC-1") == "GWTC-2.1" and reg.products_catalog("GWTC-4") == "GWTC-4"
     assert reg.release_catalogs("gwtc4") == ("GWTC-1", "GWTC-2.1", "GWTC-3", "GWTC-4")
 

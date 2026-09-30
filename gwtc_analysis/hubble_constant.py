@@ -83,7 +83,7 @@ def _full_name(gps: float) -> str:
 
 
 def select_h0_events(release: str, far_threshold: float, min_mass: float, exclude: Iterable[str],
-                     runs: Optional[Iterable[str]] = None) -> pd.DataFrame:
+                     runs: Optional[Iterable[str]] = None, extra_lists: Iterable[str] = ()) -> pd.DataFrame:
     """BBH events of the release's catalogs: lowest FAR at most the threshold, inside its runs (or `runs`), both
     masses >= min_mass."""
     cfg = dict(H0_SENSITIVITY_RELEASES[release])
@@ -91,7 +91,7 @@ def select_h0_events(release: str, far_threshold: float, min_mass: float, exclud
         cfg["runs"] = tuple(r for r in cfg["runs"] if r in set(runs))
     exclude = set(exclude)
     best: dict[str, dict] = {}
-    for cat in cfg["catalogs"]:
+    for cat in tuple(cfg["catalogs"]) + tuple(extra_lists):     # extra_lists: of update catalogs (GWTC-4.1)
         try:
             raw = gw.fetch_gwtc_events(cat)
         except Exception as e:
@@ -173,7 +173,8 @@ def _pe_extract_path(cache: Path, name: str) -> Optional[Path]:
     return None
 
 
-def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False, workers: int = 3) -> dict[str, Path]:
+def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False, workers: int = 3,
+                     prefer_catalogs: Iterable[str] = ()) -> dict[str, Path]:
     """Download (once) the PE file of each event from Zenodo and extract its samples; restartable."""
     from . import parameters_estimation as pe
 
@@ -183,7 +184,13 @@ def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False
     todo = [r for _, r in events.iterrows() if r["event"] not in out]
     if not todo:
         return out
-    index = pe.build_zenodo_pe_index(cache_dir=str(cache / "index"), force_refresh=False)
+    record_ids = None
+    if prefer_catalogs:       # update catalogs first (their PE files are then chosen), then the default ones
+        from .data_repo import resolve_zenodo_records
+
+        record_ids = [r.record_id for c in prefer_catalogs for r in resolve_zenodo_records(c, None)]
+        record_ids += pe.zenodo_pe_record_ids()
+    index = pe.build_zenodo_pe_index(cache_dir=str(cache / "index"), force_refresh=False, record_ids=record_ids)
     jobs, missing = [], []
     for r in todo:
         cands = index.get(r["event"]) or index.get(r["common_name"])
@@ -327,7 +334,8 @@ def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: f
 
 def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold: float, snr_threshold: float,
                    min_mass: float, exclude: Iterable[str], pe_cache: Path, keep_pe_files: bool,
-                   max_pe_samples: int = 5000, runs: Optional[Iterable[str]] = None) -> pd.DataFrame:
+                   max_pe_samples: int = 5000, runs: Optional[Iterable[str]] = None,
+                   updates: tuple[str, ...] = ()) -> pd.DataFrame:
     """Write <workdir>/inputs.h5 (events + injections), <workdir>/events.tsv and <workdir>/selection.json."""
     import h5py
 
@@ -338,11 +346,13 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
     if missing:
         raise ValueError(f"The {release} sensitivity release does not cover {', '.join(missing)}")
     inj_path = h0_sensitivity_path(sensitivity_file, release)
-    events = select_h0_events(release, far_threshold, min_mass, exclude, runs)
+    events = select_h0_events(release, far_threshold, min_mass, exclude, runs,
+                              extra_lists=_reg.gwosc_lists(updates) if updates else ())
     if events.empty:
         raise ValueError("No event passes the selection")
     _log(f"{len(events)} BBH events: " + ", ".join(f"{r} {n}" for r, n in events["run"].value_counts().sort_index().items()))
-    extracts = fetch_pe_samples(events, pe_cache, keep_files=keep_pe_files)
+    extracts = fetch_pe_samples(events, pe_cache if not updates else pe_cache / "_".join(updates),
+                                keep_files=keep_pe_files, prefer_catalogs=updates)
     rng = np.random.default_rng(12345)
     labels, priors, nsamp = [], [], []
     with h5py.File(workdir / "inputs.h5.part", "w") as h:
@@ -371,8 +381,8 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
     (workdir / "inputs.h5.part").replace(workdir / "inputs.h5")
     events["pe_label"], events["pe_distance_prior"], events["pe_samples"] = labels, priors, nsamp
     events.to_csv(workdir / "events.tsv", sep="\t", index=False)
-    (workdir / "selection.json").write_text(json.dumps(dict(release=release, runs=list(runs),
-                                                            default_runs=runs == tuple(release_runs))))
+    (workdir / "selection.json").write_text(json.dumps(dict(release=release, runs=list(runs), updates=list(updates),
+                                                            default_runs=runs == tuple(release_runs) and not updates)))
     _log(f"{len(inj['prior'])} found injections of {inj['n_recorded']} recorded ({inj_path.name}); "
          f"inputs written to {workdir / 'inputs.h5'}")
     return events
@@ -691,7 +701,8 @@ def run_hubble_constant(
     if "prepare" in stages:
         prepare_inputs(workdir, sensitivity_release, sensitivity_file, far_threshold, snr_threshold, min_mass,
                        exclude, Path(pe_cache).expanduser() if pe_cache else default_pe_cache(), keep_pe_files,
-                       runs=catalog_runs(catalogs) if catalogs else None)
+                       runs=catalog_runs(catalogs) if catalogs else None,
+                       updates=_reg.update_catalogs(catalogs or ()))
     if any(st in stages for st in ("sample", "combine", "reweight")):
         _check_runner(python)
     ncpu = os.cpu_count() or 1

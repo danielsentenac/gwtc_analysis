@@ -14,7 +14,13 @@ from the event API of the [Gravitational Wave Open Science Center](https://gwosc
 | `GWTC-2.1` | `GWTC-2.1-confident` | O3a (44), plus O1 (3) and O2 (7) re-analysed | 54 | [Zenodo 6513631](https://zenodo.org/records/6513631) |
 | `GWTC-3` | `GWTC-3-confident` | O3b | 35 | [Zenodo 22685054](https://zenodo.org/records/22685054) |
 | `GWTC-4` | `GWTC-4.0` | O4a (128), plus GW230518 from the engineering run ER15 | 129 | [Zenodo 17602505](https://zenodo.org/records/17602505) |
+| `GWTC-4.1` | `GWTC-4.1` | O4a (138), plus GW230517 and GW230518 from ER15: GWTC-4.0 re-analysed, with 11 new events | 140 | [Zenodo 20275769](https://zenodo.org/records/20275769) |
 | `GWTC-5` | `GWTC-5.0` | O4b (156), plus 5 events of 6–8 April 2024, just before the start of O4b | 161 | [Zenodo 20348005](https://zenodo.org/records/20348005) (part 1, with the skymaps) and [20348006](https://zenodo.org/records/20348006) (part 2) |
+
+`GWTC-4.1` is an **update** of GWTC-4.0: the same O4a data re-analysed, with the 129 events of
+GWTC-4.0 and 11 new ones. It is used only when named (`--catalogs GWTC-4.1`), in place of `GWTC-4` for
+the O4a events: `ALL` and the defaults of every mode keep GWTC-4.0, the catalog of the published
+analyses. Its PE files are read only on request (`--zenodo-version GWTC-4.1=latest`).
 
 All the keys are **confident** catalogs: every event of these lists has a probability of
 astrophysical origin p_astro ≥ 0.5 (the re-analysed O1–O2 events of GWTC-2.1 carry no p_astro value).
@@ -108,10 +114,26 @@ Zenodo records, S3 prefixes, run mappings, the `ALL` expansions, the releases of
 `hubble_constant`, the help texts) is derived from it. When the LVK publishes a new catalog (for
 instance the one of the O4c run):
 
-1. **`OBSERVING_RUNS`**: add the run with its GWOSC GPS boundaries.
+0. **`check_catalogs`** compares what GWOSC and Zenodo publish with the registry:
+
+    ```bash
+    gwtc_analysis check_catalogs --out-json check.json
+    ```
+
+    It reports the GWTC event lists and observing runs that the registry does not describe, and the
+    registry records that have a newer Zenodo version. For each new list it drafts the registry entry:
+    the observing runs of its events, its Zenodo records (found from the PE links of its events in the
+    GWOSC v2 API) with their concept IDs and skymap tarball, and `update_of` when the list covers the runs
+    of an existing catalog (a re-analysis, as GWTC-4.1 of GWTC-4.0). The draft is a starting point: check
+    it against the release notes. On the current registry it reports nothing new.
+
+1. **`OBSERVING_RUNS`**: add the run with its official start and end of observing (the GWOSC run
+   limits may include the engineering run before it).
 2. **`CATALOGS`**: add an entry with the catalog key, its GWOSC event list, its run(s), its Zenodo
    record(s) (one per part of a split release, the first one with the skymap tarball name) and its S3
    prefix. The record IDs are only starting points: the latest version of each is resolved at run time.
+   An update of an existing catalog (a re-analysis of the same runs) takes `update_of`: it is then
+   used only when named, and `ALL` and the defaults are unchanged.
 3. **`SENSITIVITY_RELEASES`**, if the catalog comes with injections: its Zenodo record, the covered runs
    and the patterns of its real and semi-analytic mixture files; set `DEFAULT_RATES_RELEASE` to it. The
    spectral-siren values of the matching cosmology paper, when published, go in `published`.

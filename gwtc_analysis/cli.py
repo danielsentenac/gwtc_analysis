@@ -11,7 +11,7 @@ from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
 from .unofficial_pe import build_unofficial_pe_bundle, get_unofficial_pe_spec, list_unofficial_pe_specs
 from .gw_stat import ALLOWED_CATALOGS as ALLOWED_CATALOGS
-from .catalog_registry import DEFAULT_H0_RELEASE, catalog_help, catalog_runs_help, release_runs_help
+from .catalog_registry import DEFAULT_H0_RELEASE, catalog_help, catalog_runs_help, release_runs_help, update_help
 
 DEFAULT_H0_RELEASE_TEXT = f"{DEFAULT_H0_RELEASE}: the published analysis"
 from .data_repo import parse_zenodo_version, zenodo_catalogs
@@ -121,6 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis parameters_estimation -h\n"
             "  gwtc_analysis build_unofficial_pe -h\n"
             "  gwtc_analysis zenodo_releases -h\n"
+            "  gwtc_analysis check_catalogs -h\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -148,7 +149,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--catalogs",
         required=True,
         nargs="+",
-        help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL key takes them all.",
+        help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL takes them all except the updates "
+             f"({update_help()}), which are used only when named.",
     )
     p_cat.add_argument("--out-events", default="catalogs_statistics.tsv", help="Output TSV path (per-event table).")
     p_cat.add_argument("--out-report", default="catalogs_statistics.html", help="Output HTML report path.")
@@ -295,7 +297,8 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sel.add_argument("--catalogs", required=True, nargs="+", help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL key takes them all.")
+    p_sel.add_argument("--catalogs", required=True, nargs="+", help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL takes them all except the updates "
+             f"({update_help()}), which are used only when named.")
     p_sel.add_argument("--out-selection", default="event_selection.tsv", help="Output TSV path for the selected events.")
     p_sel.add_argument("--m1-min", type=float, default=None, help="Minimum primary mass (source frame).")
     p_sel.add_argument("--m1-max", type=float, default=None, help="Maximum primary mass (source frame).")
@@ -320,7 +323,8 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sky.add_argument("--catalogs", required=True, nargs="+", help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL key takes them all.")
+    p_sky.add_argument("--catalogs", required=True, nargs="+", help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL takes them all except the updates "
+             f"({update_help()}), which are used only when named.")
     p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
     p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
@@ -401,6 +405,21 @@ def build_parser() -> argparse.ArgumentParser:
     # ---------------------------------------------------------------------
     # zenodo_releases
     # ---------------------------------------------------------------------
+    p_chk = sub.add_parser(
+        "check_catalogs",
+        help="Compare the catalogs published by GWOSC and Zenodo with the catalog registry.",
+        description=(
+            "Reports the GWOSC event lists and observing runs that gwtc_analysis/catalog_registry.py does not\n"
+            "describe, and proposes for each new list a draft registry entry (its runs, and its Zenodo\n"
+            "records found from the PE links of its events, with concept IDs, latest versions and skymap\n"
+            "tarballs). Also reports registry records with a newer Zenodo version (used at run time anyway).\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_chk.add_argument("--out-json", default=None, help="Optional JSON file with the full report.")
+    p_chk.add_argument("--sample-events", type=int, default=3,
+                       help="Events of each new list whose PE links are used to find its Zenodo records.")
+
     p_zen = sub.add_parser(
         "zenodo_releases",
         help="List the Zenodo release versions of each catalog (for --zenodo-version).",
@@ -588,6 +607,12 @@ def main(argv=None) -> int:
                     "See warnings above for the expected paths."
                 )
             print(out)
+            return 0
+
+        if args.mode == "check_catalogs":
+            from .catalog_check import run_check_catalogs
+
+            run_check_catalogs(out_json=args.out_json, sample_events=args.sample_events)
             return 0
 
         if args.mode == "zenodo_releases":

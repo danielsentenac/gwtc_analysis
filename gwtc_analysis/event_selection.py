@@ -98,7 +98,9 @@ def run_event_selection(
     # Expand ALL catalog selector
     requested = list(catalogs)
     if "ALL" in catalogs:
-        catalogs = [c for c in gw.ALLOWED_CATALOGS if c != "ALL"]
+        from .catalog_registry import expand_all
+
+        catalogs = expand_all(catalogs)          # the default catalogs, without the updates (GWTC-4.1)
 
     # Fetch per-catalog event tables
     dfs: list[pd.DataFrame] = []

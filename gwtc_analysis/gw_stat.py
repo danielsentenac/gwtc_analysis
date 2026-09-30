@@ -203,9 +203,9 @@ def fetch_gwtc_events(catalog: str):
     # Expand ALL into a merged dict of events from all catalogs (excluding ALL itself)
     if catalog == "ALL":
         merged: dict = {"events": {}}
-        for c in ALLOWED_CATALOGS:
-            if c == "ALL":
-                continue
+        from .catalog_registry import default_catalog_keys
+
+        for c in default_catalog_keys():      # the default catalogs, without the updates (GWTC-4.1)
             raw = fetch_gwtc_events(c)
             # Defensive: accept either dict events or missing
             evs = raw.get("events", {}) if isinstance(raw, dict) else {}

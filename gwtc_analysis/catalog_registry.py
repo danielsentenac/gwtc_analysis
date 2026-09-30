@@ -42,7 +42,10 @@ class Catalog:
     if GWOSC publishes them; ``runs``: the observing runs of its new events; ``zenodo``: the Zenodo record
     series of its PE files and skymaps (several parts for a split release); ``products_from``: the catalog
     whose releases hold its PE files and skymaps when it has none of its own (GWTC-1 → GWTC-2.1);
-    ``s3_prefix``: its folder in the S3 bucket.
+    ``s3_prefix``: its folder in the S3 bucket; ``update_of``: the catalog it re-analyses (GWTC-4.1 →
+    GWTC-4). An update covers the same events again, so it is used only when named explicitly: it is left
+    out of ALL, of the default event lists and releases, and of the default PE index, which keeps the
+    results of the original catalog unchanged.
     """
     key: str
     gwosc_list: str
@@ -51,6 +54,7 @@ class Catalog:
     zenodo: tuple[ZenodoRelease, ...] = ()
     products_from: Optional[str] = None
     s3_prefix: Optional[str] = None
+    update_of: Optional[str] = None
 
     @property
     def has_skymaps(self) -> bool:
@@ -100,6 +104,8 @@ CATALOGS: dict[str, Catalog] = {c.key: c for c in (
     Catalog("GWTC-4", "GWTC-4.0", ("O4a",),
             zenodo=(ZenodoRelease("17602505", "IGWN-GWTC4p0-38214bd95_724-Archived_Skymaps.tar.gz"),),  # concept 16053483
             s3_prefix="GWTC-4/"),
+    Catalog("GWTC-4.1", "GWTC-4.1", ("O4a",), update_of="GWTC-4",      # O4a re-analysed with the GWTC-5.0 methods
+            zenodo=(ZenodoRelease("20275769", "IGWN-GWTC4p1-18965dda8_5-Archived_Skymaps.tar.gz"),)),  # concept 20275768
     Catalog("GWTC-5", "GWTC-5.0", ("O4b",),
             zenodo=(ZenodoRelease("20348005", "IGWN-GWTC5p0-29ebe06b7_25-Archived_Skymaps.tar.gz"),  # part 1 of 2 (concept 20276105)
                     ZenodoRelease("20348006")),                                                     # part 2 of 2 (concept 20291739)
@@ -133,6 +139,14 @@ SENSITIVITY_RELEASES: dict[str, SensitivityRelease] = {s.key: s for s in (
         }),
 )}
 
+# GWOSC event lists deliberately not used, with the reason (check_catalogs does not report them)
+IGNORED_GWOSC_LISTS: dict[str, str] = {
+    "GWTC": "cumulative list of the confident events of all catalogs",
+    "GWTC-2": "superseded by GWTC-2.1",
+    "GWTC-2.1-auxiliary": "GWTC-2 candidates below the GWTC-2.1 thresholds",
+    "GWTC-1-marginal": "marginal GWTC-1 candidates, none with FAR below 1 per year",
+}
+
 DEFAULT_RATES_RELEASE = "gwtc5"       # the latest release
 DEFAULT_H0_RELEASE = "gwtc4"          # the release of the reproduced, published analysis
 
@@ -145,6 +159,26 @@ def catalog_keys() -> tuple[str, ...]:
     return tuple(CATALOGS)
 
 
+def default_catalog_keys() -> tuple[str, ...]:
+    """The catalogs ALL stands for: every catalog except the updates of another one."""
+    return tuple(c.key for c in CATALOGS.values() if not c.update_of)
+
+
+def expand_all(catalogs: Iterable[str]) -> list[str]:
+    """Catalog keys with ALL replaced by the default catalogs, duplicates removed, order kept."""
+    out: list[str] = []
+    for c in catalogs or []:
+        for k in (default_catalog_keys() if c == "ALL" else (c,)):
+            if k not in out:
+                out.append(k)
+    return out
+
+
+def update_catalogs(catalogs: Iterable[str]) -> tuple[str, ...]:
+    """The update catalogs among some catalog keys."""
+    return tuple(k for k in catalogs or () if k in CATALOGS and CATALOGS[k].update_of)
+
+
 def allowed_catalogs() -> tuple[str, ...]:
     """The catalog keys of the command line, and ALL."""
     return catalog_keys() + ("ALL",)
@@ -152,6 +186,11 @@ def allowed_catalogs() -> tuple[str, ...]:
 
 def catalog_help(examples: Optional[Iterable[str]] = None) -> str:
     return " ".join(examples or catalog_keys())
+
+
+def update_help() -> str:
+    """'GWTC-4.1, update of GWTC-4' for the help texts."""
+    return "; ".join(f"{c.key}, update of {c.update_of}" for c in CATALOGS.values() if c.update_of)
 
 
 def gwosc_list(key: str) -> str:
@@ -165,10 +204,12 @@ def gwosc_aliases() -> dict[str, str]:
 
 
 def gwosc_lists(catalogs: Optional[Iterable[str]] = None, marginal: bool = True) -> tuple[str, ...]:
-    """GWOSC lists (confident, and marginal ones if published) of some catalogs (default: all), in time order."""
+    """GWOSC lists (confident, and marginal ones if published) of some catalogs (default: the default catalogs,
+    without the updates), in time order."""
+    keys = set(default_catalog_keys() if catalogs is None else catalogs)
     out = []
     for c in CATALOGS.values():
-        if catalogs is not None and c.key not in set(catalogs):
+        if c.key not in keys:
             continue
         out.append(c.gwosc_list)
         if marginal and c.marginal_list:
@@ -177,8 +218,12 @@ def gwosc_lists(catalogs: Optional[Iterable[str]] = None, marginal: bool = True)
 
 
 def zenodo_releases() -> dict[str, tuple[ZenodoRelease, ...]]:
-    """Catalog key → Zenodo record series of its PE files and skymaps, newest first."""
+    """Catalog key → Zenodo record series of its PE files and skymaps, newest first (updates included)."""
     return {c.key: c.zenodo for c in reversed(list(CATALOGS.values())) if c.zenodo}
+
+
+def is_update(key: str) -> bool:
+    return key in CATALOGS and bool(CATALOGS[key].update_of)
 
 
 def products_catalog(key: str) -> str:
@@ -188,8 +233,8 @@ def products_catalog(key: str) -> str:
 
 
 def skymap_catalogs() -> list[str]:
-    """Catalogs with skymap releases, in time order (what ALL means for skymap searches)."""
-    return [c.key for c in CATALOGS.values() if c.has_skymaps]
+    """Default catalogs with skymap releases, in time order (what ALL means for skymap searches)."""
+    return [c.key for c in CATALOGS.values() if c.has_skymaps and not c.update_of]
 
 
 def s3_prefix(key: str) -> str:
@@ -218,7 +263,7 @@ def release_runs() -> dict[str, tuple[str, ...]]:
 def release_catalogs(release: str) -> tuple[str, ...]:
     """Catalog keys whose runs are all covered by a sensitivity release."""
     runs = set(SENSITIVITY_RELEASES[release].runs)
-    return tuple(c.key for c in CATALOGS.values() if set(c.runs) <= runs)
+    return tuple(c.key for c in CATALOGS.values() if set(c.runs) <= runs and not c.update_of)
 
 
 def _span(runs: Iterable[str]) -> str:
@@ -234,3 +279,18 @@ def catalog_runs_help() -> str:
 def release_runs_help() -> str:
     """'gwtc4: O1-O4a, gwtc5: O1-O4b' for the help texts."""
     return "; ".join(f"{k}: {_span(r.runs)}" for k, r in sorted(SENSITIVITY_RELEASES.items()))
+
+
+def known_gwosc_lists() -> set[str]:
+    """GWOSC lists described by the registry or deliberately ignored."""
+    out = set(IGNORED_GWOSC_LISTS)
+    for c in CATALOGS.values():
+        out.add(c.gwosc_list)
+        if c.marginal_list:
+            out.add(c.marginal_list)
+    return out
+
+
+def run_of(gps: float) -> Optional[str]:
+    """Observing run containing a GPS time, or None (engineering runs, gaps)."""
+    return next((r.name for r in OBSERVING_RUNS.values() if r.start_gps <= float(gps) <= r.end_gps), None)
