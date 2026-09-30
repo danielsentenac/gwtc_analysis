@@ -192,6 +192,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_rate.add_argument("--ns-max-mass", type=float, default=2.5, help="Maximum neutron-star mass [Msun] separating NS from BH.")
     p_rate.add_argument("--bbh-kappa", type=float, default=2.9, help="BBH rate evolution R ∝ (1+z)^kappa.")
     p_rate.add_argument("--bbh-z-ref", type=float, default=0.2, help="Redshift at which the evolving BBH rate is reported.")
+    p_rate.add_argument("--catalogs", nargs="+", default=None,
+                        help="Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are "
+                             "restricted to their observing runs (GWTC-1: O1-O2, GWTC-2.1: O3a, GWTC-3: O3b, "
+                             "GWTC-4: O4a, GWTC-5: O4b). Default: the runs of the real-injection mixture (O3 onward).")
+    p_rate.add_argument("--snr-threshold", type=float, default=10.0,
+                        help="Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1).")
 
     # ---------------------------------------------------------------------
     # hubble_constant
@@ -231,6 +237,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="LVK search-sensitivity release (and matching catalogs and runs): "
         + "; ".join(f"{k} = {v['label']}" for k, v in H0_SENSITIVITY_RELEASES.items()) + ".",
     )
+    p_h0.add_argument("--catalogs", nargs="+", default=None,
+                      help="Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are "
+                           "restricted to their observing runs. Default: all the runs of --sensitivity-release "
+                           "(gwtc4: O1-O4a, the published analysis; gwtc5: O1-O4b).")
     p_h0.add_argument("--sensitivity-file", default=None,
                       help="Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's.")
     p_h0.add_argument("--far-threshold", type=float, default=0.25,
@@ -450,6 +460,8 @@ def main(argv=None) -> int:
                 ns_max_mass=args.ns_max_mass,
                 bbh_kappa=args.bbh_kappa,
                 bbh_z_ref=args.bbh_z_ref,
+                catalogs=_parse_catalogs(args.catalogs) if args.catalogs else None,
+                snr_threshold=args.snr_threshold,
             )
             return 0
 
@@ -464,6 +476,7 @@ def main(argv=None) -> int:
                 out_summary_tsv=args.out_summary,
                 sensitivity_release=args.sensitivity_release,
                 sensitivity_file=args.sensitivity_file,
+                catalogs=_parse_catalogs(args.catalogs) if args.catalogs else None,
                 far_threshold=args.far_threshold,
                 snr_threshold=args.snr_threshold,
                 min_mass=args.min_mass,

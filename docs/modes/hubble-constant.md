@@ -33,6 +33,7 @@ The work is split into stages (`--stages`, all by default) sharing a work direct
 
 | Option | Default | Meaning |
 |---|---|---|
+| `--catalogs` | all the runs of the release | catalog keys (GWTC-1 … GWTC-5, or ALL): events and injections restricted to their observing runs (GWTC-1: O1–O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b). The published comparison is shown only for the release's own selection |
 | `--sensitivity-release` | `gwtc4` | injections and matching catalogs and runs: `gwtc4` = O1–O4a (validated against the paper [\[27\]](../references.md#ref-27)), `gwtc5` = O1–O4b (not yet validated against a published result) |
 | `--far-threshold` | 0.25 per year | events, and real injections, below this false-alarm rate |
 | `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR |

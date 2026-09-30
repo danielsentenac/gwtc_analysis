@@ -824,11 +824,56 @@ RATES_SENSITIVITY_RELEASES = {
 }
 RATES_DEFAULT_RELEASE = "gwtc5"
 _SENSITIVITY_FILE_RE = r"^mixture-real_.*cartesian_spins.*\.hdf5?$"
+# the same releases with semi-analytic O1+O2 injections, used when O1 or O2 is selected
+_SEMI_SENSITIVITY_FILE_RE = {
+    "gwtc5": r"^mixture-semi_o1_o2-real_o3_o4a_o4b-cartesian_spins.*\.hdf5?$",
+    "gwtc4": r"^mixture-semi_o1_o2-real_o3_o4a-cartesian_spins.*\.hdf5?$",
+}
 RATES_EVENT_LISTS = (
+    "GWTC-1-confident",
     "GWTC-2.1-confident", "GWTC-2.1-marginal",
     "GWTC-3-confident", "GWTC-3-marginal",
     "GWTC-4.0", "GWTC-5.0",
 )
+
+# GWOSC observing-run boundaries (GPS), and the runs whose new events make up each catalog
+OBSERVING_RUNS = {
+    "O1": (1126051217, 1137254417), "O2": (1164556817, 1187733618),
+    "O3a": (1238166018, 1253977218), "O3b": (1256655618, 1269363618),
+    "O4a": (1368975618, 1389456018), "O4b": (1396796418, 1422118818),
+}
+CATALOG_RUNS = {
+    "GWTC-1": ("O1", "O2"), "GWTC-2.1": ("O3a",), "GWTC-3": ("O3b",), "GWTC-4": ("O4a",), "GWTC-5": ("O4b",),
+}
+SEMI_ANALYTIC_RUNS = ("O1", "O2")     # runs covered by semi-analytic injections (detection from SNR)
+RELEASE_RUNS = {                      # runs covered by each cumulative sensitivity release
+    "gwtc5": ("O1", "O2", "O3a", "O3b", "O4a", "O4b"),
+    "gwtc4": ("O1", "O2", "O3a", "O3b", "O4a"),
+}
+
+
+def catalog_runs(catalogs) -> tuple[str, ...]:
+    """Observing runs of catalog keys (ALL: every run), in time order."""
+    keys = list(CATALOG_RUNS) if (not catalogs or "ALL" in catalogs) else list(catalogs)
+    bad = [c for c in keys if c not in CATALOG_RUNS]
+    if bad:
+        raise ValueError(f"Unknown catalog(s) {', '.join(bad)}; choose from {', '.join(CATALOG_RUNS)} or ALL")
+    runs = {r for c in keys for r in CATALOG_RUNS[c]}
+    return tuple(r for r in OBSERVING_RUNS if r in runs)
+
+
+def run_of(gps: float) -> Optional[str]:
+    """Observing run containing a GPS time, or None (engineering runs, gaps)."""
+    return next((r for r, (a, b) in OBSERVING_RUNS.items() if a <= float(gps) <= b), None)
+
+
+def _in_runs(times: np.ndarray, runs) -> np.ndarray:
+    t = np.asarray(times, dtype=float)
+    m = np.zeros(len(t), dtype=bool)
+    for r in runs:
+        a, b = OBSERVING_RUNS[r]
+        m |= (t >= a) & (t <= b)
+    return m
 _YEAR_S = 3.15576e7
 
 
@@ -858,8 +903,10 @@ def _zenodo_sensitivity_file(record: str, label: str, pattern: str, tag: str = "
 
 
 def _rates_sensitivity_path(sensitivity_file: str | Path | None = None,
-                            release: str = RATES_DEFAULT_RELEASE) -> Path:
-    """Local injection file: `sensitivity_file` if given, else the `release` file, retrieved once from Zenodo."""
+                            release: str = RATES_DEFAULT_RELEASE, semi_analytic: bool = False) -> Path:
+    """Local injection file: `sensitivity_file` if given, else the `release` file, retrieved once from Zenodo.
+
+    With `semi_analytic`, the mixture that adds the semi-analytic O1+O2 injections."""
     if sensitivity_file:
         p = Path(sensitivity_file).expanduser()
         if not p.exists():
@@ -868,6 +915,8 @@ def _rates_sensitivity_path(sensitivity_file: str | Path | None = None,
     if release not in RATES_SENSITIVITY_RELEASES:
         raise ValueError(f"Unknown sensitivity release {release!r}; choose from {', '.join(RATES_SENSITIVITY_RELEASES)}")
     record, label = RATES_SENSITIVITY_RELEASES[release]
+    if semi_analytic:
+        return _zenodo_sensitivity_file(record, label + ", with semi-analytic O1+O2", _SEMI_SENSITIVITY_FILE_RE[release])
     return _zenodo_sensitivity_file(record, label, _SENSITIVITY_FILE_RE)
 
 
@@ -880,17 +929,34 @@ def _injection_segments(times: np.ndarray, max_gap_days: float = 7.0) -> list[tu
     return list(zip(starts.tolist(), ends.tolist()))
 
 
-def _load_found_injections(path: Path, far_threshold: float) -> dict:
-    """Injections found by any search with FAR below `far_threshold` [1/yr]."""
+def _found_mask(ev, searches, far_threshold: float, snr_threshold: float) -> np.ndarray:
+    """Found injections: semi-analytic network SNR above `snr_threshold` for the O1-O2 injections, lowest search
+    FAR below `far_threshold` [1/yr] for the others."""
+    far = np.min([ev[f"{s}_far"][:] for s in searches], axis=0)
+    found = far < far_threshold
+    if "semianalytic_observed_phase_maximized_snr_net" in (ev.dtype.names or ()):
+        semi = _in_runs(ev["time_geocenter"][:], SEMI_ANALYTIC_RUNS)
+        found = np.where(semi, ev["semianalytic_observed_phase_maximized_snr_net"][:] > snr_threshold, found)
+    return found
+
+
+def _load_found_injections(path: Path, far_threshold: float, snr_threshold: float = 10.0, runs=None) -> dict:
+    """Found injections (see `_found_mask`), restricted to the observing `runs` if given.
+
+    Restricting a cumulative mixture to some runs keeps the importance sums of those runs only: with the mixture
+    weights, T * sum / N_gen is then the sensitive volume-time of the selected runs."""
     import h5py
 
     lnpdraw_key = "lnpdraw_mass1_source_mass2_source_redshift_spin1x_spin1y_spin1z_spin2x_spin2y_spin2z"
     with h5py.File(path, "r") as h:
         searches = [s.decode() if isinstance(s, bytes) else str(s) for s in h.attrs["searches"]]
         ev = h["events"]
-        far = np.min([ev[f"{s}_far"][:] for s in searches], axis=0)
-        found = far < far_threshold
+        found = _found_mask(ev, searches, far_threshold, snr_threshold)
         times = ev["time_geocenter"][:]
+        if runs:
+            keep = _in_runs(times, runs)
+            found &= keep
+            times = times[keep]
         out = {k: ev[k][:][found] for k in ("mass1_source", "mass2_source", "redshift", "weights",
                                              "spin1x", "spin1y", "spin1z", "spin2x", "spin2y", "spin2z")}
         out["lnpdraw"] = ev[lnpdraw_key][:][found]
@@ -978,8 +1044,9 @@ def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_
     """GWOSC candidates inside the injection `segments` with FAR < threshold, one row per event (lowest FAR kept).
 
     Only periods covered by the injections count: e.g. GW230518 (engineering run ER15, before O4a) is excluded.
+    An event listed in several catalogs (the O1-O2 events of GWTC-1 and GWTC-2.1) is counted once, by GPS time.
     """
-    best: dict[str, dict] = {}
+    best: dict[int, dict] = {}
     for cat in RATES_EVENT_LISTS:
         try:
             raw = gw.fetch_gwtc_events(cat)
@@ -993,10 +1060,10 @@ def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_
             gps, far = float(gps), float(far)
             if not any(a <= gps <= b for a, b in segments) or far >= far_threshold:
                 continue
-            name = v.get("commonName")
-            if name in best and best[name]["far_per_yr"] <= far:
+            name, key = v.get("commonName"), int(round(gps))
+            if key in best and best[key]["far_per_yr"] <= far:
                 continue
-            best[name] = dict(event=name, catalog=cat, gps=gps, far_per_yr=far, p_astro=v.get("p_astro"),
+            best[key] = dict(event=name, catalog=cat, gps=gps, far_per_yr=far, p_astro=v.get("p_astro"),
                               mass_1_source=v.get("mass_1_source"), mass_2_source=v.get("mass_2_source"))
     df = pd.DataFrame(list(best.values()), columns=["event", "catalog", "gps", "far_per_yr", "p_astro",
                                                     "mass_1_source", "mass_2_source"])
@@ -1080,8 +1147,14 @@ def run_merger_rates(
     ns_max_mass: float = 2.5,
     bbh_kappa: float = 2.9,
     bbh_z_ref: float = 0.2,
+    catalogs: Optional[list[str]] = None,
+    snr_threshold: float = 10.0,
 ) -> pd.DataFrame:
     """Merger rates per population, R = N / <VT>, from catalog events and LVK injections.
+
+    `catalogs` (keys of CATALOG_RUNS, or ALL) restricts both the events and the injections to their observing
+    runs; by default, the runs of the real-injection mixture of the release (O3 onward). Selecting GWTC-1 uses
+    the release's mixture with semi-analytic O1+O2 injections, found above `snr_threshold`.
 
     Populations (fixed shapes): BNS with both masses uniform in [1, ns_max_mass];
     NSBH with the BH mass ~ m^-2.35 on [ns_max_mass, 40] and the NS uniform in
@@ -1089,7 +1162,17 @@ def run_merger_rates(
     without redshift evolution and with R ∝ (1+z)^bbh_kappa at z = bbh_z_ref.
     Returns the rates table (also written to `out_rates_tsv`).
     """
-    inj = _load_found_injections(_rates_sensitivity_path(sensitivity_file, sensitivity_release), far_threshold)
+    runs = catalog_runs(catalogs) if catalogs else None
+    if runs and not sensitivity_file:
+        missing = [r for r in runs if r not in RELEASE_RUNS[sensitivity_release]]
+        if missing:
+            raise ValueError(f"The {sensitivity_release} sensitivity release does not cover {', '.join(missing)}; "
+                             f"choose another --sensitivity-release")
+    semi = bool(runs) and any(r in SEMI_ANALYTIC_RUNS for r in runs)
+    inj = _load_found_injections(_rates_sensitivity_path(sensitivity_file, sensitivity_release, semi_analytic=semi),
+                                 far_threshold, snr_threshold, runs=runs)
+    if len(inj["redshift"]) == 0:
+        raise ValueError(f"No found injection in the selected runs ({', '.join(runs or [])})")
     events = _rates_events(inj["segments"], far_threshold, ns_max_mass)
     counts = events["class"].value_counts().to_dict()
     n_unknown = int(counts.get("unknown", 0))
@@ -1120,8 +1203,9 @@ def run_merger_rates(
     if out_events_tsv:
         events.to_csv(out_events_tsv, sep="\t", index=False)
     periods = ", ".join(f"{a:.0f}-{b:.0f}" for a, b in inj["segments"])
+    sel = f"runs {', '.join(runs)}" if runs else f"{inj['T_yr']:.2f} yr analysed"
     print(f"[rates] {len(events)} events with FAR < {far_threshold:g}/yr in the injection periods (GPS {periods}; "
-          f"{inj['T_yr']:.2f} yr analysed); {n_unknown} without masses left out")
+          f"{sel}); {n_unknown} without masses left out")
     for r in rows:
         print(f"[rates] {r['population']:4s} N={r['n_detected']:3d} <VT>={r['vt_gpc3_yr']:.4g} Gpc3 yr "
               f"R={r['rate_median']:.3g} [{r['rate_05']:.3g}, {r['rate_95']:.3g}] Gpc^-3 yr^-1"
@@ -1139,7 +1223,9 @@ def run_merger_rates(
         show = show[["population", "model", "z_ref", "n_detected", "vt_gpc3_yr", "rate [90%] (Gpc^-3 yr^-1)"]]
         paragraphs = [
             f"Merger rates R = N / &lt;VT&gt; from {len(events)} GWOSC candidates with FAR &lt; {far_threshold:g}/yr "
-            f"inside the span of the LVK search-sensitivity injections ({inj['T_yr']:.2f} yr of analysis time). "
+            f"inside the span of the LVK search-sensitivity injections ("
+            + (f"catalogs {', '.join(catalogs)}: runs {', '.join(runs)}" if runs else f"{inj['T_yr']:.2f} yr of analysis time")
+            + "). "
             f"Events are classified by their median source-frame masses (NS below {ns:g} Msun); "
             f"{n_unknown} candidate(s) without masses are left out.",
             "Intervals are 90% Poisson (Jeffreys prior) for fixed population shapes; the full LVK analyses fit "
