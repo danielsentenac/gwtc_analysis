@@ -1905,6 +1905,18 @@ def plot_posterior_pairs(
         # optional scatter overlay (helps when bins are coarse)
         ax.scatter(xs, ys, s=3, alpha=0.15)
 
+        # component masses: m1 >= m2 by convention, so the samples stop at the line m1 = m2
+        if {xk, yk} in ({"mass_1", "mass_2"}, {"mass_1_source", "mass_2_source"}):
+            xlim, ylim = ax.get_xlim(), ax.get_ylim()
+            lo, hi = min(xlim[0], ylim[0]), max(xlim[1], ylim[1])
+            ax.plot([lo, hi], [lo, hi], color="white", lw=1.2, ls=(0, (4, 2)), label="m₁ = m₂")
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+            leg = ax.legend(loc="lower right", fontsize=8, facecolor="black", edgecolor="white", labelcolor="white",
+                            framealpha=0.6, handlelength=3)
+            for handle in getattr(leg, "legend_handles", None) or leg.legendHandles:
+                handle.set_linewidth(1.2)          # the plot style widens legend lines
+
         ax.set_xlabel(xk if xk not in ("ra", "dec") else f"{xk} [deg]")
         ax.set_ylabel(yk if yk not in ("ra", "dec") else f"{yk} [deg]")
 
