@@ -55,7 +55,7 @@ what is seen far away comes from the higher rate there, and the local rate is lo
 
 | Release | Candidates | BNS | NSBH | BBH at z = 0.2 | BBH, constant |
 |---|---|---|---|---|---|
-| `gwtc5` (O3–O4b, 2.59 yr) | 258 | 26 [3.9, 87] | 33 [13, 67] | 25.2 [22.7, 27.9] | 41.5 [37.3, 46.0] |
+| `gwtc5` (O3–O4b, 2.59 yr) | 259 | 26 [3.9, 87] | 33 [13, 67] | 25.2 [22.7, 27.9] | 41.5 [37.3, 46.0] |
 
 Rates in Gpc⁻³ yr⁻¹, median [90%], from 1 BNS (GW190425), 4 NSBH and 248 BBH candidates with FAR
 below 1 per year. GW170817 is not counted: it is in O2, before the injection periods.

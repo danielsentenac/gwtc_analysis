@@ -73,8 +73,8 @@ NSBH rates are upper limits (90%: 113 and 40 Gpc⁻³ yr⁻¹).
 
 | Release | Candidates | BNS | NSBH | BBH at z = 0.2 |
 |---|---|---|---|---|
-| `gwtc5` (O3–O4b, 2.59 yr) | 258 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] |
-| `gwtc4` (O3–O4a, 1.7 yr) | 154 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] |
+| `gwtc5` (O3–O4b, 2.59 yr) | 259 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] |
+| `gwtc4` (O3–O4a, 1.7 yr) | 155 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] |
 
 Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK population papers:
 GWTC-5.0 [\[14\]](../references.md#ref-14) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉),

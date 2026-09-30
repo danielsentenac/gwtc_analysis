@@ -12,19 +12,20 @@ selection, PE samples, injections, population model and priors:
 
 | Quantity | gwtc_analysis | GWTC-4.0 paper [\[27\]](../references.md#ref-27) |
 |---|---|---|
-| **PLP**, H₀ (km/s/Mpc, median and 68%) | **106.5 (+45.0 / −34.0)** | 105.5 (+46.4 / −35.8) |
-| PLP, H₀ 90% interval | 54.3 – 176.9 | 50.5 – 176.1 |
-| PLP, position of the mass peak μ_g (M☉) | 28.6 (+3.9 / −4.7) | 28.3 (+4.1 / −4.4) |
-| **MLTP**, H₀ (km/s/Mpc, median and 68%) | **78.5 (+38.7 / −26.7)** | 72.3 (+42.5 / −25.6) |
-| MLTP, H₀ 90% interval | 39.6 – 152.0 | 34.2 – 154.1 |
-| BBH events | 136 | 137 |
+| **PLP**, H₀ (km/s/Mpc, median and 68%) | **105.8 (+44.7 / −33.2)** | 105.5 (+46.4 / −35.8) |
+| PLP, H₀ 90% interval | 54.4 – 175.7 | 50.5 – 176.1 |
+| PLP, position of the mass peak μ_g (M☉) | 28.7 (+3.8 / −4.6) | 28.3 (+4.1 / −4.4) |
+| **MLTP**, H₀ (km/s/Mpc, median and 68%) | **78.6 (+38.0 / −26.5)** | 72.3 (+42.5 / −25.6) |
+| MLTP, H₀ 90% interval | 40.2 – 150.6 | 34.2 – 154.1 |
+| BBH events | 137 | 137 |
 
-Both results use all the found injections, as in the paper. They were sampled with a 10% subset of
-the injections (10 runs of 100 live points each) and then **reweighted** to all of them
-([below](#injection-subsets-and-reweighting)); the reweighting keeps an effective sample size of 72%
-(PLP) and 67% (MLTP) of the samples. The PLP median agrees with the paper to 1 km/s/Mpc (0.03σ), the
-MLTP one to 6 km/s/Mpc (0.2σ), and the 90% intervals nearly coincide. The remaining differences are
-of the size of the Monte Carlo effects of the number of PE samples (below).
+Both results use the paper's 137 events and all the found injections, as in the paper. They were
+sampled with a 10% subset of the injections and 136 events (10 runs of 100 live points each), then
+**reweighted** to all the injections and the 137th event
+([below](#injection-subsets-and-reweighting)); the reweighting keeps an effective sample size of 68%
+(PLP) and 66% (MLTP) of the samples. The PLP median agrees with the paper to 0.3 km/s/Mpc, the MLTP
+one to 6 km/s/Mpc (0.2σ), and the 90% intervals nearly coincide. The remaining differences are of the
+size of the Monte Carlo effects of the number of PE samples (below).
 
 !!! note "Versions of the paper"
     The first two arXiv versions of the paper (v1 and v2, 2025) quoted PLP 112.7 (+51.0 / −35.9)
@@ -238,8 +239,10 @@ set by the data.
    lowest FAR below 0.25 per year and both source-frame masses above 3 M☉ (the GWTC-4.0 criterion for
    potential neutron stars). GW231123, whose PE depends strongly on the waveform model
    (LVK 2025 [\[44\]](../references.md#ref-44)), and the NSBH GW200105 are left out, as in the paper;
-   candidates of the engineering run ER15 fall outside the run windows. Result: **136 BBHs** (O1 3,
-   O2 7, O3a 31, O3b 20, O4a 75). The mass cut matters: with GW190814 (secondary of 2.6 M☉,
+   candidates of the engineering run ER15 fall outside the run windows. Result: **137 BBHs** (O1 3,
+   O2 7, O3a 31, O3b 21, O4a 75), as in the paper. The FARs published by GWOSC are each event's lowest
+   FAR over the search pipelines, rounded to two decimals, while the paper cuts at full precision:
+   GW191127_050227 is listed at 0.25, so the rounded values are compared inclusively (FAR ≤ 0.25). The mass cut matters: with GW190814 (secondary of 2.6 M☉,
    LVK 2020 [\[41\]](../references.md#ref-41)), no PE sample overlaps the BBH model and the likelihood
    is zero everywhere.
 2. **PE samples.** From the Zenodo PE releases (33 GB for 159 events): `C01:IMRPhenomXPHM`
@@ -324,9 +327,9 @@ for the lightest BBHs (GW190924 and some O4a events).
 ### Injection subsets and reweighting
 
 A subset of the injections estimates the detectable fraction \(\xi\) without bias, but not the
-posterior: the likelihood contains \(-N \ln \xi\) with N = 136, and the Monte Carlo noise of that term,
+posterior: the likelihood contains \(-N \ln \xi\) with N = 137, and the Monte Carlo noise of that term,
 which varies smoothly across parameter space, tilts a broad posterior. The effect was measured by
-reweighting the PLP posterior of the runs, sample by sample, to other Monte Carlo settings (weights
+reweighting the PLP posterior of the runs (136 events), sample by sample, to other Monte Carlo settings (weights
 \(\exp(\ln \mathcal{L}_\text{new} - \ln \mathcal{L}_\text{runs})\)):
 
 | Monte Carlo settings | H₀ (68%) | 90% | μ_g | Effective sample size |
@@ -344,6 +347,8 @@ reweighting the PLP posterior of the runs, sample by sample, to other Monte Carl
   expected, and the 1 km/s/Mpc agreement at 1500 is partly chance.
 - For MLTP, the reweighting to all the injections moves H₀ from 89.1 (+39.0 / −28.1) to
   78.5 (+38.7 / −26.7).
+- Adding the 137th event (GW191127, by reweighting too) moves H₀ to 105.8 (+44.7 / −33.2) for PLP and
+  78.6 (+38.0 / −26.5) for MLTP.
 
 This is why `hubble_constant` chooses its strategy automatically (`--inj-fraction auto`, the default):
 a short probe measures the speed and accuracy of each subset, the runs sample with the fastest
@@ -367,7 +372,7 @@ features the mass spectrum has, the better it pins the redshift (spectral sirens
 | SH0ES (Riess et al. 2022 [\[32\]](../references.md#ref-32)) | 73.0 ± 1.0 |
 
 gwtc_analysis implements PLP and MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`):
-78.5 (+38.7 / −26.7) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
+78.6 (+38.0 / −26.5) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
 peak at 9.9 (+19.7 / −1.1) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
 high-mass one at 29.8 (+4.6 / −6.5) M☉. FullPop-4.0 needs the neutron-star events and a more complex
 model.
@@ -408,7 +413,5 @@ the gap between neutron stars and black holes, whose edges are further sharp fea
 - **Monte Carlo approximations:** 1500 PE samples per event and 100 live points per run; the number
   of PE samples moves H₀ by about 5 km/s/Mpc. The injection subset of the runs is corrected by the
   reweighting.
-- **One fewer event** than the paper [\[27\]](../references.md#ref-27) (136 against 137), probably from how the lowest FAR is
-  taken across catalogs.
 - **Prior dependence** of the upper part of the H₀ interval.
 - **`gwtc5` release** (O1–O4b) not yet validated against a published result.

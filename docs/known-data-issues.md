@@ -43,6 +43,17 @@ sibling GW200115 is there. The `rates` and `hubble_constant` modes read the marg
 select events by false-alarm rate, as the LVK population analyses do [\[12\]](references.md#ref-12) [\[13\]](references.md#ref-13). (The `hubble_constant` mode then
 leaves GW200105 out, as the GWTC-4.0 cosmology analysis [\[27\]](references.md#ref-27) does, because it is an NSBH.)
 
+## Rounded false-alarm rates
+
+The GWOSC event lists give, for each event, its lowest false-alarm rate over the search pipelines (checked
+against the per-pipeline values of the GWOSC v2 API for 206 of 208 events of GWTC-2.1, GWTC-3 and
+GWTC-4.0), **rounded to two decimals**. The LVK analyses cut at full precision, so an event listed at
+exactly a threshold may be inside it: GW191127_050227 is listed at FAR 0.25 per year (its GstLAL value)
+and is part of the GWTC-4.0 and GWTC-5.0 cosmology samples (FAR < 0.25), as is GW240824_205609 for
+GWTC-5.0. `rates` and `hubble_constant` therefore compare the published values inclusively
+(FAR ≤ threshold), which reproduces the event selections of those papers exactly (137 and 231 BBHs);
+the injections, whose FARs are at full precision, keep the strict cut.
+
 ## Version changes without a changelog
 
 The GWTC-3 PE release v3 (September 2026) fixed the GW200105 PSDs, but neither the Zenodo record nor
