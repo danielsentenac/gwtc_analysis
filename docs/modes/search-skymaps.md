@@ -19,6 +19,6 @@ gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --
 events that contain it are plotted in `--plots-dir` and gathered in `--out-report`.
 
 The catalog skymaps are built by the LVK from the PE posterior samples; see
-Singer et al. 2016 [\[54\]](../references.md#ref-54) for the three-dimensional skymap format.
+Singer et al. 2016 [\[56\]](../references.md#ref-56) for the three-dimensional skymap format.
 
 All options: [CLI reference](../cli-reference.md#search_skymaps).
