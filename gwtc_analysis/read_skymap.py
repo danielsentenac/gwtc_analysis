@@ -100,6 +100,8 @@ def plot_skymap_with_ra_dec(skymapFILE, title, ra, dec, color, contour_levels=(5
     
     ax_inset.scalebar((0.1, 0.1), 5 * u.deg).label()
     ax_inset.compass(0.9, 0.1, 0.2)
+    # the searched position, also in the zoom (on the full map a small region hides behind the marker)
+    ax_inset.plot_coord(center, '*', markerfacecolor='white', markeredgecolor='black', markersize=12, zorder=10)
     
     table = Table({'UNIQ': hpx['UNIQ'], 'CLS': cls})
     cs = ax_inset.contour_hpx((table, 'ICRS'), colors='white', linewidths=1,levels=contour, order='nearest-neighbor')

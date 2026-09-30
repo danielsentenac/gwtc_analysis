@@ -24,17 +24,19 @@ Singer et al. 2016 [\[56\]](../references.md#ref-56) for the three-dimensional s
 ## Example: an event seen by three detectors
 
 ```bash
-gwtc_analysis search_skymaps --catalogs GWTC-3 --ra-deg 1.63 --dec-deg -6.58 --prob 0.9
+gwtc_analysis search_skymaps --catalogs GWTC-1 --ra-deg 341.28 --dec-deg 21.66 --prob 0.9
 ```
 
-The position is the most probable point of GW200311_115853, a binary black hole observed by H1, L1 and
-Virgo: 2 of the 36 GWTC-3 skymaps contain it in their 90% region, GW200311 (at the 0% credible level,
-its peak) and GW200322_091133 (at the 32% level).
+The position is the most probable point of GW170818_022509, a binary black hole observed by H1, L1 and
+Virgo in August 2017. GWTC-1 has no skymap release of its own: the mode reads the GWTC-2.1 skymaps and
+keeps the 10 GWTC-1 events they contain (GW170817, a binary neutron star, is not in the GWTC-2.1
+re-analysis). Only GW170818 contains the position in its 90% region, at the 0.03% credible level, its
+peak; for the 9 others it lies outside the 99.9% region.
 
-![Skymap of GW200311 with the searched position](../img/modes/skymap_hit_GW200311.png)
+![Skymap of GW170818 with the searched position](../img/modes/skymap_hit_GW170818.png)
 
-*GW200311_115853: with three detectors, the 90% region of the PE skymap covers 35 deg² (zoom, lower
-right), against thousands of deg² with two detectors.*
+*GW170818_022509: with three detectors, the 90% region of the PE skymap covers 32 deg², the small red
+area around the star (upper left), enlarged in the zoom (right); two detectors give thousands of deg².*
 
 For comparison, a single-detector event:
 

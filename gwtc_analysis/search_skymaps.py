@@ -44,6 +44,42 @@ def _expand_catalogs_for_skymaps(catalogs: list[str]) -> list[str]:
             out.append(c)
     return out
 
+def _skymap_sources(catalogs: list[str]) -> tuple[list[str], dict[str, set[str]]]:
+    """The catalogs whose releases hold the skymaps, and the events to keep in each.
+
+    A catalog without a skymap release of its own (GWTC-1) is read from the release that holds its
+    products (GWTC-2.1), restricted to the events of its GWOSC list; named with that release, the whole
+    release is read.
+    """
+    from .catalog_registry import gwosc_list, products_catalog
+    from .gw_stat import fetch_gwtc_events
+
+    sources: list[str] = []
+    only: dict[str, set[str]] = {}
+    whole: set[str] = set()
+    for c in catalogs:
+        p = products_catalog(c)
+        if p not in sources:
+            sources.append(p)
+        if p == c:
+            whole.add(p)
+        else:
+            only.setdefault(p, set()).update((fetch_gwtc_events(gwosc_list(c)) or {}).get("events", {}))
+    return sources, {p: ids for p, ids in only.items() if p not in whole}
+
+
+def _event_selected(event_id: str, selected: set[str]) -> bool:
+    """Whether a skymap event (GWYYMMDD_HHMMSS...) is one of the selected GWOSC events (full or short names)."""
+    m = re.search(r"GW(\d{6})(_\d{6})?", event_id or "")
+    if not m:
+        return event_id in selected
+    for ev in selected:
+        n = re.search(r"GW(\d{6})(_\d{6})?", ev)
+        if n and n.group(1) == m.group(1) and (not n.group(2) or not m.group(2) or n.group(2) == m.group(2)):
+            return True
+    return False
+
+
 def run_search_skymaps(
     *,
     catalogs: list[str],
@@ -69,6 +105,8 @@ def run_search_skymaps(
     """
     catalogs = _expand_catalogs_for_skymaps(list(catalogs))
     selected_event_ids = _extract_event_ids(events_json)
+    # GWTC-1 is read from the GWTC-2.1 skymaps, keeping its own events
+    catalogs, catalog_events = _skymap_sources(catalogs)
     requested_percent = 100.0 * prob
 
     rows: list[dict[str, Any]] = []
@@ -106,11 +144,11 @@ def run_search_skymaps(
         miss = 0
 
         # We iterate by event ids (fast) rather than by tar members (slow).
-        event_ids = sorted(selected_event_ids) if selected_event_ids else []
-
-        pbar = tqdm(total=len(event_ids) if event_ids else None, unit=" event", desc="Zenodo skymaps") if tqdm else None
+        pbar = tqdm(total=None, unit=" event", desc="Zenodo skymaps") if tqdm else None
 
         for catalog in catalogs:
+            sel = catalog_events.get(catalog, selected_event_ids)
+            event_ids = sorted(sel) if sel else []
             tar_path = download_zenodo_skymaps_tarball(
                 catalog, progress=True, verbose=False, version=(zenodo_versions or {}).get(catalog)
             )
@@ -152,7 +190,7 @@ def run_search_skymaps(
                             catalog=catalog,
                             member_name=member_name,
                             member_bytes=data,
-                            selected_event_ids=selected_event_ids,
+                            selected_event_ids=set(),        # already selected by event key
                             ra_deg=ra_deg,
                             dec_deg=dec_deg,
                             prob=prob,
@@ -245,7 +283,7 @@ def run_search_skymaps(
                             catalog=catalog,
                             s3_key=key,
                             s3_bytes=data,
-                            selected_event_ids=selected_event_ids,
+                            selected_event_ids=catalog_events.get(catalog, selected_event_ids),
                             ra_deg=ra_deg,
                             dec_deg=dec_deg,
                             prob=prob,
@@ -334,7 +372,7 @@ def run_search_skymaps(
                     rows=rows,
                     catalog=catalog,
                     skymap_path=skymap_path,
-                    selected_event_ids=selected_event_ids,
+                    selected_event_ids=catalog_events.get(catalog, selected_event_ids),
                     ra_deg=ra_deg,
                     dec_deg=dec_deg,
                     prob=prob,
@@ -366,7 +404,7 @@ def _process_one_skymap(
 ) -> None:
     event_id = _event_id_from_filename(skymap_path)
 
-    if selected_event_ids and event_id not in selected_event_ids:
+    if selected_event_ids and not _event_selected(event_id, selected_event_ids):
         return
 
     plot_png = ""
