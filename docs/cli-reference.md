@@ -40,7 +40,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--stages` | `['prepare', 'sample', 'combine', 'report']` | Stages to run (default: all). |
+| `--stages` | `['prepare', 'sample', 'combine', 'reweight', 'report']` | Stages to run (default: all). |
 | `--workdir` | `hubble_constant_run` | Work directory (inputs, runs, posterior). |
 | `--out-report` | `hubble_constant.html` | Output HTML report path. |
 | `--out-summary` | `hubble_constant.tsv` | Output TSV of the posterior quantiles. |
@@ -59,7 +59,10 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--npool` | `4` | Worker processes per run: random walks of one seed run at the same time. |
 | `--naccept` | `60` | dynesty accepted steps per MCMC walk. |
 | `--pe-samples` | `1500` | PE samples per event. |
-| `--inj-fraction` | `0.1` | Random fraction of the found injections used (1 = all; the result stays unbiased). |
+| `--inj-fraction` | `auto` | Fraction of the found injections used by the sampler runs: 'auto' (a probe chooses the fastest reliable subset, the posterior being then reweighted to all the injections), or a number in (0, 1], 1 = all the injections, as in the paper. |
+| `--min-ess-fraction` | `0.5` | With --inj-fraction auto: smallest predicted effective-sample-size fraction accepted for the reweighting to all the injections. |
+| `--probe-points` | `30` | With --inj-fraction auto: finite-likelihood prior points used by the probe. |
+| `--reweight-pe-samples` | `` | PE samples per event of the reweighting target (default: those of the runs). |
 | `--icarogw-python` | `` | Python interpreter of the icarogw environment (default: the current one). |
 
 ## `event_selection`

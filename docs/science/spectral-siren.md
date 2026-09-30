@@ -10,25 +10,29 @@ The mode reproduces the *Power Law + Peak* (PLP) spectral-siren measurement of t
 cosmology paper (LVK 2026 [\[27\]](../references.md#ref-27), published version v3), with the same event
 selection, PE samples, injections, population model and priors:
 
-| Quantity | gwtc_analysis | GWTC-4.0 paper (PLP) [\[27\]](../references.md#ref-27) |
+| Quantity | gwtc_analysis | GWTC-4.0 paper [\[27\]](../references.md#ref-27) |
 |---|---|---|
-| H₀, median and 68% interval (km/s/Mpc) | **119.3 (+46.1 / −34.9)** | 105.5 (+46.4 / −35.8) |
-| H₀, 90% interval (km/s/Mpc) | 62.9 – 186.1 | 50.5 – 176.1 |
-| Position of the mass peak μ_g (M☉) | 27.8 (+4.0 / −4.7) | 28.3 (+4.1 / −4.4) |
+| **PLP**, H₀ (km/s/Mpc, median and 68%) | **106.5 (+45.0 / −34.0)** | 105.5 (+46.4 / −35.8) |
+| PLP, H₀ 90% interval | 54.3 – 176.9 | 50.5 – 176.1 |
+| PLP, position of the mass peak μ_g (M☉) | 28.6 (+3.9 / −4.7) | 28.3 (+4.1 / −4.4) |
+| **MLTP**, H₀ (km/s/Mpc, median and 68%) | **78.5 (+38.7 / −26.7)** | 72.3 (+42.5 / −25.6) |
+| MLTP, H₀ 90% interval | 39.6 – 152.0 | 34.2 – 154.1 |
 | BBH events | 136 | 137 |
 
-The peak position agrees closely; the H₀ medians differ by 13.8 km/s/Mpc, about 0.35σ of the posterior
-width, and the 90% intervals overlap over most of their range, ours being shifted up by about
-10 km/s/Mpc. The result comes from 10 independent runs (3582 posterior samples,
-ln Z = −3824.11 ± 0.40), whose spread is consistent with the sampling noise
-([seeds](../modes/hubble-constant.md#how-many-seeds)).
+Both results use all the found injections, as in the paper. They were sampled with a 10% subset of
+the injections (10 runs of 100 live points each) and then **reweighted** to all of them
+([below](#injection-subsets-and-reweighting)); the reweighting keeps an effective sample size of 72%
+(PLP) and 67% (MLTP) of the samples. The PLP median agrees with the paper to 1 km/s/Mpc (0.03σ), the
+MLTP one to 6 km/s/Mpc (0.2σ), and the 90% intervals nearly coincide. The remaining differences are
+of the size of the Monte Carlo effects of the number of PE samples (below).
 
 !!! note "Versions of the paper"
     The first two arXiv versions of the paper (v1 and v2, 2025) quoted PLP 112.7 (+51.0 / −35.9)
     km/s/Mpc, 90%: 57.6–186.7, with the peak at 28.6 (+3.9 / −4.9) M☉, MLTP 77.1 (+40.8 / −26.3) and
     FullPop-4.0 76.4 (+23.0 / −18.1); our PLP result agrees with those to about 0.15σ. The published
     version (v3, August 2026) revised all the spectral-siren values to those quoted here. The paper does
-    not describe the changes between versions, and we have not identified their cause.
+    not describe the changes between versions. Our runs with 10% of the injections alone happened to
+    land near the v1–v2 value; with all the injections, as the paper uses, the result matches v3.
 
 ![H0 posterior](../img/h0_posterior.png)
 
@@ -249,8 +253,9 @@ set by the data.
    \(1.13 \times 10^9\) generated, over 2.12 years. Their draw density is carried to the detector
    frame, \(p_\text{draw}(m_{1,\text{det}}, m_{2,\text{det}}, D_L) = p_\text{draw}(m_1, m_2, z)/[(1+z)^2\, dD_L/dz]\);
    the spin part is divided out (the population spins are then the injected, isotropic ones, as in
-   the PE prior), and the mixture weights applied. A random 10% subset is used, with \(N_\text{gen}\)
-   scaled by the same factor, which keeps the estimate unbiased.
+   the PE prior), and the mixture weights applied. The runs use a random 10% subset, with
+   \(N_\text{gen}\) scaled by the same factor, and their posterior is then reweighted to all the
+   injections ([below](#injection-subsets-and-reweighting)).
 5. **Likelihood.** icarogw 2.0.3 (Mastrogiovanni et al. 2024 [\[55\]](../references.md#ref-55)):
    `CBC_vanilla_rate(FlatLambdaCDM_wrap, m1m2_conditioned_lowpass(massprior_PowerLawPeak), rateevolution_Madau, scale_free=True)`
    in `hierarchical_likelihood`.
@@ -311,10 +316,39 @@ parameters, gives a much too narrow and biased H₀.
 The per-event and selection sums are Monte Carlo estimates, checked by their effective sample sizes
 ([Selection effects](selection-effects.md#the-effective-number-of-injections)): icarogw requires at
 least 4N effective injections (544 here) and, in this analysis, at least 10 effective PE samples per
-event. Over the posterior of the reproduction, the effective number of injections stays above 3 800, so
-the 10% subset is safe. The smallest per-event value has a median of 27 but reaches 8 at some posterior
-draws, for the lightest BBHs (GW190924 and some O4a events): part of the posterior lies near the PE
-stability limit, and more PE samples per event (`--pe-samples 3000`) would remove it.
+event. Over the posterior of the runs with 10% of the injections, the effective number of injections
+stays above 3 800 (PLP) and 2 950 (MLTP), well above the threshold. The smallest per-event value of
+effective PE samples has a median of 27 (PLP) and 48 (MLTP) but approaches 10 at some posterior draws,
+for the lightest BBHs (GW190924 and some O4a events).
+
+### Injection subsets and reweighting
+
+A subset of the injections estimates the detectable fraction \(\xi\) without bias, but not the
+posterior: the likelihood contains \(-N \ln \xi\) with N = 136, and the Monte Carlo noise of that term,
+which varies smoothly across parameter space, tilts a broad posterior. The effect was measured by
+reweighting the PLP posterior of the runs, sample by sample, to other Monte Carlo settings (weights
+\(\exp(\ln \mathcal{L}_\text{new} - \ln \mathcal{L}_\text{runs})\)):
+
+| Monte Carlo settings | H₀ (68%) | 90% | μ_g | Effective sample size |
+|---|---|---|---|---|
+| runs: 10% of the injections, 1500 PE samples per event | 119.3 (+46.1 / −34.9) | 62.9 – 186.1 | 27.7 | – |
+| **all the injections, 1500 PE** | **106.5 (+45.0 / −34.0)** | **54.3 – 176.9** | **28.6** | 2564 of 3582 |
+| 10% of the injections, 3000 PE | 125.1 (+44.9 / −38.0) | 65.4 – 188.0 | 27.2 | 3483 |
+| all the injections, 3000 PE | 111.4 (+44.9 / −36.2) | 55.4 – 179.4 | 28.1 | 2742 |
+| paper {C(27)} | 105.5 (+46.4 / −35.8) | 50.5 – 176.1 | 28.3 | – |
+
+- The 10% subset alone shifts H₀ up by 13 km/s/Mpc, about 0.35σ; with all the injections the result
+  matches the paper.
+- The number of PE samples per event matters too: 3000 instead of 1500 raises H₀ by about
+  5 km/s/Mpc. The paper does not state its number, so agreement within a few km/s/Mpc is what can be
+  expected, and the 1 km/s/Mpc agreement at 1500 is partly chance.
+- For MLTP, the reweighting to all the injections moves H₀ from 89.1 (+39.0 / −28.1) to
+  78.5 (+38.7 / −26.7).
+
+This is why `hubble_constant` chooses its strategy automatically (`--inj-fraction auto`, the default):
+a short probe measures the speed and accuracy of each subset, the runs sample with the fastest
+reliable subset, and a `reweight` stage turns their posterior into the one with all the injections
+([hubble_constant](../modes/hubble-constant.md#injection-subsets-probe-and-reweighting)).
 
 ## Other mass models and published results
 
@@ -332,8 +366,13 @@ features the mass spectrum has, the better it pins the redshift (spectral sirens
 | Planck 2018 (Planck 2020 [\[31\]](../references.md#ref-31)) | 67.4 ± 0.5 |
 | SH0ES (Riess et al. 2022 [\[32\]](../references.md#ref-32)) | 73.0 ± 1.0 |
 
-gwtc_analysis implements PLP and MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`);
-FullPop-4.0 needs the neutron-star events and a more complex model.
+gwtc_analysis implements PLP and MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`):
+78.5 (+38.7 / −26.7) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
+peak at 9.9 (+19.7 / −1.1) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
+high-mass one at 29.8 (+4.6 / −6.5) M☉. FullPop-4.0 needs the neutron-star events and a more complex
+model.
+
+![H0 posterior, Multi Peak](../img/h0_posterior_mltp.png)
 
 ### Why the Multi Peak model gives a tighter and lower H₀
 
@@ -366,10 +405,9 @@ the gap between neutron stars and black holes, whose edges are further sharp fea
 
 ## Limitations
 
-- **Monte Carlo approximations:** 10% of the injections, 1500 PE samples per event, 100 live points per
-  run. The difference from the published value [\[27\]](../references.md#ref-27) (about 0.35σ) is compatible with this sampling
-  noise and with the event difference below; the paper does not document why its v3 values differ from
-  v1–v2.
+- **Monte Carlo approximations:** 1500 PE samples per event and 100 live points per run; the number
+  of PE samples moves H₀ by about 5 km/s/Mpc. The injection subset of the runs is corrected by the
+  reweighting.
 - **One fewer event** than the paper [\[27\]](../references.md#ref-27) (136 against 137), probably from how the lowest FAR is
   taken across catalogs.
 - **Prior dependence** of the upper part of the H₀ interval.

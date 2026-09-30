@@ -80,6 +80,19 @@ def _add_zenodo_version_arg(p: argparse.ArgumentParser) -> None:
     )
 
 
+def _fraction_or_auto(x: str):
+    """'auto' or a fraction in (0, 1]."""
+    if str(x).lower() == "auto":
+        return "auto"
+    try:
+        f = float(x)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected 'auto' or a number in (0, 1], got {x!r}") from None
+    if not 0 < f <= 1:
+        raise argparse.ArgumentTypeError(f"expected a number in (0, 1], got {f}")
+    return f
+
+
 def _none_if_empty(x):
     """Argparse with nargs can yield [] instead of None."""
     if x is None:
@@ -195,8 +208,10 @@ def build_parser() -> argparse.ArgumentParser:
             "  prepare : select the events, download their PE samples from Zenodo (tens of GB, cached in\n"
             "            --pe-cache; only the extracted samples are kept unless --keep-pe-files), prepare\n"
             "            the found injections of --sensitivity-release -> <workdir>/inputs.h5\n"
-            "  sample  : one dynesty run per --seeds value (hours each; resumable), --parallel at a time\n"
+            "  sample  : one dynesty run per --seeds value (hours each; resumable), --parallel at a time;\n"
+            "            with --inj-fraction auto a probe first chooses the fastest reliable injection subset\n"
             "  combine : merge the runs, posterior + corner plot + stability diagnostics\n"
+            "  reweight: when the runs used a subset of the injections, reweight their posterior to all of them\n"
             "  report  : HTML report and TSV summary\n\n"
             "icarogw needs its own environment: pass its interpreter with --icarogw-python. The sampler\n"
             "gwtc_analysis/h0_icarogw.py is standalone, so runs can also be started by hand on other\n"
@@ -241,8 +256,17 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Worker processes per run: random walks of one seed run at the same time.")
     p_h0.add_argument("--naccept", type=int, default=60, help="dynesty accepted steps per MCMC walk.")
     p_h0.add_argument("--pe-samples", type=int, default=1500, help="PE samples per event.")
-    p_h0.add_argument("--inj-fraction", type=float, default=0.1,
-                      help="Random fraction of the found injections used (1 = all; the result stays unbiased).")
+    p_h0.add_argument("--inj-fraction", type=_fraction_or_auto, default="auto",
+                      help="Fraction of the found injections used by the sampler runs: 'auto' (a probe chooses the "
+                           "fastest reliable subset, the posterior being then reweighted to all the injections), or a "
+                           "number in (0, 1], 1 = all the injections, as in the paper.")
+    p_h0.add_argument("--min-ess-fraction", type=float, default=0.5,
+                      help="With --inj-fraction auto: smallest predicted effective-sample-size fraction accepted for "
+                           "the reweighting to all the injections.")
+    p_h0.add_argument("--probe-points", type=int, default=30,
+                      help="With --inj-fraction auto: finite-likelihood prior points used by the probe.")
+    p_h0.add_argument("--reweight-pe-samples", type=int, default=None,
+                      help="PE samples per event of the reweighting target (default: those of the runs).")
     p_h0.add_argument("--icarogw-python", default=None,
                       help="Python interpreter of the icarogw environment (default: the current one).")
 
@@ -430,9 +454,9 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "hubble_constant":
-            if args.far_threshold <= 0 or not 0 < args.inj_fraction <= 1 or args.pe_samples < 10 or args.parallel < 1:
-                raise ValueError("--far-threshold must be > 0, --inj-fraction in (0, 1], --pe-samples >= 10 "
-                                 "and --parallel >= 1")
+            if args.far_threshold <= 0 or args.pe_samples < 10 or args.parallel < 1 or not 0 < args.min_ess_fraction <= 1:
+                raise ValueError("--far-threshold must be > 0, --pe-samples >= 10, --parallel >= 1 and "
+                                 "--min-ess-fraction in (0, 1]")
             run_hubble_constant(
                 stages=args.stages,
                 workdir=args.workdir,
@@ -454,6 +478,9 @@ def main(argv=None) -> int:
                 naccept=args.naccept,
                 pe_samples=args.pe_samples,
                 inj_fraction=args.inj_fraction,
+                min_ess_fraction=args.min_ess_fraction,
+                probe_points=args.probe_points,
+                reweight_pe_samples=args.reweight_pe_samples,
                 icarogw_python=args.icarogw_python,
             )
             return 0

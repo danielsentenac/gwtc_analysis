@@ -268,3 +268,75 @@ def test_report_compares_with_the_published_value_of_its_model(tmp_path):
     hc.write_h0_report(w, tmp_path / "h0.html", None, "gwtc4")
     html = (tmp_path / "h0.html").read_text()
     assert "Multi Peak" in html and "72.3" in html and "(MLTP)" in html
+
+
+def _probe(t_all=1.0, **fracs):
+    """Probe result with fractions given as name=(seconds, predicted ESS fraction, rejected fraction)."""
+    return {"seconds_per_eval": {"1.0": t_all, **{k: v[0] for k, v in fracs.items()}},
+            "fractions": {k: dict(predicted_ess_fraction=v[1], rejected_fraction=v[2], dlnl_sd=0.5) for k, v in fracs.items()}}
+
+
+def test_choose_injection_fraction():
+    """The smallest subset that is faster, accurate enough and rejects few points; otherwise all the injections."""
+    f, why = hc.choose_injection_fraction(_probe(**{"0.1": (0.3, 0.6, 0.0), "0.2": (0.4, 0.8, 0.0), "0.5": (0.7, 0.95, 0.0)}))
+    assert f == 0.1 and "reweighted" in why
+    # 0.1 too inaccurate, 0.2 rejects too many points: 0.5
+    f, _ = hc.choose_injection_fraction(_probe(**{"0.1": (0.3, 0.2, 0.0), "0.2": (0.4, 0.8, 0.2), "0.5": (0.7, 0.9, 0.0)}))
+    assert f == 0.5
+    # no real speed-up (the PE part dominates): all the injections
+    f, why = hc.choose_injection_fraction(_probe(**{"0.1": (0.9, 0.9, 0.0), "0.5": (0.95, 0.99, 0.0)}))
+    assert f == 1.0 and "faster" in why
+    assert hc.choose_injection_fraction(_probe(**{"0.1": (0.3, 0.6, 0.0)}), min_ess_fraction=0.7)[0] == 1.0
+
+
+def test_reweighting_math():
+    """Importance weights, effective sample size, rejected points and weighted quantiles."""
+    from gwtc_analysis import h0_icarogw as runner
+
+    rng = np.random.default_rng(3)
+    ll_runs = rng.normal(-3800, 2, 2000)
+    r = runner.reweight_weights(ll_runs, ll_runs)                 # same likelihood: uniform weights
+    assert r["ess"] == pytest.approx(2000) and r["rejected"] == 0
+    target = ll_runs + rng.normal(0, 0.5, 2000)
+    target[:10] = -1.797e308                                       # rejected by the target likelihood
+    r = runner.reweight_weights(ll_runs, target)
+    assert r["rejected"] == 10 and (r["weights"][:10] == 0).all()
+    assert r["ess_fraction"] == pytest.approx(np.exp(-0.25), abs=0.08)
+    assert runner.predicted_ess_fraction(rng.normal(0, 0.5, 5000)) == pytest.approx(np.exp(-0.25), abs=0.02)
+    # weighted quantiles: weights exp(x) on a uniform sample tilt the median upwards
+    x = np.linspace(0, 1, 20001)
+    assert runner.weighted_quantiles(x, np.ones_like(x))[2] == pytest.approx(0.5, abs=1e-3)
+    w = np.exp(x)
+    assert runner.weighted_quantiles(x, w)[2] == pytest.approx(np.log((1 + np.e) / 2), abs=1e-3)
+    with pytest.raises(SystemExit, match="rejects every"):
+        runner.reweight_weights(ll_runs[:3], np.full(3, -1.797e308))
+
+
+def test_cli_injection_fraction_values():
+    """--inj-fraction takes 'auto' (the default) or a fraction in (0, 1]."""
+    assert build_parser().parse_args(["hubble_constant"]).inj_fraction == "auto"
+    assert build_parser().parse_args(["hubble_constant", "--inj-fraction", "0.2"]).inj_fraction == 0.2
+    assert build_parser().parse_args(["hubble_constant", "--inj-fraction", "1"]).inj_fraction == 1.0
+    for bad in ("0", "1.5", "all"):
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(["hubble_constant", "--inj-fraction", bad])
+
+
+def test_report_leads_with_the_reweighted_result(tmp_path):
+    """With a reweighting, the report quotes the reweighted posterior, the runs' result and the ESS."""
+    w = tmp_path / "work"
+    w.mkdir()
+    rng = np.random.default_rng(4)
+    pd.DataFrame({"H0": rng.uniform(60, 180, 400)}).to_csv(w / "posterior.tsv", sep="\t", index=False)
+    pd.DataFrame({"H0": rng.uniform(50, 170, 400)}).to_csv(w / "posterior_reweighted.tsv", sep="\t", index=False)
+    (w / "summary.json").write_text(json.dumps(dict(
+        mass_model="plp", n_runs=10, n_samples=400, log_evidence=-3824.1, log_evidence_err=0.4, run_log_evidences=[-3824.1],
+        quantiles={"H0": [62.9, 84.4, 119.3, 165.4, 186.1]}, settings=dict(nlive=100, pe_samples=1500, inj_fraction=0.1),
+        reweighted=dict(target_inj_fraction=1.0, target_pe_samples=1500, ess=286.0, ess_fraction=0.716, rejected=0,
+                        dlnl_mean=-1.38, dlnl_sd=0.75, runs_lnl_match=True,
+                        quantiles={"H0": [54.3, 72.5, 106.5, 151.5, 176.9]}))))
+    (w / "plan.json").write_text(json.dumps(dict(inj_fraction=0.1, reason="fraction 0.1: 3.5x faster")))
+    table = hc.write_h0_report(w, tmp_path / "h0.html", tmp_path / "h0.tsv", "gwtc4")
+    assert table.loc[0, "median"] == pytest.approx(106.5)
+    html = (tmp_path / "h0.html").read_text()
+    assert "106.5" in html and "119.3" in html and "72%" in html and "Reliable reweighting" in html and "3.5x faster" in html

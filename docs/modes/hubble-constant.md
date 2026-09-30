@@ -24,8 +24,9 @@ The work is split into stages (`--stages`, all by default) sharing a work direct
 | Stage | Does | Needs | Cost |
 |---|---|---|---|
 | `prepare` | selects the events, downloads their PE files (restartable; only the extracted samples are kept in `--pe-cache` unless `--keep-pe-files`), prepares the injections → `inputs.h5`, `events.tsv` | gwtc_analysis environment | ~35 GB of downloads the first time |
-| `sample` | one dynesty run per `--seeds` value, `--parallel` of them at a time (logs in `<workdir>/logs`); resumable from its checkpoint | icarogw | hours per run |
+| `sample` | with `--inj-fraction auto`, first a probe that chooses the injection subset (`probe.json`, `plan.json`); then one dynesty run per `--seeds` value, `--parallel` of them at a time (logs in `<workdir>/logs`); resumable from its checkpoint | icarogw | a few minutes of probe, then hours per run |
 | `combine` | merges the runs → `posterior.tsv`, `corner.png`, `summary.json`, with the numerical-stability diagnostics | icarogw | minutes |
+| `reweight` | when the runs used a subset of the injections, reweights their posterior to all of them → `posterior_reweighted.tsv`, weights and effective sample size in `summary.json` | icarogw | minutes to an hour, in `--parallel` × `--npool` chunks |
 | `report` | `--out-report` (HTML) and `--out-summary` (TSV of the posterior quantiles) | gwtc_analysis environment | seconds |
 
 ## Event and injection selection
@@ -36,6 +37,9 @@ The work is split into stages (`--stages`, all by default) sharing a work direct
 | `--far-threshold` | 0.25 per year | events, and real injections, below this false-alarm rate |
 | `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR |
 | `--min-mass` | 3 M☉ | both source-frame masses above it: potential neutron stars are left out |
+| `--inj-fraction` | `auto` | injections used by the sampler runs: `auto` (the probe chooses the fastest reliable subset, then the posterior is reweighted to all the injections) or a fraction in (0, 1] (1 = all, as in the paper) |
+| `--min-ess-fraction` | 0.5 | smallest predicted effective-sample-size fraction of the reweighting accepted by `auto` |
+| `--reweight-pe-samples` | as the runs | PE samples per event of the reweighting target |
 | `--mass-model` | `plp` | BBH primary-mass model: `plp` (Power Law + Peak, Table 3 of the paper) or `mltp` (Multi Peak: power law and two Gaussian peaks, Table 4) |
 | `--exclude` | GW231123_135430, GW200105_162426 | as in the GWTC-4.0 cosmology analysis [\[27\]](../references.md#ref-27) |
 
@@ -55,9 +59,9 @@ installed, through its public API.
 - **The analysis choices made here**, outside icarogw, are the input preparation in
   `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw
   density carried to the detector frame with the spin part divided out and the mixture weights
-  applied) and three settings: at least 10 effective PE samples per event (icarogw's default is 20),
-  at least 4 × N_events effective injections (icarogw's default), and the `--inj-fraction` subset
-  of the injections.
+  applied) and three settings: at least 10 effective PE samples per event (the paper's choice; the default of icarogw's likelihood class is 20),
+  at least 4 × N_events effective injections (icarogw's default), and the injection subset of the
+  runs, corrected by the reweighting stage.
 
 Only `sample` and `combine` need icarogw, which requires Python ≥ 3.12 and usually has its own
 environment ([Installation](../installation.md#icarogw-for-the-hubble_constant-mode)). Its interpreter
@@ -65,6 +69,42 @@ is passed with `--icarogw-python`; the default is the interpreter running gwtc_a
 stops before sampling if icarogw or bilby cannot be imported there. The stages run `h0_icarogw.py`
 with it, in CPU mode (a `config.py` with `CUPY=False` in the work directory) and with the
 environment's `lib/` on `LD_LIBRARY_PATH`.
+
+## Injection subsets, probe and reweighting
+
+Each likelihood evaluation sums over the found injections: with all of them (about one million) it
+takes about 1.3 s, with 10% about 0.3 s. Sampling with a subset is therefore much faster, but it tilts
+the posterior: for PLP, 10% of the injections shift H₀ by about +13 km/s/Mpc (0.35σ)
+([details](../science/spectral-siren.md#injection-subsets-and-reweighting)). The mode keeps the speed
+and removes the shift in two steps:
+
+1. **Probe** (before sampling, a few minutes). At prior points with a finite likelihood, the probe
+   records how often each subset (10%, 20%, 50%) rejects a point that all the injections accept. A
+   short ensemble MCMC (emcee), started from those points with the smallest subset, then moves them to
+   the region the runs will explore. There it measures the time per evaluation of each likelihood and
+   the scatter σ of ln L_subset − ln L_all, which predicts the effective-sample-size fraction of a
+   reweighting, exp(−σ²). The rule: the smallest subset at least 1.25 times faster, with a predicted
+   fraction ≥ `--min-ess-fraction` and at most 5% of rejected points; otherwise all the injections.
+2. **Reweighting** (after `combine`). Each posterior sample θᵢ gets the weight
+   exp[ln L_all(θᵢ) − ln L_runs(θᵢ)]. The weighted samples describe the posterior with all the
+   injections; `posterior_reweighted.tsv` is a resample of them, and the report leads with it. The
+   stage checks that it reproduces the ln L stored by the runs, and reports the effective sample size
+   (Σw)²/Σw² and the samples the full likelihood rejects. A small effective sample size (below ~10%)
+   means the subset was too inaccurate: sample again with `--inj-fraction 1`.
+
+Validation on the PLP reproduction:
+
+| | Predicted ESS fraction, 10% subset | Speed-up per evaluation |
+|---|---|---|
+| probe with prior points only | 0.20 (would choose 50%) | 1.7× (50%) |
+| **probe with the pilot MCMC** | **0.74** (chooses 10%) | **4.7×** |
+| measured on the real posterior | 0.72 | |
+
+The reweighting stage reproduces the result computed independently: H₀ = 106.5 (+45.0 / −34.0) with
+all the injections, effective sample size 2564 of 3582. For MLTP it gives 78.5 (+38.7 / −26.7), from
+89.1 with the subset, effective sample size 2592 of 3862. A numeric `--inj-fraction` bypasses the
+probe; `--inj-fraction 1` samples with all the injections, as the paper does, and needs no
+reweighting.
 
 ## Seeds
 
