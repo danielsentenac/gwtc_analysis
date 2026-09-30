@@ -435,9 +435,7 @@ def run_catalog_statistics(
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     # Expand ALL selector
-    catalogs = list(catalogs or [])
-    if "ALL" in catalogs:
-        catalogs = [c for c in ALLOWED_CATALOGS if c != "ALL"]
+    catalogs = _reg.expand_all(catalogs or [])   # ALL: the default catalogs, without the updates (GWTC-4.1)
 
     if not catalogs:
         raise ValueError("No catalogs selected")
@@ -1009,14 +1007,15 @@ def _rate_quantiles(n: int, vt: float, levels=(0.05, 0.5, 0.95)) -> np.ndarray:
     return gamma.ppf(np.asarray(levels), n + 0.5) / vt
 
 
-def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_max_mass: float) -> pd.DataFrame:
+def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_max_mass: float,
+                  event_lists: Optional[tuple[str, ...]] = None) -> pd.DataFrame:
     """GWOSC candidates inside the injection `segments` with FAR <= threshold, one row per event (lowest FAR kept).
 
     Only periods covered by the injections count: e.g. GW230518 (engineering run ER15, before O4a) is excluded.
     An event listed in several catalogs (the O1-O2 events of GWTC-1 and GWTC-2.1) is counted once, by GPS time.
     """
     best: dict[int, dict] = {}
-    for cat in RATES_EVENT_LISTS:
+    for cat in (event_lists or RATES_EVENT_LISTS):
         try:
             raw = gw.fetch_gwtc_events(cat)
         except Exception as e:  # a list may not exist on GWOSC yet
@@ -1143,7 +1142,9 @@ def run_merger_rates(
                                  far_threshold, snr_threshold, runs=runs)
     if len(inj["redshift"]) == 0:
         raise ValueError(f"No found injection in the selected runs ({', '.join(runs or [])})")
-    events = _rates_events(inj["segments"], far_threshold, ns_max_mass)
+    # an update catalog (GWTC-4.1) adds its list to the default ones: each event keeps its lowest FAR
+    event_lists = RATES_EVENT_LISTS + _reg.gwosc_lists(_reg.update_catalogs(catalogs or []))
+    events = _rates_events(inj["segments"], far_threshold, ns_max_mass, event_lists)
     counts = events["class"].value_counts().to_dict()
     n_unknown = int(counts.get("unknown", 0))
     m1, m2 = inj["mass1_source"], inj["mass2_source"]

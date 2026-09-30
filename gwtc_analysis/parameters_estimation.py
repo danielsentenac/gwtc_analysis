@@ -157,9 +157,13 @@ def _zenodo_record_files(record_id: int) -> list[dict[str, Any]]:
 def zenodo_pe_record_ids(zenodo_versions: dict[str, str] | None = None) -> list[str]:
     """Zenodo PE record ids of every catalog: latest versions, unless a catalog
     has a version in `zenodo_versions` (e.g. {"GWTC-3": "v2"})."""
+    from .catalog_registry import is_update
+
     versions = zenodo_versions or {}
     rids: list[str] = []
     for cat in zenodo_catalogs():
+        if is_update(cat) and cat not in versions:
+            continue          # an update (GWTC-4.1) is read only when requested, e.g. --zenodo-version GWTC-4.1=latest
         for rec in resolve_zenodo_records(cat, versions.get(cat)):
             print(f"[pe][zenodo] {cat}: {rec.label}")
             rids.append(rec.record_id)

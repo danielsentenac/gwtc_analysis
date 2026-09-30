@@ -15,8 +15,14 @@ Catalogs are named by case-sensitive keys. All of them are **confident catalogs*
 | `GWTC-2.1` | GWTC-2.1 | O3a, plus 10 O1–O2 events re-analysed | 54 | [Zenodo 6513631](https://zenodo.org/records/6513631) |
 | `GWTC-3` | GWTC-3 | O3b | 35 | [Zenodo 22685054](https://zenodo.org/records/22685054) |
 | `GWTC-4` | GWTC-4.0 | O4a, plus GW230518 from the engineering run ER15 | 129 | [Zenodo 17602505](https://zenodo.org/records/17602505) |
+| `GWTC-4.1` | GWTC-4.1, update of GWTC-4.0 | O4a, plus two events from ER15 | 140 | [Zenodo 20275769](https://zenodo.org/records/20275769) |
 | `GWTC-5` | GWTC-5.0 | O4b, plus 5 events of 6–8 April 2024, just before O4b | 161 | [Zenodo 20348005](https://zenodo.org/records/20348005) (part 1, with the skymaps) and [20348006](https://zenodo.org/records/20348006) (part 2) |
-| `ALL` | all the catalogs above | O1 to O4b | | |
+| `ALL` | all the catalogs above except the update GWTC-4.1 | O1 to O4b | | |
+
+`GWTC-4.1` is an **update** of GWTC-4.0: the same O4a data re-analysed, with the 129 events of
+GWTC-4.0 and 11 new ones. It is used only when named (`--catalogs GWTC-4.1`), in place of `GWTC-4` for
+the O4a events: `ALL` and the defaults of every mode keep GWTC-4.0, the catalog of the published
+analyses. Its PE files are read only on request (`--zenodo-version GWTC-4.1=latest`).
 
 All the keys are **confident** catalogs: every event of their GWOSC lists has a probability of
 astrophysical origin p_astro ≥ 0.5 (the re-analysed O1–O2 events of GWTC-2.1 carry no p_astro value).
