@@ -92,7 +92,9 @@ def run_event_selection(
       - luminosity_distance
 
     Writes TSV with selected events (at least event_id), and with `out_plot` a PNG of the selected events
-    among all the events of the catalogs.
+    among all the events of the catalogs. The redshift column is GWOSC's: inferred from the luminosity
+    distance for the Planck 2015 cosmology, it is the one the source-frame masses were derived with,
+    m_src = m_det / (1 + z).
     """
 
     out_tsv = Path(out_tsv)
@@ -142,7 +144,7 @@ def run_event_selection(
     df_all = pd.DataFrame.from_records(records, columns=all_cols)
 
     # Ensure numeric
-    for col in ["mass_1_source", "mass_2_source", "luminosity_distance"]:
+    for col in ["mass_1_source", "mass_2_source", "luminosity_distance", "redshift"]:
         if col in df_all.columns:
             df_all[col] = df_all[col].apply(_as_float_or_nan)
         else:
@@ -168,7 +170,7 @@ def run_event_selection(
 
     out = df_all.loc[
         mask,
-        ["event_id", "catalog_key", "mass_1_source", "mass_2_source", "luminosity_distance"],
+        ["event_id", "catalog_key", "mass_1_source", "mass_2_source", "luminosity_distance", "redshift"],
     ].copy()
 
     # Stable order for tests/users
