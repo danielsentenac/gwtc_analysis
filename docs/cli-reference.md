@@ -34,6 +34,8 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--ns-max-mass` | `2.5` | Maximum neutron-star mass [Msun] separating NS from BH. |
 | `--bbh-kappa` | `2.9` | BBH rate evolution R ∝ (1+z)^kappa. |
 | `--bbh-z-ref` | `0.2` | Redshift at which the evolving BBH rate is reported. |
+| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are restricted to their observing runs (GWTC-1: O1-O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b). Default: the runs of the real-injection mixture (O3 onward). |
+| `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1). |
 
 ## `hubble_constant`
 
@@ -45,6 +47,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-report` | `hubble_constant.html` | Output HTML report path. |
 | `--out-summary` | `hubble_constant.tsv` | Output TSV of the posterior quantiles. |
 | `--sensitivity-release` | `gwtc4` | LVK search-sensitivity release (and matching catalogs and runs): gwtc4 = GWTC-4.0 cumulative, semi-analytic O1+O2 + real O3+O4a injections; gwtc5 = GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections. |
+| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are restricted to their observing runs. Default: all the runs of --sensitivity-release (gwtc4: O1-O4a, the published analysis; gwtc5: O1-O4b). |
 | `--sensitivity-file` | `` | Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's. |
 | `--far-threshold` | `0.25` | FAR threshold [1/yr] for the events and the real injections. |
 | `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections. |

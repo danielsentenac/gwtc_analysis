@@ -22,6 +22,45 @@ python -m gwtc_analysis.cli rates --sensitivity-release gwtc4   # GWTC-4.0 injec
 The observing periods are those of the injections (their times split at gaps longer than a week), so
 candidates of the engineering run ER15, just before O4a, are not counted.
 
+## Selecting catalogs
+
+`--catalogs` restricts the rates to the observing runs of some catalogs, for the events **and** the
+injections, so that the counts and the sensitive volume-time describe the same observing time:
+
+| Catalog | Runs |
+|---|---|
+| `GWTC-1` | O1, O2 |
+| `GWTC-2.1` | O3a |
+| `GWTC-3` | O3b |
+| `GWTC-4` | O4a |
+| `GWTC-5` | O4b |
+
+```bash
+python -m gwtc_analysis.cli rates --catalogs GWTC-5          # O4b only
+python -m gwtc_analysis.cli rates --catalogs GWTC-4 GWTC-5   # O4a + O4b
+python -m gwtc_analysis.cli rates --catalogs ALL             # O1 to O4b
+```
+
+Without `--catalogs`, the rates cover the runs of the real-injection mixture of the release (O3 onward).
+Selecting GWTC-1 uses the release's mixture with semi-analytic O1+O2 injections, found above
+`--snr-threshold` (10). The restriction keeps the importance sums of the selected runs: with the
+mixture weights, they are the ⟨VT⟩ of those runs, and the ⟨VT⟩ of separate catalogs add up to that of
+all of them. An event listed in two catalogs (the O1–O2 events of GWTC-1 and GWTC-2.1) is counted
+once.
+
+BBH rates of each catalog (GWTC-5.0 injections, R ∝ (1+z)^2.9, at z = 0.2, Gpc⁻³ yr⁻¹, median [90%]):
+
+| Catalog | BBH candidates | BBH rate |
+|---|---|---|
+| GWTC-2.1 (O3a) | 37 | 31.1 [23.5, 40.3] |
+| GWTC-3 (O3b) | 23 | 20.9 [14.5, 28.8] |
+| GWTC-4 (O4a) | 84 | 25.2 [21.0, 30.0] |
+| GWTC-5 (O4b) | 104 | 24.8 [21.0, 29.0] |
+| O3a–O4b | 248 | 25.2 [22.7, 27.9] |
+
+The catalogs agree with one another. O4b has no BNS or NSBH candidate below 1 per year: its BNS and
+NSBH rates are upper limits (90%: 113 and 40 Gpc⁻³ yr⁻¹).
+
 ## Population models
 
 | Population | Mass model | Spins | Redshift |

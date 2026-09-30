@@ -39,12 +39,7 @@ import pandas as pd
 from . import gw_stat as gw
 from .report import write_simple_html_report
 
-# GWOSC observing-run boundaries (GPS)
-OBSERVING_RUNS = {
-    "O1": (1126051217, 1137254417), "O2": (1164556817, 1187733618),
-    "O3a": (1238166018, 1253977218), "O3b": (1256655618, 1269363618),
-    "O4a": (1368975618, 1389456018), "O4b": (1396796418, 1422118818),
-}
+from .catalogs import CATALOG_RUNS, OBSERVING_RUNS, SEMI_ANALYTIC_RUNS, _in_runs, catalog_runs  # noqa: E402
 
 # Cumulative search-sensitivity releases with semi-analytic O1+O2 injections, so that the whole
 # catalog since O1 can be used.
@@ -69,7 +64,11 @@ H0_SENSITIVITY_RELEASES = {
         runs=("O1", "O2", "O3a", "O3b", "O4a", "O4b"),
         catalogs=("GWTC-1-confident", "GWTC-2.1-confident", "GWTC-2.1-marginal", "GWTC-3-confident",
                   "GWTC-3-marginal", "GWTC-4.0", "GWTC-5.0"),
-        published=None,
+        # spectral sirens, GWTC-5.0 cosmology paper (arXiv:2605.27227), Table 11; it has no PLP analysis
+        published={
+            "mltp": dict(ref="GWTC-5.0 cosmology, arXiv:2605.27227 (MLTP)", median=71.0, plus=21.0, minus=17.5,
+                         lo90=44.5, hi90=107.0),
+        },
     ),
 }
 H0_DEFAULT_RELEASE = "gwtc4"
@@ -104,9 +103,13 @@ def _full_name(gps: float) -> str:
     return Time(float(gps), format="gps", scale="utc").datetime.strftime("GW%y%m%d_%H%M%S")
 
 
-def select_h0_events(release: str, far_threshold: float, min_mass: float, exclude: Iterable[str]) -> pd.DataFrame:
-    """BBH events of the release's catalogs: lowest FAR below threshold, inside its runs, both masses >= min_mass."""
-    cfg = H0_SENSITIVITY_RELEASES[release]
+def select_h0_events(release: str, far_threshold: float, min_mass: float, exclude: Iterable[str],
+                     runs: Optional[Iterable[str]] = None) -> pd.DataFrame:
+    """BBH events of the release's catalogs: lowest FAR below threshold, inside its runs (or `runs`), both
+    masses >= min_mass."""
+    cfg = dict(H0_SENSITIVITY_RELEASES[release])
+    if runs:
+        cfg["runs"] = tuple(r for r in cfg["runs"] if r in set(runs))
     exclude = set(exclude)
     best: dict[str, dict] = {}
     for cat in cfg["catalogs"]:
@@ -305,10 +308,12 @@ def h0_sensitivity_path(sensitivity_file: str | Path | None, release: str) -> Pa
     return _zenodo_sensitivity_file(cfg["record"], cfg["label"], cfg["file_re"], tag="hubble_constant")
 
 
-def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: float) -> dict:
+def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: float,
+                              runs: Optional[Iterable[str]] = None) -> dict:
     """Found injections in (m1_det, m2_det, D_L), with their draw density in these variables.
 
-    Found: semi-analytic network SNR above `snr_threshold` (O1+O2) or lowest search FAR below `far_threshold`.
+    Found: semi-analytic network SNR above `snr_threshold` for the O1+O2 injections, lowest search FAR below
+    `far_threshold` for the others; restricted to the observing `runs` if given.
     The spin part of the draw is divided out (the population spins are then the injected, isotropic ones), the
     density is carried to the detector frame by 1/[(1+z)^2 dD_L/dz], and the mixture weights enter as p/w.
     """
@@ -317,10 +322,11 @@ def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: f
     with h5py.File(path, "r") as fi:
         e = fi["events"]
         searches = [s.decode() if isinstance(s, bytes) else str(s) for s in fi.attrs["searches"]]
-        far = np.min([e[f"{s}_far"][:] for s in searches], axis=0)
-        sel = far < far_threshold
-        if "semianalytic_observed_phase_maximized_snr_net" in e.dtype.names:
-            sel |= e["semianalytic_observed_phase_maximized_snr_net"][:] > snr_threshold
+        from .catalogs import _found_mask
+
+        sel = _found_mask(e, searches, far_threshold, snr_threshold)
+        if runs:
+            sel &= _in_runs(e["time_geocenter"][:], runs)
         get = lambda k: e[k][:][sel]
         z = get("redshift")
         a1 = np.sqrt(get("spin1x") ** 2 + get("spin1y") ** 2 + get("spin1z") ** 2)
@@ -340,13 +346,18 @@ def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: f
 
 def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold: float, snr_threshold: float,
                    min_mass: float, exclude: Iterable[str], pe_cache: Path, keep_pe_files: bool,
-                   max_pe_samples: int = 5000) -> pd.DataFrame:
-    """Write <workdir>/inputs.h5 (events + injections) and <workdir>/events.tsv."""
+                   max_pe_samples: int = 5000, runs: Optional[Iterable[str]] = None) -> pd.DataFrame:
+    """Write <workdir>/inputs.h5 (events + injections), <workdir>/events.tsv and <workdir>/selection.json."""
     import h5py
 
     workdir.mkdir(parents=True, exist_ok=True)
+    release_runs = H0_SENSITIVITY_RELEASES[release]["runs"]
+    runs = tuple(release_runs if not runs else [r for r in release_runs if r in set(runs)])
+    missing = [r for r in (runs or ()) if r not in release_runs]
+    if missing:
+        raise ValueError(f"The {release} sensitivity release does not cover {', '.join(missing)}")
     inj_path = h0_sensitivity_path(sensitivity_file, release)
-    events = select_h0_events(release, far_threshold, min_mass, exclude)
+    events = select_h0_events(release, far_threshold, min_mass, exclude, runs)
     if events.empty:
         raise ValueError("No event passes the selection")
     _log(f"{len(events)} BBH events: " + ", ".join(f"{r} {n}" for r, n in events["run"].value_counts().sort_index().items()))
@@ -370,14 +381,17 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
                 gr.create_dataset(k, data=v)
             gr.attrs.update(run=r["run"], label=lab, prior_desc=desc[:200])
             labels.append(lab); priors.append(re.sub(r"\(.*", "", desc).replace("bilby.gw.prior.", "")); nsamp.append(len(idx))
-        inj = detector_frame_injections(inj_path, far_threshold, snr_threshold)
+        inj = detector_frame_injections(inj_path, far_threshold, snr_threshold, runs)
         gi = h.create_group("_injections")
         for k in ("mass_1", "mass_2", "luminosity_distance", "prior"):
             gi.create_dataset(k, data=inj[k])
-        gi.attrs.update(ntotal=inj["ntotal"], Tobs=inj["Tobs"], n_found=len(inj["prior"]), source=inj_path.name)
+        gi.attrs.update(ntotal=inj["ntotal"], Tobs=inj["Tobs"], n_found=len(inj["prior"]), source=inj_path.name,
+                        runs=",".join(runs))
     (workdir / "inputs.h5.part").replace(workdir / "inputs.h5")
     events["pe_label"], events["pe_distance_prior"], events["pe_samples"] = labels, priors, nsamp
     events.to_csv(workdir / "events.tsv", sep="\t", index=False)
+    (workdir / "selection.json").write_text(json.dumps(dict(release=release, runs=list(runs),
+                                                            default_runs=runs == tuple(release_runs))))
     _log(f"{len(inj['prior'])} found injections of {inj['n_recorded']} recorded ({inj_path.name}); "
          f"inputs written to {workdir / 'inputs.h5'}")
     return events
@@ -566,6 +580,10 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     model = summary.get("mass_model", "plp")
     model_name = MASS_MODELS.get(model, model)
     published = (H0_SENSITIVITY_RELEASES.get(release, {}).get("published") or {}).get(model)
+    sel_file = workdir / "selection.json"
+    selection = json.loads(sel_file.read_text()) if sel_file.exists() else {}
+    if selection and not selection.get("default_runs", True):
+        published = None          # the published value is for all the runs of the release
     quantiles = rw["quantiles"] if use_rw else summary["quantiles"]
     rows = [dict(parameter=k, median=q[2], minus_68=q[2] - q[1], plus_68=q[3] - q[2], low_90=q[0], high_90=q[4])
             for k, q in quantiles.items()]
@@ -584,7 +602,8 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     paras = [
         f"H<sub>0</sub> = <b>{q[2]:.1f} (+{q[3] - q[2]:.1f} / −{q[2] - q[1]:.1f}) km/s/Mpc</b> (median, 68%); "
         f"90%: {q[0]:.1f}–{q[4]:.1f}" + (" (reweighted to all the injections)" if use_rw and rw["target_inj_fraction"] >= 1 else "")
-        + f". Spectral siren with {len(events) or '?'} BBH events: the redshift comes from the "
+        + f". Spectral siren with {len(events) or '?'} BBH events"
+        + (f" (runs {', '.join(selection['runs'])})" if selection.get("runs") else "") + ": the redshift comes from the "
         f"source-frame mass distribution ({model_name}, fitted together with H<sub>0</sub>) and the "
         "Madau–Dickinson rate evolution, with flat ΛCDM (Ω<sub>m</sub> = 0.3065).",
         f"{summary['n_runs']} dynesty run(s) of {s.get('nlive', '?')} live points, {summary['n_samples']} posterior samples, "
@@ -631,7 +650,7 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
 
 
 def _plan_injection_fraction(python: str, workdir: Path, mass_model: str, pe_samples: int, probe_points: int,
-                             min_ess_fraction: float, npool: int = 1) -> float:
+                             min_ess_fraction: float, npool: int = 1, prior_set: str = "gwtc4") -> float:
     """The injection fraction of the runs: the one already used in the work directory, else chosen by a probe."""
     settings = workdir / "run_settings.json"
     if settings.exists():
@@ -640,9 +659,11 @@ def _plan_injection_fraction(python: str, workdir: Path, mass_model: str, pe_sam
         return f
     probe_file = workdir / "probe.json"
     probe = json.loads(probe_file.read_text()) if probe_file.exists() else None
-    if not probe or probe.get("mass_model") != mass_model or probe.get("pe_samples") != pe_samples:
+    if (not probe or probe.get("mass_model") != mass_model or probe.get("pe_samples") != pe_samples
+            or probe.get("prior_set", "gwtc4") != prior_set):
         _log("probing the likelihood speed and accuracy on injection subsets")
-        _run_runner(python, ["probe", "--workdir", str(workdir), "--mass-model", mass_model, "--pe-samples",
+        _run_runner(python, ["probe", "--workdir", str(workdir), "--mass-model", mass_model, "--prior-set", prior_set,
+                             "--pe-samples",
                              str(pe_samples), "--npoints", str(probe_points), "--npool", str(npool), "--fractions"]
                     + [str(f) for f in PROBE_FRACTIONS])
         probe = json.loads(probe_file.read_text())
@@ -660,6 +681,7 @@ def run_hubble_constant(
     out_summary_tsv: Optional[str | Path] = "hubble_constant.tsv",
     sensitivity_release: str = H0_DEFAULT_RELEASE,
     sensitivity_file: Optional[str | Path] = None,
+    catalogs: Optional[Iterable[str]] = None,
     far_threshold: float = 0.25,
     snr_threshold: float = 10.0,
     min_mass: float = 3.0,
@@ -687,7 +709,8 @@ def run_hubble_constant(
     python = icarogw_python or sys.executable
     if "prepare" in stages:
         prepare_inputs(workdir, sensitivity_release, sensitivity_file, far_threshold, snr_threshold, min_mass,
-                       exclude, Path(pe_cache).expanduser() if pe_cache else default_pe_cache(), keep_pe_files)
+                       exclude, Path(pe_cache).expanduser() if pe_cache else default_pe_cache(), keep_pe_files,
+                       runs=catalog_runs(catalogs) if catalogs else None)
     if any(st in stages for st in ("sample", "combine", "reweight")):
         _check_runner(python)
     ncpu = os.cpu_count() or 1
@@ -696,9 +719,10 @@ def run_hubble_constant(
             raise ValueError(f"{workdir / 'inputs.h5'} not found: run the prepare stage first")
         if inj_fraction == "auto":
             inj_fraction = _plan_injection_fraction(python, workdir, mass_model, pe_samples, probe_points,
-                                                    min_ess_fraction, npool=max(1, min(ncpu, int(parallel) * int(npool))))
+                                                    min_ess_fraction, npool=max(1, min(ncpu, int(parallel) * int(npool))),
+                                                    prior_set=sensitivity_release)
         seeds = list(dict.fromkeys(int(x) for x in seeds))
-        run_args = ["--mass-model", mass_model, "--nlive", str(nlive), "--npool", str(npool), "--naccept", str(naccept),
+        run_args = ["--mass-model", mass_model, "--prior-set", sensitivity_release, "--nlive", str(nlive), "--npool", str(npool), "--naccept", str(naccept),
                     "--pe-samples", str(pe_samples), "--inj-fraction", str(float(inj_fraction))]
         parallel = max(1, min(int(parallel), len(seeds)))
         if parallel * npool > ncpu:

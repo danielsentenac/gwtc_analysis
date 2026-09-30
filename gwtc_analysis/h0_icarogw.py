@@ -89,8 +89,14 @@ def build_likelihood(pe_samples: int, inj_fraction: float, mass_model: str = "pl
     return like, rate, cat, inj
 
 
-def priors(mass_model: str = "plp"):
-    """GWTC-4.0 cosmology paper (arXiv:2509.04348): Tables 3 (PLP), 4 (MLTP) and 6 (Madau-Dickinson)."""
+PRIOR_SETS = ("gwtc4", "gwtc5")
+
+
+def priors(mass_model: str = "plp", prior_set: str = "gwtc4"):
+    """Priors of the LVK cosmology papers: GWTC-4.0 (arXiv:2509.04348, Tables 3, 4 and 6) or GWTC-5.0
+    (arXiv:2605.27227, Tables 5 and 8), which widens the MLTP peak widths."""
+    if prior_set not in PRIOR_SETS:
+        raise SystemExit(f"[h0] unknown prior set {prior_set!r}; choose from {', '.join(PRIOR_SETS)}")
     import bilby
 
     U = bilby.core.prior.Uniform
@@ -102,8 +108,9 @@ def priors(mass_model: str = "plp"):
     if mass_model == "plp":
         P["mu_g"], P["sigma_g"], P["lambda_peak"] = U(20, 50, "mu_g"), U(0.4, 10, "sigma_g"), U(0, 1, "lambda_peak")
     elif mass_model == "mltp":
-        P["mu_g_low"], P["sigma_g_low"] = U(5, 100, "mu_g_low"), U(0.4, 5, "sigma_g_low")
-        P["mu_g_high"], P["sigma_g_high"] = U(5, 100, "mu_g_high"), U(0.4, 10, "sigma_g_high")
+        wide = prior_set == "gwtc5"
+        P["mu_g_low"], P["sigma_g_low"] = U(5, 100, "mu_g_low"), U(0.4, 10 if wide else 5, "sigma_g_low")
+        P["mu_g_high"], P["sigma_g_high"] = U(5, 100, "mu_g_high"), U(0.4, 15 if wide else 10, "sigma_g_high")
         P["lambda_g"], P["lambda_g_low"] = U(0, 1, "lambda_g"), U(0, 1, "lambda_g_low")
     else:
         raise SystemExit(f"[h0] unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
@@ -115,7 +122,8 @@ def _settings(workdir: Path) -> dict:
     p = workdir / "run_settings.json"
     s = json.loads(p.read_text()) if p.exists() else {}
     if s:
-        s.setdefault("mass_model", "plp")        # work directories made before the model choice existed
+        s.setdefault("mass_model", "plp")        # work directories made before these choices existed
+        s.setdefault("prior_set", "gwtc4")
     return s
 
 
@@ -154,7 +162,7 @@ def _lock_seed(seed: int, mass_model: str = "plp") -> None:
 
 
 def run(workdir: Path, seed: int, nlive: int, npool: int, naccept: int, pe_samples: int, inj_fraction: float,
-        mass_model: str = "plp") -> Path:
+        mass_model: str = "plp", prior_set: str = "gwtc4") -> Path:
     """One dynesty run; resumable from its checkpoint."""
     if mass_model not in MASS_MODELS:
         raise SystemExit(f"[h0] unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
@@ -162,14 +170,14 @@ def run(workdir: Path, seed: int, nlive: int, npool: int, naccept: int, pe_sampl
     _lock_seed(seed, mass_model)
     import bilby
 
-    s = dict(nlive=nlive, pe_samples=pe_samples, inj_fraction=inj_fraction, mass_model=mass_model)
+    s = dict(nlive=nlive, pe_samples=pe_samples, inj_fraction=inj_fraction, mass_model=mass_model, prior_set=prior_set)
     old = _settings(workdir)
     if old and old != s:
         raise SystemExit(f"[h0] {workdir} holds runs made with {old}; runs with {s} cannot be combined with them. "
                          "Use another work directory.")
     (workdir / "run_settings.json").write_text(json.dumps(s))
     like, _, _, _ = build_likelihood(pe_samples, inj_fraction, mass_model)
-    res = bilby.run_sampler(like, priors(mass_model), sampler="dynesty", nlive=nlive, npool=npool, outdir="result",
+    res = bilby.run_sampler(like, priors(mass_model, prior_set), sampler="dynesty", nlive=nlive, npool=npool, outdir="result",
                             label=f"{mass_model}_seed{seed}", sample="acceptance-walk", naccept=naccept, seed=seed,
                             resume=True, check_point_delta_t=600)
     q = np.quantile(res.posterior["H0"], [0.05, 0.16, 0.5, 0.84, 0.95])
@@ -293,7 +301,7 @@ def _pilot_log_prob(x):
 
 def probe(workdir: Path, mass_model: str, pe_samples: int, fractions, npoints: int = 30,
           max_draws: int = 4000, seed: int = 0, npool: int = 1, pilot_steps: int = 100,
-          measure_points: int = 60) -> dict:
+          measure_points: int = 60, prior_set: str = "gwtc4") -> dict:
     """Speed and accuracy of likelihoods on injection subsets, before sampling.
 
     1. prior points with a finite likelihood (all the injections): the fraction of them that each subset
@@ -311,7 +319,7 @@ def probe(workdir: Path, mass_model: str, pe_samples: int, fractions, npoints: i
     if not fractions:
         raise SystemExit("[h0] probe: no subset fraction in (0, 1) to test")
     np.random.seed(seed)
-    P = priors(mass_model)
+    P = priors(mass_model, prior_set)
     keys = [k for k in MASS_MODELS[mass_model]["params"]]
     full, _, _, _ = build_likelihood(pe_samples, 1.0, mass_model)
     subs = {f: build_likelihood(pe_samples, f, mass_model)[0] for f in fractions}
@@ -363,7 +371,7 @@ def probe(workdir: Path, mass_model: str, pe_samples: int, fractions, npoints: i
         return np.array(ll), float(np.median(tt))
 
     ll_full, t_full = evaluate(full)
-    out = dict(mass_model=mass_model, pe_samples=pe_samples, draws=draws, points=len(pts),
+    out = dict(mass_model=mass_model, prior_set=prior_set, pe_samples=pe_samples, draws=draws, points=len(pts),
                finite_fraction=len(pts) / draws, pilot=dict(walkers=nwalkers, steps=pilot_steps, fraction=fractions[0],
                                                              measured_points=int(len(cand))),
                seconds_per_eval={"1.0": t_full}, fractions={})
@@ -464,6 +472,7 @@ def main(argv=None) -> int:
     r.add_argument("--workdir", required=True)
     r.add_argument("--seed", type=int, default=1)
     r.add_argument("--mass-model", choices=list(MASS_MODELS), default="plp")
+    r.add_argument("--prior-set", choices=list(PRIOR_SETS), default="gwtc4")
     r.add_argument("--nlive", type=int, default=100)
     r.add_argument("--npool", type=int, default=4)
     r.add_argument("--naccept", type=int, default=60)
@@ -475,6 +484,7 @@ def main(argv=None) -> int:
     pr = sub.add_parser("probe")
     pr.add_argument("--workdir", required=True)
     pr.add_argument("--mass-model", choices=list(MASS_MODELS), default="plp")
+    pr.add_argument("--prior-set", choices=list(PRIOR_SETS), default="gwtc4")
     pr.add_argument("--pe-samples", type=int, default=1500)
     pr.add_argument("--fractions", type=float, nargs="+", default=[0.1, 0.2, 0.5])
     pr.add_argument("--npoints", type=int, default=30)
@@ -491,11 +501,12 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
     wd = Path(a.workdir).expanduser().resolve()
     if a.cmd == "run":
-        run(wd, a.seed, a.nlive, a.npool, a.naccept, a.pe_samples, a.inj_fraction, a.mass_model)
+        run(wd, a.seed, a.nlive, a.npool, a.naccept, a.pe_samples, a.inj_fraction, a.mass_model, a.prior_set)
     elif a.cmd == "combine":
         combine(wd, diagnostics=not a.no_diagnostics)
     elif a.cmd == "probe":
-        probe(wd, a.mass_model, a.pe_samples, a.fractions, a.npoints, npool=a.npool, pilot_steps=a.pilot_steps)
+        probe(wd, a.mass_model, a.pe_samples, a.fractions, a.npoints, npool=a.npool, pilot_steps=a.pilot_steps,
+              prior_set=a.prior_set)
     elif a.cmd == "reweight":
         reweight(wd, a.chunk, a.nchunks, a.target_inj_fraction, a.target_pe_samples)
     else:

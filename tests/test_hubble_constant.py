@@ -96,6 +96,7 @@ def _write_mixture(path, n=4000, seed=3):
     a["weights"] = rng.uniform(0.5, 2.0, n)
     a[LNPDRAW] = rng.normal(-10, 1, n)
     semi = np.arange(n) < n // 2
+    a["time_geocenter"] = np.where(semi, rng.uniform(1.17e9, 1.18e9, n), rng.uniform(1.24e9, 1.25e9, n))  # O2 / O3a
     a["semianalytic_observed_phase_maximized_snr_net"] = np.where(semi, rng.uniform(0, 20, n), np.nan)
     a["o3_gstlal_far"] = np.where(semi, np.inf, 10 ** rng.uniform(-3, 1, n))
     with h5py.File(path, "w") as h:
@@ -254,6 +255,9 @@ def test_mass_model_priors_match_the_paper():
     assert (P["sigma_g_high"].minimum, P["sigma_g_high"].maximum) == (0.4, 10)
     with pytest.raises(SystemExit, match="unknown mass model"):
         runner.priors("bpl")
+    P5 = runner.priors("mltp", "gwtc5")                  # GWTC-5.0 cosmology, Table 5: wider peaks
+    assert P5["sigma_g_low"].maximum == 10 and P5["sigma_g_high"].maximum == 15
+    assert runner.priors("plp", "gwtc5")["sigma_g"].maximum == 10
 
 
 def test_report_compares_with_the_published_value_of_its_model(tmp_path):
@@ -340,3 +344,18 @@ def test_report_leads_with_the_reweighted_result(tmp_path):
     assert table.loc[0, "median"] == pytest.approx(106.5)
     html = (tmp_path / "h0.html").read_text()
     assert "106.5" in html and "119.3" in html and "72%" in html and "Reliable reweighting" in html and "3.5x faster" in html
+
+
+def test_injections_and_events_restricted_to_runs(tmp_path, fake_gwosc):
+    """--catalogs restricts the found injections and the events to the observing runs of the catalogs."""
+    a = _write_mixture(tmp_path / "mix.hdf")
+    all_ = hc.detector_frame_injections(tmp_path / "mix.hdf", 0.25, 10.0)
+    o2 = hc.detector_frame_injections(tmp_path / "mix.hdf", 0.25, 10.0, runs=hc.catalog_runs(["GWTC-1"]))
+    o3a = hc.detector_frame_injections(tmp_path / "mix.hdf", 0.25, 10.0, runs=hc.catalog_runs(["GWTC-2.1"]))
+    assert len(o2["prior"]) + len(o3a["prior"]) == len(all_["prior"]) and len(o2["prior"]) > 0 and len(o3a["prior"]) > 0
+    semi = a["time_geocenter"] < 1.2e9
+    assert len(o2["prior"]) == int((a["semianalytic_observed_phase_maximized_snr_net"][semi] > 10).sum())
+    assert list(hc.select_h0_events("gwtc4", 0.25, 3.0, [], runs=["O4a"])["run"]) == ["O4a", "O4a"]
+    assert hc.catalog_runs(["GWTC-5", "GWTC-1"]) == ("O1", "O2", "O4b") and len(hc.catalog_runs(["ALL"])) == 6
+    with pytest.raises(ValueError, match="Unknown catalog"):
+        hc.catalog_runs(["GWTC-6"])

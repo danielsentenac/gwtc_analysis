@@ -193,6 +193,8 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--ns-max-mass` | `2.5` | Maximum neutron-star mass [Msun] separating NS from BH. |
 | `--bbh-kappa` | `2.9` | BBH rate evolution R ∝ (1+z)^kappa. |
 | `--bbh-z-ref` | `0.2` | Redshift at which the evolving BBH rate is reported. |
+| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are restricted to their observing runs (GWTC-1: O1-O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b). Default: the runs of the real-injection mixture (O3 onward). |
+| `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1). |
 
 ### `hubble_constant`
 
@@ -204,6 +206,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `hubble_constant.html` | Output HTML report path. |
 | `--out-summary` | `hubble_constant.tsv` | Output TSV of the posterior quantiles. |
 | `--sensitivity-release` | `gwtc4` | LVK search-sensitivity release (and matching catalogs and runs): gwtc4 = GWTC-4.0 cumulative, semi-analytic O1+O2 + real O3+O4a injections; gwtc5 = GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections. |
+| `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are restricted to their observing runs. Default: all the runs of --sensitivity-release (gwtc4: O1-O4a, the published analysis; gwtc5: O1-O4b). |
 | `--sensitivity-file` | `` | Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's. |
 | `--far-threshold` | `0.25` | FAR threshold [1/yr] for the events and the real injections. |
 | `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections. |
@@ -313,6 +316,8 @@ python gwtc_analysis/gen_readme_cli_tables.py
 - **Populations** (fixed shapes): BNS with both masses uniform in [1, 2.5] M☉; NSBH with the black hole ∝ m^-2.35 on [2.5, 40] M☉; BBH with the GWTC-3 *Power Law + Peak* model, reported with R ∝ (1+z)^κ at z = 0.2 (`--bbh-kappa`, `--bbh-z-ref`) and without evolution.
 - **Intervals**: 90% Poisson (Jeffreys prior). The LVK population papers fit the population shapes together with the rates, so their intervals are wider and model-dependent.
 
+- **Catalogs** (`--catalogs`, as in the other modes): the events **and** the injections are restricted to the observing runs of the selected catalogs (GWTC-1: O1–O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b; `ALL` for O1 to O4b), so that counts and ⟨VT⟩ describe the same observing time. GWTC-1 uses the release's mixture with semi-analytic O1+O2 injections (`--snr-threshold`, 10). For O4b alone (`--catalogs GWTC-5`): 104 BBH candidates, BBH rate 24.8 [21.0, 29.0] Gpc⁻³ yr⁻¹ at z = 0.2.
+
 Outputs: `--out-rates` (TSV per population), `--out-events` (TSV of the events counted), `--out-report` (HTML report with the observed and the selection-corrected primary-mass distributions).
 
 ```bash
@@ -333,6 +338,7 @@ Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK popula
 
 The default setup reproduces the spectral-siren measurements of the [GWTC-4.0 cosmology paper](https://arxiv.org/abs/2509.04348) (published version v3): H₀ = 105.5 (+46.4 / −35.8) km/s/Mpc with the *Power Law + Peak* mass model (`--mass-model plp`, the default) and 72.3 (+42.5 / −25.6) km/s/Mpc with the *Multi Peak* model (`--mass-model mltp`: a power law and two Gaussian peaks, near 9 and 27 M☉). Use one work directory per mass model. The setup:
 
+- **Catalogs** (`--catalogs`): events and injections restricted to the observing runs of the selected catalogs; by default all the runs of `--sensitivity-release` (`gwtc4`: O1–O4a, the published analysis; `gwtc5`: O1–O4b, compared with the GWTC-5.0 cosmology paper, MLTP 71.0 (+21.0 / −17.5) km/s/Mpc).
 - **Events**: BBHs of O1–O4a from the GWOSC confident and marginal lists, lowest FAR below 0.25/yr (`--far-threshold`), both source-frame masses above 3 M☉ (`--min-mass`), GW231123 and GW200105 left out (`--exclude`): 136 events.
 - **PE samples**: from the Zenodo PE releases, `C01:IMRPhenomXPHM` up to O3 and `C00:IMRPhenomXPHM-SpinTaylor` in O4a, reduced to (m1_det, m2_det, D_L). The PE distance prior of each event is read from its file (D_L² up to O3, uniform in source-frame comoving volume in O4a) and divided out.
 - **Injections** (`--sensitivity-release`): `gwtc4` (default), the GWTC-4.0 semi-analytic O1+O2 + real O3+O4a mixture ([Zenodo 16740128](https://zenodo.org/records/16740128)), found when the semi-analytic SNR exceeds 10 (`--snr-threshold`) or the lowest search FAR is below the threshold; `gwtc5` adds GWTC-5.0 and O4b ([Zenodo 19500052](https://zenodo.org/records/19500052)) and is not yet validated against a published result.
