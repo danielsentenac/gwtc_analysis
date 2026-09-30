@@ -1,16 +1,23 @@
 # Installation
 
-`gwtc_analysis` runs on Linux and macOS with Python 3.10 or later, and on several platforms.
+`gwtc_analysis` runs on Linux and macOS with Python 3.10 or later. It is distributed as a **Python
+package on conda-forge** and as a **Docker image**:
 
 | Distribution | Where |
 |---|---|
+| Conda package `gwtc_analysis` | [conda-forge/gwtc_analysis](https://anaconda.org/conda-forge/gwtc_analysis) |
 | Docker image `gwtc-tool` | [Docker Hub](https://hub.docker.com/r/danielsentenac/gwtc-tool/) |
-| Conda package | [conda-forge/gwtc_analysis](https://anaconda.org/conda-forge/gwtc_analysis) |
-| Galaxy tool | [usegalaxy.org](https://usegalaxy.org) |
 | Source | [GitHub](https://github.com/danielsentenac/gwtc_analysis) |
 
-The Docker image is the recommended choice for reproducibility and for workflow systems (Galaxy,
-CI pipelines).
+The Docker image is the recommended choice for reproducibility and for workflow systems (CI
+pipelines, computing clusters).
+
+## From Docker
+
+```bash
+docker pull danielsentenac/gwtc-tool
+docker run --rm -v "$PWD":/work -w /work danielsentenac/gwtc-tool gwtc_analysis -h
+```
 
 ## From conda-forge
 
