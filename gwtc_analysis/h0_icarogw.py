@@ -8,10 +8,18 @@ installed. It only needs numpy, h5py, icarogw and bilby, and reads the `inputs.h
     python h0_icarogw.py run --workdir DIR --seed 1 [--mass-model plp|mltp --nlive 100 --npool 4 --naccept 60
                                                     --pe-samples 1500 --inj-fraction 0.1]
     python h0_icarogw.py combine --workdir DIR
+    python h0_icarogw.py probe --workdir DIR [--mass-model plp --pe-samples 1500 --fractions 0.1 0.2 0.5]
+    python h0_icarogw.py reweight --workdir DIR --chunk I --nchunks N [--target-inj-fraction 1]
+    python h0_icarogw.py reweight-merge --workdir DIR
 
 Independent runs (different seeds, possibly on different machines sharing DIR) are merged by
 `combine`, which also writes the posterior as TSV, a corner plot, and a summary with the
 numerical-stability diagnostics (effective numbers of injections and PE samples).
+
+`probe` measures, before sampling, the speed and the accuracy of likelihoods built on subsets of the
+found injections, to choose the fastest strategy. `reweight` and `reweight-merge` turn a posterior
+sampled with a subset into the posterior with all the injections, by importance reweighting of its
+samples (weights exp(ln L_target - ln L_runs)), with the effective sample size as the validity check.
 """
 from __future__ import annotations
 
@@ -21,6 +29,7 @@ import json
 import os
 import socket
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -228,6 +237,226 @@ def combine(workdir: Path, diagnostics: bool = True) -> dict:
     return summary
 
 
+# ---------------------------------------------------------------------------
+# importance reweighting (numpy only, so that it can be tested without icarogw)
+# ---------------------------------------------------------------------------
+
+REJECTED = -1e300     # icarogw returns nan_to_num(-inf) for the points it rejects
+
+
+def reweight_weights(ll_runs: np.ndarray, ll_target: np.ndarray) -> dict:
+    """Weights exp(ln L_target - ln L_runs), normalized, with their effective sample size.
+
+    Points rejected by the target likelihood get zero weight; points rejected by the runs cannot occur
+    (they are not in the posterior)."""
+    ll_runs, ll_target = np.asarray(ll_runs, float), np.asarray(ll_target, float)
+    ok = (ll_target > REJECTED) & np.isfinite(ll_target)
+    d = np.where(ok, ll_target - ll_runs, -np.inf)
+    if not ok.any():
+        raise SystemExit("[h0] the target likelihood rejects every posterior sample: reweighting impossible")
+    w = np.exp(d - d[ok].max())
+    w /= w.sum()
+    ess = float(1.0 / np.sum(w ** 2))
+    return dict(weights=w, ess=ess, ess_fraction=ess / len(w), rejected=int((~ok).sum()),
+                dlnl_mean=float(d[ok].mean()), dlnl_sd=float(d[ok].std()))
+
+
+def weighted_quantiles(x: np.ndarray, w: np.ndarray, q=(0.05, 0.16, 0.5, 0.84, 0.95)) -> list:
+    o = np.argsort(x)
+    c = np.cumsum(w[o]) - 0.5 * w[o]
+    c /= w.sum()
+    return [float(v) for v in np.interp(q, c, np.asarray(x)[o])]
+
+
+def predicted_ess_fraction(dlnl: np.ndarray) -> float:
+    """ESS fraction of log-normal weights with the scatter of dlnl: exp(-sigma^2)."""
+    return float(np.exp(-np.var(np.asarray(dlnl, float))))
+
+
+# ---------------------------------------------------------------------------
+# probe, reweight
+# ---------------------------------------------------------------------------
+
+_PILOT = {}   # likelihood and prior of the pilot chain, shared with the forked worker processes
+
+
+def _pilot_log_prob(x):
+    keys, P, like = _PILOT["keys"], _PILOT["prior"], _PILOT["like"]
+    point = dict(zip(keys, (float(v) for v in x)))
+    lp = P.ln_prob(point)
+    if not np.isfinite(lp):
+        return -np.inf
+    like.parameters.update(point | {"Om0": OM0})
+    ll = like.log_likelihood()
+    return ll + lp if ll > REJECTED else -np.inf
+
+
+def probe(workdir: Path, mass_model: str, pe_samples: int, fractions, npoints: int = 30,
+          max_draws: int = 4000, seed: int = 0, npool: int = 1, pilot_steps: int = 100,
+          measure_points: int = 60) -> dict:
+    """Speed and accuracy of likelihoods on injection subsets, before sampling.
+
+    1. prior points with a finite likelihood (all the injections): the fraction of them that each subset
+       rejects;
+    2. a short ensemble MCMC (emcee), started from those points, with the likelihood of the smallest
+       subset: its walkers move to the region the sampler runs will explore;
+    3. at the final walker positions: seconds per evaluation of each likelihood, and the scatter of
+       ln L_f - ln L_all, which predicts the ESS fraction of a reweighting to all the injections."""
+    import multiprocessing
+
+    import emcee
+
+    _enter(workdir)
+    fractions = sorted({float(f) for f in fractions if 0 < float(f) < 1})
+    if not fractions:
+        raise SystemExit("[h0] probe: no subset fraction in (0, 1) to test")
+    np.random.seed(seed)
+    P = priors(mass_model)
+    keys = [k for k in MASS_MODELS[mass_model]["params"]]
+    full, _, _, _ = build_likelihood(pe_samples, 1.0, mass_model)
+    subs = {f: build_likelihood(pe_samples, f, mass_model)[0] for f in fractions}
+    # 1. finite prior points
+    pts, draws = [], 0
+    while len(pts) < npoints and draws < max_draws:
+        draws += 1
+        smp = P.sample()
+        full.parameters.update(smp)
+        if full.log_likelihood() > REJECTED:
+            pts.append({k: float(smp[k]) for k in keys})
+    if len(pts) < 4:
+        raise SystemExit(f"[h0] probe: only {len(pts)} finite points in {draws} prior draws")
+    rejected = {}
+    for f, like in subs.items():
+        n = 0
+        for pt in pts:
+            like.parameters.update(pt | {"Om0": OM0})
+            n += like.log_likelihood() <= REJECTED
+        rejected[f] = n / len(pts)
+    # 2. pilot ensemble MCMC with the smallest subset
+    ndim = len(keys)
+    nwalkers = max(32, 2 * ndim + 2)
+    rng = np.random.default_rng(seed)
+    lo = np.array([P[k].minimum for k in keys]); hi = np.array([P[k].maximum for k in keys])
+    start = np.array([[pt[k] for k in keys] for pt in (pts[i] for i in rng.integers(0, len(pts), nwalkers))])
+    start = np.clip(start + 1e-4 * (hi - lo) * rng.standard_normal(start.shape), lo + 1e-9 * (hi - lo), hi - 1e-9 * (hi - lo))
+    _PILOT.update(keys=keys, prior=P, like=subs[fractions[0]])
+    t0 = time.time()
+    if npool > 1:
+        with multiprocessing.get_context("fork").Pool(npool) as pool:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, _pilot_log_prob, pool=pool)
+            sampler.run_mcmc(start, pilot_steps, progress=False)
+    else:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, _pilot_log_prob)
+        sampler.run_mcmc(start, pilot_steps, progress=False)
+    chain, lnp = sampler.get_chain(), sampler.get_log_prob()
+    last = max(1, int(np.ceil(measure_points / nwalkers)))
+    cand = chain[-last:].reshape(-1, ndim)[np.isfinite(lnp[-last:].reshape(-1))][:measure_points]
+    print(f"[h0] probe: pilot MCMC of {nwalkers} walkers x {pilot_steps} steps with fraction {fractions[0]:g} "
+          f"({time.time() - t0:.0f} s); ln posterior median {np.median(lnp[0][np.isfinite(lnp[0])]):.1f} -> "
+          f"{np.median(lnp[-1][np.isfinite(lnp[-1])]):.1f}", flush=True)
+    # 3. speed and accuracy at the pilot positions
+    def evaluate(like):
+        ll, tt = [], []
+        for x in cand:
+            like.parameters.update(dict(zip(keys, map(float, x))) | {"Om0": OM0})
+            t1 = time.perf_counter(); ll.append(like.log_likelihood()); tt.append(time.perf_counter() - t1)
+        return np.array(ll), float(np.median(tt))
+
+    ll_full, t_full = evaluate(full)
+    out = dict(mass_model=mass_model, pe_samples=pe_samples, draws=draws, points=len(pts),
+               finite_fraction=len(pts) / draws, pilot=dict(walkers=nwalkers, steps=pilot_steps, fraction=fractions[0],
+                                                             measured_points=int(len(cand))),
+               seconds_per_eval={"1.0": t_full}, fractions={})
+    for f, like in subs.items():
+        ll, tf = evaluate(like)
+        ok = (ll > REJECTED) & (ll_full > REJECTED)
+        d = (ll - ll_full)[ok]
+        out["seconds_per_eval"][str(f)] = tf
+        out["fractions"][str(f)] = dict(
+            dlnl_sd=float(d.std()) if len(d) > 1 else float("inf"),
+            predicted_ess_fraction=predicted_ess_fraction(d) if len(d) > 1 else 0.0,
+            rejected_fraction=float(max(rejected[f], 1 - ok.mean())))
+        print(f"[h0] probe f={f:g}: {tf:.3f} s/eval, sd(dlnL) = {out['fractions'][str(f)]['dlnl_sd']:.2f}, predicted "
+              f"ESS fraction {out['fractions'][str(f)]['predicted_ess_fraction']:.2f}, rejected "
+              f"{out['fractions'][str(f)]['rejected_fraction']:.0%}", flush=True)
+    print(f"[h0] probe f=1: {t_full:.3f} s/eval; {len(pts)} finite prior points in {draws} draws", flush=True)
+    Path("probe.json").write_text(json.dumps(out, indent=1))
+    return out
+
+
+def _combined_posterior(workdir: Path):
+    import pandas as pd
+
+    model = _settings(workdir).get("mass_model", "plp")
+    res = json.loads((workdir / "result" / f"{model}_combined_result.json").read_text())
+    return model, pd.DataFrame({k: np.asarray(v) for k, v in res["posterior"]["content"].items()
+                                if isinstance(v, list) and len(v) and not isinstance(v[0], (dict, str))})
+
+
+def reweight(workdir: Path, chunk: int, nchunks: int, target_inj_fraction: float = 1.0,
+             target_pe_samples: int | None = None) -> Path:
+    """ln L of the runs and of the target settings at a chunk of the combined posterior samples."""
+    _enter(workdir)
+    s = _settings(workdir)
+    model, post = _combined_posterior(workdir)
+    params = [k for k in MASS_MODELS[model]["params"]]
+    idx = np.array_split(np.arange(len(post)), nchunks)[chunk]
+    npe = int(target_pe_samples or s["pe_samples"])
+    out = {"idx": idx, "stored": post["log_likelihood"].to_numpy()[idx]}
+    for key, (frac, pe) in (("runs", (float(s["inj_fraction"]), int(s["pe_samples"]))),
+                            ("target", (float(target_inj_fraction), npe))):
+        like, _, _, _ = build_likelihood(pe, frac, model)
+        ll = np.empty(len(idx))
+        for j, i in enumerate(idx):
+            like.parameters.update({k: float(post[k].iloc[i]) for k in params} | {"Om0": OM0})
+            ll[j] = like.log_likelihood()
+        out[key] = ll
+        del like
+    Path("reweight").mkdir(exist_ok=True)
+    dest = Path("reweight") / f"chunk{chunk:03d}_of_{nchunks:03d}.npz"
+    np.savez(dest, target_settings=np.array([target_inj_fraction, npe]), **out)
+    print(f"[h0] reweight chunk {chunk + 1}/{nchunks}: {len(idx)} samples", flush=True)
+    return dest
+
+
+def reweight_merge(workdir: Path, seed: int = 1) -> dict:
+    """Merge the chunks: weights, ESS, reweighted quantiles and a resampled posterior_reweighted.tsv."""
+    _enter(workdir)
+    model, post = _combined_posterior(workdir)
+    files = sorted(Path("reweight").glob("chunk*_of_*.npz"))
+    if not files:
+        raise SystemExit("[h0] no reweighting chunk found")
+    nchunks = int(files[0].name.split("_of_")[1][:3])
+    if len(files) != nchunks:
+        raise SystemExit(f"[h0] {len(files)} of {nchunks} reweighting chunks present")
+    d = [np.load(f) for f in files]
+    idx = np.concatenate([x["idx"] for x in d])
+    o = np.argsort(idx)
+    ll_runs, ll_target = (np.concatenate([x[k] for x in d])[o] for k in ("runs", "target"))
+    stored = np.concatenate([x["stored"] for x in d])[o]
+    target = [float(v) for v in d[0]["target_settings"]]
+    r = reweight_weights(ll_runs, ll_target)
+    params = [k for k in MASS_MODELS[model]["params"] if k in post]
+    quant = {k: weighted_quantiles(post[k].to_numpy(), r["weights"]) for k in params}
+    rng = np.random.default_rng(seed)
+    pick = rng.choice(len(post), size=len(post), replace=True, p=r["weights"])
+    post[params].iloc[pick].to_csv("posterior_reweighted.tsv", sep="\t", index=False, float_format="%.6g")
+    summary = json.loads(Path("summary.json").read_text()) if Path("summary.json").exists() else {}
+    summary["reweighted"] = dict(target_inj_fraction=target[0], target_pe_samples=int(target[1]), ess=r["ess"],
+                                 ess_fraction=r["ess_fraction"], rejected=r["rejected"], dlnl_mean=r["dlnl_mean"],
+                                 dlnl_sd=r["dlnl_sd"], runs_lnl_match=bool(np.allclose(ll_runs, stored)),
+                                 quantiles=quant)
+    Path("summary.json").write_text(json.dumps(summary, indent=1))
+    q = quant["H0"]
+    print(f"[h0] reweighted to injection fraction {target[0]:g}, {int(target[1])} PE samples: H0 = {q[2]:.1f} "
+          f"(+{q[3] - q[2]:.1f} / -{q[2] - q[1]:.1f}), 90%: {q[0]:.1f}-{q[4]:.1f}; ESS {r['ess']:.0f} of {len(post)} "
+          f"({r['ess_fraction']:.0%}), {r['rejected']} rejected; runs ln L reproduced: {summary['reweighted']['runs_lnl_match']}",
+          flush=True)
+    if not summary["reweighted"]["runs_lnl_match"]:
+        print("[h0] WARN: ln L of the runs not reproduced; the inputs or settings changed since sampling", flush=True)
+    return summary["reweighted"]
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="icarogw spectral-siren sampler of gwtc_analysis hubble_constant.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -243,12 +472,34 @@ def main(argv=None) -> int:
     c = sub.add_parser("combine")
     c.add_argument("--workdir", required=True)
     c.add_argument("--no-diagnostics", action="store_true")
+    pr = sub.add_parser("probe")
+    pr.add_argument("--workdir", required=True)
+    pr.add_argument("--mass-model", choices=list(MASS_MODELS), default="plp")
+    pr.add_argument("--pe-samples", type=int, default=1500)
+    pr.add_argument("--fractions", type=float, nargs="+", default=[0.1, 0.2, 0.5])
+    pr.add_argument("--npoints", type=int, default=30)
+    pr.add_argument("--npool", type=int, default=1)
+    pr.add_argument("--pilot-steps", type=int, default=100)
+    rw = sub.add_parser("reweight")
+    rw.add_argument("--workdir", required=True)
+    rw.add_argument("--chunk", type=int, required=True)
+    rw.add_argument("--nchunks", type=int, required=True)
+    rw.add_argument("--target-inj-fraction", type=float, default=1.0)
+    rw.add_argument("--target-pe-samples", type=int, default=None)
+    rm = sub.add_parser("reweight-merge")
+    rm.add_argument("--workdir", required=True)
     a = p.parse_args(argv)
     wd = Path(a.workdir).expanduser().resolve()
     if a.cmd == "run":
         run(wd, a.seed, a.nlive, a.npool, a.naccept, a.pe_samples, a.inj_fraction, a.mass_model)
-    else:
+    elif a.cmd == "combine":
         combine(wd, diagnostics=not a.no_diagnostics)
+    elif a.cmd == "probe":
+        probe(wd, a.mass_model, a.pe_samples, a.fractions, a.npoints, npool=a.npool, pilot_steps=a.pilot_steps)
+    elif a.cmd == "reweight":
+        reweight(wd, a.chunk, a.nchunks, a.target_inj_fraction, a.target_pe_samples)
+    else:
+        reweight_merge(wd)
     return 0
 
 

@@ -10,7 +10,13 @@ Stages of `run_hubble_constant`:
 - ``sample``: independent icarogw + bilby/dynesty runs, one per seed (`h0_icarogw.py`, run by the
   icarogw interpreter).
 - ``combine``: the runs merged, with numerical-stability diagnostics.
+- ``reweight``: when the runs used a subset of the injections, their posterior reweighted to all of
+  them (importance weights exp(ln L_all - ln L_runs), checked by their effective sample size).
 - ``report``: HTML report.
+
+With ``inj_fraction="auto"`` (the default), a probe measures before sampling the speed and the
+accuracy of likelihoods built on subsets of the injections, and the fastest reliable strategy is
+chosen (`choose_injection_fraction`): sample with a subset and reweight, or sample with all.
 
 The default setup reproduces the spectral-siren measurements of the GWTC-4.0 cosmology paper
 (arXiv:2509.04348, published version v3): H0 = 105.5 (+46.4 / -35.8) km/s/Mpc with the Power Law + Peak
@@ -74,7 +80,8 @@ PE_LABELS = ("C00:IMRPhenomXPHM-SpinTaylor", "C01:IMRPhenomXPHM", "C00:IMRPhenom
 _PE_COLUMNS = ("mass_1", "mass_2", "luminosity_distance")
 _LNPDRAW = "lnpdraw_mass1_source_mass2_source_redshift_spin1x_spin1y_spin1z_spin2x_spin2y_spin2z"
 _YEAR_S = 3.15576e7
-STAGES = ("prepare", "sample", "combine", "report")
+STAGES = ("prepare", "sample", "combine", "reweight", "report")
+PROBE_FRACTIONS = (0.1, 0.2, 0.5)
 MASS_MODELS = {"plp": "Power Law + Peak", "mltp": "Multi Peak"}
 H0_DEFAULT_MASS_MODEL = "plp"
 
@@ -414,54 +421,99 @@ def run_seeds_parallel(python: str, workdir: Path, seeds: list[int], parallel: i
 
     Interrupting (Ctrl-C) stops the runs, which write their checkpoint and resume on the next launch.
     """
+    jobs = [(f"run_seed{seed}", ["run", "--workdir", str(workdir), "--seed", str(seed)] + run_args) for seed in seeds]
+    try:
+        run_jobs_parallel(python, workdir, jobs, parallel)
+    except ValueError as e:
+        if str(e).startswith("job(s) failed"):
+            bad = [int(n[len("run_seed"):]) for n in jobs_failed(e)]
+            raise ValueError(f"sampler run(s) failed for seed(s) {bad}; see {workdir / 'logs'}") from None
+        raise
+
+
+def jobs_failed(err: ValueError) -> list[str]:
+    import ast
+
+    txt = str(err)
+    return ast.literal_eval(txt[txt.index("["):txt.index("]") + 1])
+
+
+def choose_injection_fraction(probe: dict, min_ess_fraction: float = 0.5, max_rejected: float = 0.05,
+                              min_speedup: float = 1.25) -> tuple[float, str]:
+    """Fastest reliable injection fraction from a probe (see h0_icarogw.probe).
+
+    The smallest fraction that is at least `min_speedup` times faster per likelihood evaluation than all
+    the injections, whose predicted reweighting ESS fraction is at least `min_ess_fraction` and which
+    rejects at most `max_rejected` of the probe points; otherwise all the injections (1.0)."""
+    t_all = float(probe["seconds_per_eval"]["1.0"])
+    reasons = []
+    for key in sorted(probe.get("fractions", {}), key=float):
+        f, info = float(key), probe["fractions"][key]
+        speedup = t_all / max(float(probe["seconds_per_eval"][key]), 1e-9)
+        ess, rej = float(info["predicted_ess_fraction"]), float(info["rejected_fraction"])
+        if speedup < min_speedup:
+            reasons.append(f"{f:g}: only {speedup:.2f}x faster")
+        elif ess < min_ess_fraction:
+            reasons.append(f"{f:g}: predicted ESS fraction {ess:.2f} < {min_ess_fraction:g}")
+        elif rej > max_rejected:
+            reasons.append(f"{f:g}: rejects {rej:.0%} of the probe points")
+        else:
+            return f, (f"fraction {f:g}: {speedup:.1f}x faster per evaluation, predicted reweighting ESS fraction "
+                       f"{ess:.2f}, rejects {rej:.0%} of the probe points; then reweighted to all the injections")
+    return 1.0, "all the injections (" + ("; ".join(reasons) or "no subset probed") + ")"
+
+
+def run_jobs_parallel(python: str, workdir: Path, jobs: list[tuple[str, list[str]]], parallel: int) -> None:
+    """Runner jobs (name, arguments), up to `parallel` at a time, each logging to <workdir>/logs/<name>.log.
+
+    Interrupting (Ctrl-C) stops the jobs; sampler runs write their checkpoint first."""
     import signal
     import time
 
     def _stop(signum, frame):
         raise KeyboardInterrupt
 
-    previous = signal.signal(signal.SIGTERM, _stop)   # a killed launcher also stops (and checkpoints) its runs
+    previous = signal.signal(signal.SIGTERM, _stop)   # a killed launcher also stops (and checkpoints) its jobs
     cmd, env = _runner_command(python)
     logs = workdir / "logs"
     logs.mkdir(parents=True, exist_ok=True)
-    todo, running, failed = list(seeds), {}, []
-    _log(f"{len(seeds)} run(s), {parallel} at a time; logs in {logs}")
+    todo, running, failed = list(jobs), {}, []
+    _log(f"{len(jobs)} job(s), {parallel} at a time; logs in {logs}")
     try:
         while todo or running:
             while todo and len(running) < parallel:
-                seed = todo.pop(0)
-                log = logs / f"run_seed{seed}.log"
+                name, args = todo.pop(0)
+                log = logs / f"{name}.log"
                 fh = open(log, "a")
-                running[seed] = (subprocess.Popen(cmd + ["run", "--workdir", str(workdir), "--seed", str(seed)] + run_args,
-                                                  env=env, stdout=fh, stderr=subprocess.STDOUT,
+                running[name] = (subprocess.Popen(cmd + args, env=env, stdout=fh, stderr=subprocess.STDOUT,
                                                   start_new_session=True), fh, log)   # signals reach the launcher only
-                _log(f"seed {seed}: started (pid {running[seed][0].pid})")
+                _log(f"{name}: started (pid {running[name][0].pid})")
             time.sleep(5)
-            for seed, (proc, fh, log) in list(running.items()):
+            for name, (proc, fh, log) in list(running.items()):
                 if proc.poll() is None:
                     continue
                 fh.close()
-                del running[seed]
+                del running[name]
                 if proc.returncode == 0:
-                    _log(f"seed {seed}: finished. {_last_line(log)}")
+                    _log(f"{name}: finished. {_last_line(log)}")
                 else:
-                    failed.append(seed)
-                    _log(f"seed {seed}: FAILED (exit code {proc.returncode}): {_last_line(log) or 'see ' + str(log)}")
+                    failed.append(name)
+                    _log(f"{name}: FAILED (exit code {proc.returncode}): {_last_line(log) or 'see ' + str(log)}")
     except KeyboardInterrupt:
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
         signal.signal(signal.SIGINT, signal.SIG_IGN)
-        _log(f"stopping seed(s) {sorted(running)}: they write their checkpoint first")
+        _log(f"stopping {sorted(running)}")
         for proc, fh, _ in running.values():
             proc.terminate()
         for proc, fh, _ in running.values():
             proc.wait()
             fh.close()
-        raise ValueError("interrupted: the running seeds wrote their checkpoint and resume on the next launch")
+        raise ValueError("interrupted: the running jobs were stopped (sampler runs resume from their checkpoint)")
     finally:
         signal.signal(signal.SIGTERM, previous)
         signal.signal(signal.SIGINT, signal.default_int_handler)
     if failed:
-        raise ValueError(f"sampler run(s) failed for seed(s) {failed}; see {logs}")
+        raise ValueError(f"job(s) failed: {failed}; see {logs}")
 
 
 def _plot_h0(post: pd.DataFrame, published: Optional[dict], out_png: Path, model_name: str = "Power Law + Peak") -> Path:
@@ -507,13 +559,16 @@ def _plot_h0(post: pd.DataFrame, published: Optional[dict], out_png: Path, model
 
 def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optional[Path], release: str) -> pd.DataFrame:
     summary = json.loads((workdir / "summary.json").read_text())
-    post = pd.read_csv(workdir / "posterior.tsv", sep="\t")
+    rw = summary.get("reweighted")
+    use_rw = bool(rw) and (workdir / "posterior_reweighted.tsv").exists()
+    post = pd.read_csv(workdir / ("posterior_reweighted.tsv" if use_rw else "posterior.tsv"), sep="\t")
     events = pd.read_csv(workdir / "events.tsv", sep="\t") if (workdir / "events.tsv").exists() else pd.DataFrame()
     model = summary.get("mass_model", "plp")
     model_name = MASS_MODELS.get(model, model)
     published = (H0_SENSITIVITY_RELEASES.get(release, {}).get("published") or {}).get(model)
+    quantiles = rw["quantiles"] if use_rw else summary["quantiles"]
     rows = [dict(parameter=k, median=q[2], minus_68=q[2] - q[1], plus_68=q[3] - q[2], low_90=q[0], high_90=q[4])
-            for k, q in summary["quantiles"].items()]
+            for k, q in quantiles.items()]
     table = pd.DataFrame(rows)
     if out_summary_tsv:
         Path(out_summary_tsv).parent.mkdir(parents=True, exist_ok=True)
@@ -523,32 +578,48 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     images = [_plot_h0(post, published, plots / "h0_posterior.png", model_name)]
     if (workdir / "corner.png").exists():
         images.append(workdir / "corner.png")
-    q = summary["quantiles"]["H0"]
+    q = quantiles["H0"]
     s = summary.get("settings", {})
+    fmt = lambda q: f"{q[2]:.1f} (+{q[3] - q[2]:.1f} / −{q[2] - q[1]:.1f}) km/s/Mpc, 90%: {q[0]:.1f}–{q[4]:.1f}"
     paras = [
         f"H<sub>0</sub> = <b>{q[2]:.1f} (+{q[3] - q[2]:.1f} / −{q[2] - q[1]:.1f}) km/s/Mpc</b> (median, 68%); "
-        f"90%: {q[0]:.1f}–{q[4]:.1f}. Spectral siren with {len(events) or '?'} BBH events: the redshift comes from the "
+        f"90%: {q[0]:.1f}–{q[4]:.1f}" + (" (reweighted to all the injections)" if use_rw and rw["target_inj_fraction"] >= 1 else "")
+        + f". Spectral siren with {len(events) or '?'} BBH events: the redshift comes from the "
         f"source-frame mass distribution ({model_name}, fitted together with H<sub>0</sub>) and the "
         "Madau–Dickinson rate evolution, with flat ΛCDM (Ω<sub>m</sub> = 0.3065).",
         f"{summary['n_runs']} dynesty run(s) of {s.get('nlive', '?')} live points, {summary['n_samples']} posterior samples, "
         f"ln Z = {summary['log_evidence']:.2f} ± {summary['log_evidence_err']:.2f} (runs: "
         + ", ".join(f"{x:.1f}" for x in summary["run_log_evidences"]) + f"). PE samples per event: {s.get('pe_samples', '?')}; "
-        f"fraction of the found injections used: {s.get('inj_fraction', '?')}.",
+        f"fraction of the found injections used by the runs: {s.get('inj_fraction', '?')}.",
     ]
+    if use_rw:
+        qr = summary["quantiles"]["H0"]
+        low = rw["ess_fraction"] < 0.1
+        paras.append(
+            f"The runs give H<sub>0</sub> = {fmt(qr)}. Their samples were reweighted to injection fraction "
+            f"{rw['target_inj_fraction']:g} and {rw['target_pe_samples']} PE samples per event (importance weights "
+            f"exp(ln L<sub>target</sub> − ln L<sub>runs</sub>), mean Δln L = {rw['dlnl_mean']:.2f}, scatter {rw['dlnl_sd']:.2f}): "
+            f"effective sample size {rw['ess']:.0f} of {summary['n_samples']} ({rw['ess_fraction']:.0%}), "
+            f"{rw['rejected']} sample(s) rejected by the target likelihood"
+            + ("" if rw.get("runs_lnl_match", True) else "; <b>the ln L of the runs was not reproduced</b>") + ". "
+            + ("<b>Low effective sample size: sample directly with --inj-fraction 1.</b>" if low else "Reliable reweighting."))
     if published:
         paras.append(f"Published ({published['ref']}): {published['median']} (+{published['plus']} / −{published['minus']}), "
                      f"90%: {published['lo90']}–{published['hi90']} km/s/Mpc.")
+    plan = workdir / "plan.json"
+    if plan.exists():
+        paras.append("Strategy: " + json.loads(plan.read_text())["reason"] + ".")
     d = summary.get("diagnostics")
     if d:
         ok = d["neff_inj_min"] >= d["neff_inj_threshold"] and d["neff_pe_min"] >= d["neff_pe_threshold"]
         paras.append(
-            f"Numerical stability over {d['n_points']} posterior draws: effective injections min {d['neff_inj_min']:.0f}, "
+            f"Numerical stability of the runs over {d['n_points']} posterior draws: effective injections min {d['neff_inj_min']:.0f}, "
             f"median {d['neff_inj_median']:.0f} (threshold {d['neff_inj_threshold']}); smallest per-event effective PE "
             f"samples min {d['neff_pe_min']:.1f}, median {d['neff_pe_median_of_min']:.1f} (threshold {d['neff_pe_threshold']}); "
             f"lowest events: {', '.join(d['lowest_neff_pe_events'])}. " + ("OK." if ok else "<b>Below threshold: increase "
             "--inj-fraction or --pe-samples.</b>"))
     paras.append("The upper part of the H<sub>0</sub> interval depends on the prior bound (uniform 10–200 km/s/Mpc).")
-    tables = [("Posterior (median, 68% and 90% intervals)",
+    tables = [("Posterior (median, 68% and 90% intervals)" + (", reweighted" if use_rw else ""),
                table.to_html(index=False, float_format=lambda x: f"{x:.3g}"))]
     if not events.empty:
         tables.append(("Events", events.to_html(index=False, escape=True, float_format=lambda x: f"{x:.4g}")))
@@ -557,6 +628,29 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
                              images=images, tables=tables)
     _log(f"report written to {out_report_html}")
     return table
+
+
+def _plan_injection_fraction(python: str, workdir: Path, mass_model: str, pe_samples: int, probe_points: int,
+                             min_ess_fraction: float, npool: int = 1) -> float:
+    """The injection fraction of the runs: the one already used in the work directory, else chosen by a probe."""
+    settings = workdir / "run_settings.json"
+    if settings.exists():
+        f = float(json.loads(settings.read_text())["inj_fraction"])
+        _log(f"injection fraction {f:g}, as in the runs already in {workdir}")
+        return f
+    probe_file = workdir / "probe.json"
+    probe = json.loads(probe_file.read_text()) if probe_file.exists() else None
+    if not probe or probe.get("mass_model") != mass_model or probe.get("pe_samples") != pe_samples:
+        _log("probing the likelihood speed and accuracy on injection subsets")
+        _run_runner(python, ["probe", "--workdir", str(workdir), "--mass-model", mass_model, "--pe-samples",
+                             str(pe_samples), "--npoints", str(probe_points), "--npool", str(npool), "--fractions"]
+                    + [str(f) for f in PROBE_FRACTIONS])
+        probe = json.loads(probe_file.read_text())
+    f, reason = choose_injection_fraction(probe, min_ess_fraction=min_ess_fraction)
+    (workdir / "plan.json").write_text(json.dumps(dict(inj_fraction=f, reason=reason, min_ess_fraction=min_ess_fraction),
+                                                  indent=1))
+    _log(f"strategy: {reason}")
+    return f
 
 
 def run_hubble_constant(
@@ -579,7 +673,10 @@ def run_hubble_constant(
     npool: int = 4,
     naccept: int = 60,
     pe_samples: int = 1500,
-    inj_fraction: float = 0.1,
+    inj_fraction: float | str = "auto",
+    min_ess_fraction: float = 0.5,
+    probe_points: int = 30,
+    reweight_pe_samples: Optional[int] = None,
     icarogw_python: Optional[str] = None,
 ) -> Optional[pd.DataFrame]:
     """Spectral-siren H0 with the `mass_model` BBH mass distribution; see the module docstring for the stages."""
@@ -591,16 +688,19 @@ def run_hubble_constant(
     if "prepare" in stages:
         prepare_inputs(workdir, sensitivity_release, sensitivity_file, far_threshold, snr_threshold, min_mass,
                        exclude, Path(pe_cache).expanduser() if pe_cache else default_pe_cache(), keep_pe_files)
-    if ("sample" in stages or "combine" in stages):
+    if any(st in stages for st in ("sample", "combine", "reweight")):
         _check_runner(python)
+    ncpu = os.cpu_count() or 1
     if "sample" in stages:
         if not (workdir / "inputs.h5").exists():
             raise ValueError(f"{workdir / 'inputs.h5'} not found: run the prepare stage first")
+        if inj_fraction == "auto":
+            inj_fraction = _plan_injection_fraction(python, workdir, mass_model, pe_samples, probe_points,
+                                                    min_ess_fraction, npool=max(1, min(ncpu, int(parallel) * int(npool))))
         seeds = list(dict.fromkeys(int(x) for x in seeds))
         run_args = ["--mass-model", mass_model, "--nlive", str(nlive), "--npool", str(npool), "--naccept", str(naccept),
-                    "--pe-samples", str(pe_samples), "--inj-fraction", str(inj_fraction)]
+                    "--pe-samples", str(pe_samples), "--inj-fraction", str(float(inj_fraction))]
         parallel = max(1, min(int(parallel), len(seeds)))
-        ncpu = os.cpu_count() or 1
         if parallel * npool > ncpu:
             _log(f"WARN: {parallel} parallel runs x {npool} processes = {parallel * npool} > {ncpu} CPUs; "
                  "reduce --parallel or --npool")
@@ -611,6 +711,25 @@ def run_hubble_constant(
             run_seeds_parallel(python, workdir, seeds, parallel, run_args)
     if "combine" in stages:
         _run_runner(python, ["combine", "--workdir", str(workdir)])
+    if "reweight" in stages:
+        settings = json.loads((workdir / "run_settings.json").read_text()) if (workdir / "run_settings.json").exists() else {}
+        target_pe = int(reweight_pe_samples or settings.get("pe_samples", pe_samples))
+        if not settings:
+            _log("reweight: no runs in the work directory, skipped")
+        elif float(settings["inj_fraction"]) >= 1 and target_pe == int(settings["pe_samples"]):
+            _log("reweight: the runs already use all the injections, nothing to do")
+        else:
+            import shutil
+
+            shutil.rmtree(workdir / "reweight", ignore_errors=True)
+            nchunks = max(1, min(ncpu, int(parallel) * int(npool)))
+            jobs = [(f"reweight_{c:03d}", ["reweight", "--workdir", str(workdir), "--chunk", str(c), "--nchunks",
+                                           str(nchunks), "--target-inj-fraction", "1.0",
+                                           "--target-pe-samples", str(target_pe)]) for c in range(nchunks)]
+            _log(f"reweighting the posterior to all the injections and {target_pe} PE samples per event, "
+                 f"{nchunks} chunk(s)")
+            run_jobs_parallel(python, workdir, jobs, nchunks)
+            _run_runner(python, ["reweight-merge", "--workdir", str(workdir)])
     if "report" in stages and out_report_html:
         return write_h0_report(workdir, Path(out_report_html), Path(out_summary_tsv) if out_summary_tsv else None,
                                sensitivity_release)
