@@ -79,13 +79,14 @@ the posterior: for PLP, 10% of the injections shift H₀ by about +13 km/s/Mpc (
 ([details](../science/spectral-siren.md#injection-subsets-and-reweighting)). The mode keeps the speed
 and removes the shift in two steps:
 
-1. **Probe** (before sampling, a few minutes). At prior points with a finite likelihood, the probe
-   records how often each subset (10%, 20%, 50%) rejects a point that all the injections accept. A
-   short ensemble MCMC (emcee), started from those points with the smallest subset, then moves them to
-   the region the runs will explore. There it measures the time per evaluation of each likelihood and
-   the scatter σ of ln L_subset − ln L_all, which predicts the effective-sample-size fraction of a
-   reweighting, exp(−σ²). The rule: the smallest subset at least 1.25 times faster, with a predicted
-   fraction ≥ `--min-ess-fraction` and at most 5% of rejected points; otherwise all the injections.
+1. **Probe** (before sampling, 5 to 20 minutes). A short ensemble MCMC (emcee, 300 steps), started
+   from prior points with a finite likelihood and using the smallest subset, moves to the region the
+   runs will explore. At its final positions the probe measures, for each subset (10%, 20%, 50%), the
+   time per likelihood evaluation, the scatter σ of ln L_subset − ln L_all, which predicts the
+   effective-sample-size fraction of a reweighting, exp(−σ²), and the fraction of positions that the
+   subset rejects while all the injections accept them (a reweighting cannot recover regions the runs
+   never visit). The rule: the smallest subset at least 1.25 times faster, with a predicted fraction
+   ≥ `--min-ess-fraction` and at most 5% of rejected positions; otherwise all the injections.
 2. **Reweighting** (after `combine`). Each posterior sample θᵢ gets the weight
    exp[ln L_all(θᵢ) − ln L_runs(θᵢ)]. The weighted samples describe the posterior with all the
    injections; `posterior_reweighted.tsv` is a resample of them, and the report leads with it. The

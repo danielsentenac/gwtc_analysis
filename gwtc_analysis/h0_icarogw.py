@@ -300,16 +300,18 @@ def _pilot_log_prob(x):
 
 
 def probe(workdir: Path, mass_model: str, pe_samples: int, fractions, npoints: int = 30,
-          max_draws: int = 4000, seed: int = 0, npool: int = 1, pilot_steps: int = 100,
+          max_draws: int = 4000, seed: int = 0, npool: int = 1, pilot_steps: int = 300,
           measure_points: int = 60, prior_set: str = "gwtc4") -> dict:
     """Speed and accuracy of likelihoods on injection subsets, before sampling.
 
-    1. prior points with a finite likelihood (all the injections): the fraction of them that each subset
-       rejects;
+    1. prior points with a finite likelihood (all the injections), to start the pilot; the fraction of them
+       that each subset rejects is recorded for information (rejected_prior_fraction);
     2. a short ensemble MCMC (emcee), started from those points, with the likelihood of the smallest
        subset: its walkers move to the region the sampler runs will explore;
-    3. at the final walker positions: seconds per evaluation of each likelihood, and the scatter of
-       ln L_f - ln L_all, which predicts the ESS fraction of a reweighting to all the injections."""
+    3. at the final walker positions: seconds per evaluation of each likelihood, the scatter of
+       ln L_f - ln L_all, which predicts the ESS fraction of a reweighting to all the injections, and the
+       fraction of positions that the subset rejects while all the injections accept them
+       (rejected_fraction: the region the runs explore; a reweighting cannot recover what they never visit)."""
     import multiprocessing
 
     import emcee
@@ -383,10 +385,12 @@ def probe(workdir: Path, mass_model: str, pe_samples: int, fractions, npoints: i
         out["fractions"][str(f)] = dict(
             dlnl_sd=float(d.std()) if len(d) > 1 else float("inf"),
             predicted_ess_fraction=predicted_ess_fraction(d) if len(d) > 1 else 0.0,
-            rejected_fraction=float(max(rejected[f], 1 - ok.mean())))
+            rejected_fraction=float(np.mean((ll <= REJECTED) & (ll_full > REJECTED))),
+            rejected_prior_fraction=float(rejected[f]))
         print(f"[h0] probe f={f:g}: {tf:.3f} s/eval, sd(dlnL) = {out['fractions'][str(f)]['dlnl_sd']:.2f}, predicted "
               f"ESS fraction {out['fractions'][str(f)]['predicted_ess_fraction']:.2f}, rejected "
-              f"{out['fractions'][str(f)]['rejected_fraction']:.0%}", flush=True)
+              f"{out['fractions'][str(f)]['rejected_fraction']:.0%} of the pilot positions "
+              f"({out['fractions'][str(f)]['rejected_prior_fraction']:.0%} of the prior points)", flush=True)
     print(f"[h0] probe f=1: {t_full:.3f} s/eval; {len(pts)} finite prior points in {draws} draws", flush=True)
     Path("probe.json").write_text(json.dumps(out, indent=1))
     return out
@@ -492,7 +496,7 @@ def main(argv=None) -> int:
     pr.add_argument("--fractions", type=float, nargs="+", default=[0.1, 0.2, 0.5])
     pr.add_argument("--npoints", type=int, default=30)
     pr.add_argument("--npool", type=int, default=1)
-    pr.add_argument("--pilot-steps", type=int, default=100)
+    pr.add_argument("--pilot-steps", type=int, default=300)
     rw = sub.add_parser("reweight")
     rw.add_argument("--workdir", required=True)
     rw.add_argument("--chunk", type=int, required=True)
