@@ -1827,6 +1827,95 @@ def plot_time_frequency(
     print(f"ℹ️ [OK] Saved {fname}")
     return fname
 
+def _credible_thresholds(density: np.ndarray, levels=(0.5, 0.9)) -> list[float]:
+    """Density values enclosing the given probabilities (highest-density regions of a histogram)."""
+    d = np.sort(density.ravel())[::-1]
+    c = np.cumsum(d) / d.sum()
+    return sorted(float(d[min(np.searchsorted(c, lv), len(d) - 1)]) for lv in levels)
+
+
+def _plot_pair_density(x, y, xk: str, yk: str, *, bins: int = 60, max_points_scatter: int = 2000):
+    """2D posterior density with its 50% and 90% credible contours, colour bar and the two marginals."""
+    from scipy.ndimage import gaussian_filter
+
+    def label(k):
+        if k in ("ra", "dec"):
+            return f"{k} [deg]"
+        if "distance" in k:
+            return f"{k} [Mpc]"
+        return f"{k} [M$_\\odot$]" if "mass" in k and "ratio" not in k else k
+
+    fig = plt.figure(figsize=(6.6, 6))
+    gs = fig.add_gridspec(2, 3, width_ratios=(4, 1, 0.18), height_ratios=(1, 4), wspace=0.05, hspace=0.05)
+    ax = fig.add_subplot(gs[1, 0])
+    ax_x = fig.add_subplot(gs[0, 0], sharex=ax)
+    ax_y = fig.add_subplot(gs[1, 1], sharey=ax)
+    cax = fig.add_subplot(gs[1, 2])
+
+    # the bulk of the samples (99.8%), not the extreme tails
+    rng = [tuple(np.percentile(v, [0.1, 99.9])) for v in (x, y)]
+    h, xe, ye = np.histogram2d(x, y, bins=bins, range=rng, density=True)
+    cmap = plt.get_cmap("viridis").copy()
+    cmap.set_bad(cmap(0.0))
+    mesh = ax.pcolormesh(xe, ye, np.ma.masked_equal(h, 0).T, cmap=cmap, shading="flat", rasterized=True)
+    fig.colorbar(mesh, cax=cax, label="posterior density")
+    if len(x) <= max_points_scatter:          # few samples: show them too
+        ax.scatter(x, y, s=3, color="white", alpha=0.3, lw=0)
+
+    # 50% and 90% credible regions, from the lightly smoothed histogram
+    hs = gaussian_filter(h, 1.0)
+    xc, yc = 0.5 * (xe[1:] + xe[:-1]), 0.5 * (ye[1:] + ye[:-1])
+    mass_pair = {xk, yk} in ({"mass_1", "mass_2"}, {"mass_1_source", "mass_2_source"})
+    if mass_pair:        # no smoothing across m1 = m2, where the samples stop
+        m1_axis_x = xk in ("mass_1", "mass_1_source")
+        X, Y = np.meshgrid(xc, yc, indexing="ij")
+        hs[(Y > X) if m1_axis_x else (X > Y)] = 0.0
+    if hs.max() > 0:
+        t90, t50 = _credible_thresholds(hs, (0.9, 0.5))
+        if t90 < t50:
+            cs = ax.contour(xc, yc, hs.T, levels=[t90, t50], colors="white", linewidths=(0.9, 1.3))
+            ax.clabel(cs, fmt={t90: "90%", t50: "50%"}, fontsize=7)
+
+    # component masses: m1 >= m2 by convention, so the samples stop at the line m1 = m2
+    if mass_pair:
+        xlim, ylim = ax.get_xlim(), ax.get_ylim()
+        lo, hi = min(xlim[0], ylim[0]), max(xlim[1], ylim[1])
+        ax.plot([lo, hi], [lo, hi], color="white", lw=1.2, ls=(0, (4, 2)), label="m₁ = m₂")
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        leg = ax.legend(loc="lower right", fontsize=8, facecolor="black", edgecolor="white", labelcolor="white",
+                        framealpha=0.6, handlelength=3)
+        for handle in getattr(leg, "legend_handles", None) or leg.legendHandles:
+            handle.set_linewidth(1.2)          # the plot style widens legend lines
+
+    # marginals, with the median and the 90% interval
+    for a, v, edges, vertical in ((ax_x, x, xe, False), (ax_y, y, ye, True)):
+        a.hist(v, bins=edges, density=True, histtype="stepfilled", color="#3b75af", alpha=0.35,
+               orientation="horizontal" if vertical else "vertical")
+        a.hist(v, bins=edges, density=True, histtype="step", color="#3b75af", lw=1.2,
+               orientation="horizontal" if vertical else "vertical")
+        q5, q50, q95 = np.percentile(v, [5, 50, 95])
+        for q, ls in ((q5, ":"), (q50, "-"), (q95, ":")):
+            (a.axhline if vertical else a.axvline)(q, color="#222222", lw=1, ls=ls)
+        nd = int(min(3, max(0, 2 - np.floor(np.log10(abs(q50) or 1.0)))))
+        text = f"{q50:.{nd}f}$^{{+{q95 - q50:.{nd}f}}}_{{-{q50 - q5:.{nd}f}}}$"
+        if vertical:
+            a.set_title(text, fontsize=8)
+        else:
+            a.text(0.99, 0.95, f"median, 90%: {text}", transform=a.transAxes, ha="right", va="top", fontsize=8)
+        if vertical:
+            a.tick_params(labelbottom=False, bottom=False, labelleft=False)
+        else:
+            a.tick_params(labelleft=False, left=False, labelbottom=False)
+        a.grid(False)
+        for side in ("top", "right"):
+            a.spines[side].set_visible(False)
+
+    ax.set_xlabel(label(xk))
+    ax.set_ylabel(label(yk))
+    return fig
+
+
 def plot_posterior_pairs(
     posterior_samples: dict[str, Any],
     src_name: str,
@@ -1835,7 +1924,7 @@ def plot_posterior_pairs(
     pairs: list[str] | None = None,
     approximant: str | None = None,
     bins: int = 60,
-    max_points_scatter: int = 30000,
+    max_points_scatter: int = 2000,
 ) -> Dict[str, Any]:
     """
     Plot 2D posterior pairs given as tokens 'x:y'.
@@ -1887,49 +1976,17 @@ def plot_posterior_pairs(
             missing_pairs.append(tok)
             continue
 
-        # If huge, sub-sample scatter overlay
-        do_scatter = len(x) <= max_points_scatter
-        if not do_scatter:
-            # sub-sample for scatter if you still want it
-            idx = np.random.choice(len(x), size=max_points_scatter, replace=False)
-            xs = x[idx]
-            ys = y[idx]
-        else:
-            xs, ys = x, y
-
-        fig, ax = plt.subplots(figsize=(6, 5))
-
-        # 2D histogram density
-        h = ax.hist2d(x, y, bins=bins)
-
-        # optional scatter overlay (helps when bins are coarse)
-        ax.scatter(xs, ys, s=3, alpha=0.15)
-
-        # component masses: m1 >= m2 by convention, so the samples stop at the line m1 = m2
-        if {xk, yk} in ({"mass_1", "mass_2"}, {"mass_1_source", "mass_2_source"}):
-            xlim, ylim = ax.get_xlim(), ax.get_ylim()
-            lo, hi = min(xlim[0], ylim[0]), max(xlim[1], ylim[1])
-            ax.plot([lo, hi], [lo, hi], color="white", lw=1.2, ls=(0, (4, 2)), label="m₁ = m₂")
-            ax.set_xlim(xlim)
-            ax.set_ylim(ylim)
-            leg = ax.legend(loc="lower right", fontsize=8, facecolor="black", edgecolor="white", labelcolor="white",
-                            framealpha=0.6, handlelength=3)
-            for handle in getattr(leg, "legend_handles", None) or leg.legendHandles:
-                handle.set_linewidth(1.2)          # the plot style widens legend lines
-
-        ax.set_xlabel(xk if xk not in ("ra", "dec") else f"{xk} [deg]")
-        ax.set_ylabel(yk if yk not in ("ra", "dec") else f"{yk} [deg]")
-
+        fig = _plot_pair_density(x, y, xk, yk, bins=bins, max_points_scatter=max_points_scatter)
         title = f"{xk} vs {yk} – {src_name}"
         if approximant:
             title += f"\nApproximant: {approximant}"
-        ax.set_title(title, fontsize=10)
-
-        plt.tight_layout()
+        fig.suptitle(title, fontsize=10)
+        fig.text(0.5, 0.005, "median (solid) and 90% interval (dotted) of each marginal; "
+                 "contours: 50% and 90% credible regions", ha="center", va="bottom", fontsize=7, color="#555555")
 
         safe = f"{xk}_vs_{yk}".replace("/", "_").replace(" ", "_")
         fname = os.path.join(outdir, f"pair_{safe}_{src_name}.png")
-        fig.savefig(fname, dpi=150)
+        fig.savefig(fname, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
         print(f"ℹ️ [OK] Saved posterior 2D plot {tok} → {fname}")

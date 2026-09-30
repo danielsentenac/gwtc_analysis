@@ -104,7 +104,10 @@ unit-scale RMS.*
 |---|---|
 | ![Primary against secondary source-frame mass](../img/modes/pe_GW150914_masses.png) | ![Skymap of GW150914](../img/modes/pe_GW150914_skymap.png) |
 
-*Posterior of the source-frame masses (about 35 and 30 M☉), and the skymap of the IMRPhenomXPHM
-analysis: 159 deg² at 90% with the two LIGO detectors.*
+*Posterior of the source-frame masses: medians 34.9 and 29.3 M☉, with the 50% and 90% credible
+regions and the density peaking close to equal masses. The samples stop at the dashed line m₁ = m₂,
+since the primary is by convention the heavier component; the band follows a line of nearly constant
+chirp mass, the best-measured mass parameter. Right: the skymap of the IMRPhenomXPHM analysis, 159 deg²
+at 90% with the two LIGO detectors.*
 
 All options: [CLI reference](../cli-reference.md#parameters_estimation).
