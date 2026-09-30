@@ -1,13 +1,14 @@
 # Installation
 
 `gwtc_analysis` runs on Linux and macOS with Python 3.10 or later. It is distributed as a **Python
-package on conda-forge** and as a **Docker image**:
+package on conda-forge and on PyPI**, and as a **Docker image**:
 
-| Distribution | Where |
-|---|---|
-| Conda package `gwtc_analysis` | [conda-forge/gwtc_analysis](https://anaconda.org/conda-forge/gwtc_analysis) |
-| Docker image `gwtc-tool` | [Docker Hub](https://hub.docker.com/r/danielsentenac/gwtc-tool/) |
-| Source | [GitHub](https://github.com/danielsentenac/gwtc_analysis) |
+| Distribution | Where | Install |
+|---|---|---|
+| Conda package `gwtc_analysis` | [conda-forge/gwtc_analysis](https://anaconda.org/conda-forge/gwtc_analysis) | `conda install -c conda-forge gwtc_analysis` |
+| PyPI package `gwtc-analysis` | [pypi.org/project/gwtc-analysis](https://pypi.org/project/gwtc-analysis/) | `pip install gwtc-analysis` |
+| Docker image `gwtc-tool` | [Docker Hub](https://hub.docker.com/r/danielsentenac/gwtc-tool/) | `docker pull danielsentenac/gwtc-tool` |
+| Source | [GitHub](https://github.com/danielsentenac/gwtc_analysis) | `pip install -e .` |
 
 The Docker image is the recommended choice for reproducibility and for workflow systems (CI
 pipelines, computing clusters).
@@ -26,6 +27,18 @@ conda install -c conda-forge gwtc_analysis
 gwtc_analysis -h
 ```
 
+## From PyPI
+
+```bash
+pip install gwtc-analysis
+gwtc_analysis -h
+```
+
+The PyPI package declares only the light dependencies (numpy, pandas, matplotlib, minio, requests). The
+modes that read PE files, strain and skymaps also need the gravitational-wave software stack (GWpy,
+PESummary, PyCBC, ligo.skymap, LALSuite, h5py, astropy): install it first, for instance in an IGWN conda
+environment, or use the conda-forge package or the Docker image.
+
 ## From source
 
 The PE and strain modes need the gravitational-wave software stack (GWpy, PESummary, PyCBC,
@@ -39,7 +52,7 @@ pip install -e .
 gwtc_analysis -h
 ```
 
-Installing the package (from conda-forge, Docker or `pip`) provides the `gwtc_analysis` command used
+Installing the package (from conda-forge, PyPI or Docker) provides the `gwtc_analysis` command used
 throughout this documentation. From a source checkout that is not installed, `python -m gwtc_analysis.cli`
 is equivalent.
 
