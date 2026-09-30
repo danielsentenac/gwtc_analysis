@@ -7,7 +7,6 @@
 | Docker image `gwtc-tool` | [Docker Hub](https://hub.docker.com/r/danielsentenac/gwtc-tool/) |
 | Conda package | [conda-forge/gwtc_analysis](https://anaconda.org/conda-forge/gwtc_analysis) |
 | Galaxy tool | [usegalaxy.org](https://usegalaxy.org) |
-| MMODA service | [MMODA LIGO-Virgo-KAGRA](https://www.astro.unige.ch/mmoda/) |
 | Source | [GitHub](https://github.com/danielsentenac/gwtc_analysis) |
 
 The Docker image is the recommended choice for reproducibility and for workflow systems (Galaxy,
