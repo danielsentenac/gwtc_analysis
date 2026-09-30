@@ -36,8 +36,12 @@ git clone https://github.com/danielsentenac/gwtc_analysis
 cd gwtc_analysis
 conda activate igwn          # or any environment with the GW stack
 pip install -e .
-python -m gwtc_analysis.cli -h
+gwtc_analysis -h
 ```
+
+Installing the package (from conda-forge, Docker or `pip`) provides the `gwtc_analysis` command used
+throughout this documentation. From a source checkout that is not installed, `python -m gwtc_analysis.cli`
+is equivalent.
 
 ## icarogw, for the `hubble_constant` mode
 

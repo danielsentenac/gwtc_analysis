@@ -89,8 +89,10 @@ positional arguments:
 Each mode has its own help:
 
 ```bash
-python -m gwtc_analysis.cli <MODE> -h
+gwtc_analysis <MODE> -h
 ```
+
+The `gwtc_analysis` command is installed with the package (conda-forge, Docker or `pip`); from a source checkout that is not installed, `python -m gwtc_analysis.cli` is equivalent.
 
 ---
 
@@ -119,9 +121,9 @@ The Zenodo releases are versioned (for instance GWTC-3 has v1, v2 and v3). With 
 To read an older version, pass `--zenodo-version CATALOG=VERSION` (modes `catalog_statistics`, `search_skymaps`, `parameters_estimation`). Versions are numbered from the oldest (`v1`); `latest` is also accepted:
 
 ```bash
-python -m gwtc_analysis.cli zenodo_releases --catalogs GWTC-3 GWTC-4   # list the versions
-python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-3 --ra-deg 40 --dec-deg -30 --zenodo-version GWTC-3=v2
-python -m gwtc_analysis.cli parameters_estimation --src-name GW200105_162426 --zenodo-version GWTC-3=v2
+gwtc_analysis zenodo_releases --catalogs GWTC-3 GWTC-4   # list the versions
+gwtc_analysis search_skymaps --catalogs GWTC-3 --ra-deg 40 --dec-deg -30 --zenodo-version GWTC-3=v2
+gwtc_analysis parameters_estimation --src-name GW200105_162426 --zenodo-version GWTC-3=v2
 ```
 
 Skymap tarballs are cached per Zenodo record (`.cache_gwosc/zenodo_<record>_<file>`), and the PE index is rebuilt when the selected records change. If zenodo.org is unreachable, the cached version listing is used; with no cache at all, the latest version falls back to the record listed above.
@@ -321,8 +323,8 @@ python gwtc_analysis/gen_readme_cli_tables.py
 Outputs: `--out-rates` (TSV per population), `--out-events` (TSV of the events counted), `--out-report` (HTML report with the observed and the selection-corrected primary-mass distributions).
 
 ```bash
-python -m gwtc_analysis.cli rates                               # GWTC-5.0 injections (O3 + O4a + O4b)
-python -m gwtc_analysis.cli rates --sensitivity-release gwtc4   # GWTC-4.0 injections (O3 + O4a)
+gwtc_analysis rates                               # GWTC-5.0 injections (O3 + O4a + O4b)
+gwtc_analysis rates --sensitivity-release gwtc4   # GWTC-4.0 injections (O3 + O4a)
 ```
 
 | Release | Candidates | BNS | NSBH | BBH at z = 0.2 |
@@ -370,8 +372,8 @@ If other packages in that environment need an older numpy (e.g. ligo.skymap), pi
 
 ```bash
 # prepare in the gwtc_analysis environment, then 4 runs, 2 at a time with 2 processes each, and the report
-python -m gwtc_analysis.cli hubble_constant --stages prepare
-python -m gwtc_analysis.cli hubble_constant --stages sample combine report \
+gwtc_analysis hubble_constant --stages prepare
+gwtc_analysis hubble_constant --stages sample combine report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 
@@ -485,7 +487,7 @@ products such as posterior samples, PSDs, and skymaps.
 - The built bundle is cached with a recipe fingerprint
   (`<bundle>.recipe.json`); it is rebuilt when the recipe or a source file changes.
 
-- Use `python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817` to
+- Use `gwtc_analysis build_unofficial_pe --src-name GW170817` to
   build or reuse the cached unofficial bundle explicitly.
 - Use `--force` to rebuild the bundle even if the cached output is up to date.
 - `parameters_estimation` keeps its transparent fallback for supported special
@@ -562,13 +564,13 @@ This ensures robustness while keeping model choices transparent.
 ## Testing
 
 ```bash
-python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.6 --data-repo s3
-python -m gwtc_analysis.cli event_selection --catalogs GWTC-4
-python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-4 --data-repo s3
-python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-5 --data-repo zenodo
-python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817
-python -m gwtc_analysis.cli parameters_estimation --src-name GW231223_032836 --data-repo zenodo
-python -m gwtc_analysis.cli parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log
+gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.6 --data-repo s3
+gwtc_analysis event_selection --catalogs GWTC-4
+gwtc_analysis catalog_statistics --catalogs GWTC-4 --data-repo s3
+gwtc_analysis catalog_statistics --catalogs GWTC-5 --data-repo zenodo
+gwtc_analysis build_unofficial_pe --src-name GW170817
+gwtc_analysis parameters_estimation --src-name GW231223_032836 --data-repo zenodo
+gwtc_analysis parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log
 ```
 
 ---

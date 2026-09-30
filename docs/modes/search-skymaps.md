@@ -5,7 +5,7 @@ reads its sky localization (HEALPix FITS skymap) and tests whether the position 
 `--dec-deg`) lies inside the credible region `--prob` (0.9 for the 90% region).
 
 ```bash
-python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.9
+gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.9
 ```
 
 - `--skymap-label` chooses the analysis whose skymap is used (`Mixed`, the combined samples, by

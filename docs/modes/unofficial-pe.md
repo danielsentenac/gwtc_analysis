@@ -6,8 +6,8 @@ releases. `build_unofficial_pe` builds a PESummary-compatible `PEDataRelease` bu
 public GWTC-1 products only, so that `parameters_estimation` can treat it like any other event.
 
 ```bash
-python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817          # build, or reuse the cache
-python -m gwtc_analysis.cli build_unofficial_pe --src-name GW170817 --force  # rebuild
+gwtc_analysis build_unofficial_pe --src-name GW170817          # build, or reuse the cache
+gwtc_analysis build_unofficial_pe --src-name GW170817 --force  # rebuild
 ```
 
 ## Sources

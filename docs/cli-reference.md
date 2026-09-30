@@ -2,7 +2,7 @@
 
 Every option of every mode, generated from `gwtc_analysis/cli.py` by
 `python gwtc_analysis/gen_readme_cli_tables.py`. Each mode also has its own help:
-`python -m gwtc_analysis.cli <MODE> -h`.
+`gwtc_analysis <MODE> -h`.
 
 ## `catalog_statistics`
 

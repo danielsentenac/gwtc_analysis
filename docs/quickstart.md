@@ -3,8 +3,8 @@
 Every mode has its own help:
 
 ```bash
-python -m gwtc_analysis.cli -h
-python -m gwtc_analysis.cli <MODE> -h
+gwtc_analysis -h
+gwtc_analysis <MODE> -h
 ```
 
 Catalogs are named by case-sensitive keys. All of them are **confident catalogs** (see below):
@@ -32,27 +32,27 @@ masses (M☉), distances in megaparsecs (Mpc), probabilities in [0, 1].
 
 ```bash
 # catalog statistics of GWTC-4.0 from Zenodo, with sky-localization areas
-python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-4 --include-area
+gwtc_analysis catalog_statistics --catalogs GWTC-4 --include-area
 
 # events with a primary mass above 50 Msun
-python -m gwtc_analysis.cli event_selection --catalogs ALL --m1-min 50
+gwtc_analysis event_selection --catalogs ALL --m1-min 50
 
 # events whose 90% sky region contains a given position
-python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.9
+gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.9
 
 # posteriors, strain overlay and q-transform of one event
-python -m gwtc_analysis.cli parameters_estimation --src-name GW231223_032836
+gwtc_analysis parameters_estimation --src-name GW231223_032836
 
 # GW170817, from public GWTC-1 products
-python -m gwtc_analysis.cli parameters_estimation --src-name GW170817 \
+gwtc_analysis parameters_estimation --src-name GW170817 \
     --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000
 
 # merger rates, with the GWTC-5.0 injections downloaded automatically
-python -m gwtc_analysis.cli rates
+gwtc_analysis rates
 
 # Hubble constant: prepare the inputs, then 4 sampler runs, 2 at a time
-python -m gwtc_analysis.cli hubble_constant --stages prepare
-python -m gwtc_analysis.cli hubble_constant --stages sample combine report \
+gwtc_analysis hubble_constant --stages prepare
+gwtc_analysis hubble_constant --stages sample combine report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 

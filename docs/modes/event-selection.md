@@ -5,10 +5,10 @@ ranges. Every bound is optional.
 
 ```bash
 # heavy binaries within 2 Gpc
-python -m gwtc_analysis.cli event_selection --catalogs ALL --m1-min 50 --dl-max 2000
+gwtc_analysis event_selection --catalogs ALL --m1-min 50 --dl-max 2000
 
 # potential neutron-star companions
-python -m gwtc_analysis.cli event_selection --catalogs ALL --m2-max 3
+gwtc_analysis event_selection --catalogs ALL --m2-max 3
 ```
 
 | Option | Selects on |
