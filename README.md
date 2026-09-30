@@ -135,7 +135,7 @@ Skymap tarballs are cached per Zenodo record (`.cache_gwosc/zenodo_<record>_<fil
 The tool runs as a Python package installed from conda-forge or PyPI, or as a Docker tool:
 
 - [conda package](https://anaconda.org/conda-forge/gwtc_analysis) on conda-forge: `conda install -c conda-forge gwtc_analysis`
-- [PyPI package](https://pypi.org/project/gwtc-analysis/): `pip install gwtc-analysis` (light dependencies only: the PE, strain and skymap modes also need the GW software stack, e.g. an IGWN conda environment)
+- [PyPI package](https://pypi.org/project/gwtc_analysis/): `pip install gwtc_analysis` (PyPI displays it as `gwtc-analysis`, the same project; light dependencies only: the PE, strain and skymap modes also need the GW software stack, e.g. an IGWN conda environment)
 - [docker image](https://hub.docker.com/r/danielsentenac/gwtc-tool/): `docker pull danielsentenac/gwtc-tool`
 
 Galaxy, like the S3 bucket, is only a data repository (`--data-repo galaxy`, below).
