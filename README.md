@@ -19,7 +19,9 @@ or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
 
 📖 **Documentation:** https://danielsentenac.github.io/gwtc_analysis/ (user guide, methods of the rates and Hubble-constant modes, references).
 
-> **New:** the **GWTC-5.0** catalog (O4b observing run) is now available and fully supported — use the `GWTC-5` catalog key.
+<!-- CATALOG_COVERAGE_BEGIN -->
+> **Catalogs in version 0.5.0**: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0, and the update GWTC-4.1 (of GWTC-4.0), observing runs O1 to O4b. **Latest catalog: GWTC-5.0 (O4b)**. Registry checked against GWOSC and Zenodo on 2026-09-30; catalogs published later need a newer version of the package (`gwtc_analysis check_catalogs` tells whether GWOSC has published one).
+<!-- CATALOG_COVERAGE_END -->
 
 ---
 
