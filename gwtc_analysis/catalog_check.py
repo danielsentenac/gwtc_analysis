@@ -4,7 +4,8 @@ Reports the GWOSC event lists and observing runs that `catalog_registry` does no
 list proposes a draft registry entry: its observing runs (from the event times), and its Zenodo records,
 found from the PE data links of its events in the GWOSC v2 API, with their concept IDs, latest versions and
 skymap tarballs. It also reports registry records whose Zenodo release has a newer version (informational:
-the latest version is used at run time anyway).
+the latest version is used at run time anyway), and lists the registry catalogs with their GWOSC event
+counts and Zenodo records.
 """
 from __future__ import annotations
 
@@ -58,6 +59,7 @@ def _zenodo_record(get: Callable, rid: str) -> dict:
     files = [f.get("key") for f in latest.get("files", [])]
     return dict(record=str(latest["id"]), concept=str(d.get("conceptrecid")), n_versions=len(versions) or 1,
                 title=latest.get("metadata", {}).get("title", ""), n_files=len(files),
+                published=latest.get("metadata", {}).get("publication_date", ""),
                 skymap_tarball=next((f for f in files if f and _SKYMAP_TARBALL.search(f)), None))
 
 
@@ -116,22 +118,49 @@ def check_catalogs(get: Callable = _get_json, sample_events: int = 3) -> dict:
     missing_known = sorted(n for n in reg.known_gwosc_lists() if n not in lists and n not in reg.IGNORED_GWOSC_LISTS)
     gwosc_runs = {r["name"]: (r.get("gps_start"), r.get("gps_end")) for r in _paged(get, f"{GWOSC}/api/v2/runs")}
     new_runs = {k: v for k, v in gwosc_runs.items() if _OBSERVING_RUN.match(k) and k not in reg.OBSERVING_RUNS}
-    newer = []
-    for key, parts in reg.zenodo_releases().items():
-        for part in parts:
+    newer, catalogs = [], []
+    for c in reg.CATALOGS.values():
+        try:
+            n_events = get(f"{GWOSC}/api/v2/catalogs/{c.gwosc_list}/events?pagesize=1").get("results_count")
+        except Exception:
+            n_events = None
+        zen = []
+        for part in c.zenodo:
             try:
                 latest = _zenodo_record(get, part.record_id)
-            except Exception:
-                continue
-            if latest["record"] != part.record_id:
-                newer.append(dict(catalog=key, registry=part.record_id, latest=latest["record"],
+            except Exception as e:
+                latest = dict(record=part.record_id, concept=f"? ({type(e).__name__})", n_versions=0, published="")
+            zen.append(dict(registry=part.record_id, latest=latest["record"], concept=latest["concept"],
+                            n_versions=latest["n_versions"], published=latest.get("published", "")))
+            if latest["record"] != part.record_id and not latest["concept"].startswith("?"):
+                newer.append(dict(catalog=c.key, registry=part.record_id, latest=latest["record"],
                                   n_versions=latest["n_versions"]))
+        catalogs.append(dict(key=c.key, gwosc_list=c.gwosc_list, runs=list(c.runs), n_events=n_events,
+                             update_of=c.update_of, products_from=c.products_from, zenodo=zen))
     return dict(new_lists=[_discover_list(get, n, sample_events) for n in new_lists], new_runs=new_runs,
-                missing_lists=missing_known, newer_versions=newer)
+                missing_lists=missing_known, newer_versions=newer, catalogs=catalogs)
+
+
+def format_catalogs(catalogs: list) -> str:
+    """The registry catalogs, their GWOSC event counts and their Zenodo records (latest versions)."""
+    lines = ["Registry catalogs (GWOSC event counts today; Zenodo: latest version, concept ID, publication date):"]
+    for c in catalogs:
+        head = (f"  {c['key']:<9} GWOSC {c['gwosc_list']:<19} {'-'.join(c['runs']) if len(c['runs']) < 3 else ', '.join(c['runs']):<7}"
+                f" {c['n_events'] if c['n_events'] is not None else '?':>4} events"
+                + (f"   update of {c['update_of']}, used only when named" if c.get("update_of") else ""))
+        lines.append(head)
+        if not c["zenodo"]:
+            lines.append(f"            Zenodo: none of its own, the PE and skymaps of {c['products_from']}")
+        for i, z in enumerate(c["zenodo"]):
+            part = f" part {i + 1}" if len(c["zenodo"]) > 1 else ""
+            lines.append(f"            Zenodo{part}: https://zenodo.org/records/{z['latest']}   concept {z['concept']}, "
+                         f"{z['n_versions']} version(s), {z['published'] or '?'}"
+                         + (f" (registry names {z['registry']})" if z["latest"] != z["registry"] else ""))
+    return "\n".join(lines)
 
 
 def format_report(r: dict) -> str:
-    lines = []
+    lines = [format_catalogs(r["catalogs"]), ""] if r.get("catalogs") else []
     if not (r["new_lists"] or r["new_runs"] or r["missing_lists"]):
         lines.append("The registry describes every GWTC event list and observing run published by GWOSC.")
     for d in r["new_lists"]:
