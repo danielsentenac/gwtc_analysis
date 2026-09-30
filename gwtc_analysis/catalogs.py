@@ -1041,7 +1041,7 @@ def _rate_quantiles(n: int, vt: float, levels=(0.05, 0.5, 0.95)) -> np.ndarray:
 
 
 def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_max_mass: float) -> pd.DataFrame:
-    """GWOSC candidates inside the injection `segments` with FAR < threshold, one row per event (lowest FAR kept).
+    """GWOSC candidates inside the injection `segments` with FAR <= threshold, one row per event (lowest FAR kept).
 
     Only periods covered by the injections count: e.g. GW230518 (engineering run ER15, before O4a) is excluded.
     An event listed in several catalogs (the O1-O2 events of GWTC-1 and GWTC-2.1) is counted once, by GPS time.
@@ -1058,7 +1058,8 @@ def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_
             if gps is None or far is None:
                 continue
             gps, far = float(gps), float(far)
-            if not any(a <= gps <= b for a, b in segments) or far >= far_threshold:
+            # the published FARs are rounded (e.g. 0.25 for 0.245-0.255): compared inclusively
+            if not any(a <= gps <= b for a, b in segments) or far > far_threshold:
                 continue
             name, key = v.get("commonName"), int(round(gps))
             if key in best and best[key]["far_per_yr"] <= far:

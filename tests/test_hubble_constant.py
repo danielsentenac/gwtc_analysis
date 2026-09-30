@@ -359,3 +359,13 @@ def test_injections_and_events_restricted_to_runs(tmp_path, fake_gwosc):
     assert hc.catalog_runs(["GWTC-5", "GWTC-1"]) == ("O1", "O2", "O4b") and len(hc.catalog_runs(["ALL"])) == 6
     with pytest.raises(ValueError, match="Unknown catalog"):
         hc.catalog_runs(["GWTC-6"])
+
+
+def test_event_far_threshold_is_inclusive(monkeypatch):
+    """Published FARs are rounded: an event listed at exactly the threshold is kept (GW191127, FAR 0.25)."""
+    lists = {"GWTC-3-confident": {"GW191127_050227-v1": dict(commonName="GW191127_050227", GPS=1258866165.5, far=0.25,
+                                                             mass_1_source=53.0, mass_2_source=24.0),
+                                  "GW200216_220804-v1": dict(commonName="GW200216_220804", GPS=1265926102.9, far=0.35,
+                                                             mass_1_source=51.0, mass_2_source=30.0)}}
+    monkeypatch.setattr(hc.gw, "fetch_gwtc_events", lambda c: {"events": lists.get(c, {})})
+    assert list(hc.select_h0_events("gwtc4", 0.25, 3.0, [])["common_name"]) == ["GW191127_050227"]
