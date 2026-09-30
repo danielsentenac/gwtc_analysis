@@ -73,6 +73,7 @@ nav:
       - Glossary: science/glossary.md
   - CLI reference: cli-reference.md
   - References: references.md
+  - Acknowledgements: acknowledgements.md
 
 validation:
   omitted_files: warn
