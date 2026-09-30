@@ -56,12 +56,12 @@ def _enter(workdir: Path) -> None:
     sys.path.insert(0, str(workdir))
 
 
-def build_likelihood(pe_samples: int, inj_fraction: float, mass_model: str = "plp"):
-    """Hierarchical likelihood on the events and found injections of inputs.h5 (cwd)."""
+def build_likelihood(pe_samples: int, inj_fraction: float, mass_model: str = "plp", inputs: str = "inputs.h5"):
+    """Hierarchical likelihood on the events and found injections of `inputs` (default: inputs.h5 of the cwd)."""
     import h5py
     import icarogw
 
-    with h5py.File("inputs.h5", "r") as h:
+    with h5py.File(inputs, "r") as h:
         pes = {}
         for name in h:
             if name.startswith("_"):
@@ -402,8 +402,10 @@ def _combined_posterior(workdir: Path):
 
 
 def reweight(workdir: Path, chunk: int, nchunks: int, target_inj_fraction: float = 1.0,
-             target_pe_samples: int | None = None) -> Path:
-    """ln L of the runs and of the target settings at a chunk of the combined posterior samples."""
+             target_pe_samples: int | None = None, target_inputs: str | None = None) -> Path:
+    """ln L of the runs and of the target settings at a chunk of the combined posterior samples.
+
+    `target_inputs`: another inputs.h5 for the target likelihood (e.g. with one more event)."""
     _enter(workdir)
     s = _settings(workdir)
     model, post = _combined_posterior(workdir)
@@ -411,9 +413,10 @@ def reweight(workdir: Path, chunk: int, nchunks: int, target_inj_fraction: float
     idx = np.array_split(np.arange(len(post)), nchunks)[chunk]
     npe = int(target_pe_samples or s["pe_samples"])
     out = {"idx": idx, "stored": post["log_likelihood"].to_numpy()[idx]}
-    for key, (frac, pe) in (("runs", (float(s["inj_fraction"]), int(s["pe_samples"]))),
-                            ("target", (float(target_inj_fraction), npe))):
-        like, _, _, _ = build_likelihood(pe, frac, model)
+    target_file = str(Path(target_inputs).expanduser().resolve()) if target_inputs else "inputs.h5"
+    for key, (frac, pe, inputs) in (("runs", (float(s["inj_fraction"]), int(s["pe_samples"]), "inputs.h5")),
+                                    ("target", (float(target_inj_fraction), npe, target_file))):
+        like, _, _, _ = build_likelihood(pe, frac, model, inputs)
         ll = np.empty(len(idx))
         for j, i in enumerate(idx):
             like.parameters.update({k: float(post[k].iloc[i]) for k in params} | {"Om0": OM0})
@@ -496,6 +499,7 @@ def main(argv=None) -> int:
     rw.add_argument("--nchunks", type=int, required=True)
     rw.add_argument("--target-inj-fraction", type=float, default=1.0)
     rw.add_argument("--target-pe-samples", type=int, default=None)
+    rw.add_argument("--target-inputs", default=None, help="inputs.h5 of the target likelihood (default: the runs')")
     rm = sub.add_parser("reweight-merge")
     rm.add_argument("--workdir", required=True)
     a = p.parse_args(argv)
@@ -508,7 +512,7 @@ def main(argv=None) -> int:
         probe(wd, a.mass_model, a.pe_samples, a.fractions, a.npoints, npool=a.npool, pilot_steps=a.pilot_steps,
               prior_set=a.prior_set)
     elif a.cmd == "reweight":
-        reweight(wd, a.chunk, a.nchunks, a.target_inj_fraction, a.target_pe_samples)
+        reweight(wd, a.chunk, a.nchunks, a.target_inj_fraction, a.target_pe_samples, a.target_inputs)
     else:
         reweight_merge(wd)
     return 0

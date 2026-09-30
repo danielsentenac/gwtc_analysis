@@ -105,7 +105,7 @@ def _full_name(gps: float) -> str:
 
 def select_h0_events(release: str, far_threshold: float, min_mass: float, exclude: Iterable[str],
                      runs: Optional[Iterable[str]] = None) -> pd.DataFrame:
-    """BBH events of the release's catalogs: lowest FAR below threshold, inside its runs (or `runs`), both
+    """BBH events of the release's catalogs: lowest FAR at most the threshold, inside its runs (or `runs`), both
     masses >= min_mass."""
     cfg = dict(H0_SENSITIVITY_RELEASES[release])
     if runs:
@@ -121,7 +121,9 @@ def select_h0_events(release: str, far_threshold: float, min_mass: float, exclud
         for v in (raw.get("events") or {}).values():
             g, far = v.get("GPS"), v.get("far")
             m1, m2 = v.get("mass_1_source"), v.get("mass_2_source")
-            if g is None or far is None or m1 is None or m2 is None or float(far) >= far_threshold:
+            # the published FARs are rounded to two decimals (0.25 stands for 0.245-0.255), while the LVK
+            # analyses cut at full precision: the rounded value is compared inclusively
+            if g is None or far is None or m1 is None or m2 is None or float(far) > far_threshold:
                 continue
             run = next((r for r in cfg["runs"] if OBSERVING_RUNS[r][0] <= float(g) <= OBSERVING_RUNS[r][1]), None)
             if run is None or min(float(m1), float(m2)) < min_mass:
