@@ -62,4 +62,4 @@ Every mode writes:
 
 - **TSV tables** (one row per event, per population or per parameter);
 - **plots** (PNG, in a `--plots-dir` directory);
-- an **HTML report** (`--out-report`), self-contained with its images embedded, suitable for Galaxy.
+- an **HTML report** (`--out-report`), self-contained with its images embedded.

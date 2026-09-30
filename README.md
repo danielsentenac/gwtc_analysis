@@ -31,7 +31,7 @@ or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
 - **Docker Hub repository:** https://hub.docker.com/r/danielsentenac/gwtc-tool/
 
 Using the Docker image is recommended for reproducibility, portability, and integration with workflow systems
-(e.g. Galaxy, CI pipelines).
+(e.g. CI pipelines, computing clusters).
 
 ---
 
@@ -130,11 +130,12 @@ Skymap tarballs are cached per Zenodo record (`.cache_gwosc/zenodo_<record>_<fil
 
 ## Usage
 
-This tool is designed to run either on your laptop as a docker image or conda package, or on several user-friendly platforms:
+The tool runs as a Python package installed from conda-forge, or as a Docker tool:
 
-- [docker image](https://hub.docker.com/repository/docker/danielsentenac/gwtc-tool)
 - [conda package](https://anaconda.org/conda-forge/gwtc_analysis) on conda-forge: `conda install -c conda-forge gwtc_analysis`
-- [Galaxy tool](https://usegalaxy.org)
+- [docker image](https://hub.docker.com/r/danielsentenac/gwtc-tool/): `docker pull danielsentenac/gwtc-tool`
+
+Galaxy, like the S3 bucket, is only a data repository (`--data-repo galaxy`, below).
 
 ### Inputs
 - Catalog selections are passed as parameters separated by space
