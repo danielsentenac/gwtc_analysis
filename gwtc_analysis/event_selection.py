@@ -26,6 +26,52 @@ def _as_float_or_nan(x) -> float:
         return float("nan")
 
 
+def _plot_selection(df: pd.DataFrame, mask: pd.Series, bounds: dict, catalogs: list[str], out_png: Path) -> Path:
+    """The selected events among all the events of the catalogs: m2 against m1, and D_L against m1."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    surface, ink, ink2, grid, grey, orange = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df", "#b8b6b0", "#eb6834"
+    ok = df["mass_1_source"].notna() & df["mass_2_source"].notna() & df["luminosity_distance"].notna()
+    d, sel = df[ok], mask[ok]
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.4), dpi=150)
+    fig.patch.set_facecolor(surface)
+    for ax, y, ylabel, (lo, hi) in ((axes[0], "mass_2_source", "Secondary mass $m_2$ (source frame, M$_\\odot$)",
+                                     (bounds.get("m2_min"), bounds.get("m2_max"))),
+                                    (axes[1], "luminosity_distance", "Luminosity distance $D_L$ (Mpc)",
+                                     (bounds.get("dl_min"), bounds.get("dl_max")))):
+        ax.set_facecolor(surface)
+        ax.scatter(d.loc[~sel, "mass_1_source"], d.loc[~sel, y], s=16, color=grey, lw=0, zorder=2,
+                   label=f"not selected ({int((~sel).sum())})")
+        ax.scatter(d.loc[sel, "mass_1_source"], d.loc[sel, y], s=34, color=orange, edgecolor=surface, lw=1.2,
+                   zorder=3, label=f"selected ({int(sel.sum())})")
+        ax.set_xscale("log"); ax.set_yscale("log")
+        for v in (bounds.get("m1_min"), bounds.get("m1_max")):
+            if v is not None:
+                ax.axvline(v, color=ink2, lw=0.9, ls=(0, (4, 3)), zorder=1)
+        for v in (lo, hi):
+            if v is not None:
+                ax.axhline(v, color=ink2, lw=0.9, ls=(0, (4, 3)), zorder=1)
+        ax.set_xlabel("Primary mass $m_1$ (source frame, M$_\\odot$)", color=ink2)
+        ax.set_ylabel(ylabel, color=ink2)
+        ax.grid(color=grid, lw=0.7, zorder=0)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        for sp in ("left", "bottom"):
+            ax.spines[sp].set_color(grid)
+        ax.tick_params(colors=ink2, labelsize=9)
+    axes[0].legend(frameon=False, fontsize=9, labelcolor=ink2, loc="upper left")
+    crit = ", ".join(f"{k.replace('_min', ' ≥ ').replace('_max', ' ≤ ')}{v:g}" for k, v in bounds.items() if v is not None)
+    fig.suptitle(f"Event selection in {', '.join(catalogs)}" + (f": {crit}" if crit else ""), color=ink, fontsize=11,
+                 x=0.01, ha="left")
+    fig.tight_layout()
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_png, facecolor=surface)
+    plt.close(fig)
+    return out_png
+
+
 def run_event_selection(
     *,
     catalogs: list[str],
@@ -36,6 +82,7 @@ def run_event_selection(
     m2_max: Optional[float] = None,
     dl_min: Optional[float] = None,
     dl_max: Optional[float] = None,
+    out_plot: Optional[str | Path] = None,
 ) -> None:
     """Select GWTC events based on source-frame component masses and luminosity distance.
 
@@ -44,13 +91,15 @@ def run_event_selection(
       - mass_2_source
       - luminosity_distance
 
-    Writes TSV with selected events (at least event_id).
+    Writes TSV with selected events (at least event_id), and with `out_plot` a PNG of the selected events
+    among all the events of the catalogs.
     """
 
     out_tsv = Path(out_tsv)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
 
     # Expand ALL catalog selector
+    requested = list(catalogs)
     if "ALL" in catalogs:
         catalogs = [c for c in gw.ALLOWED_CATALOGS if c != "ALL"]
 
@@ -126,3 +175,8 @@ def run_event_selection(
     out = out.sort_values(["catalog_key", "event_id"]).reset_index(drop=True)
 
     out.to_csv(out_tsv, sep="\t", index=False)
+
+    if out_plot:
+        bounds = dict(m1_min=m1_min, m1_max=m1_max, m2_min=m2_min, m2_max=m2_max, dl_min=dl_min, dl_max=dl_max)
+        png = _plot_selection(df_all, mask, bounds, requested, Path(out_plot))
+        print(f"[event_selection] {int(mask.sum())} of {len(df_all)} events selected; plot written to {png}")
