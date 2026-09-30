@@ -243,6 +243,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--m2-max` | `` | Maximum secondary mass (source frame). |
 | `--dl-min` | `` | Minimum luminosity distance (Mpc). |
 | `--dl-max` | `` | Maximum luminosity distance (Mpc). |
+| `--out-plot` | `` | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
 
 ### `search_skymaps`
 

@@ -184,3 +184,17 @@ def test_cli_sensitivity_release_choices():
     assert build_parser().parse_args(["rates", "--sensitivity-release", "gwtc4"]).sensitivity_release == "gwtc4"
     with pytest.raises(SystemExit):
         build_parser().parse_args(["rates", "--sensitivity-release", "gwtc3"])
+
+
+def test_event_selection_plot(tmp_path, fake_gwosc, monkeypatch):
+    """event_selection --out-plot writes the PNG of the selected events among all the events."""
+    from gwtc_analysis import event_selection as es
+
+    monkeypatch.setattr(es.gw, "fetch_gwtc_events", lambda catalog: {"events": FAKE_LISTS.get(catalog, {})})
+    monkeypatch.setattr(es.gw, "events_to_dataframe", lambda ev: __import__("pandas").DataFrame(
+        [dict(event_id=k, mass_1_source=v["mass_1_source"], mass_2_source=v["mass_2_source"],
+              luminosity_distance=500.0) for k, v in ev.items()]))
+    es.run_event_selection(catalogs=["GWTC-4.0"], out_tsv=tmp_path / "sel.tsv", m2_max=3.0,
+                           out_plot=tmp_path / "sel.png")
+    assert (tmp_path / "sel.png").stat().st_size > 1000
+    assert len(open(tmp_path / "sel.tsv").read().splitlines()) == 3      # header + GW230518, GW230529

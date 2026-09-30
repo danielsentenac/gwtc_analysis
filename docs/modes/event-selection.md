@@ -22,12 +22,13 @@ that need the marginal candidates as well, see [Known issues](../known-data-issu
 
 ## Examples
 
-The mode writes the selection as a TSV (`--out-selection`, one row per event), shown here as tables.
+The mode writes the selection as a TSV (`--out-selection`, one row per event) and, with `--out-plot`, a
+PNG of the selected events among all the events of the catalogs.
 
 ### Heavy binaries within 2 Gpc
 
 ```bash
-gwtc_analysis event_selection --catalogs ALL --m1-min 50 --dl-max 2000
+gwtc_analysis event_selection --catalogs ALL --m1-min 50 --dl-max 2000 --out-plot selection.png
 ```
 
 Heavy binaries within 2 Gpc; the TSV (`event_selection.tsv`) lists:
@@ -39,10 +40,15 @@ Heavy binaries within 2 Gpc; the TSV (`event_selection.tsv`) lists:
 | GW241127_061008-v1 | GWTC-5 | 63.8 | 20.8 | 1080 |
 | GW241225_082815-v1 | GWTC-5 | 55.7 | 42.2 | 1880 |
 
+![Heavy binaries within 2 Gpc among all the events](../img/modes/selection_heavy.png)
+
+*The 4 selected events (orange) among the 290 events of GWTC-1 to GWTC-5 with masses and distance;
+the dashed lines are the bounds m₁ ≥ 50 M☉ and D_L ≤ 2000 Mpc.*
+
 ### Potential neutron-star companions
 
 ```bash
-gwtc_analysis event_selection --catalogs ALL --m2-max 3
+gwtc_analysis event_selection --catalogs ALL --m2-max 3 --out-plot selection.png
 ```
 
 | event_id | catalog_key | mass_1_source | mass_2_source | luminosity_distance |
@@ -59,7 +65,14 @@ gwtc_analysis event_selection --catalogs ALL --m2-max 3
 
 Nine events: the two binary neutron stars (GW170817, GW190425), neutron star–black hole binaries,
 and binaries whose lighter component lies between 2.5 and 3 M☉, at the edge of the neutron-star range
-(GW190814, GW200210). GW200105_162426, an NSBH, is absent:
+(GW190814, GW200210).
+
+![Potential neutron-star companions among all the events](../img/modes/selection_ns.png)
+
+*The selected events lie below m₂ = 3 M☉ (dashed line), well apart from the binary black holes; they
+are also among the nearest events (right).*
+
+GW200105_162426, an NSBH, is absent:
 GWOSC lists it only as a marginal candidate
 ([Known issues](../known-data-issues.md#gw200105-only-in-the-marginal-list)).
 

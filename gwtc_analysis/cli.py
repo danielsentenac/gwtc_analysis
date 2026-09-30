@@ -300,6 +300,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_sel.add_argument("--m2-max", type=float, default=None, help="Maximum secondary mass (source frame).")
     p_sel.add_argument("--dl-min", type=float, default=None, help="Minimum luminosity distance (Mpc).")
     p_sel.add_argument("--dl-max", type=float, default=None, help="Maximum luminosity distance (Mpc).")
+    p_sel.add_argument("--out-plot", default=None,
+                       help="Optional PNG of the selected events among all the events of the catalogs (m2 and D_L "
+                            "against m1).")
 
     # ---------------------------------------------------------------------
     # search_skymaps
@@ -510,6 +513,7 @@ def main(argv=None) -> int:
                 m2_max=args.m2_max,
                 dl_min=args.dl_min,
                 dl_max=args.dl_max,
+                out_plot=args.out_plot,
             )
             return 0
 
