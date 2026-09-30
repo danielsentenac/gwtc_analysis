@@ -12,8 +12,8 @@ The default setup reproduces the spectral-siren measurements of the GWTC-4.0 cos
 
 ```bash
 # prepare in the gwtc_analysis environment, then 4 runs, 2 at a time with 2 processes each, and the report
-python -m gwtc_analysis.cli hubble_constant --stages prepare
-python -m gwtc_analysis.cli hubble_constant --stages sample combine report \
+gwtc_analysis hubble_constant --stages prepare
+gwtc_analysis hubble_constant --stages sample combine report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 

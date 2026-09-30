@@ -68,7 +68,7 @@ def pe_log(msg: str, event_logs: list[str] | None = None) -> None:
 # ---------------------------------------------------------------------
 # Debug helpers
 # ---------------------------------------------------------------------
-# Enable with:  GWPE_DEBUG=1 python -m gwtc_analysis.cli ...
+# Enable with:  GWPE_DEBUG=1 gwtc_analysis ...
 GWPE_DEBUG = os.environ.get("GWPE_DEBUG", "0") not in ("0", "false", "False", "")
 GWPE_ALWAYS_TRACE = os.environ.get("GWPE_ALWAYS_TRACE", "0") not in ("0", "false", "False", "")
 

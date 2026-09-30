@@ -69,9 +69,9 @@ An older version is selected with `--zenodo-version CATALOG=VERSION`, versions b
 oldest (`v1`); `latest` is also accepted:
 
 ```bash
-python -m gwtc_analysis.cli zenodo_releases --catalogs GWTC-3 GWTC-4     # list the versions
-python -m gwtc_analysis.cli search_skymaps --catalogs GWTC-3 --ra-deg 40 --dec-deg -30 --zenodo-version GWTC-3=v2
-python -m gwtc_analysis.cli parameters_estimation --src-name GW200105_162426 --zenodo-version GWTC-3=v2
+gwtc_analysis zenodo_releases --catalogs GWTC-3 GWTC-4     # list the versions
+gwtc_analysis search_skymaps --catalogs GWTC-3 --ra-deg 40 --dec-deg -30 --zenodo-version GWTC-3=v2
+gwtc_analysis parameters_estimation --src-name GW200105_162426 --zenodo-version GWTC-3=v2
 ```
 
 Skymap tarballs are cached per Zenodo record, and the PE index is rebuilt when the selected records

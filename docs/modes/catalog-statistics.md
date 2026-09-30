@@ -4,7 +4,7 @@ Catalog-wide statistics of one or several catalogs: a table with one row per eve
 HTML report.
 
 ```bash
-python -m gwtc_analysis.cli catalog_statistics --catalogs GWTC-4 GWTC-5 --include-detectors --include-area
+gwtc_analysis catalog_statistics --catalogs GWTC-4 GWTC-5 --include-detectors --include-area
 ```
 
 **Inputs.** Event metadata from the GWOSC event lists (names, times, false-alarm rates, median

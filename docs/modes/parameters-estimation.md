@@ -4,8 +4,8 @@ Everything about one event: its posterior distributions, the whitened strain of 
 the best-fit waveform overlaid, a q-transform (time–frequency map), and the matched-filter SNR.
 
 ```bash
-python -m gwtc_analysis.cli parameters_estimation --src-name GW231223_032836
-python -m gwtc_analysis.cli parameters_estimation --src-name GW150914_095045 \
+gwtc_analysis parameters_estimation --src-name GW231223_032836
+gwtc_analysis parameters_estimation --src-name GW150914_095045 \
     --pe-vars chi_eff chi_p --pe-pairs mass_1_source:mass_2_source
 ```
 

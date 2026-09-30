@@ -5,8 +5,8 @@ holes (BBH), per Gpc³ per year, as R = N / ⟨VT⟩. The method is explained in
 [Merger rates](../science/merger-rates.md).
 
 ```bash
-python -m gwtc_analysis.cli rates                               # GWTC-5.0 injections (O3 + O4a + O4b)
-python -m gwtc_analysis.cli rates --sensitivity-release gwtc4   # GWTC-4.0 injections (O3 + O4a)
+gwtc_analysis rates                               # GWTC-5.0 injections (O3 + O4a + O4b)
+gwtc_analysis rates --sensitivity-release gwtc4   # GWTC-4.0 injections (O3 + O4a)
 ```
 
 ## What is counted
@@ -36,9 +36,9 @@ injections, so that the counts and the sensitive volume-time describe the same o
 | `GWTC-5` | O4b |
 
 ```bash
-python -m gwtc_analysis.cli rates --catalogs GWTC-5          # O4b only
-python -m gwtc_analysis.cli rates --catalogs GWTC-4 GWTC-5   # O4a + O4b
-python -m gwtc_analysis.cli rates --catalogs ALL             # O1 to O4b
+gwtc_analysis rates --catalogs GWTC-5          # O4b only
+gwtc_analysis rates --catalogs GWTC-4 GWTC-5   # O4a + O4b
+gwtc_analysis rates --catalogs ALL             # O1 to O4b
 ```
 
 Without `--catalogs`, the rates cover the runs of the real-injection mixture of the release (O3 onward).

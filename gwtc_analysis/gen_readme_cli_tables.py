@@ -64,7 +64,7 @@ def main() -> None:
             "# CLI reference\n\n"
             "Every option of every mode, generated from `gwtc_analysis/cli.py` by\n"
             "`python gwtc_analysis/gen_readme_cli_tables.py`. Each mode also has its own help:\n"
-            "`python -m gwtc_analysis.cli <MODE> -h`.\n\n"
+            "`gwtc_analysis <MODE> -h`.\n\n"
             + tables.replace("### `", "## `"),
             encoding="utf-8",
         )
