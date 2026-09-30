@@ -120,7 +120,9 @@ instance the one of the O4c run):
     gwtc_analysis check_catalogs --out-json check.json
     ```
 
-    It reports the GWTC event lists and observing runs that the registry does not describe, and the
+    It lists the registry catalogs with their GWOSC event counts and Zenodo records (latest version,
+    concept ID, number of versions, publication date), then reports the GWTC event lists and observing
+    runs that the registry does not describe, and the
     registry records that have a newer Zenodo version. For each new list it drafts the registry entry:
     the observing runs of its events, its Zenodo records (found from the PE links of its events in the
     GWOSC v2 API) with their concept IDs and skymap tarball, and `update_of` when the list covers the runs

@@ -54,6 +54,13 @@ def test_nothing_to_report_when_registry_is_complete():
     r = cc.check_catalogs(get=_fake_get())
     assert r["new_lists"] == [] and r["new_runs"] == {} and r["missing_lists"] == [] and r["newer_versions"] == []
     assert "describes every GWTC event list" in cc.format_report(r)
+    # the listing of the registry catalogs, with the Zenodo records (the fake GWOSC gives no event counts)
+    listing = {c["key"]: c for c in r["catalogs"]}
+    assert list(listing) == list(reg.CATALOGS)
+    assert [z["latest"] for z in listing["GWTC-5"]["zenodo"]] == ["20348005", "20348006"]
+    assert listing["GWTC-4.1"]["update_of"] == "GWTC-4" and listing["GWTC-1"]["zenodo"] == []
+    text = cc.format_report(r)
+    assert "https://zenodo.org/records/20275769" in text and "PE and skymaps of GWTC-2.1" in text
 
 
 def test_new_catalog_and_run_are_reported_with_a_draft_entry():
