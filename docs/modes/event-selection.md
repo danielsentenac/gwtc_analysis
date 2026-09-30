@@ -23,7 +23,11 @@ that need the marginal candidates as well, see [Known issues](../known-data-issu
 ## Examples
 
 The mode writes the selection as a TSV (`--out-selection`, one row per event) and, with `--out-plot`, a
-PNG of the selected events among all the events of the catalogs.
+PNG of the selected events among all the events of the catalogs. The TSV gives, for each event, the median
+source-frame masses, the luminosity distance and the **redshift**. The redshift is not measured: GWOSC
+infers it from the luminosity distance for the
+[Planck 2015 cosmology](../science/redshift.md#the-planck-2015-cosmology), and the source-frame masses
+are the detector-frame ones divided by 1 + z, so the table shows which redshift they rely on.
 
 ### Heavy binaries within 2 Gpc
 
@@ -33,12 +37,12 @@ gwtc_analysis event_selection --catalogs ALL --m1-min 50 --dl-max 2000 --out-plo
 
 Heavy binaries within 2 Gpc; the TSV (`event_selection.tsv`) lists:
 
-| event_id | catalog_key | mass_1_source | mass_2_source | luminosity_distance |
-|---|---|---|---|---|
-| GW191109_010717-v1 | GWTC-3 | 65.0 | 47.0 | 1290 |
-| GW240519_012815-v1 | GWTC-5 | 65.0 | 39.0 | 1740 |
-| GW241127_061008-v1 | GWTC-5 | 63.8 | 20.8 | 1080 |
-| GW241225_082815-v1 | GWTC-5 | 55.7 | 42.2 | 1880 |
+| event_id | catalog_key | mass_1_source | mass_2_source | luminosity_distance | redshift |
+|---|---|---|---|---|---|
+| GW191109_010717-v1 | GWTC-3 | 65.0 | 47.0 | 1290 | 0.25 |
+| GW240519_012815-v1 | GWTC-5 | 65.0 | 39.0 | 1740 | 0.32 |
+| GW241127_061008-v1 | GWTC-5 | 63.8 | 20.8 | 1080 | 0.21 |
+| GW241225_082815-v1 | GWTC-5 | 55.7 | 42.2 | 1880 | 0.34 |
 
 ![Heavy binaries within 2 Gpc among all the events](../img/modes/selection_heavy.png)
 
@@ -51,17 +55,17 @@ the dashed lines are the bounds m₁ ≥ 50 M☉ and D_L ≤ 2000 Mpc.*
 gwtc_analysis event_selection --catalogs ALL --m2-max 3 --out-plot selection.png
 ```
 
-| event_id | catalog_key | mass_1_source | mass_2_source | luminosity_distance |
-|---|---|---|---|---|
-| GW191219_163120-v1 | GWTC-3 | 31.1 | 1.17 | 550 |
-| GW170817-v3 | GWTC-1 | 1.46 | 1.27 | 40 |
-| GW190425_081805-v3 | GWTC-2.1 | 2.1 | 1.3 | 150 |
-| GW230529_181500-v2 | GWTC-4 | 3.66 | 1.42 | 203 |
-| GW200115_042309-v2 | GWTC-3 | 5.9 | 1.44 | 290 |
-| GW230518_125908-v1 | GWTC-4 | 8.17 | 1.45 | 236 |
-| GW190917_114630-v1 | GWTC-2.1 | 9.7 | 2.1 | 720 |
-| GW190814_211039-v3 | GWTC-2.1 | 23.3 | 2.6 | 230 |
-| GW200210_092254-v1 | GWTC-3 | 24.1 | 2.83 | 940 |
+| event_id | catalog_key | mass_1_source | mass_2_source | luminosity_distance | redshift |
+|---|---|---|---|---|---|
+| GW191219_163120-v1 | GWTC-3 | 31.1 | 1.17 | 550 | 0.11 |
+| GW170817-v3 | GWTC-1 | 1.46 | 1.27 | 40 | 0.01 |
+| GW190425_081805-v3 | GWTC-2.1 | 2.1 | 1.3 | 150 | 0.03 |
+| GW230529_181500-v2 | GWTC-4 | 3.66 | 1.42 | 203 | 0.04 |
+| GW200115_042309-v2 | GWTC-3 | 5.9 | 1.44 | 290 | 0.06 |
+| GW230518_125908-v1 | GWTC-4 | 8.17 | 1.45 | 236 | 0.05 |
+| GW190917_114630-v1 | GWTC-2.1 | 9.7 | 2.1 | 720 | 0.15 |
+| GW190814_211039-v3 | GWTC-2.1 | 23.3 | 2.6 | 230 | 0.05 |
+| GW200210_092254-v1 | GWTC-3 | 24.1 | 2.83 | 940 | 0.19 |
 
 Nine events: the two binary neutron stars (GW170817, GW190425), neutron star–black hole binaries,
 and binaries whose lighter component lies between 2.5 and 3 M☉, at the edge of the neutron-star range
