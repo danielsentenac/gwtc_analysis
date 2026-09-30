@@ -14,22 +14,11 @@ from . import gw_stat as gw
 from .report import write_simple_html_report
 
 
-ALLOWED_CATALOGS = [
-    "GWTC-1",
-    "GWTC-2.1",
-    "GWTC-3",
-    "GWTC-4",
-    "GWTC-5",
-    "ALL",
-]
+from . import catalog_registry as _reg
 
-CATALOG_STATISTICS_ALIASES = {
-    "GWTC-5": "GWTC-5.0",
-    "GWTC-4": "GWTC-4.0",
-    "GWTC-3": "GWTC-3-confident",
-    "GWTC-2.1": "GWTC-2.1-confident",
-    "GWTC-1": "GWTC-1-confident",
-}
+ALLOWED_CATALOGS = list(_reg.allowed_catalogs())
+
+CATALOG_STATISTICS_ALIASES = _reg.gwosc_aliases()
 
 def _pick_first_existing_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
     for c in candidates:
@@ -818,38 +807,18 @@ def run_catalog_statistics(
 # LVK cumulative search-sensitivity releases usable by the rates mode: their
 # real-injection mixture with Cartesian spins. The file is found in the latest
 # version of the Zenodo record, so a new version is picked up automatically.
-RATES_SENSITIVITY_RELEASES = {
-    "gwtc5": ("19500052", "GWTC-5.0 cumulative, real O3 + O4a + O4b injections (~900 MB)"),
-    "gwtc4": ("16740128", "GWTC-4.0 cumulative, real O3 + O4a injections (~400 MB)"),
-}
-RATES_DEFAULT_RELEASE = "gwtc5"
-_SENSITIVITY_FILE_RE = r"^mixture-real_.*cartesian_spins.*\.hdf5?$"
+RATES_SENSITIVITY_RELEASES = {k: (r.record, r.label) for k, r in _reg.SENSITIVITY_RELEASES.items()}
+RATES_DEFAULT_RELEASE = _reg.DEFAULT_RATES_RELEASE
+_SENSITIVITY_FILE_RE = _reg.SENSITIVITY_RELEASES[RATES_DEFAULT_RELEASE].real_file_re
 # the same releases with semi-analytic O1+O2 injections, used when O1 or O2 is selected
-_SEMI_SENSITIVITY_FILE_RE = {
-    "gwtc5": r"^mixture-semi_o1_o2-real_o3_o4a_o4b-cartesian_spins.*\.hdf5?$",
-    "gwtc4": r"^mixture-semi_o1_o2-real_o3_o4a-cartesian_spins.*\.hdf5?$",
-}
-RATES_EVENT_LISTS = (
-    "GWTC-1-confident",
-    "GWTC-2.1-confident", "GWTC-2.1-marginal",
-    "GWTC-3-confident", "GWTC-3-marginal",
-    "GWTC-4.0", "GWTC-5.0",
-)
+_SEMI_SENSITIVITY_FILE_RE = {k: r.semi_file_re for k, r in _reg.SENSITIVITY_RELEASES.items()}
+RATES_EVENT_LISTS = _reg.gwosc_lists()
 
 # GWOSC observing-run boundaries (GPS), and the runs whose new events make up each catalog
-OBSERVING_RUNS = {
-    "O1": (1126051217, 1137254417), "O2": (1164556817, 1187733618),
-    "O3a": (1238166018, 1253977218), "O3b": (1256655618, 1269363618),
-    "O4a": (1368975618, 1389456018), "O4b": (1396796418, 1422118818),
-}
-CATALOG_RUNS = {
-    "GWTC-1": ("O1", "O2"), "GWTC-2.1": ("O3a",), "GWTC-3": ("O3b",), "GWTC-4": ("O4a",), "GWTC-5": ("O4b",),
-}
-SEMI_ANALYTIC_RUNS = ("O1", "O2")     # runs covered by semi-analytic injections (detection from SNR)
-RELEASE_RUNS = {                      # runs covered by each cumulative sensitivity release
-    "gwtc5": ("O1", "O2", "O3a", "O3b", "O4a", "O4b"),
-    "gwtc4": ("O1", "O2", "O3a", "O3b", "O4a"),
-}
+OBSERVING_RUNS = _reg.observing_runs()
+CATALOG_RUNS = _reg.catalog_runs_map()
+SEMI_ANALYTIC_RUNS = _reg.semi_analytic_runs()     # runs covered by semi-analytic injections (detection from SNR)
+RELEASE_RUNS = _reg.release_runs()                 # runs covered by each cumulative sensitivity release
 
 
 def catalog_runs(catalogs) -> tuple[str, ...]:
@@ -917,7 +886,7 @@ def _rates_sensitivity_path(sensitivity_file: str | Path | None = None,
     record, label = RATES_SENSITIVITY_RELEASES[release]
     if semi_analytic:
         return _zenodo_sensitivity_file(record, label + ", with semi-analytic O1+O2", _SEMI_SENSITIVITY_FILE_RE[release])
-    return _zenodo_sensitivity_file(record, label, _SENSITIVITY_FILE_RE)
+    return _zenodo_sensitivity_file(record, label, _reg.SENSITIVITY_RELEASES[release].real_file_re)
 
 
 def _injection_segments(times: np.ndarray, max_gap_days: float = 7.0) -> list[tuple[float, float]]:

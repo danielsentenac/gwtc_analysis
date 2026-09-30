@@ -26,12 +26,14 @@ def _expand_catalogs_for_skymaps(catalogs: list[str]) -> list[str]:
     """
     Expand ALL selector for search_skymaps.
 
-    NOTE: You said GWTC-1 has no separate skymap collection; GWTC-2.1 covers it.
+    ALL means the catalogs with skymap releases (catalog_registry); GWTC-1 has none, GWTC-2.1 covers it.
     """
     cats = [c for c in (catalogs or []) if c]
 
     if "ALL" in cats:
-        cats = ["GWTC-2.1", "GWTC-3", "GWTC-4", "GWTC-5"]
+        from .catalog_registry import skymap_catalogs
+
+        cats = skymap_catalogs()
 
     # de-dup preserve order
     out: list[str] = []

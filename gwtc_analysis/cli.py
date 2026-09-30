@@ -11,6 +11,9 @@ from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
 from .unofficial_pe import build_unofficial_pe_bundle, get_unofficial_pe_spec, list_unofficial_pe_specs
 from .gw_stat import ALLOWED_CATALOGS as ALLOWED_CATALOGS
+from .catalog_registry import DEFAULT_H0_RELEASE, catalog_help, catalog_runs_help, release_runs_help
+
+DEFAULT_H0_RELEASE_TEXT = f"{DEFAULT_H0_RELEASE}: the published analysis"
 from .data_repo import parse_zenodo_version, zenodo_catalogs
 import sys
 
@@ -145,7 +148,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--catalogs",
         required=True,
         nargs="+",
-        help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all.",
+        help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL key takes them all.",
     )
     p_cat.add_argument("--out-events", default="catalogs_statistics.tsv", help="Output TSV path (per-event table).")
     p_cat.add_argument("--out-report", default="catalogs_statistics.html", help="Output HTML report path.")
@@ -193,9 +196,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_rate.add_argument("--bbh-kappa", type=float, default=2.9, help="BBH rate evolution R ∝ (1+z)^kappa.")
     p_rate.add_argument("--bbh-z-ref", type=float, default=0.2, help="Redshift at which the evolving BBH rate is reported.")
     p_rate.add_argument("--catalogs", nargs="+", default=None,
-                        help="Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are "
-                             "restricted to their observing runs (GWTC-1: O1-O2, GWTC-2.1: O3a, GWTC-3: O3b, "
-                             "GWTC-4: O4a, GWTC-5: O4b). Default: the runs of the real-injection mixture (O3 onward).")
+                        help=f"Catalog keys ({catalog_help()}, or ALL): events and injections are restricted to "
+                             f"their observing runs ({catalog_runs_help()}). Default: the runs of the real-injection "
+                             "mixture (O3 onward).")
     p_rate.add_argument("--snr-threshold", type=float, default=10.0,
                         help="Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1).")
 
@@ -238,9 +241,9 @@ def build_parser() -> argparse.ArgumentParser:
         + "; ".join(f"{k} = {v['label']}" for k, v in H0_SENSITIVITY_RELEASES.items()) + ".",
     )
     p_h0.add_argument("--catalogs", nargs="+", default=None,
-                      help="Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5, or ALL): events and injections are "
-                           "restricted to their observing runs. Default: all the runs of --sensitivity-release "
-                           "(gwtc4: O1-O4a, the published analysis; gwtc5: O1-O4b).")
+                      help=f"Catalog keys ({catalog_help()}, or ALL): events and injections are restricted to "
+                           "their observing runs. Default: all the runs of --sensitivity-release "
+                           f"({release_runs_help()}; {DEFAULT_H0_RELEASE_TEXT}).")
     p_h0.add_argument("--sensitivity-file", default=None,
                       help="Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's.")
     p_h0.add_argument("--far-threshold", type=float, default=0.25,
@@ -292,7 +295,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sel.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all.")
+    p_sel.add_argument("--catalogs", required=True, nargs="+", help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL key takes them all.")
     p_sel.add_argument("--out-selection", default="event_selection.tsv", help="Output TSV path for the selected events.")
     p_sel.add_argument("--m1-min", type=float, default=None, help="Minimum primary mass (source frame).")
     p_sel.add_argument("--m1-max", type=float, default=None, help="Maximum primary mass (source frame).")
@@ -317,7 +320,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sky.add_argument("--catalogs", required=True, nargs="+", help="Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-5). ALL key takes them all.")
+    p_sky.add_argument("--catalogs", required=True, nargs="+", help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL key takes them all.")
     p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
     p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")

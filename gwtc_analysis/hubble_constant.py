@@ -42,36 +42,15 @@ from .report import write_simple_html_report
 from .catalogs import CATALOG_RUNS, OBSERVING_RUNS, SEMI_ANALYTIC_RUNS, _in_runs, catalog_runs  # noqa: E402
 
 # Cumulative search-sensitivity releases with semi-analytic O1+O2 injections, so that the whole
-# catalog since O1 can be used.
+# catalog since O1 can be used (catalog_registry)
+from . import catalog_registry as _reg  # noqa: E402
+
 H0_SENSITIVITY_RELEASES = {
-    "gwtc4": dict(
-        record="16740128", label="GWTC-4.0 cumulative, semi-analytic O1+O2 + real O3+O4a injections",
-        file_re=r"^mixture-semi_o1_o2-real_o3_o4a-cartesian_spins.*\.hdf5?$",
-        runs=("O1", "O2", "O3a", "O3b", "O4a"),
-        catalogs=("GWTC-1-confident", "GWTC-2.1-confident", "GWTC-2.1-marginal", "GWTC-3-confident",
-                  "GWTC-3-marginal", "GWTC-4.0"),
-        # spectral sirens, GWTC-4.0 cosmology paper v3 (the published version); 90% bounds from the quoted intervals
-        published={
-            "plp": dict(ref="GWTC-4.0 cosmology, arXiv:2509.04348 (PLP)", median=105.5, plus=46.4, minus=35.8,
-                        lo90=50.5, hi90=176.1),
-            "mltp": dict(ref="GWTC-4.0 cosmology, arXiv:2509.04348 (MLTP)", median=72.3, plus=42.5, minus=25.6,
-                         lo90=34.2, hi90=154.1),
-        },
-    ),
-    "gwtc5": dict(
-        record="19500052", label="GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections",
-        file_re=r"^mixture-semi_o1_o2-real_o3_o4a_o4b-cartesian_spins.*\.hdf5?$",
-        runs=("O1", "O2", "O3a", "O3b", "O4a", "O4b"),
-        catalogs=("GWTC-1-confident", "GWTC-2.1-confident", "GWTC-2.1-marginal", "GWTC-3-confident",
-                  "GWTC-3-marginal", "GWTC-4.0", "GWTC-5.0"),
-        # spectral sirens, GWTC-5.0 cosmology paper (arXiv:2605.27227), Table 11; it has no PLP analysis
-        published={
-            "mltp": dict(ref="GWTC-5.0 cosmology, arXiv:2605.27227 (MLTP)", median=71.0, plus=21.0, minus=17.5,
-                         lo90=44.5, hi90=107.0),
-        },
-    ),
+    k: dict(record=r.record, label=r.semi_label, file_re=r.semi_file_re, runs=r.runs,
+            catalogs=_reg.gwosc_lists(_reg.release_catalogs(k)), published=r.published or None)
+    for k, r in sorted(_reg.SENSITIVITY_RELEASES.items())
 }
-H0_DEFAULT_RELEASE = "gwtc4"
+H0_DEFAULT_RELEASE = _reg.DEFAULT_H0_RELEASE
 # GWTC-4.0 cosmology: GW231123 (PE systematics) and GW200105 (NSBH) are not used
 H0_DEFAULT_EXCLUDE = ("GW231123_135430", "GW200105_162426")
 # PE labels, in order of preference (the GWTC-4.0 cosmology choice first)
