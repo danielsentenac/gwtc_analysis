@@ -43,4 +43,24 @@ The bundle is cached with a fingerprint of its recipe (`<bundle>.recipe.json`) a
 recipe or a source file changes. A missing source that cannot be downloaded stops the build, and the
 overlays of this special case are then not produced.
 
+## Example
+
+```bash
+gwtc_analysis parameters_estimation --src-name GW170817 \
+    --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000
+```
+
+`parameters_estimation` uses the rebuilt bundle transparently:
+
+![L1 q-transform of GW170817](../img/modes/pe_GW170817_L1_qtransform.png)
+
+*L1 q-transform: the binary-neutron-star chirp, visible for about 2 s as it rises from 100 to about
+300 Hz, much longer than a BBH signal.*
+
+![L1 matched-filter SNR of GW170817](../img/modes/pe_GW170817_L1_snr.png)
+
+*Matched-filter SNR with the maximum-likelihood IMRPhenomPv2_NRTidal waveform: 25.0 in L1 and 18.0 in
+H1 at the coalescence time, recovered from the public samples, PSDs and the fitted extrinsic
+parameters.*
+
 All options: [CLI reference](../cli-reference.md#build_unofficial_pe).

@@ -231,4 +231,20 @@ fewest. The report flags values below the thresholds; more `--pe-samples` or a l
 number of injections stayed above 3 800 (threshold 544), while the smallest per-event value had a
 median of 27 and reached 8 at some draws (threshold 10), for the lightest BBHs such as GW190924.
 
+## Example
+
+```bash
+gwtc_analysis hubble_constant --stages prepare
+gwtc_analysis hubble_constant --stages sample combine reweight report \
+    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
+```
+
+The report leads with the H₀ posterior, compared with the published value of the same mass model:
+
+![H0 posterior of the Power Law + Peak reproduction](../img/h0_posterior.png)
+
+*GWTC-4.0, Power Law + Peak: 10 runs with 10% of the injections, reweighted to all of them; the
+published result (orange line, 90% band) and the Planck and SH0ES values for comparison. Details in
+[Hubble constant (spectral siren)](../science/spectral-siren.md).*
+
 All options: [CLI reference](../cli-reference.md#hubble_constant).
