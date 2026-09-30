@@ -77,4 +77,34 @@ A few official PE files have no PSDs. They are then taken from public supplement
 GW170817 has no catalog PE file. The mode transparently uses the bundle rebuilt from public GWTC-1
 products: see [build_unofficial_pe](unofficial-pe.md).
 
+## Example: GW150914
+
+```bash
+gwtc_analysis parameters_estimation --src-name GW150914_095045 \
+    --pe-vars chi_eff luminosity_distance --pe-pairs mass_1_source:mass_2_source
+```
+
+The first detection, from the GWTC-2.1 PE release; all the figures below come from this command.
+
+![H1 whitened strain with the projected waveform](../img/modes/pe_GW150914_H1_overlay.png)
+
+*H1 strain, whitened and band-passed, with the maximum-likelihood IMRPhenomXPHM waveform projected on
+the detector and aligned by the matched filter.*
+
+![L1 q-transform of GW150914](../img/modes/pe_GW150914_L1_qtransform.png)
+
+*L1 q-transform: the chirp rises from about 35 Hz to over 200 Hz in about 0.1 s.*
+
+![H1 matched-filter SNR](../img/modes/pe_GW150914_H1_snr.png)
+
+*Matched-filter SNR |ρ(t)|: a peak of 19.4 in H1 (13.9 in L1) at the coalescence time, over noise of
+unit-scale RMS.*
+
+| Source-frame masses | Sky localization |
+|---|---|
+| ![Primary against secondary source-frame mass](../img/modes/pe_GW150914_masses.png) | ![Skymap of GW150914](../img/modes/pe_GW150914_skymap.png) |
+
+*Posterior of the source-frame masses (about 35 and 30 M☉), and the skymap of the IMRPhenomXPHM
+analysis: 159 deg² at 90% with the two LIGO detectors.*
+
 All options: [CLI reference](../cli-reference.md#parameters_estimation).

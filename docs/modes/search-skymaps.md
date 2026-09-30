@@ -21,4 +21,18 @@ events that contain it are plotted in `--plots-dir` and gathered in `--out-repor
 The catalog skymaps are built by the LVK from the PE posterior samples; see
 Singer et al. 2016 [\[56\]](../references.md#ref-56) for the three-dimensional skymap format.
 
+## Example
+
+```bash
+gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.9
+```
+
+The position (RA 265°, Dec −46°) lies inside the 90% credible region of 13 of the 86 GWTC-4.0
+skymaps; each hit is plotted, with a zoom on the position:
+
+![Skymap of GW230529 with the searched position](../img/modes/skymap_hit_GW230529.png)
+
+*GW230529_181500, seen by a single detector: its 90% region covers 25 400 deg², more than half of
+the sky, and contains the position (star) at the 16% credible level.*
+
 All options: [CLI reference](../cli-reference.md#search_skymaps).

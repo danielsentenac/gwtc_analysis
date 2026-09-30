@@ -20,4 +20,31 @@ event from the GWOSC v2 API; with `--include-area`, the sky-localization area at
   cumulative distribution of the sky-localization areas;
 - `--out-report`: the HTML report with the tables and plots.
 
+## Example
+
+```bash
+gwtc_analysis catalog_statistics --catalogs GWTC-4 --include-detectors --include-area
+```
+
+GWTC-4.0 (O4a), 86 events with a PE release; every figure below was produced by this command.
+
+![Primary against secondary source-frame mass, colored by network SNR](../img/modes/catstat_m1_m2_snr.png)
+
+*Median source-frame masses, colored by network SNR. The heaviest event is GW231123; the two points
+near the horizontal axis are the NSBH candidates.*
+
+![Histograms of total mass, luminosity distance and network SNR](../img/modes/catstat_histograms.png)
+
+| Source types | Detector networks |
+|---|---|
+| ![Source types](../img/modes/catstat_source_types.png) | ![Detector networks](../img/modes/catstat_network.png) |
+
+*84 BBHs and 2 NSBHs; 77 events seen by the two LIGO detectors, 9 by one only (Virgo did not observe
+during O4a).*
+
+![Cumulative distribution of the 90% sky areas](../img/modes/catstat_area_cdf.png){ width="560" }
+
+*90% sky areas from the Zenodo PE skymaps: median 2 065 deg² with two detectors, about 27 600 deg²
+with a single detector, which localizes an event only to a large part of the sky.*
+
 All options: [CLI reference](../cli-reference.md#catalog_statistics).

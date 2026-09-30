@@ -89,4 +89,19 @@ GWTC-3 [\[12\]](../references.md#ref-12).
 - `--out-report` (HTML): the tables, and the observed and selection-corrected primary-mass
   distributions.
 
+## Example
+
+```bash
+gwtc_analysis rates
+```
+
+The HTML report shows, with the rates table, the observed and the selection-corrected primary-mass
+distributions:
+
+![Observed and selection-corrected primary-mass distributions](../img/modes/rates_mass_distribution.png){ width="640" }
+
+*O3 to O4b, GWTC-5.0 injections. Top: detected candidates per bin of primary mass. Bottom: merger
+rate per logarithmic mass interval, the counts divided by the sensitive volume-time of each bin. The
+peaks near 10 and 35 M☉ stand out once the heavy binaries' larger detection volume is removed.*
+
 All options: [CLI reference](../cli-reference.md#rates).
