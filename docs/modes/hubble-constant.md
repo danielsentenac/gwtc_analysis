@@ -1,11 +1,11 @@
 # hubble_constant
 
 The Hubble constant from the binary-black-hole mass spectrum (**spectral siren**), with
-[icarogw](https://github.com/icarogw-developers/icarogw) [\[55\]](../references.md#ref-55) and bilby [\[56\]](../references.md#ref-56)/dynesty [\[58\]](../references.md#ref-58). The method, its
+[icarogw](https://github.com/icarogw-developers/icarogw) [\[57\]](../references.md#ref-57) and bilby [\[58\]](../references.md#ref-58)/dynesty [\[60\]](../references.md#ref-60). The method, its
 validation and its results are explained in
 [Hubble constant (spectral siren)](../science/spectral-siren.md); this page is about running it.
 
-The default setup reproduces the spectral-siren measurements of the GWTC-4.0 cosmology paper [\[27\]](../references.md#ref-27)
+The default setup reproduces the spectral-siren measurements of the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29)
 (published version v3): H₀ = 105.5 (+46.4 / −35.8) km/s/Mpc with the *Power Law + Peak* mass model
 (`--mass-model plp`, the default) and 72.3 (+42.5 / −25.6) km/s/Mpc with the *Multi Peak* model
 (`--mass-model mltp`). Use one work directory per mass model.
@@ -34,7 +34,7 @@ The work is split into stages (`--stages`, all by default) sharing a work direct
 | Option | Default | Meaning |
 |---|---|---|
 | `--catalogs` | all the runs of the release | catalog keys (GWTC-1 … GWTC-5, or ALL): events and injections restricted to their observing runs (GWTC-1: O1–O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b). The published comparison is shown only for the release's own selection |
-| `--sensitivity-release` | `gwtc4` | injections and matching catalogs and runs: `gwtc4` = O1–O4a (validated against the paper [\[27\]](../references.md#ref-27)), `gwtc5` = O1–O4b (not yet validated against a published result) |
+| `--sensitivity-release` | `gwtc4` | injections and matching catalogs and runs: `gwtc4` = O1–O4a (validated against the paper [\[29\]](../references.md#ref-29)), `gwtc5` = O1–O4b (not yet validated against a published result) |
 | `--far-threshold` | 0.25 per year | events (published FARs, rounded, compared inclusively: FAR ≤ threshold), and real injections (full precision, FAR < threshold), below this false-alarm rate |
 | `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR |
 | `--min-mass` | 3 M☉ | both source-frame masses above it: potential neutron stars are left out |
@@ -42,12 +42,13 @@ The work is split into stages (`--stages`, all by default) sharing a work direct
 | `--min-ess-fraction` | 0.5 | smallest predicted effective-sample-size fraction of the reweighting accepted by `auto` |
 | `--reweight-pe-samples` | as the runs | PE samples per event of the reweighting target |
 | `--mass-model` | `plp` | BBH primary-mass model: `plp` (Power Law + Peak, Table 3 of the paper) or `mltp` (Multi Peak: power law and two Gaussian peaks, Table 4) |
-| `--exclude` | GW231123_135430, GW200105_162426 | as in the GWTC-4.0 cosmology analysis [\[27\]](../references.md#ref-27) |
+| `--exclude` | GW231123_135430, GW200105_162426 | as in the GWTC-4.0 cosmology analysis [\[29\]](../references.md#ref-29) |
 
 ## icarogw
 
 `gwtc_analysis/h0_icarogw.py` is a **driver of icarogw**, not a modified copy: icarogw is used as
-installed, through its public API.
+installed, through its public API. The LVK also uses a second code, gwcosmo; the two are compared in
+[icarogw and gwcosmo](../science/icarogw-gwcosmo.md).
 
 - **icarogw provides** the hierarchical likelihood (PE and injection reweighting, selection term,
   scale-free rate marginalisation, effective-sample-size checks), the population models
@@ -55,7 +56,7 @@ installed, through its public API.
   `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`), and the detector-frame conversion for each
   trial H₀.
 - **The driver** reads `inputs.h5` into icarogw's `posterior_samples` and `injections` objects,
-  chooses the model components and the priors (Tables 3 and 6 of the paper [\[27\]](../references.md#ref-27)), runs bilby/dynesty,
+  chooses the model components and the priors (Tables 3 and 6 of the paper [\[29\]](../references.md#ref-29)), runs bilby/dynesty,
   merges the runs and computes the diagnostics with icarogw's own methods.
 - **The analysis choices made here**, outside icarogw, are the input preparation in
   `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw

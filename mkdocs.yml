@@ -69,6 +69,7 @@ nav:
       - Selection effects and injections: science/selection-effects.md
       - Merger rates: science/merger-rates.md
       - Hubble constant (spectral siren): science/spectral-siren.md
+      - icarogw and gwcosmo: science/icarogw-gwcosmo.md
       - Glossary: science/glossary.md
   - CLI reference: cli-reference.md
   - References: references.md
