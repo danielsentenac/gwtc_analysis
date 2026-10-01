@@ -478,8 +478,9 @@ def _write_parameters_estimation_report(
     posterior_pairs_missing_by_label: dict[str, list[str]] | None = None,
     requested_pe_pairs: list[str] | None = None,
     event_logs: list[str] | None = None,
+    extra_html: str = "",
 ) -> None:
-    """Write a simple (non-embedded) HTML report referencing local PNGs."""
+    """Write a simple (non-embedded) HTML report referencing local PNGs; `extra_html` goes before the plots."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     def rel(p: Path) -> str:
@@ -630,6 +631,9 @@ def _write_parameters_estimation_report(
                 + "</pre>"
             )
             lines.append("</details>")
+
+    if extra_html:
+        lines.append(extra_html)
 
     if not plots:
         lines.append("<p><b>No plots found</b> in the plots directory.</p>")
@@ -968,6 +972,7 @@ def run_parameters_estimation(
     fig_skymapList: List[Any] = []
 
     posterior_keys_by_label: dict[str, list[str]] = {}
+    multipoles_html: str = ""
     missing_by_label: dict[str, list[str]] = {}
     posterior_pairs_missing_by_label: dict[str, list[str]] = {}
 
@@ -1301,6 +1306,28 @@ def run_parameters_estimation(
                     if oda_available and PictureProduct is not None:
                         fig_distributionList.append(PictureProduct.from_file(fname))
 
+                # Higher multipoles and precession: SNRs stored in the PE samples (GWTC-4.0 on)
+                try:
+                    from . import multipoles as _mp
+
+                    _mp_table, _mp_files, multipoles_html = _mp.analyse(samples_dict, label_samples, src_name, outdir)
+                    _main = _mp_table[_mp_table["label"] == label_samples]
+                    if _main.empty:
+                        pe_log("ℹ️ [INFO] No multipole/precession SNRs in this PE file (stored from GWTC-4.0 on)",
+                               event_logs)
+                    else:
+                        pe_log("ℹ️ [INFO] Multipole/precession SNR medians (" + label_samples + "): "
+                               + ", ".join(f"{q} {m:.1f} ({e})" for q, m, e in
+                                           _main[["quantity", "median", "evidence"]].itertuples(index=False)),
+                               event_logs)
+                    for fname in _mp_files:
+                        if str(fname).endswith(".png"):
+                            result.files_distribution.append(str(fname))
+                            if oda_available and PictureProduct is not None:
+                                fig_distributionList.append(PictureProduct.from_file(str(fname)))
+                except Exception as e:  # never fail the run for this section
+                    pe_log(f"⚠️ [WARN] Could not summarize the multipole/precession SNRs: {e}", event_logs)
+
         except Exception as e:
             pe_log(f"❌ [ERROR] Failed creating posterior plots: {e}", event_logs)
             go_next_cell = False
@@ -1631,6 +1658,7 @@ def run_parameters_estimation(
             posterior_pairs_missing_by_label=posterior_pairs_missing_by_label,
             requested_pe_pairs=pe_pairs or [],
             event_logs=event_logs,
+            extra_html=multipoles_html,
         )
 
     # ---------------------------------------------------------------------

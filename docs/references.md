@@ -254,6 +254,14 @@ was checked against the arXiv API.
 **[76]** L. Rezzolla et al., *On the final spin from the coalescence of two black holes*. The final-spin fit of `catalog_statistics`. [arXiv:0712.3541](https://arxiv.org/abs/0712.3541)
 {: #ref-76 }
 
+## Higher multipoles and precession
+
+**[77]** C. Mills and S. Fairhurst, *Measuring gravitational-wave higher-order modes*. The multipole SNRs. [arXiv:2007.04313](https://arxiv.org/abs/2007.04313)
+{: #ref-77 }
+
+**[78]** S. Fairhurst et al., *Two-harmonic approximation for gravitational waveforms from precessing binaries*. The precession SNR ρ<sub>p</sub>. [arXiv:1908.05707](https://arxiv.org/abs/1908.05707)
+{: #ref-78 }
+
 ## Data releases
 
 | Release | Where |
