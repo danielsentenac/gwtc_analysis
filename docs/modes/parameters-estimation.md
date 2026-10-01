@@ -77,6 +77,22 @@ A few official PE files have no PSDs. They are then taken from public supplement
 GW170817 has no catalog PE file. The mode transparently uses the bundle rebuilt from public GWTC-1
 products: see [build_unofficial_pe](unofficial-pe.md).
 
+## Tidal deformability
+
+For BNS and NSBH events, the tidal parameters (`lambda_1`, `lambda_2`, `lambda_tilde`,
+`delta_lambda`) are only in the labels run with a tidal waveform, not in `Mixed`: select one with
+`--pe-label`.
+
+```bash
+gwtc_analysis parameters_estimation --src-name GW170817 \
+    --pe-label C02:IMRPhenomPv2_NRTidal-LowSpin \
+    --pe-vars lambda_tilde lambda_2 --pe-pairs chi_eff:lambda_tilde
+```
+
+Which events carry them, how to read them (for NSBH events, `lambda_2` rather than `lambda_tilde`)
+and how spin enters the measurement: see
+[Tidal deformability of neutron stars](../science/tidal-deformability.md).
+
 ## Example: GW150914
 
 ```bash
