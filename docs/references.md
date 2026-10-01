@@ -206,6 +206,35 @@ was checked against the arXiv API.
 **[62]** C. Hoy and V. Raymond, *PESummary: the code agnostic Parameter Estimation Summary page builder*. [arXiv:2006.06639](https://arxiv.org/abs/2006.06639)
 {: #ref-62 }
 
+## Neutron-star tides
+
+**[63]** É. É. Flanagan and T. Hinderer, *Constraining neutron star tidal Love numbers with gravitational wave detectors*. [arXiv:0709.1915](https://arxiv.org/abs/0709.1915)
+{: #ref-63 }
+
+**[64]** T. Hinderer, *Tidal Love numbers of neutron stars*. [arXiv:0711.2420](https://arxiv.org/abs/0711.2420)
+{: #ref-64 }
+
+**[65]** L. Wade et al., *Systematic and statistical errors in a bayesian approach to the estimation of the neutron-star equation of state using advanced gravitational wave detectors*. Defines Λ̃ and δΛ̃. [arXiv:1402.5156](https://arxiv.org/abs/1402.5156)
+{: #ref-65 }
+
+**[66]** T. Dietrich, S. Bernuzzi and W. Tichy, *Closed-form tidal approximants for binary neutron star gravitational waveforms constructed from high-resolution numerical relativity simulations* (NRTidal). [arXiv:1706.02969](https://arxiv.org/abs/1706.02969)
+{: #ref-66 }
+
+**[67]** K. Yagi and N. Yunes, *I-Love-Q*. Quasi-universal relations between the moment of inertia, Love number and spin-induced quadrupole. [arXiv:1302.4499](https://arxiv.org/abs/1302.4499)
+{: #ref-67 }
+
+**[68]** L. Bildsten and C. Cutler, *Tidal interactions of inspiraling compact binaries*, ApJ 400, 175 (1992). No tidal locking; published before arXiv. [ADS 1992ApJ...400..175B](https://ui.adsabs.harvard.edu/abs/1992ApJ...400..175B)
+{: #ref-68 }
+
+**[69]** LVK, *Properties of the binary neutron star merger GW170817*. [arXiv:1805.11579](https://arxiv.org/abs/1805.11579)
+{: #ref-69 }
+
+**[70]** LVK, *GW170817: Measurements of Neutron Star Radii and Equation of State*. [arXiv:1805.11581](https://arxiv.org/abs/1805.11581)
+{: #ref-70 }
+
+**[71]** D. Radice et al., *GW170817: Joint Constraint on the Neutron Star Equation of State from Multimessenger Observations*. [arXiv:1711.03647](https://arxiv.org/abs/1711.03647)
+{: #ref-71 }
+
 ## Data releases
 
 | Release | Where |
