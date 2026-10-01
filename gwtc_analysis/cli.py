@@ -298,7 +298,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ---------------------------------------------------------------------
     p_bs = sub.add_parser(
         "bright_siren",
-        help="Estimate the Hubble constant from GW170817 and its host galaxy NGC 4993 (bright siren).",
+        help="Estimate the Hubble constant from an event with an identified host galaxy (bright siren).",
         description=(
             "Bright-siren H0: the luminosity distance of the GW signal, at the sky position of the\n"
             "counterpart, against the Hubble-flow velocity of the host galaxy (v_H = v_r - <v_p>).\n"
@@ -322,6 +322,20 @@ def build_parser() -> argparse.ArgumentParser:
                            "3327 72, the NGC 4993 group in the CMB frame).")
     p_bs.add_argument("--v-peculiar", nargs=2, type=float, metavar=("V", "SIGMA"), default=None,
                       help="Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150).")
+    p_bs.add_argument("--redshift", nargs=2, type=float, metavar=("Z", "SIGMA"), default=None,
+                      help="Hubble-flow redshift of the host and its uncertainty, instead of the velocities "
+                           "(default for GW190521: 0.438 0.0015).")
+    p_bs.add_argument("--selection", choices=("auto", "euclidean", "injections"), default="auto",
+                      help="Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK "
+                           "sensitivity injections of the event's run), auto (euclidean below z = 0.05).")
+    p_bs.add_argument("--sensitivity-release", choices=list(H0_SENSITIVITY_RELEASES), default=None,
+                      help=f"Injections of the selection term (default: {DEFAULT_H0_RELEASE}).")
+    p_bs.add_argument("--sensitivity-file", default=None, help="Local sensitivity file instead of the release.")
+    p_bs.add_argument("--far-threshold", type=float, default=0.25, help="Found injections: FAR below this, per year.")
+    p_bs.add_argument("--snr-threshold", type=float, default=10.0,
+                      help="Found semi-analytic O1+O2 injections: network SNR above this.")
+    p_bs.add_argument("--pe-cache", default=None,
+                      help="PE cache of the events read from Zenodo (default: that of hubble_constant).")
     p_bs.add_argument("--sky-radius", type=float, default=3.0,
                       help="For samples not fixed to the counterpart's position: keep those within this angle (deg).")
     p_bs.add_argument("--spectral-posterior", default=None,
@@ -582,6 +596,13 @@ def main(argv=None) -> int:
                 cache_dir=args.cache_dir,
                 v_recession=tuple(args.v_recession) if args.v_recession else None,
                 v_peculiar=tuple(args.v_peculiar) if args.v_peculiar else None,
+                redshift=tuple(args.redshift) if args.redshift else None,
+                selection=args.selection,
+                sensitivity_release=args.sensitivity_release,
+                sensitivity_file=args.sensitivity_file,
+                far_threshold=args.far_threshold,
+                snr_threshold=args.snr_threshold,
+                pe_cache=args.pe_cache,
                 sky_radius_deg=args.sky_radius,
                 spectral_posterior=args.spectral_posterior,
                 h0_range=tuple(args.h0_range),

@@ -79,6 +79,13 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle (as in build_unofficial_pe). |
 | `--v-recession` | `` | Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
 | `--v-peculiar` | `` | Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
+| `--redshift` | `` | Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
+| `--selection` | `auto` | Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05). |
+| `--sensitivity-release` | `` | Injections of the selection term (default: gwtc4). |
+| `--sensitivity-file` | `` | Local sensitivity file instead of the release. |
+| `--far-threshold` | `0.25` | Found injections: FAR below this, per year. |
+| `--snr-threshold` | `10.0` | Found semi-analytic O1+O2 injections: network SNR above this. |
+| `--pe-cache` | `` | PE cache of the events read from Zenodo (default: that of hubble_constant). |
 | `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
 | `--spectral-posterior` | `` | Spectral-siren H0 posterior to combine with: a hubble_constant work directory or a posterior TSV with an H0 column. |
 | `--h0-range` | `[10.0, 200.0]` | Flat H0 prior range, km/s/Mpc (that of the spectral siren by default). |
