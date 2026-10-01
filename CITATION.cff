@@ -18,6 +18,7 @@ authors:
     orcid: "https://orcid.org/0009-0002-5100-9681"
 version: 0.5.2
 date-released: 2026-10-01
+doi: 10.5281/zenodo.23077807
 license: MIT
 repository-code: "https://github.com/danielsentenac/gwtc_analysis"
 url: "https://pypi.org/project/gwtc_analysis/"

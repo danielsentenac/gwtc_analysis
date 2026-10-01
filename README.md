@@ -1,5 +1,7 @@
 # GWTC Analysis
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23077807.svg)](https://doi.org/10.5281/zenodo.23077807)
+
 ## Overview
 
 **GWTC Analysis** is a command-line analysis suite for exploring publicly released
