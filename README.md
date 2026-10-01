@@ -584,6 +584,85 @@ If the requested waveform engine cannot be instantiated (e.g. unsupported parame
 
 This ensures robustness while keeping model choices transparent.
 
+### `parameters_estimation`: Tidal deformability of neutron stars
+
+As the binary spirals in, each neutron star is distorted by the tidal field of
+its companion. How easily it deforms is measured by the dimensionless tidal
+deformability
+
+```text
+Λ = (2/3) k₂ (R c² / G m)⁵
+```
+
+where k₂ is the Love number and R the radius. Λ is 0 for a black hole and of
+order 100–1000 for a 1.4 M☉ neutron star. Through the R⁵ factor it depends
+steeply on the equation of state (EOS).
+
+The deformation drains orbital energy and speeds up the end of the inspiral.
+This adds a phase term at 5PN order, mostly above a few hundred Hz. The data
+therefore constrain mainly one mass-weighted combination,
+
+```text
+Λ̃ = (16/13) [(m₁ + 12 m₂) m₁⁴ Λ₁ + (m₂ + 12 m₁) m₂⁴ Λ₂] / (m₁ + m₂)⁵
+```
+
+(`lambda_tilde`), while the second combination, δΛ̃ (`delta_lambda`), is
+essentially unconstrained.
+
+**Tidal samples are only in the tidal-waveform labels.** The default `Mixed`
+label of BNS and NSBH events carries no tidal parameters, so select a tidal
+label explicitly with `--pe-label`. Those labels provide `lambda_1`, `lambda_2`,
+`lambda_tilde` and `delta_lambda`:
+
+```bash
+gwtc_analysis parameters_estimation --src-name GW170817 \
+  --pe-label C02:IMRPhenomPv2_NRTidal-LowSpin \
+  --pe-vars lambda_tilde delta_lambda lambda_1 lambda_2 \
+  --pe-pairs lambda_1:lambda_2 chi_eff:lambda_tilde mass_ratio:lambda_tilde
+```
+
+The log lists the labels available in the PE file, and the report flags any
+requested variable that the selected label does not have.
+
+| Event | Tidal labels | Λ̃: median, 90% upper bound |
+|---|---|---|
+| `GW170817` (BNS, [unofficial bundle](#build_unofficial_pe-unofficial-bundle-workflow)) | `C02:IMRPhenomPv2_NRTidal-LowSpin`, `-HighSpin` | 406, ≤ 793 (low spin); 328, ≤ 746 (high spin) |
+| `GW190425_081805` (BNS) | `C01:IMRPhenomPv2_NRTidal:LowSpin`, `:HighSpin` | 398, ≤ 1247 (low spin); 986, ≤ 2063 (high spin) |
+| `GW200105_162426`, `GW200115_042309` (NSBH) | `C01:IMRPhenomNSBH:*`, `C01:SEOBNRv4_ROM_NRTidalv2_NSBH:*` (GW200115 also `C01:Mixed:NSBH:*`) | Λ₂ uninformative (see below) |
+| `GW230529_181500` (NSBH, mass-gap primary) | `C00:IMRPhenomNSBH`, `C00:SEOBNRv4_ROM_NRTidalv2_NSBH`, `C00:IMRPhenomPv2_NRTidalv2` | Λ₂ uninformative |
+
+Values are computed from the posterior samples the tool reads. Only GW170817 has
+enough high-frequency SNR for a real measurement: its Λ̃ rules out the stiffest
+EOSs and points to radii of about 11–13 km for 1.4 M☉ stars. GW190425 was seen
+essentially by one detector at lower SNR, so its bound is weak.
+
+**NSBH events: read `lambda_2`, not `lambda_tilde`.** The NSBH models fix
+Λ₁ = 0 for the black hole, and the heavy primary dominates the mass weighting,
+so `lambda_tilde` comes out small (median ~20–150) *whatever the neutron star
+is*. The informative quantity is `lambda_2`, and for these events it stays close
+to its flat 0–5000 prior (median ~2500): the neutron star was swallowed without
+measurable tidal disruption. `C00:IMRPhenomPv2_NRTidalv2` for GW230529 instead
+treats both objects as neutron stars (Λ₁ ≠ 0).
+
+**Spin and tides are correlated.** The tidal effect does not depend on spin
+directly, but the measurement does:
+
+- The aligned spin (`chi_eff`, entering at 1.5PN) is degenerate with the mass
+  ratio. Λ depends steeply on mass, so a wider spin prior spreads q and hence
+  Λ₁ and Λ₂. This is why LVK publishes a **LowSpin** prior (|χ| ≤ 0.05, like the
+  Galactic double neutron stars) and a **HighSpin** prior (|χ| ≤ 0.89). Compare
+  the two labels, and look at the `chi_eff:lambda_tilde` and
+  `mass_ratio:lambda_tilde` pair plots.
+- A spinning neutron star also has a spin-induced quadrupole moment (2PN), which
+  depends on the EOS (κ = 1 for a black hole, ~2–14 for a neutron star). The
+  waveform models tie it to Λ through quasi-universal Love–Q relations instead of
+  fitting it separately.
+- Tidal torques do not spin up the stars: viscosity is far too low for tidal
+  locking, so the models assume irrotational stars.
+
+BNS signals are long, so a run with the strain overlays takes several minutes
+(about 7 min for GW170817).
+
 ---
 
 ## Testing
