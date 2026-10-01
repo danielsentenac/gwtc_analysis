@@ -235,6 +235,14 @@ was checked against the arXiv API.
 **[71]** D. Radice et al., *GW170817: Joint Constraint on the Neutron Star Equation of State from Multimessenger Observations*. [arXiv:1711.03647](https://arxiv.org/abs/1711.03647)
 {: #ref-71 }
 
+## Bright sirens
+
+**[72]** H.-Y. Chen, M. Fishbach and D. E. Holz, *A 2 per cent Hubble constant measurement from standard sirens within 5 years*. The bright-siren likelihood with its selection term. [arXiv:1712.06531](https://arxiv.org/abs/1712.06531)
+{: #ref-72 }
+
+**[73]** K. Hotokezaka et al., *A Hubble constant measurement from superluminal motion of the jet in GW170817*. The inclination from the radio jet. [arXiv:1806.10596](https://arxiv.org/abs/1806.10596)
+{: #ref-73 }
+
 ## Data releases
 
 | Release | Where |

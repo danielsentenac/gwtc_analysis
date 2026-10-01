@@ -22,6 +22,7 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 | [`build_unofficial_pe`](modes/unofficial-pe.md) | A PESummary-compatible bundle for GW170817, rebuilt from public GWTC-1 products |
 | [`rates`](modes/rates.md) | BNS, NSBH and BBH merger rates, R = N / ⟨VT⟩, from the catalogs and the LVK sensitivity injections |
 | [`hubble_constant`](modes/hubble-constant.md) | The Hubble constant from the binary-black-hole mass spectrum (spectral siren), with icarogw |
+| [`bright_siren`](modes/bright-siren.md) | The Hubble constant from GW170817 and its host galaxy NGC 4993 (bright siren), alone or combined with the spectral siren |
 | `zenodo_releases` | The versions of the Zenodo catalog releases ([Data sources](data-sources.md#zenodo-release-versions)) |
 
 ## Highlights

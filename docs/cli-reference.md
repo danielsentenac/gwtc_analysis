@@ -68,6 +68,24 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--reweight-pe-samples` | `` | PE samples per event of the reweighting target (default: those of the runs). |
 | `--icarogw-python` | `` | Python interpreter of the icarogw environment (default: the current one). |
 
+## `bright_siren`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--src-name` | `GW170817` | Event with an identified host galaxy. |
+| `--pe-label` | `` | PE label(s) to use (default: all the labels of the PE file, LowSpin first). |
+| `--pe-file` | `` | PE file to read instead of the event's bundle. |
+| `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle (as in build_unofficial_pe). |
+| `--v-recession` | `` | Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
+| `--v-peculiar` | `` | Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
+| `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
+| `--spectral-posterior` | `` | Spectral-siren H0 posterior to combine with: a hubble_constant work directory or a posterior TSV with an H0 column. |
+| `--h0-range` | `[10.0, 200.0]` | Flat H0 prior range, km/s/Mpc (that of the spectral siren by default). |
+| `--out-report` | `bright_siren.html` | Output HTML report path. |
+| `--out-summary` | `bright_siren.tsv` | Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv). |
+| `--plots-dir` | `bright_siren_plots` | Directory for the plots. |
+
 ## `event_selection`
 
 | Option | Default | Description |

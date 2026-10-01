@@ -6,6 +6,7 @@ from typing import List, Optional
 from .catalogs import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES, run_catalog_statistics, run_merger_rates
 from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFAULT_RELEASE, H0_SENSITIVITY_RELEASES,
                               MASS_MODELS as H0_MASS_MODELS, STAGES as H0_STAGES, run_hubble_constant)
+from .bright_siren import COUNTERPARTS as BRIGHT_SIREN_COUNTERPARTS, run_bright_siren
 from .event_selection import run_event_selection
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
@@ -116,6 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis catalog_statistics -h\n"
             "  gwtc_analysis rates -h\n"
             "  gwtc_analysis hubble_constant -h\n"
+            "  gwtc_analysis bright_siren -h\n"
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
@@ -290,6 +292,47 @@ def build_parser() -> argparse.ArgumentParser:
                       help="PE samples per event of the reweighting target (default: those of the runs).")
     p_h0.add_argument("--icarogw-python", default=None,
                       help="Python interpreter of the icarogw environment (default: the current one).")
+
+    # ---------------------------------------------------------------------
+    # bright_siren
+    # ---------------------------------------------------------------------
+    p_bs = sub.add_parser(
+        "bright_siren",
+        help="Estimate the Hubble constant from GW170817 and its host galaxy NGC 4993 (bright siren).",
+        description=(
+            "Bright-siren H0: the luminosity distance of the GW signal, at the sky position of the\n"
+            "counterpart, against the Hubble-flow velocity of the host galaxy (v_H = v_r - <v_p>).\n"
+            "Flat H0 prior; for sources uniform in volume and a GW-limited detection, the selection term\n"
+            "cancels the volume prior on the distance. The default setup follows LVK 2017\n"
+            "(arXiv:1710.05835): H0 = 70.0 (+12.0 / -8.0) km/s/Mpc (maximum a posteriori, 68%).\n\n"
+            "GW170817 uses the bundle built from public GWTC-1 products (build_unofficial_pe).\n"
+            "--spectral-posterior combines the result with a spectral-siren posterior (hubble_constant).\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_bs.add_argument("--src-name", default="GW170817", choices=list(BRIGHT_SIREN_COUNTERPARTS),
+                      help="Event with an identified host galaxy.")
+    p_bs.add_argument("--pe-label", nargs="+", default=None,
+                      help="PE label(s) to use (default: all the labels of the PE file, LowSpin first).")
+    p_bs.add_argument("--pe-file", default=None, help="PE file to read instead of the event's bundle.")
+    p_bs.add_argument("--cache-dir", default=".cache_gwosc",
+                      help="Cache root of the unofficial PE bundle (as in build_unofficial_pe).")
+    p_bs.add_argument("--v-recession", nargs=2, type=float, metavar=("V", "SIGMA"), default=None,
+                      help="Recession velocity of the host and its uncertainty, km/s (default for GW170817: "
+                           "3327 72, the NGC 4993 group in the CMB frame).")
+    p_bs.add_argument("--v-peculiar", nargs=2, type=float, metavar=("V", "SIGMA"), default=None,
+                      help="Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150).")
+    p_bs.add_argument("--sky-radius", type=float, default=3.0,
+                      help="For samples not fixed to the counterpart's position: keep those within this angle (deg).")
+    p_bs.add_argument("--spectral-posterior", default=None,
+                      help="Spectral-siren H0 posterior to combine with: a hubble_constant work directory or a "
+                           "posterior TSV with an H0 column.")
+    p_bs.add_argument("--h0-range", nargs=2, type=float, metavar=("MIN", "MAX"), default=[10.0, 200.0],
+                      help="Flat H0 prior range, km/s/Mpc (that of the spectral siren by default).")
+    p_bs.add_argument("--out-report", default="bright_siren.html", help="Output HTML report path.")
+    p_bs.add_argument("--out-summary", default="bright_siren.tsv",
+                      help="Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv).")
+    p_bs.add_argument("--plots-dir", default="bright_siren_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -526,6 +569,25 @@ def main(argv=None) -> int:
                 probe_points=args.probe_points,
                 reweight_pe_samples=args.reweight_pe_samples,
                 icarogw_python=args.icarogw_python,
+            )
+            return 0
+
+        if args.mode == "bright_siren":
+            if args.h0_range[0] <= 0 or args.h0_range[1] <= args.h0_range[0] or args.sky_radius <= 0:
+                raise ValueError("--h0-range must be 0 < MIN < MAX and --sky-radius > 0")
+            run_bright_siren(
+                src_name=args.src_name,
+                pe_labels=args.pe_label,
+                pe_file=args.pe_file,
+                cache_dir=args.cache_dir,
+                v_recession=tuple(args.v_recession) if args.v_recession else None,
+                v_peculiar=tuple(args.v_peculiar) if args.v_peculiar else None,
+                sky_radius_deg=args.sky_radius,
+                spectral_posterior=args.spectral_posterior,
+                h0_range=tuple(args.h0_range),
+                out_report_html=args.out_report,
+                out_summary_tsv=args.out_summary,
+                plots_dir=args.plots_dir,
             )
             return 0
 

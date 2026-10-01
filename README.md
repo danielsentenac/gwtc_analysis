@@ -16,6 +16,7 @@ The tool provides:
 - Global catalog statistics, including detector-network participation and sky-localization performance
 - BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
 - Hubble-constant estimate from the BBH mass spectrum (spectral siren, with icarogw)
+- Hubble-constant estimate from GW170817 and its host galaxy (bright siren), alone or combined with the spectral siren
 
 All gravitational-wave data products are retrieved from the **Gravitational Wave Open Science Center (GWOSC)**,
 or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
@@ -94,10 +95,12 @@ positional arguments:
     catalog_statistics
     rates
     hubble_constant
+    bright_siren
     event_selection
     search_skymaps
     parameters_estimation
     build_unofficial_pe
+    check_catalogs
     zenodo_releases
 ```
 
@@ -244,6 +247,24 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--probe-points` | `30` | With --inj-fraction auto: finite-likelihood prior points used by the probe. |
 | `--reweight-pe-samples` | `` | PE samples per event of the reweighting target (default: those of the runs). |
 | `--icarogw-python` | `` | Python interpreter of the icarogw environment (default: the current one). |
+
+### `bright_siren`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--src-name` | `GW170817` | Event with an identified host galaxy. |
+| `--pe-label` | `` | PE label(s) to use (default: all the labels of the PE file, LowSpin first). |
+| `--pe-file` | `` | PE file to read instead of the event's bundle. |
+| `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle (as in build_unofficial_pe). |
+| `--v-recession` | `` | Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
+| `--v-peculiar` | `` | Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
+| `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
+| `--spectral-posterior` | `` | Spectral-siren H0 posterior to combine with: a hubble_constant work directory or a posterior TSV with an H0 column. |
+| `--h0-range` | `[10.0, 200.0]` | Flat H0 prior range, km/s/Mpc (that of the spectral siren by default). |
+| `--out-report` | `bright_siren.html` | Output HTML report path. |
+| `--out-summary` | `bright_siren.tsv` | Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv). |
+| `--plots-dir` | `bright_siren_plots` | Directory for the plots. |
 
 ### `event_selection`
 
@@ -439,6 +460,24 @@ Runs can be spread over several machines that share the work directory: start `p
 3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` and `RDIR/corner.png` (a few MB) back into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
 
 With 10 runs of 100 live points and 1500 PE samples per event, sampled with 10% of the found injections and 136 events, then reweighted to all the injections and the paper's 137 events, the result is H₀ = 105.8 (+44.7 / −33.2) km/s/Mpc [68%], 90%: 54.4–175.7, and μ_g = 28.7 (+3.8 / −4.6) M☉ (PLP), against 105.5 (+46.4 / −35.8), 90%: 50.5–176.1, and 28.3 (+4.1 / −4.4) M☉ in the published paper; MLTP gives 78.6 (+38.0 / −26.5) against 72.3 (+42.5 / −25.6). Without the reweighting, the 10% subset alone shifts H₀ by about +13 km/s/Mpc for PLP (119.3) and +10 for MLTP (89.1): a subset estimates the detectable fraction without bias, but its Monte Carlo noise, raised to the power N = 136 in the likelihood, tilts the posterior. This is why `--inj-fraction auto` (the default) probes the subsets before sampling and reweights afterwards; `--inj-fraction 1` samples with all the injections, as the paper does. The number of PE samples per event also matters (3000 instead of 1500 raises H₀ by about 5 km/s/Mpc). H₀ is strongly anti-correlated with μ_g, and the upper part of its interval depends on the prior bound of 200 km/s/Mpc. The second peak of MLTP near 9 M☉ is a much sharper feature than the ~28 M☉ bump, hence its tighter and lower H₀; FullPop-4.0 (72.9 km/s/Mpc in the paper) is not implemented.
+
+### `bright_siren`: Hubble Constant From GW170817 And NGC 4993
+
+`bright_siren` measures H₀ with the **bright-siren** method: the luminosity distance of GW170817 from the GW signal alone, at the sky position of its counterpart AT2017gfo, against the Hubble-flow velocity of its host galaxy NGC 4993, v_H = v_r − ⟨v_p⟩ = 3327 − 310 = 3017 ± 166 km/s (recession velocity of the NGC 4993 group in the CMB frame minus its peculiar velocity, as in [LVK 2017](https://arxiv.org/abs/1710.05835)). At z ≈ 0.01 the Hubble law v_H = H₀ d is linear. For sources uniform in volume and a GW-limited detection, the selection term cancels the volume prior on the distance, so with a flat H₀ prior the posterior is p(H₀) ∝ Σᵢ N(v_H; H₀ dᵢ, σ) over the PE samples dᵢ. It runs in seconds.
+
+```bash
+gwtc_analysis bright_siren
+gwtc_analysis bright_siren --spectral-posterior hubble_constant_run    # combined with the spectral siren
+```
+
+| Analysis | H₀ (km/s/Mpc): maximum a posteriori, 68% |
+|---|---|
+| GWTC-1 samples, LowSpin | 69.2 (+23.4 / −8.1) |
+| GWTC-1 samples, HighSpin | 68.8 (+14.8 / −7.3) |
+| LVK 2017 (2017 analysis of the distance) | 70.0 (+12.0 / −8.0) |
+| LowSpin × spectral siren (Power Law + Peak) | 71.1 (+22.5 / −7.9) |
+
+The maximum a posteriori and the lower side agree with the published value. The upper side is wider because the public GWTC-1 distance has a longer low-distance tail, from the distance–inclination degeneracy (inclination constraints from the radio jet are not used). The GW170817 samples come from the [unofficial bundle](#build_unofficial_pe-unofficial-bundle-workflow), whose sky position is fixed to AT2017gfo. `--spectral-posterior` takes a `hubble_constant` work directory or a TSV with an `H0` column. The two measurements use different events and the same flat prior (10–200 km/s/Mpc), so their posteriors multiply. `--v-recession` and `--v-peculiar` change the velocities. Method and options: [bright_siren](https://danielsentenac.github.io/gwtc_analysis/modes/bright-siren/) in the documentation.
 
 ### `parameters_estimation`: Shared Defaults And Overrides
 
@@ -673,6 +712,7 @@ gwtc_analysis event_selection --catalogs GWTC-4
 gwtc_analysis catalog_statistics --catalogs GWTC-4 --data-repo s3
 gwtc_analysis catalog_statistics --catalogs GWTC-5 --data-repo zenodo
 gwtc_analysis build_unofficial_pe --src-name GW170817
+gwtc_analysis bright_siren
 gwtc_analysis parameters_estimation --src-name GW231223_032836 --data-repo zenodo
 gwtc_analysis parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log
 ```
