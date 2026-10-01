@@ -16,8 +16,8 @@ authors:
     email: daniel.sentenac@ego-gw.it
     affiliation: "European Gravitational Observatory (EGO)"
     orcid: "https://orcid.org/0009-0002-5100-9681"
-version: 0.5.1
-date-released: 2026-09-30
+version: 0.5.2
+date-released: 2026-10-01
 license: MIT
 repository-code: "https://github.com/danielsentenac/gwtc_analysis"
 url: "https://pypi.org/project/gwtc_analysis/"
