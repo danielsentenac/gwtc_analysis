@@ -1,0 +1,40 @@
+{
+  "upload_type": "software",
+  "title": "gwtc_analysis: GWTC analysis tool",
+  "description": "gwtc_analysis is a Python package and command-line tool for analysing the Gravitational-Wave Transient Catalogs (GWTC-1 to GWTC-5.0) published by the LIGO-Virgo-KAGRA collaborations: catalog queries, parameter-estimation samples, skymaps and strain data from GWOSC, Zenodo, S3 and Galaxy sources. This software is part of the ACME project that has received funding from the European Union’s Horizon Europe Research and innovation programme under Grant Agreement No 101131928.",
+  "creators": [
+    {
+      "name": "Sentenac, Daniel",
+      "affiliation": "European Gravitational Observatory (EGO)",
+      "orcid": "0009-0002-5100-9681"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "gravitational waves",
+    "GWTC",
+    "GWOSC",
+    "LIGO-Virgo-KAGRA",
+    "parameter estimation",
+    "ACME"
+  ],
+  "grants": [
+    {
+      "id": "10.13039/501100000780::101131928"
+    }
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://pypi.org/project/gwtc_analysis/",
+      "relation": "isVariantFormOf",
+      "resource_type": "software",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://anaconda.org/conda-forge/gwtc_analysis",
+      "relation": "isVariantFormOf",
+      "resource_type": "software",
+      "scheme": "url"
+    }
+  ]
+}
