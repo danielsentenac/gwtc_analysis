@@ -614,6 +614,7 @@ gwtc_analysis parameters_estimation --src-name GW170817 --overlay-start 0.2 --ov
 - **GWOSC** – public access to gravitational-wave data and metadata: https://www.gw-openscience.org
 - **pesummary** – parameter-estimation posteriors handling and visualization: https://pesummary.readthedocs.io
 - **ligo.skymap** – sky-localization map I/O and plotting: https://lscsoft.docs.ligo.org/ligo.skymap
+- **icarogw** – hierarchical population likelihood and spectral-siren cosmology (`hubble_constant` mode): https://github.com/icarogw-developers/icarogw
 
 ---
 
