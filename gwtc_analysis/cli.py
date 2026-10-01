@@ -452,7 +452,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "PE label used to select posterior samples and metadata. "
             "If omitted and --waveform-engine is provided, the tool selects the closest PE label "
-            "by substring match in the PE label. If both are omitted, defaults to Mixed."
+            "by substring match in the PE label. If both are omitted: the Mixed label for the posteriors, and for "
+            "the strain overlay the IMRPhenomXPHM label when the Mixed one has no PSD."
         ),
     )
     p_pe.add_argument(
