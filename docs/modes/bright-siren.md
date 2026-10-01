@@ -1,97 +1,174 @@
 # bright_siren
 
-The Hubble constant from **GW170817 and its host galaxy NGC 4993** (bright siren), alone or combined
-with the [spectral siren](hubble-constant.md). It takes seconds: no sampling, no injections.
+The Hubble constant from an event with an **identified host galaxy** (bright siren), alone or combined
+with the [spectral siren](hubble-constant.md). It takes seconds: no sampling.
 
 ```bash
-gwtc_analysis bright_siren
-gwtc_analysis bright_siren --spectral-posterior hubble_constant_run     # combined with the spectral siren
+gwtc_analysis bright_siren                                            # GW170817 and NGC 4993
+gwtc_analysis bright_siren --spectral-posterior hubble_constant_run   # combined with the spectral siren
+gwtc_analysis bright_siren --src-name GW190521                        # candidate AGN flare, z = 0.438
 ```
 
 ## Method
 
-The GW signal gives the luminosity distance \(d\) with no distance ladder; the host galaxy gives the
-recession velocity \(v_r\). Removing the galaxy's peculiar velocity \(\langle v_p \rangle\) leaves the
-Hubble-flow velocity, and at \(z \approx 0.01\) the Hubble law is linear:
+The GW signal gives the luminosity distance \(d_L\) with no distance ladder; the host gives the
+Hubble-flow redshift \(z\). For a nearby galaxy, \(z\) comes from its recession velocity minus its
+peculiar velocity, \(c z = v_r - \langle v_p \rangle\). In flat ΛCDM, with \(\Omega_m = 0.3065\) as in
+the spectral siren,
 
 \[
-v_H = v_r - \langle v_p \rangle = H_0\, d .
+d_L = \frac{c}{H_0}\, D(z; \Omega_m).
 \]
 
-The likelihood follows LVK 2017 [\[27\]](../references.md#ref-27). With Gaussian velocity
-measurements, the marginalization over the true peculiar velocity gives one Gaussian of width
-\(\sigma = \sqrt{\sigma_r^2 + \sigma_p^2}\). For sources uniform in volume and a detection limited by
-the GW signal, the selection term and the volume prior on the distance cancel
-(Chen, Fishbach & Holz 2018 [\[72\]](../references.md#ref-72); Mandel, Farr & Gair 2019
-[\[35\]](../references.md#ref-35)). The PE samples \(d_i\) were drawn with a \(d^2\) prior, so with a
-flat H₀ prior
+For sources uniform in comoving volume and source-frame time,
+\(p_\text{pop}(z) \propto \frac{dV_c}{dz} \frac{1}{1+z}\), and with a flat H₀ prior
+(Chen, Fishbach & Holz 2018 [\[72\]](../references.md#ref-72);
+Mandel, Farr & Gair 2019 [\[35\]](../references.md#ref-35)):
 
 \[
-p(H_0 \mid \text{data}) \propto \sum_i \mathcal{N}\!\left(v_H;\; H_0 d_i,\; \sigma\right).
+p(H_0 \mid \text{data}) \propto \frac{1}{\beta(H_0)}
+\int \mathcal{N}(z_\text{obs};\, z,\, \sigma_z)\; p_\text{pop}(z)\; \mathcal{L}_\text{GW}\big(d_L(z, H_0)\big)\, dz .
 \]
 
-The distance must be the one **at the counterpart's sky position**: the distance and the sky
-position are correlated through the antenna pattern. The GWTC-1 GW170817 samples were produced with
-the sky fixed to AT2017gfo, so they are used as they are. Samples that are not are restricted to
-those within `--sky-radius` of the counterpart.
+\(\mathcal{L}_\text{GW}\) is the posterior of \(d_L\) divided by the PE distance prior, read from the
+file (\(d_L^2\) up to O3, uniform in comoving volume in O4). Over the PE samples \(d_i\), whose
+redshift at a trial H₀ is \(z_i\), the integral is a kernel sum:
 
-| Input | GW170817 default | Source |
+\[
+\sum_i \mathcal{N}(z_\text{obs};\, z_i,\, \sigma)\,
+\frac{p_\text{pop}(z_i)}{\pi_\text{PE}(d_i)\; \partial d_L/\partial z\,(z_i)},
+\qquad \sigma = \max(\sigma_z, h),
+\]
+
+where \(h\) is the kernel width of the \(z_i\) (Silverman's rule). It only matters for a distant host
+with a spectroscopic redshift, much narrower than the spread of the samples.
+
+**The selection term** \(\beta(H_0)\) is the fraction of the population that would be detected. At a
+given redshift a larger H₀ means a smaller distance, so a louder signal. Leaving β out biases H₀:
+see [Validation](#validation-mock-bright-sirens). `--selection`:
+
+| Value | β(H₀) | Use |
 |---|---|---|
-| PE samples | `C02:IMRPhenomPv2_NRTidal-LowSpin` and `-HighSpin` of the [GW170817 bundle](unofficial-pe.md) | GWTC-1 public release |
-| \(v_r\) | 3327 ± 72 km/s (NGC 4993 group, CMB frame) | [\[27\]](../references.md#ref-27) |
-| \(\langle v_p \rangle\) | 310 ± 150 km/s | [\[27\]](../references.md#ref-27) |
-| \(v_H\) | 3017 ± 166 km/s | |
-| H₀ prior | flat, 10–200 km/s/Mpc | that of the spectral siren |
+| `euclidean` | ∝ H₀³: GW-limited detection of nearby sources. It cancels the volume factor of the numerator, and with a \(d_L^2\) prior the posterior becomes \(\sum_i \mathcal{N}(v_H;\, H_0 d_i,\, \sigma_v)\), the LVK 2017 formula [\[27\]](../references.md#ref-27) | z < 0.05 |
+| `injections` | the found LVK sensitivity injections of the event's observing run, carried to the source frame at each trial H₀ and reweighted to the population of the event's class: Power Law + Peak for black holes (as in `rates`), uniform 1–2.5 M☉ for neutron stars; the injected isotropic spins | distant events |
+| `auto` (default) | `euclidean` below z = 0.05, `injections` above | |
 
-## Result
+**Sky position.** The distance must be the one at the counterpart's position: distance and sky
+position are correlated through the antenna pattern. The GWTC-1 GW170817 samples were produced with
+the sky fixed to AT2017gfo and are used as they are. Other samples are restricted to those within
+`--sky-radius` of the counterpart.
 
-| Analysis | Maximum a posteriori, 68% interval | Median, 90% interval | \(d_L\) median (90%) |
-|---|---|---|---|
-| LowSpin | **69.2** (+23.4 / −8.1) | 79.3, 62.5–134.3 | 40.0 Mpc (24.9–47.3) |
-| HighSpin | **68.8** (+14.8 / −7.3) | 74.2, 61.8–111.4 | 41.7 Mpc (29.1–47.5) |
-| LVK 2017 [\[27\]](../references.md#ref-27) | **70.0** (+12.0 / −8.0) | | 43.8 Mpc (+2.9 / −6.9, 68%) |
+## Registered events
+
+| Event | Host | z | Status | Selection (auto) |
+|---|---|---|---|---|
+| GW170817 | NGC 4993, AT2017gfo | 3017 ± 166 km/s (\(v_r\) 3327 ± 72, \(\langle v_p \rangle\) 310 ± 150) [\[27\]](../references.md#ref-27) | confirmed (kilonova) | euclidean |
+| GW190521 | AGN J124942.3+344929, ZTF19abanrhr | 0.438 ± 0.0015 [\[74\]](../references.md#ref-74) | **candidate** | injections (O3a, BBH) |
+
+**GW190521 is a candidate.** Graham et al. proposed the ZTF flare in an AGN disk as the counterpart
+[\[74\]](../references.md#ref-74). The odds of a common source are only 1 to 12, depending on the
+waveform model (Ashton et al. 2021 [\[75\]](../references.md#ref-75)). Its result is H₀ *if* the flare is
+the counterpart, and the report says so.
+
+A new event needs one entry in `COUNTERPARTS` (`gwtc_analysis/bright_siren.py`): the host, the
+counterpart's position, the redshift or the velocities, the observing run, the population class, and
+the PE file (`pe_event`, read from Zenodo).
+
+## Results
+
+| Event, PE label | Maximum a posteriori, 68% interval | Median, 90% interval |
+|---|---|---|
+| GW170817, LowSpin | **69.8** (+23.6 / −8.2) | 79.9, 63.0–135.5 |
+| GW170817, HighSpin | **69.4** (+14.8 / −7.4) | 74.8, 62.2–112.2 |
+| GW170817, LVK 2017 [\[27\]](../references.md#ref-27) | **70.0** (+12.0 / −8.0) | |
+| GW190521 + ZTF19abanrhr, IMRPhenomXPHM | **30.4** (+61.0 / −7.0) | 63.2, 26.1–129.5 |
 
 ![H0 from GW170817 and NGC 4993](../img/modes/bright_siren_GW170817.png)
 
-The maximum a posteriori and the lower side agree with the published value. The upper side is wider
-because the public GWTC-1 samples come from a later reanalysis (GWTC-1, IMRPhenomPv2_NRTidal),
-whose distance has a longer low-distance tail than the 2017 analysis. That tail comes from the
-**distance–inclination degeneracy**: an inclined binary is fainter than a face-on one at the same
-distance, so a nearby inclined source and a farther face-on one look alike. Constraining the
-inclination with the radio jet of GW170817 narrows H₀ considerably (Hotokezaka et al. 2019
-[\[73\]](../references.md#ref-73)); this mode does not use EM inclination constraints.
+**GW170817.** The maximum a posteriori and the lower side agree with the published value. The upper
+side is wider because the public GWTC-1 samples come from a later reanalysis (GWTC-1,
+IMRPhenomPv2_NRTidal), whose distance has a longer low-distance tail than the 2017 analysis (43.8 +2.9
+−6.9 Mpc). That tail comes from the **distance–inclination degeneracy**: an inclined binary is fainter
+than a face-on one at the same distance. Constraining the inclination with the radio jet narrows H₀
+considerably (Hotokezaka et al. 2019 [\[73\]](../references.md#ref-73)); this mode does not use EM
+inclination constraints. The full ΛCDM \(d_L\) raises H₀ by 0.8% (0.6 km/s/Mpc) compared with the
+linear Hubble law of the 2017 paper.
+
+![H0 from GW190521 and ZTF19abanrhr](../img/modes/bright_siren_GW190521.png)
+
+**GW190521.** The posterior is bimodal because the distance posterior is, in the direction of the flare.
+At z = 0.438, H₀ ≈ 30 corresponds to \(d_L\) ≈ 5.6 Gpc and H₀ ≈ 75 to 2.25 Gpc; the samples within 3°
+of the flare have a median of 4.6 Gpc with 16% below 2.2 Gpc. The result depends on the sky selection
+(median 54.7 within 5°, against 63.2 within 3°) and on the waveform model; only IMRPhenomXPHM has enough
+samples near the flare in GWTC-2.1. The selection term is computed from 106,376 found O3a injections,
+with 13,000–16,000 effective injections over the H₀ range.
 
 ## Combination with the spectral siren
 
 `--spectral-posterior` takes a `hubble_constant` work directory (its `posterior_reweighted.tsv`, else
 `posterior.tsv`) or any TSV with an `H0` column. The two measurements use different events (the
-spectral siren uses binary black holes only) and the same flat prior, so their posteriors multiply.
-The spectral-siren density is a Gaussian kernel estimate, reflected at the prior bounds.
+spectral siren uses binary black holes; leave the bright-siren event out of it) and the same flat
+prior, so their posteriors multiply. The spectral-siren density is a Gaussian kernel estimate,
+reflected at the prior bounds.
 
 ![Bright siren combined with the spectral siren](../img/modes/bright_siren_combined.png)
 
-With the *Power Law + Peak* spectral siren (GWTC-4.0 setup): H₀ = 71.1 (+22.5 / −7.9) km/s/Mpc
-(maximum a posteriori, 68%). GW170817 dominates; the broad spectral siren shifts the posterior slightly upwards.
+GW170817 with the *Power Law + Peak* spectral siren (GWTC-4.0 setup): H₀ = 71.7 (+22.3 / −8.0) km/s/Mpc
+(maximum a posteriori, 68%). GW170817 dominates; the broad spectral siren shifts the posterior slightly
+upwards.
+
+## Validation: mock bright sirens
+
+The analysis is tested on simulated detections with a known H₀ (`tests/test_bright_siren.py`).
+
+- **Sources:** uniform in comoving volume up to z = 4, masses uniform in 20–40 M☉, random orientations.
+- **Detection:** each source has a network SNR \(\rho = A(\mathcal{M}_\text{det})\, w(\iota) / d_L\)
+  plus unit Gaussian noise, and is detected above 12. The detected events have a median z ≈ 0.5.
+- **Observations:** each detected event gets the posterior of \(d_L\) given its observed SNR. It uses a
+  \(d_L^2\) prior and is marginalized over the inclination, which reproduces the real
+  distance–inclination degeneracy. The host redshift has an error of 0.001.
+- **Injections:** they are made at H₀ = 70 with broader masses than the population (5–120 M☉), as the
+  LVK ones, so that they cover the population at every trial H₀.
+
+| Test | Result |
+|---|---|
+| β from the reweighted injections against the detected fraction simulated directly at each H₀ (40–120) | equal within 3% (β varies by more than a factor of 10) |
+| 100 events, H₀ = 70: with the selection term | 70.9 ± 1.1 |
+| the same without the selection term | 80.7 ± 2.7: biased by more than 3σ |
+| P–P test, 100 events with H₀ drawn from the prior | uniform with the selection term (KS p = 0.16), not without (p = 10⁻⁴) |
+| nearby sources (horizon z ≈ 0.02) | β from injections ∝ H₀^3.0, the `euclidean` selection |
+
+![Mock bright sirens: catalog posterior and P–P test](../img/modes/bright_siren_mock_validation.png)
+
+The injections must cover the population at every trial H₀. In a first version of the mock, with
+injection masses drawn from the population's own 20–40 M☉, β was wrong by up to a factor of 2.5 at the
+edges of the H₀ range, and H₀ was biased by 3σ. The LVK injections are drawn much more broadly than any
+population; the report gives the effective number of injections over the H₀ range.
 
 ## Options
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--src-name` | `GW170817` | event with a registered host galaxy (`COUNTERPARTS` in `bright_siren.py`) |
-| `--pe-label` | all the labels, LowSpin first | PE labels; the first one is the main result and the one combined |
-| `--pe-file` | the event's bundle | another PE file (PESummary layout) |
-| `--v-recession V SIGMA` | 3327 72 | recession velocity of the host, km/s |
-| `--v-peculiar V SIGMA` | 310 150 | peculiar velocity of the host, km/s |
+| `--src-name` | `GW170817` | registered event (`GW170817`, `GW190521`) |
+| `--pe-label` | the registry's, else all the labels (LowSpin first) | PE labels; the first one is the main result and the one combined |
+| `--pe-file` | the event's bundle or Zenodo file | another PE file (PESummary layout) |
+| `--pe-cache` | that of `hubble_constant` | where Zenodo PE files are downloaded |
+| `--v-recession V SIGMA`, `--v-peculiar V SIGMA` | the registry's | velocities of a nearby host, km/s |
+| `--redshift Z SIGMA` | the registry's | Hubble-flow redshift of the host, instead of the velocities |
+| `--selection` | `auto` | `euclidean`, `injections` or `auto` |
+| `--sensitivity-release`, `--sensitivity-file` | `gwtc4` | injections of the selection term |
+| `--far-threshold`, `--snr-threshold` | 0.25 /yr, 10 | found injections (real searches, semi-analytic O1+O2) |
 | `--sky-radius` | 3° | for samples not fixed to the counterpart |
 | `--spectral-posterior` | none | spectral-siren posterior to combine with |
 | `--h0-range MIN MAX` | 10 200 | flat prior; keep the spectral siren's for a combination |
 
-The published comparison is shown only with the default velocities.
+The published comparison is shown only with the registry's velocities or redshift.
 
 ## Outputs
 
-- `--out-report` (HTML): the result, the inputs and the plots;
+- `--out-report` (HTML): the result, the caveat of a candidate counterpart, the inputs, the selection
+  term and the plots;
 - `--out-summary` (TSV): maximum a posteriori, 68.3% highest-density interval, median and 90%
   interval of each analysis, with the distance of each label;
 - `<summary>.posterior.tsv`: the posterior densities on an H₀ grid;
-- `--plots-dir`: `h0_bright_siren_GW170817.png`, and `h0_combined.png` with `--spectral-posterior`.
+- `--plots-dir`: `h0_bright_siren_<event>.png`, and `h0_combined.png` with `--spectral-posterior`.

@@ -243,6 +243,12 @@ was checked against the arXiv API.
 **[73]** K. Hotokezaka et al., *A Hubble constant measurement from superluminal motion of the jet in GW170817*. The inclination from the radio jet. [arXiv:1806.10596](https://arxiv.org/abs/1806.10596)
 {: #ref-73 }
 
+**[74]** M. J. Graham et al., *Candidate Electromagnetic Counterpart to the Binary Black Hole Merger Gravitational Wave Event S190521g* (ZTF19abanrhr). [arXiv:2006.14122](https://arxiv.org/abs/2006.14122)
+{: #ref-74 }
+
+**[75]** G. Ashton et al., *Current observations are insufficient to confidently associate the binary black hole merger GW190521 with AGN J124942.3+344929*. [arXiv:2009.12346](https://arxiv.org/abs/2009.12346)
+{: #ref-75 }
+
 ## Data releases
 
 | Release | Where |
