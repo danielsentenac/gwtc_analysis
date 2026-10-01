@@ -151,7 +151,7 @@ DEFAULT_RATES_RELEASE = "gwtc5"       # the latest release
 DEFAULT_H0_RELEASE = "gwtc4"          # the release of the reproduced, published analysis
 
 # Date of the last `gwtc_analysis check_catalogs` finding nothing new: update it with each registry check
-REGISTRY_CHECKED = "2026-09-30"
+REGISTRY_CHECKED = "2026-10-01"
 
 
 # ---------------------------------------------------------------------------
