@@ -1,7 +1,8 @@
 # event_selection
 
-Events of the chosen catalogs whose median source-frame masses and luminosity distance fall in given
-ranges. Every bound is optional.
+Events of the chosen catalogs whose median source-frame masses, luminosity distance and effective
+spin χ_eff fall in given ranges, and/or that belong to a [class of sources](#presets-classes-of-sources):
+neutron stars, the lower mass gap, hierarchical-merger candidates. Every bound is optional.
 
 ```bash
 # heavy binaries within 2 Gpc
@@ -16,6 +17,8 @@ gwtc_analysis event_selection --catalogs ALL --m2-max 3
 | `--m1-min`, `--m1-max` | primary mass, source frame (M☉) |
 | `--m2-min`, `--m2-max` | secondary mass, source frame (M☉) |
 | `--dl-min`, `--dl-max` | luminosity distance (Mpc) |
+| `--chi-eff-min`, `--chi-eff-max` | effective spin χ_eff |
+| `--preset` | a class of sources: `neutron-stars`, `mass-gap`, `hierarchical` |
 
 The selection is written to `--out-selection` (TSV). It uses the GWOSC confident lists; for analyses
 that need the marginal candidates as well, see [Known issues](../known-data-issues.md#gw200105-only-in-the-marginal-list).
@@ -79,5 +82,66 @@ are also among the nearest events (right).*
 GW200105_162426, an NSBH, is absent:
 GWOSC lists it only as a marginal candidate
 ([Known issues](../known-data-issues.md#gw200105-only-in-the-marginal-list)).
+
+## Presets: classes of sources
+
+`--preset` selects a class of sources; the cuts (`--m1-min`, `--chi-eff-max`, …) apply on top of it. The
+GWOSC values are medians: a median inside a range is not a probability of being in it, so each preset
+adds the 90% intervals and a `*_confident` flag that requires the whole interval in the range.
+
+| Preset | Selects | Parameters | Added columns |
+|---|---|---|---|
+| `neutron-stars` | a component below the maximum neutron-star mass (median) | `--ns-max-mass` (3 M☉, the binary types of `catalog_statistics`) | `class` (BNS, NSBH), `mass_2_source_hi90`, `m2_below_ns_max_90` |
+| `mass-gap` | a component in the lower mass gap between neutron stars and black holes (median) | `--mass-gap` (3 5 M☉) | `gap_component`, `gap_confident`, the 90% intervals of both masses |
+| `hierarchical` | a primary in the pair-instability gap, or χ_eff < 0 at 90% | `--pisn-gap-min` (50 M☉) | `pisn_gap`, `pisn_gap_confident`, `negative_chi_eff`, χ_eff and its interval |
+
+### Neutron stars
+
+```bash
+gwtc_analysis event_selection --catalogs ALL --preset neutron-stars --out-plot ns.png
+```
+
+The nine events of the m₂ < 3 M☉ example above, classified: two BNS (GW170817, GW190425) and seven
+NSBH candidates. Only GW190917 and GW200210 have a 90% upper bound of m₂ above 3 M☉. GW190814 (m₂ =
+2.6 M☉, 90% below 2.7) passes the mass cut, but whether its companion is the heaviest neutron star or
+the lightest black hole is open: a mass alone cannot tell.
+
+![Neutron-star preset](../img/modes/selection_preset_ns.png)
+
+### The lower mass gap
+
+```bash
+gwtc_analysis event_selection --catalogs ALL --preset mass-gap --out-plot gap.png
+```
+
+Few compact objects have been seen between the heaviest neutron stars and the lightest black holes, at
+about 3–5 M☉. One event has a median there: **GW230529_181500**, whose primary has 3.66 M☉ (90%:
+2.45–4.48), so not confidently inside the gap (LVK 2024 [\[45\]](../references.md#ref-45)).
+GW190814's companion (2.6 M☉) lies just below the gap with the default bounds; `--mass-gap 2.5 5`
+includes it.
+
+![Mass-gap preset](../img/modes/selection_preset_gap.png)
+
+### Hierarchical-merger candidates
+
+```bash
+gwtc_analysis event_selection --catalogs ALL --preset hierarchical --out-plot hierarchical.png
+```
+
+Stellar evolution should not form black holes in the **pair-instability gap**, from about 50 to
+130 M☉ (the lower edge is uncertain, 45–65 M☉ in the literature): such a black hole is more likely the
+remnant of an earlier merger, in a dense star cluster or an AGN disk. Remnants of mergers spin with
+χ ≈ 0.7 in random directions, so a **negative χ_eff**, spins anti-aligned with the orbit, is another
+sign of dynamical assembly.
+
+The preset selects 54 events of GWTC-1 to GWTC-5. 19 of them have their whole 90% interval of m₁ above
+50 M☉; the heaviest are GW231123_135430 (137 M☉, 90% above 119), GW190426_190642 and GW190521_030229
+(98 M☉). Two have χ_eff < 0 at 90%: GW241110_124123 (χ_eff = −0.31, a 16 M☉ primary: selected by its
+spin alone) and GW241127_061008. Spin magnitudes of the components are not in the GWOSC lists; they are
+read from the PE samples with [parameters_estimation](parameters-estimation.md).
+
+![Hierarchical preset: m₂ and χ_eff against m₁](../img/modes/selection_preset_hierarchical.png)
+
+*The shaded areas are the pair-instability gap (m₁ ≥ 50 M☉) and negative χ_eff.*
 
 All options: [CLI reference](../cli-reference.md#event_selection).
