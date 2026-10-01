@@ -106,6 +106,12 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--m2-max` | `` | Maximum secondary mass (source frame). |
 | `--dl-min` | `` | Minimum luminosity distance (Mpc). |
 | `--dl-max` | `` | Maximum luminosity distance (Mpc). |
+| `--chi-eff-min` | `` | Minimum effective spin chi_eff. |
+| `--chi-eff-max` | `` | Maximum effective spin chi_eff. |
+| `--preset` | `` | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%%: earlier-generation black holes). |
+| `--ns-max-mass` | `3.0` | Maximum neutron-star mass (M_sun). |
+| `--mass-gap` | `[3.0, 5.0]` | Lower mass gap between neutron stars and black holes (M_sun). |
+| `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
 | `--out-plot` | `` | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
 
 ## `search_skymaps`

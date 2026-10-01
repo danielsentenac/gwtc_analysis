@@ -301,6 +301,59 @@ def _plot_network_counts(df: pd.DataFrame, out_png: str | Path) -> Optional[str]
     plt.close(fig)
     return str(out_png)
 
+def _plot_remnants(df: pd.DataFrame, out_png: Path, catalogs_label: str = "") -> Optional[Path]:
+    """Radiated energy against total mass, radiated fraction, and final-spin estimate of the binary black holes."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    d = df.dropna(subset=["radiated_energy_msun"])
+    if d.empty:
+        return None
+    surface, ink, ink2, grid, blue, orange = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df", "#2a78d6", "#eb6834"
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4.0), dpi=150)
+    fig.patch.set_facecolor(surface)
+    bbh = d["binary_type"].eq("BBH") if "binary_type" in d else pd.Series(True, index=d.index)
+    ax = axes[0]
+    ax.scatter(d.loc[bbh, "total_mass_source"], d.loc[bbh, "radiated_energy_msun"], s=16, color=blue, lw=0,
+               label=f"BBH ({int(bbh.sum())})", zorder=3)
+    if (~bbh).any():
+        ax.scatter(d.loc[~bbh, "total_mass_source"], d.loc[~bbh, "radiated_energy_msun"], s=30, color=orange,
+                   edgecolor=surface, lw=1, label=f"with a neutron star ({int((~bbh).sum())})", zorder=4)
+    m = np.geomspace(max(1.0, d["total_mass_source"].min() * 0.8), d["total_mass_source"].max() * 1.2, 50)
+    ax.plot(m, 0.048 * m, color=ink2, lw=0.9, ls=(0, (3, 3)), zorder=2, label="4.8%: equal masses, no spin")
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.set_xlabel("Total mass (source frame, M$_\\odot$)", color=ink2)
+    ax.set_ylabel("Radiated energy (M$_\\odot$c$^2$)", color=ink2)
+    ax.legend(frameon=False, fontsize=8, labelcolor=ink2, loc="upper left")
+    axes[1].hist(100 * d.loc[bbh, "radiated_fraction"].dropna(), bins=np.linspace(0, 8, 41), color=blue, alpha=0.85,
+                 lw=0, zorder=2)
+    axes[1].set_xlabel("Radiated fraction of the total mass (%)", color=ink2)
+    axes[1].set_ylabel("Binary black holes", color=ink2)
+    af = d["final_spin_estimate"].dropna()
+    axes[2].hist(af, bins=np.linspace(0.3, 1.0, 36), color=blue, alpha=0.85, lw=0, zorder=2)
+    axes[2].axvline(0.686, color=ink2, lw=0.9, ls=(0, (3, 3)), zorder=3)
+    axes[2].annotate("0.686: equal masses, no spin", xy=(0.686, 1), xycoords=("data", "axes fraction"),
+                     xytext=(-4, -12), textcoords="offset points", fontsize=8, color=ink2, ha="right")
+    axes[2].set_xlabel("Final spin, estimated from q and $\\chi_{\\rm eff}$", color=ink2)
+    axes[2].set_ylabel("Binary black holes", color=ink2)
+    for ax in axes:
+        ax.set_facecolor(surface)
+        ax.grid(color=grid, lw=0.7, zorder=0)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        for sp in ("left", "bottom"):
+            ax.spines[sp].set_color(grid)
+        ax.tick_params(colors=ink2, labelsize=9)
+    fig.suptitle(f"Remnants and energetics{f' — {catalogs_label}' if catalogs_label else ''}", color=ink, fontsize=11,
+                 x=0.01, ha="left")
+    fig.tight_layout()
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_png, facecolor=surface)
+    plt.close(fig)
+    return out_png
+
+
 def _plot_area_cdf(
     df: pd.DataFrame,
     out_png: Path,
@@ -482,6 +535,9 @@ def run_catalog_statistics(
 
     df0 = pd.DataFrame.from_records(records, columns=all_cols)
     df = gw.prepare_catalog_df(df0, ns_threshold=ns_threshold)
+    from . import source_classes as sc
+
+    df = sc.add_remnant_columns(df)
 
     # prepare_catalog_df drops events without source-frame component masses
     # (they cannot be placed on mass-based statistics). Report how many were
@@ -618,6 +674,7 @@ def run_catalog_statistics(
         "mass_1_source", "mass_2_source", "chirp_mass_source", "total_mass_source", "final_mass_source",
         "luminosity_distance", "redshift", "chi_eff", "chi_p", "snr", "far", "p_astro",
         "binary_type", "detectors", "n_det", "has_V1",
+        "radiated_energy_msun", "radiated_energy_erg", "radiated_fraction", "final_spin_estimate",
     ]
     if include_area:
         keep.append(area_column)
@@ -680,6 +737,17 @@ def run_catalog_statistics(
                 top_tbl.to_html(index=False, escape=True),
             ))
 
+    # Remnants and energetics: radiated energy from the GWOSC medians, final-spin estimate (BBH)
+    rem = df_out.dropna(subset=["radiated_energy_msun"])
+    if not rem.empty:
+        top = rem.sort_values("radiated_energy_msun", ascending=False).head(10)
+        cols = [c for c in (name_col, "catalog_key", "total_mass_source", "final_mass_source", "radiated_energy_msun",
+                            "radiated_energy_erg", "radiated_fraction", "final_spin_estimate") if c in top.columns]
+        tables.append(("Remnants: the 10 events that radiated the most energy (E_rad = M_total − M_final, GWOSC "
+                       "medians; final spin estimated from q and chi_eff)",
+                       top[cols].rename(columns={name_col: "event"}).to_html(
+                           index=False, escape=True, float_format=lambda x: f"{x:.3g}")))
+
     img_paths: list[Path] = []
     cat_label = ", ".join(catalogs)
     cat_tag = "_".join(catalogs)
@@ -717,6 +785,10 @@ def run_catalog_statistics(
     )
     if p_hists:
         img_paths.append(_rel_to_html(p_hists))
+
+    p_rem = _plot_remnants(df_out, plot_dir / f"{cat_tag}_remnants.png", catalogs_label=cat_label)
+    if p_rem:
+        img_paths.append(_rel_to_html(p_rem))
 
     if include_area and area_column in df_out.columns:
         p_area_all = _plot_area_cdf(
@@ -756,6 +828,21 @@ def run_catalog_statistics(
             f"{total_drop} catalog event(s) were dropped from the statistics because the "
             f"GWOSC metadata has no source-frame component masses ({per_cat_drop} kept). "
             "See the 'Events kept vs. dropped' table for the per-catalog breakdown."
+        )
+
+    if not rem.empty:
+        bbh = rem[rem["binary_type"].eq("BBH")]
+        af = bbh["final_spin_estimate"].dropna()
+        paragraphs.append(
+            f"Remnants: {len(rem)} events with a final mass. They radiated {rem['radiated_energy_msun'].sum():.0f} M☉c² "
+            f"in total (median {rem['radiated_energy_msun'].median():.2f} M☉c², "
+            f"{100 * rem['radiated_fraction'].median():.1f}% of the total mass; largest "
+            f"{rem['radiated_energy_msun'].max():.1f} M☉c² = {rem['radiated_energy_erg'].max():.2g} erg). "
+            + (f"Final spin of the {len(af)} binary black holes, estimated from the mass ratio and chi_eff with the "
+               f"aligned-spin fit of Rezzolla et al. 2008: median {af.median():.2f} (10–90%: "
+               f"{af.quantile(0.1):.2f}–{af.quantile(0.9):.2f}), the ~0.69 of similar-mass mergers. " if len(af) else "")
+            + "E_rad is the difference of the GWOSC medians, not the median of the difference; the PE values of the "
+            "final spin and the peak luminosity are read with parameters_estimation."
         )
 
     if top_snr_names:

@@ -224,6 +224,18 @@ def fetch_gwtc_events(catalog: str):
             ) from e
         raise
 
+_BOUNDED = ("mass_1_source", "mass_2_source", "chi_eff", "final_mass_source")
+
+
+def _bound(ev: Dict[str, Any], key: str, side: str):
+    """Absolute 90% bound of a GWOSC value: median + offset (GWOSC gives the lower offset as negative)."""
+    v, off = ev.get(key), ev.get(f"{key}_{side}")
+    try:
+        return float(v) + float(off)
+    except (TypeError, ValueError):
+        return None
+
+
 def events_to_dataframe(raw_events: Dict[str, Any]) -> pd.DataFrame:
     rows = []
     for ev_id, ev in raw_events.items():
@@ -246,6 +258,8 @@ def events_to_dataframe(raw_events: Dict[str, Any]) -> pd.DataFrame:
                 snr=ev.get("network_matched_filter_snr"),
                 far=ev.get("far"),
                 p_astro=ev.get("p_astro"),
+                total_mass_source_gwosc=ev.get("total_mass_source"),
+                **{f"{k}_{s}90": _bound(ev, k, side) for k in _BOUNDED for s, side in (("lo", "lower"), ("hi", "upper"))},
             )
         )
     return pd.DataFrame(rows)
@@ -274,6 +288,10 @@ def prepare_catalog_df(df: pd.DataFrame, ns_threshold: float = 3.0) -> pd.DataFr
         out.loc[swap, ["mass_1_source", "mass_2_source"]] = out.loc[
             swap, ["mass_2_source", "mass_1_source"]
         ].to_numpy()
+        for s in ("lo90", "hi90"):
+            a, b = f"mass_1_source_{s}", f"mass_2_source_{s}"
+            if a in out and b in out:
+                out.loc[swap, [a, b]] = out.loc[swap, [b, a]].to_numpy()
     out["total_mass_source"] = out["mass_1_source"] + out["mass_2_source"]
     out["q"] = out["mass_2_source"] / out["mass_1_source"]
     out["eta"] = (out["mass_1_source"] * out["mass_2_source"]) / (out["total_mass_source"] ** 2)

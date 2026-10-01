@@ -12,8 +12,8 @@ The tool provides:
 
 - Search of gravitational-wave sky localizations around a given sky position
 - Visualization of parameter-estimation results for individual events
-- Selection of events based on physical constraints (masses, distance)
-- Global catalog statistics, including detector-network participation and sky-localization performance
+- Selection of events based on physical constraints (masses, distance, χ_eff), or by class of sources: neutron stars, the lower mass gap (3–5 M☉), hierarchical-merger candidates (pair-instability gap, negative χ_eff)
+- Global catalog statistics, including detector-network participation, sky-localization performance, and remnants (radiated energy, final-spin estimate)
 - BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
 - Hubble-constant estimate from the BBH mass spectrum (spectral siren, with icarogw)
 - Hubble-constant estimate from events with an identified host (bright siren: GW170817, the candidate GW190521 flare), alone or combined with the spectral siren
@@ -286,6 +286,12 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--m2-max` | `` | Maximum secondary mass (source frame). |
 | `--dl-min` | `` | Minimum luminosity distance (Mpc). |
 | `--dl-max` | `` | Maximum luminosity distance (Mpc). |
+| `--chi-eff-min` | `` | Minimum effective spin chi_eff. |
+| `--chi-eff-max` | `` | Maximum effective spin chi_eff. |
+| `--preset` | `` | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%%: earlier-generation black holes). |
+| `--ns-max-mass` | `3.0` | Maximum neutron-star mass (M_sun). |
+| `--mass-gap` | `[3.0, 5.0]` | Lower mass gap between neutron stars and black holes (M_sun). |
+| `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
 | `--out-plot` | `` | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
 
 ### `search_skymaps`
@@ -726,6 +732,7 @@ BNS signals are long, so a run with the strain overlays takes several minutes
 ```bash
 gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.6 --data-repo s3
 gwtc_analysis event_selection --catalogs GWTC-4
+gwtc_analysis event_selection --catalogs ALL --preset hierarchical --out-plot hierarchical.png
 gwtc_analysis catalog_statistics --catalogs GWTC-4 --data-repo s3
 gwtc_analysis catalog_statistics --catalogs GWTC-5 --data-repo zenodo
 gwtc_analysis build_unofficial_pe --src-name GW170817

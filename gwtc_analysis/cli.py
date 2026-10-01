@@ -8,6 +8,8 @@ from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFA
                               MASS_MODELS as H0_MASS_MODELS, STAGES as H0_STAGES, run_hubble_constant)
 from .bright_siren import COUNTERPARTS as BRIGHT_SIREN_COUNTERPARTS, run_bright_siren
 from .event_selection import run_event_selection
+from .source_classes import (MASS_GAP as SC_MASS_GAP, NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN,
+                             PRESETS as SOURCE_PRESETS)
 from .search_skymaps import run_search_skymaps
 from .parameters_estimation import run_parameters_estimation
 from .unofficial_pe import build_unofficial_pe_bundle, get_unofficial_pe_spec, list_unofficial_pe_specs
@@ -353,10 +355,10 @@ def build_parser() -> argparse.ArgumentParser:
     # ---------------------------------------------------------------------
     p_sel = sub.add_parser(
         "event_selection",
-        help="Select GW events based on physical criteria (mass, distance) and write a TSV.",
+        help="Select GW events based on physical criteria (mass, distance, spin, source class) and write a TSV.",
         description=(
-            "Select events by simple cuts on source-frame masses and luminosity distance.\n"
-            "Cuts are optional; if a cut is not provided, it is not applied.\n"
+            "Select events by simple cuts on source-frame masses, luminosity distance and chi_eff (GWOSC medians),\n"
+            "and/or a --preset class of sources. Cuts are optional; if a cut is not provided, it is not applied.\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -369,6 +371,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_sel.add_argument("--m2-max", type=float, default=None, help="Maximum secondary mass (source frame).")
     p_sel.add_argument("--dl-min", type=float, default=None, help="Minimum luminosity distance (Mpc).")
     p_sel.add_argument("--dl-max", type=float, default=None, help="Maximum luminosity distance (Mpc).")
+    p_sel.add_argument("--chi-eff-min", type=float, default=None, help="Minimum effective spin chi_eff.")
+    p_sel.add_argument("--chi-eff-max", type=float, default=None, help="Maximum effective spin chi_eff.")
+    p_sel.add_argument("--preset", choices=list(SOURCE_PRESETS), default=None,
+                       help="Class of sources (the cuts apply on top): neutron-stars (a component below "
+                            "--ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above "
+                            "--pisn-gap-min, or chi_eff < 0 at 90%%: earlier-generation black holes).")
+    p_sel.add_argument("--ns-max-mass", type=float, default=SC_NS_MAX, help="Maximum neutron-star mass (M_sun).")
+    p_sel.add_argument("--mass-gap", nargs=2, type=float, metavar=("LO", "HI"), default=list(SC_MASS_GAP),
+                       help="Lower mass gap between neutron stars and black holes (M_sun).")
+    p_sel.add_argument("--pisn-gap-min", type=float, default=SC_PISN_MIN,
+                       help="Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature).")
     p_sel.add_argument("--out-plot", default=None,
                        help="Optional PNG of the selected events among all the events of the catalogs (m2 and D_L "
                             "against m1).")
@@ -624,6 +637,12 @@ def main(argv=None) -> int:
                 m2_max=args.m2_max,
                 dl_min=args.dl_min,
                 dl_max=args.dl_max,
+                chi_eff_min=args.chi_eff_min,
+                chi_eff_max=args.chi_eff_max,
+                preset=args.preset,
+                ns_max_mass=args.ns_max_mass,
+                mass_gap=tuple(args.mass_gap),
+                pisn_gap_min=args.pisn_gap_min,
                 out_plot=args.out_plot,
             )
             return 0
