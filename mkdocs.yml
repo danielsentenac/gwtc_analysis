@@ -63,6 +63,7 @@ nav:
       - build_unofficial_pe (GW170817): modes/unofficial-pe.md
       - rates: modes/rates.md
       - hubble_constant: modes/hubble-constant.md
+      - bright_siren (GW170817): modes/bright-siren.md
   - Science and methods:
       - What a GW signal measures: science/gw-signals.md
       - How the redshift is obtained: science/redshift.md
