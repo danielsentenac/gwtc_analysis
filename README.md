@@ -521,6 +521,16 @@ automatically switches the overlay and q-transform windows to a BNS profile
 (longer windows, wider frequency range) for any parameter you did **not** set
 explicitly on the CLI. An explicit `--overlay-*` / `--q-*` value always wins.
 
+### `parameters_estimation`: Higher multipoles and precession
+
+From GWTC-4.0 on, the PE samples store the network SNR of the (3,3), (4,4) and (2,1) multipoles beyond the (2,2) one ([Mills & Fairhurst 2021](https://arxiv.org/abs/2007.04313)) and the precession SNR ρ_p ([Fairhurst et al. 2020](https://arxiv.org/abs/1908.05707)). The report summarizes them for every label of the file:
+
+- the median and 90% interval of each SNR, written to `<event>_multipoles_precession.tsv`, and a plot of the selected label's posteriors;
+- a comparison with noise alone: without the effect, ρ follows a Rayleigh distribution, with P(ρ > 2.1) = 11% and P(ρ > 3) = 1%. Medians ≥ 3 count as clear evidence and 2.1–3 as a hint;
+- a note when the waveform models disagree.
+
+GW231123, for example, shows a clear (4,4) multipole with the `C00:Mixed` label, but its (3,3) SNR ranges from 2.1 to 10.5 across the waveform models. The GWTC-1 to GWTC-3 files do not store these SNRs, and the report says so.
+
 ### `parameters_estimation`: Matched-filter SNR
 
 For each detector present in the PE file, the workflow also produces a

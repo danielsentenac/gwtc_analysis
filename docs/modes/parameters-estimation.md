@@ -67,6 +67,50 @@ coalescence time, at about the detector's recovered SNR.
   (that requires a template bank). When the template is longer than the conditioned data, the
   matched-filter SNR is skipped with a warning; the other products are still made.
 
+## Higher multipoles and precession
+
+From GWTC-4.0 on, the PE samples store four SNRs, and the report summarizes them for every label of the
+file (the plot and the verdict are for the label of the posterior plots, `--pe-label`):
+
+- `network_33_multipole_snr`, `network_44_multipole_snr`, `network_21_multipole_snr` (ρ₃₃, ρ₄₄, ρ₂₁): the
+  SNR of the (3,3), (4,4) and (2,1) multipoles **orthogonal to the (2,2) one**, the part a change of the
+  other parameters cannot absorb (Mills & Fairhurst 2021 [\[77\]](../references.md#ref-77)). These
+  multipoles are strong for unequal masses and inclined orbits; they measure the mass ratio, break the
+  distance–inclination degeneracy and test GR.
+- `network_precessing_snr` (ρ<sub>p</sub>): a precessing signal is close to the sum of two
+  non-precessing harmonics, and ρ<sub>p</sub> is the SNR of the weaker one (Fairhurst et al. 2020
+  [\[78\]](../references.md#ref-78)). Precession comes from spins tilted against the orbit, a sign of
+  dynamical formation.
+
+Without the multipole (or precession), ρ² follows a χ² distribution with 2 degrees of freedom, so ρ
+follows a Rayleigh distribution: P(ρ > 2.1) = 11%, P(ρ > 3) = 1%. The report classes the posterior
+medians as **clear** (≥ 3) or a **hint** (2.1–3), and plots the posteriors of the selected label against
+the noise-only distribution. This is the noise-only scale: the LVK papers compare with the distribution
+of ρ under the prior, which needs prior samples that the files do not contain. When the labels' medians
+differ by more than 1, the report says that the waveform models disagree. The table is also written to
+`<event>_multipoles_precession.tsv`.
+
+The GWTC-1 to GWTC-3 files do not store these SNRs (so GW190412, GW190814 and GW200129, whose higher
+multipoles or precession were reported, cannot be checked this way); the report says so.
+
+**Example: GW231123_135430**, the most massive binary of GWTC-4.0:
+
+![Multipole and precession SNRs of GW231123](../img/modes/pe_GW231123_multipoles.png)
+
+| Label | ρ₃₃ | ρ₄₄ | ρ<sub>p</sub> |
+|---|---|---|---|
+| `C00:Mixed` | 3.0 | 3.5 | 2.2 |
+| `C00:NRSur7dq4` | 2.6 | 3.5 | 2.3 |
+| `C00:SEOBNRv5PHM` | 2.6 | 3.2 | 2.0 |
+| `C00:IMRPhenomTPHM` | 2.1 | 2.8 | 1.7 |
+| `C00:IMRPhenomXPHM-SpinTaylor` | 10.5 | 7.3 | 5.2 |
+
+With `C00:Mixed`, the (4,4) multipole is clear and the (3,3) multipole and precession are hinted.
+The (4,4) evidence holds with NRSur7dq4 and SEOBNRv5PHM too (3.5 and 3.2). But IMRPhenomXPHM-SpinTaylor
+finds a loud (3,3) multipole and strong precession that the other models do not. The LVK analysis of this event found large waveform systematics, and the multipole content is
+where they show. Most events have ρ well below 2: binaries of similar masses seen close to face-on,
+which suppresses both effects.
+
 ## Missing PSDs
 
 A few official PE files have no PSDs. They are then taken from public supplementary releases: see
