@@ -26,7 +26,10 @@ synthesizes** the signal of the strain overlay.
 2. **Only `--waveform-engine` given:** the label whose name best matches the engine (substring
    match, no hard-coded mapping) is used for everything. `--waveform-engine IMRPhenomXPHM` selects
    `C00:IMRPhenomXPHM-SpinTaylor` if present.
-3. **Neither:** the `Mixed` label.
+3. **Neither:** the `Mixed` label for the posteriors (the plain `Cxx:Mixed` one when there are variants
+   such as `Mixed:NSBH:*`). The strain overlay needs a PSD, which the `Mixed` labels of the Zenodo
+   releases do not carry: it then uses the `IMRPhenomXPHM` label, else the first label with a PSD. Files
+   without a `Mixed` label (the GW170817 bundle) use their first label.
 
 If the requested engine cannot be instantiated (for instance outside its parameter range), the mode
 logs a warning, falls back to another engine when possible, and reports both the requested and the
@@ -99,13 +102,13 @@ multipoles or precession were reported, cannot be checked this way); the report 
 
 | Label | ρ₃₃ | ρ₄₄ | ρ<sub>p</sub> |
 |---|---|---|---|
-| `C00:Mixed` | 3.0 | 3.5 | 2.2 |
+| `C00:Mixed` (default) | 3.0 | 3.5 | 2.2 |
 | `C00:NRSur7dq4` | 2.6 | 3.5 | 2.3 |
 | `C00:SEOBNRv5PHM` | 2.6 | 3.2 | 2.0 |
 | `C00:IMRPhenomTPHM` | 2.1 | 2.8 | 1.7 |
 | `C00:IMRPhenomXPHM-SpinTaylor` | 10.5 | 7.3 | 5.2 |
 
-With `C00:Mixed`, the (4,4) multipole is clear and the (3,3) multipole and precession are hinted.
+With the default `C00:Mixed`, the (4,4) multipole is clear and the (3,3) multipole and precession are hinted.
 The (4,4) evidence holds with NRSur7dq4 and SEOBNRv5PHM too (3.5 and 3.2). But IMRPhenomXPHM-SpinTaylor
 finds a loud (3,3) multipole and strong precession that the other models do not. The LVK analysis of this event found large waveform systematics, and the multipole content is
 where they show. Most events have ρ well below 2: binaries of similar masses seen close to face-on,

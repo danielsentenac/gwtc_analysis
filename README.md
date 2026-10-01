@@ -335,7 +335,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--q-fmin` | `` | Override low frequency bound (Hz) for the q-transform. |
 | `--q-fmax` | `` | Override high frequency bound (Hz) for the q-transform. |
 | `--q-fscale` | `log` | Frequency axis scaling for q-transform plots (default: log). |
-| `--pe-label` | `` | PE label used to select posterior samples and metadata. If omitted and --waveform-engine is provided, the tool selects the closest PE label by substring match in the PE label. If both are omitted, defaults to Mixed. |
+| `--pe-label` | `` | PE label used to select posterior samples and metadata. If omitted and --waveform-engine is provided, the tool selects the closest PE label by substring match in the PE label. If both are omitted: the Mixed label for the posteriors, and for the strain overlay the IMRPhenomXPHM label when the Mixed one has no PSD. |
 | `--waveform-engine` | `` | Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays. |
 
 ### `build_unofficial_pe`
@@ -529,7 +529,7 @@ From GWTC-4.0 on, the PE samples store the network SNR of the (3,3), (4,4) and (
 - a comparison with noise alone: without the effect, ρ follows a Rayleigh distribution, with P(ρ > 2.1) = 11% and P(ρ > 3) = 1%. Medians ≥ 3 count as clear evidence and 2.1–3 as a hint;
 - a note when the waveform models disagree.
 
-GW231123, for example, shows a clear (4,4) multipole with the `C00:Mixed` label, but its (3,3) SNR ranges from 2.1 to 10.5 across the waveform models. The GWTC-1 to GWTC-3 files do not store these SNRs, and the report says so.
+GW231123, for example, shows a clear (4,4) multipole with the default `C00:Mixed` label, but its (3,3) SNR ranges from 2.1 to 10.5 across the waveform models. The GWTC-1 to GWTC-3 files do not store these SNRs, and the report says so.
 
 ### `parameters_estimation`: Matched-filter SNR
 
@@ -642,7 +642,9 @@ The **parameter estimation** workflow distinguishes between **which PE label is 
    * → selects `C00:IMRPhenomXPHM-SpinTaylor` if present in the PE file
 
 3. **If neither option is provided**
-   * The default `Mixed` PE label is used.
+   * The `Mixed` PE label is used for the posteriors (the plain `Cxx:Mixed` one when there are variants such as `Mixed:NSBH:*`).
+   * The strain overlay needs a PSD, which the `Mixed` labels of the Zenodo releases do not carry: it then uses the `IMRPhenomXPHM` label (e.g. `C00:IMRPhenomXPHM-SpinTaylor`), else the first label with a PSD.
+   * Files without a `Mixed` label (the GW170817 bundle) use their first label.
 
 ---
 

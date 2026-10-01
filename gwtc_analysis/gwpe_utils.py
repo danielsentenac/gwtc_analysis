@@ -18,6 +18,9 @@ import traceback
 # Remember last requested waveform engine to support callers that
 # do not pass it through to sample-label selection.
 _LAST_REQUESTED_WAVEFORM_ENGINE: str | None = None
+# Engine of the strain overlay when neither --pe-label nor --waveform-engine is given and the Mixed label
+# has no PSD (GWTC-4.0 and later)
+DEFAULT_WAVEFORM_ENGINE = "IMRPhenomXPHM"
 
 import matplotlib.pyplot as plt
 
@@ -322,11 +325,20 @@ def select_label(
             sel = exact[0] if exact else candidates[0]
             return _ret(sel, f"matched waveform_engine {eng}")
 
-    # 3) Fallback
+    # 3) Default: the Mixed label (the combination of the waveform models). The strain overlay needs a PSD,
+    #    which the Mixed labels of GWTC-4.0 and later do not carry: then the default engine's label.
+    usable = [lab for lab in labels if (not require_psd) or _has_psd(lab)]
+    mixed = [lab for lab in usable if lab.split(":", 1)[-1].lower() == "mixed"] or \
+            [lab for lab in usable if "mixed" in lab.lower()]
+    if mixed:
+        return _ret(mixed[0], "default: Mixed label")
     if require_psd:
-        psd_labels = [lab for lab in labels if _has_psd(lab)]
-        if psd_labels:
-            return _ret(psd_labels[0], "fallback: first PSD-capable label")
+        default = [lab for lab in usable if DEFAULT_WAVEFORM_ENGINE.lower() in lab.lower()
+                   or DEFAULT_WAVEFORM_ENGINE.lower() in _label_aprx(lab).lower()]
+        if default:
+            return _ret(default[0], f"default: {DEFAULT_WAVEFORM_ENGINE} label (no PSD in the Mixed label)")
+        if usable:
+            return _ret(usable[0], "fallback: first PSD-capable label")
 
     return _ret(labels[0], "fallback: first label")
 

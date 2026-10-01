@@ -155,7 +155,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--q-fmin` | `` | Override low frequency bound (Hz) for the q-transform. |
 | `--q-fmax` | `` | Override high frequency bound (Hz) for the q-transform. |
 | `--q-fscale` | `log` | Frequency axis scaling for q-transform plots (default: log). |
-| `--pe-label` | `` | PE label used to select posterior samples and metadata. If omitted and --waveform-engine is provided, the tool selects the closest PE label by substring match in the PE label. If both are omitted, defaults to Mixed. |
+| `--pe-label` | `` | PE label used to select posterior samples and metadata. If omitted and --waveform-engine is provided, the tool selects the closest PE label by substring match in the PE label. If both are omitted: the Mixed label for the posteriors, and for the strain overlay the IMRPhenomXPHM label when the Mixed one has no PSD. |
 | `--waveform-engine` | `` | Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays. |
 
 ## `build_unofficial_pe`
