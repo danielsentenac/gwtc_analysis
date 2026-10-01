@@ -16,10 +16,39 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Docker Hub keeps at most 25,000 characters: replace the auto-generated
+      # CLI tables with a link to the documentation so the sections after them
+      # (software stack, acknowledgements) are not cut off.
+      - name: Build the Docker Hub README
+        run: |
+          python3 - <<'EOF'
+          import re
+          from pathlib import Path
+
+          text = Path("README.md").read_text()
+          short, n = re.subn(
+              r"## CLI options \(auto-generated\)\n.*?(?=\n## )",
+              "## CLI options\n\n"
+              "All the options of every mode are listed in the "
+              "[CLI reference](https://danielsentenac.github.io/gwtc_analysis/cli-reference/) "
+              "of the documentation, and in the "
+              "[README on GitHub](https://github.com/danielsentenac/gwtc_analysis#cli-options-auto-generated).\n\n---\n",
+              text,
+              count=1,
+              flags=re.S,
+          )
+          if n != 1:
+              raise SystemExit("CLI options section not found in README.md")
+          if len(short) > 25000:
+              raise SystemExit(f"Docker Hub README too long: {len(short)} characters")
+          Path("DOCKERHUB.md").write_text(short)
+          print(f"README.md {len(text)} -> DOCKERHUB.md {len(short)} characters")
+          EOF
+
       - name: Update Docker Hub description
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: danielsentenac/gwtc-tool
-          readme-filepath: ./README.md
+          readme-filepath: ./DOCKERHUB.md
