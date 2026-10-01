@@ -1,6 +1,7 @@
 # GWTC Analysis
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23077807.svg)](https://doi.org/10.5281/zenodo.23077807)
+[![conda-forge](https://img.shields.io/conda/vn/conda-forge/gwtc_analysis.svg)](https://anaconda.org/conda-forge/gwtc_analysis)
 
 ## Overview
 
