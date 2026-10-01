@@ -623,6 +623,10 @@ gwtc_analysis parameters_estimation --src-name GW170817 --overlay-start 0.2 --ov
 
 This software is part of a project that has received funding from the European Union's Horizon Europe Research and innovation programme under Grant Agreement No 101131928.
 
-<img src="https://raw.githubusercontent.com/danielsentenac/gwtc_analysis/main/docs/img/funded_by_eu.png" alt="Funded by the European Union" width="300">
+<p>
+  <a href="https://www.acme-astro.eu/"><img src="https://raw.githubusercontent.com/danielsentenac/gwtc_analysis/main/docs/img/acme_logo_dark.jpg" alt="ACME – Astrophysics Centre for Multimessenger studies in Europe" height="100"></a>
+  &nbsp;&nbsp;
+  <img src="https://raw.githubusercontent.com/danielsentenac/gwtc_analysis/main/docs/img/funded_by_eu.png" alt="Funded by the European Union" height="100">
+</p>
 
 Funded by the European Union. Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or of the European Research Executive Agency (REA). Neither the European Union nor the granting authority can be held responsible for them.
