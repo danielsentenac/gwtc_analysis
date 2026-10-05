@@ -67,6 +67,7 @@ nav:
       - area_law (GW250114): modes/area-law.md
       - stochastic: modes/stochastic.md
       - neutron_star_eos: modes/neutron-star-eos.md
+      - spin_population: modes/spin-population.md
   - Science and methods:
       - What a GW signal measures: science/gw-signals.md
       - How the redshift is obtained: science/redshift.md

@@ -10,6 +10,7 @@ from .bright_siren import COUNTERPARTS as BRIGHT_SIREN_COUNTERPARTS, run_bright_
 from .area_law import run_area_law
 from .stochastic import run_stochastic
 from .ns_eos import EVENTS as NS_EOS_EVENTS, run_ns_eos
+from .spin_population import run_spin_population
 from .event_selection import run_event_selection
 from .source_classes import (MASS_GAP as SC_MASS_GAP, NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN,
                              PRESETS as SOURCE_PRESETS)
@@ -126,6 +127,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis area_law -h\n"
             "  gwtc_analysis stochastic -h\n"
             "  gwtc_analysis neutron_star_eos -h\n"
+            "  gwtc_analysis spin_population -h\n"
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
@@ -440,6 +442,39 @@ def build_parser() -> argparse.ArgumentParser:
     p_eos.add_argument("--plots-dir", default="neutron_star_eos_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
+    # spin_population
+    # ---------------------------------------------------------------------
+    p_spin = sub.add_parser(
+        "spin_population",
+        help="Infer the BBH effective-spin distribution and its correlation with the mass ratio.",
+        description=(
+            "Hierarchical inference of chi_eff | q ~ N(mu_0 + alpha (q - 0.5), sigma) on [-1, 1] (Callister et al.\n"
+            "2021; --no-correlation: alpha = 0) over the BBH events of hubble_constant's selection, with the LVK\n"
+            "search-sensitivity injections for the selection effects. The other spin degrees of freedom are\n"
+            "isotropic; masses and redshifts follow the fixed population of the rates mode. Sampler: emcee.\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_spin.add_argument("--no-correlation", action="store_true", help="Gaussian chi_eff model without the q slope.")
+    p_spin.add_argument("--sensitivity-release", choices=list(H0_SENSITIVITY_RELEASES), default=None,
+                        help=f"Injections and catalogs (default: {DEFAULT_H0_RELEASE}).")
+    p_spin.add_argument("--sensitivity-file", default=None, help="Local sensitivity file instead of the release.")
+    p_spin.add_argument("--far-threshold", type=float, default=0.25, help="Events and found injections: FAR below this.")
+    p_spin.add_argument("--snr-threshold", type=float, default=10.0, help="Found semi-analytic O1+O2 injections.")
+    p_spin.add_argument("--min-mass", type=float, default=3.0, help="Both source-frame masses above it.")
+    p_spin.add_argument("--exclude", nargs="*", default=list(H0_DEFAULT_EXCLUDE), help="Events left out.")
+    p_spin.add_argument("--pe-cache", default=None, help="PE cache (default: that of hubble_constant).")
+    p_spin.add_argument("--pe-samples", type=int, default=5000, help="PE samples per event.")
+    p_spin.add_argument("--max-injections", type=int, default=250000,
+                        help="Random subset of the found injections (0: all).")
+    p_spin.add_argument("--walkers", type=int, default=20, help="emcee walkers.")
+    p_spin.add_argument("--steps", type=int, default=1200, help="emcee steps (the first third is burn-in).")
+    p_spin.add_argument("--out-report", default="spin_population.html", help="Output HTML report path.")
+    p_spin.add_argument("--out-summary", default="spin_population.tsv",
+                        help="Output TSV of the posterior quantiles (the samples go to <name>.posterior.tsv).")
+    p_spin.add_argument("--plots-dir", default="spin_population_plots", help="Directory for the plots.")
+
+    # ---------------------------------------------------------------------
     # event_selection
     # ---------------------------------------------------------------------
     p_sel = sub.add_parser(
@@ -732,6 +767,18 @@ def main(argv=None) -> int:
             run_ns_eos(events=args.events, spin_prior=args.spin_prior, lambda_max=args.lambda_max,
                        cache_dir=args.cache_dir, pe_cache=args.pe_cache, out_report_html=args.out_report,
                        out_summary_tsv=args.out_summary, plots_dir=args.plots_dir)
+            return 0
+
+        if args.mode == "spin_population":
+            if args.pe_samples < 100 or args.walkers < 6 or args.steps < 100:
+                raise ValueError("--pe-samples >= 100, --walkers >= 6 and --steps >= 100 are needed")
+            run_spin_population(sensitivity_release=args.sensitivity_release, sensitivity_file=args.sensitivity_file,
+                                far_threshold=args.far_threshold, snr_threshold=args.snr_threshold,
+                                min_mass=args.min_mass, exclude=args.exclude, pe_cache=args.pe_cache,
+                                pe_samples=args.pe_samples, max_injections=args.max_injections or None,
+                                correlated=not args.no_correlation, n_walkers=args.walkers, n_steps=args.steps,
+                                out_report_html=args.out_report, out_summary_tsv=args.out_summary,
+                                plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "event_selection":

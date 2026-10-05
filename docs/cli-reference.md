@@ -133,6 +133,27 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-summary` | `neutron_star_eos.tsv` | Output TSV of Lambda_1.4 and R_1.4 (the posteriors go to <name>.posterior.tsv). |
 | `--plots-dir` | `neutron_star_eos_plots` | Directory for the plots. |
 
+## `spin_population`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--no-correlation` | `False` | Gaussian chi_eff model without the q slope. |
+| `--sensitivity-release` | `` | Injections and catalogs (default: gwtc4). |
+| `--sensitivity-file` | `` | Local sensitivity file instead of the release. |
+| `--far-threshold` | `0.25` | Events and found injections: FAR below this. |
+| `--snr-threshold` | `10.0` | Found semi-analytic O1+O2 injections. |
+| `--min-mass` | `3.0` | Both source-frame masses above it. |
+| `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
+| `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
+| `--pe-samples` | `5000` | PE samples per event. |
+| `--max-injections` | `250000` | Random subset of the found injections (0: all). |
+| `--walkers` | `20` | emcee walkers. |
+| `--steps` | `1200` | emcee steps (the first third is burn-in). |
+| `--out-report` | `spin_population.html` | Output HTML report path. |
+| `--out-summary` | `spin_population.tsv` | Output TSV of the posterior quantiles (the samples go to <name>.posterior.tsv). |
+| `--plots-dir` | `spin_population_plots` | Directory for the plots. |
+
 ## `event_selection`
 
 | Option | Default | Description |

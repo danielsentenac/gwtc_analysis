@@ -26,6 +26,7 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 | [`area_law`](modes/area-law.md) | Hawking's area law with GW250114: initial areas from the inspiral against the remnant area from the ringdown, reproducing the published 4.4σ |
 | [`stochastic`](modes/stochastic.md) | The background of unresolved compact binaries, Ω_GW(f), from the spectral-siren masses and rate evolution and the `rates` local rates, against the upper limits |
 | [`neutron_star_eos`](modes/neutron-star-eos.md) | The neutron-star equation of state from GW170817 and GW190425 jointly: Λ₁.₄ and R₁.₄ |
+| [`spin_population`](modes/spin-population.md) | The BBH effective-spin distribution and its correlation with the mass ratio, corrected for selection effects |
 | `zenodo_releases` | The versions of the Zenodo catalog releases ([Data sources](data-sources.md#zenodo-release-versions)) |
 
 ## Highlights
