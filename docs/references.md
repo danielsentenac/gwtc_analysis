@@ -262,6 +262,17 @@ was checked against the arXiv API.
 **[78]** S. Fairhurst et al., *Two-harmonic approximation for gravitational waveforms from precessing binaries*. The precession SNR ρ<sub>p</sub>. [arXiv:1908.05707](https://arxiv.org/abs/1908.05707)
 {: #ref-78 }
 
+## Area law
+
+**[79]** LVK, *GW250114: testing Hawking's area law and the Kerr nature of black holes*. Data release: [Zenodo 16877102](https://zenodo.org/records/16877102). [arXiv:2509.08054](https://arxiv.org/abs/2509.08054)
+{: #ref-79 }
+
+**[80]** S. W. Hawking, *Gravitational Radiation from Colliding Black Holes*, Phys. Rev. Lett. 26, 1344 (1971). The area theorem; published before arXiv. [ADS 1971PhRvL..26.1344H](https://ui.adsabs.harvard.edu/abs/1971PhRvL..26.1344H)
+{: #ref-80 }
+
+**[81]** M. Isi, W. M. Farr, M. Giesler, M. A. Scheel and S. A. Teukolsky, *Testing the black-hole area law with GW150914*. [arXiv:2012.04486](https://arxiv.org/abs/2012.04486)
+{: #ref-81 }
+
 ## Data releases
 
 | Release | Where |

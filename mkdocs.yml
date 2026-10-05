@@ -64,6 +64,7 @@ nav:
       - rates: modes/rates.md
       - hubble_constant: modes/hubble-constant.md
       - bright_siren: modes/bright-siren.md
+      - area_law (GW250114): modes/area-law.md
   - Science and methods:
       - What a GW signal measures: science/gw-signals.md
       - How the redshift is obtained: science/redshift.md

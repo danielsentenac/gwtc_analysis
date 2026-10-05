@@ -93,6 +93,18 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-summary` | `bright_siren.tsv` | Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv). |
 | `--plots-dir` | `bright_siren_plots` | Directory for the plots. |
 
+## `area_law`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--src-name` | `GW250114` | Event (only GW250114). |
+| `--cache-dir` | `` | Where the release is extracted (default: the Zenodo cache). |
+| `--with-imr` | `False` | Also show the area change of the full-signal PE (NR fits: a consistency check, not a test). |
+| `--out-report` | `area_law.html` | Output HTML report path. |
+| `--out-summary` | `area_law.tsv` | Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and <name>.ringdown.tsv). |
+| `--plots-dir` | `area_law_plots` | Directory for the plots. |
+
 ## `event_selection`
 
 | Option | Default | Description |
