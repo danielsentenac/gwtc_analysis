@@ -16,6 +16,7 @@ The tool provides:
 - Global catalog statistics, including detector-network participation, sky-localization performance, and remnants (radiated energy, final-spin estimate)
 - BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
 - Hubble-constant estimate from the BBH mass spectrum (spectral siren, with icarogw)
+- Neutron-star equation of state from GW170817 and GW190425 jointly (Λ₁.₄, R₁.₄)
 - Predicted background of unresolved compact binaries, Ω_GW(f), against the stochastic upper limits
 - Test of Hawking's area law with GW250114 (inspiral against ringdown, reproducing the published 4.4σ)
 - Hubble-constant estimate from events with an identified host (bright siren: GW170817, the candidate GW190521 flare), alone or combined with the spectral siren
@@ -100,6 +101,7 @@ positional arguments:
     bright_siren
     area_law
     stochastic
+    neutron_star_eos
     event_selection
     search_skymaps
     parameters_estimation
@@ -302,6 +304,20 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `stochastic.html` | Output HTML report path. |
 | `--out-summary` | `stochastic.tsv` | Output TSV of Omega_GW(25 Hz) (the spectrum goes to <name>.spectrum.tsv). |
 | `--plots-dir` | `stochastic_plots` | Directory for the plots. |
+
+### `neutron_star_eos`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--events` | `['GW170817', 'GW190425']` | Binary neutron stars to combine. |
+| `--spin-prior` | `low` | PE analyses with the low-spin (\|chi\| <= 0.05) or high-spin (\|chi\| <= 0.89) prior. |
+| `--lambda-max` | `5000.0` | Upper bound of the uniform PE priors on Lambda_1, Lambda_2. |
+| `--cache-dir` | `.cache_gwosc` | Cache root of the GW170817 bundle. |
+| `--pe-cache` | `` | PE cache of the Zenodo files (default: that of hubble_constant). |
+| `--out-report` | `neutron_star_eos.html` | Output HTML report path. |
+| `--out-summary` | `neutron_star_eos.tsv` | Output TSV of Lambda_1.4 and R_1.4 (the posteriors go to <name>.posterior.tsv). |
+| `--plots-dir` | `neutron_star_eos_plots` | Directory for the plots. |
 
 ### `event_selection`
 
@@ -558,6 +574,21 @@ gwtc_analysis stochastic --spectral-posterior hubble_constant_run --rates merger
 ```
 
 The `hubble_constant` report now also plots the fitted merger-rate evolution R(z)/R(0) against the star-formation history, and the `parameters_estimation` report summarizes the remnant (final mass and spin, radiated energy, peak luminosity) of every label.
+
+### `neutron_star_eos`: Joint Neutron-Star Equation Of State
+
+`neutron_star_eos` constrains the equation of state of neutron-star matter with GW170817 and GW190425 together. All neutron stars share one equation of state, so the tidal deformabilities of the four stars follow one curve, Λ(m) = Λ₁.₄ (m / 1.4 M☉)⁻⁶ ([De et al. 2018](https://arxiv.org/abs/1804.08583)). The likelihood of Λ₁.₄ is built from each event's PE samples of the measured combination Λ̃, with the PE priors on Λ divided out exactly; the events multiply. The radius follows from Λ₁.₄ = 2.88 × 10⁻⁶ (R₁.₄/km)^7.5 ([Annala et al. 2018](https://arxiv.org/abs/1711.02644)).
+
+| Analysis (low-spin priors) | Λ₁.₄, median (90%) | R₁.₄ (km) |
+|---|---|---|
+| GW170817 | 216 (80–628) | 11.2 (9.8–12.9) |
+| GW190425 | 628 (109–1783) | 12.9 (10.2–14.9) |
+| **joint** | **241 (97–631)** | **11.4 (10.1–12.9)** |
+| GW170817, LVK 2018 | 190 (70–580) | |
+
+```bash
+gwtc_analysis neutron_star_eos
+```
 
 ### `parameters_estimation`: Shared Defaults And Overrides
 

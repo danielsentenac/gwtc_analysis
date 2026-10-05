@@ -119,6 +119,20 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-summary` | `stochastic.tsv` | Output TSV of Omega_GW(25 Hz) (the spectrum goes to <name>.spectrum.tsv). |
 | `--plots-dir` | `stochastic_plots` | Directory for the plots. |
 
+## `neutron_star_eos`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--events` | `['GW170817', 'GW190425']` | Binary neutron stars to combine. |
+| `--spin-prior` | `low` | PE analyses with the low-spin (\|chi\| <= 0.05) or high-spin (\|chi\| <= 0.89) prior. |
+| `--lambda-max` | `5000.0` | Upper bound of the uniform PE priors on Lambda_1, Lambda_2. |
+| `--cache-dir` | `.cache_gwosc` | Cache root of the GW170817 bundle. |
+| `--pe-cache` | `` | PE cache of the Zenodo files (default: that of hubble_constant). |
+| `--out-report` | `neutron_star_eos.html` | Output HTML report path. |
+| `--out-summary` | `neutron_star_eos.tsv` | Output TSV of Lambda_1.4 and R_1.4 (the posteriors go to <name>.posterior.tsv). |
+| `--plots-dir` | `neutron_star_eos_plots` | Directory for the plots. |
+
 ## `event_selection`
 
 | Option | Default | Description |
