@@ -105,6 +105,20 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-summary` | `area_law.tsv` | Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and <name>.ringdown.tsv). |
 | `--plots-dir` | `area_law_plots` | Directory for the plots. |
 
+## `stochastic`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--spectral-posterior` | `` | hubble_constant work directory (--mass-model plp) or its posterior TSV. |
+| `--rates` | `` | TSV written by the rates mode (--out-rates). |
+| `--high-z` | `sfr` | BBH rate beyond the farthest detected events: the star-formation history (sfr), or the fitted shape, which there is the prior's (posterior). |
+| `--z-horizon` | `` | Redshift of the farthest detected events (default: from the work directory, else 1). |
+| `--n-draws` | `200` | Posterior draws. |
+| `--out-report` | `stochastic.html` | Output HTML report path. |
+| `--out-summary` | `stochastic.tsv` | Output TSV of Omega_GW(25 Hz) (the spectrum goes to <name>.spectrum.tsv). |
+| `--plots-dir` | `stochastic_plots` | Directory for the plots. |
+
 ## `event_selection`
 
 | Option | Default | Description |

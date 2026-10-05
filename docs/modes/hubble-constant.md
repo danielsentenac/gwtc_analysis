@@ -247,4 +247,22 @@ The report leads with the H₀ posterior, compared with the published value of t
 published result (orange line, 90% band) and the Planck and SH0ES values for comparison. Details in
 [Hubble constant (spectral siren)](../science/spectral-siren.md).*
 
+## Merger-rate evolution
+
+The Madau–Dickinson rate shape fitted together with H₀ [\[82\]](../references.md#ref-82),
+
+\[
+\frac{R(z)}{R(0)} = \left[1 + (1 + z_p)^{-\gamma-\kappa}\right]
+\frac{(1 + z)^{\gamma}}{1 + \left(\frac{1 + z}{1 + z_p}\right)^{\gamma+\kappa}},
+\]
+
+is plotted in the report with its prior and the cosmic star-formation history (γ = 2.7, κ = 2.9,
+z_p = 1.9). The likelihood is scale-free: R(0) itself is the `rates` mode's.
+
+![BBH merger-rate evolution](../img/modes/h0_rate_evolution.png)
+
+*GWTC-4.0, Power Law + Peak: γ = 3.3 (90%: 2.5–4.4), so the rate grows faster than star formation, R(1)/R(0)
+= 9.7 (5.4–19.5) against 5.8. The detected events reach z ≈ 1.0; beyond it κ and z_p, and the shape, are
+the prior's. The [stochastic](stochastic.md) mode uses this shape up to the farthest events.*
+
 All options: [CLI reference](../cli-reference.md#hubble_constant).
