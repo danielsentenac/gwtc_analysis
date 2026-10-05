@@ -18,7 +18,7 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 | [`catalog_statistics`](modes/catalog-statistics.md) | Catalog-wide tables and plots: masses, distances, SNR, detector networks, sky-localization areas, remnants (radiated energy, final spin) |
 | [`event_selection`](modes/event-selection.md) | Events selected by mass, distance and χ_eff ranges, or by class: neutron stars, lower mass gap, hierarchical-merger candidates |
 | [`search_skymaps`](modes/search-skymaps.md) | Events whose sky localization contains a given sky position |
-| [`parameters_estimation`](modes/parameters-estimation.md) | Posterior plots of one event, whitened strain overlays, q-transforms, matched-filter SNR |
+| [`parameters_estimation`](modes/parameters-estimation.md) | Posterior plots of one event, whitened strain overlays, q-transforms, matched-filter SNR, 3D sky map and host-galaxy candidates |
 | [`build_unofficial_pe`](modes/unofficial-pe.md) | A PESummary-compatible bundle for GW170817, rebuilt from public GWTC-1 products |
 | [`rates`](modes/rates.md) | BNS, NSBH and BBH merger rates, R = N / ⟨VT⟩, from the catalogs and the LVK sensitivity injections |
 | [`hubble_constant`](modes/hubble-constant.md) | The Hubble constant from the binary-black-hole mass spectrum (spectral siren), with icarogw |

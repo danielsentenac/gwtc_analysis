@@ -131,6 +131,49 @@ ringdown alone is the [area_law](area-law.md) mode.
 spin), 3.0 M☉c² radiated, i.e. 5.4 × 10⁵⁴ erg or 4.7% of the total mass, with a peak luminosity of
 3.6 × 10⁵⁶ erg/s.*
 
+## 3D sky map and host galaxies
+
+Each PE release also has an archive of FITS sky maps, made with `ligo-skymap-from-samples` from the
+posterior samples. It is a separate archive on the same Zenodo records: GWTC-2.1 `PESkyMaps`, GWTC-3
+`PESkyLocalizations`, GWTC-4.0, GWTC-4.1 and GWTC-5.0 `Archived_Skymaps` (87 to 276 MB each). These maps are
+three-dimensional [\[56\]](../references.md#ref-56): each pixel holds the probability and the distribution of
+the luminosity distance along that line of sight (`DISTMU`, `DISTSIGMA`, `DISTNORM`), i.e. the probability
+per unit volume. They are multi-order maps: fine pixels only where the probability is. The GW240615_113620
+map has 21,504 pixels (0.7 MB), down to nside 4096. The HEALPix array inside the PE file is the same map
+written at nside 4096 everywhere: 201 million pixels (1.6 GB) and no distance.
+
+The mode downloads the archive of the event's catalog once (to `~/.cache_gwtc_analysis/skymaps`, or
+`$GWTC_SKYMAP_CACHE`) and takes the map of the waveform label used for the plots, or else the `Mixed` map.
+It reports the 50% and 90% credible areas and volumes, the most probable direction and the distance
+there. The figure `<event>_<waveform>_skymap3d.png` shows the probability, the distance along each line of
+sight across the 90% region, and the distance distribution of the map against the PE samples. The FITS
+file is copied next to the plots.
+
+**Host galaxies.** GLADE+ [\[91\]](../references.md#ref-91) is queried from VizieR, with one cone per
+HEALPix cell covering the 90% region, within ±4σ of the distance. Each galaxy then gets the 3D probability
+density at its position and its searched credible volume, written to `<event>_host_galaxies.tsv`; the
+report lists the first ten. The query is skipped above `--galaxy-max-area` (100 deg² by default).
+`--galaxies FILE` uses your own catalog instead (CSV or TSV with `ra`, `dec` and `dist` in Mpc, or `z`).
+`--galaxies none` skips the cross-match; `--no-skymap-3d` skips the whole step.
+
+The galaxies are weighted equally, and the share of the host probability assumes the catalog is complete.
+GLADE+ is far from complete at a gigaparsec, so the ranking says which of the *listed* galaxies are most
+compatible with the event, not where its host is.
+
+![3D localization of GW240615_113620](../img/modes/pe_GW240615_skymap3d.png)
+
+*GW240615_113620 (GWTC-5.0, IMRPhenomXPHM-SpinTaylor): 6.4 deg² and 4.7 × 10⁶ Mpc³ at 90%, at
+1547 ± 225 Mpc. Across the region the distance along the line of sight runs from about 1350 to 1550 Mpc.
+GLADE+ gives 11,549 galaxies in the cones and distance range, 2,480 of them inside the 90% volume. The
+first one holds 0.19% of the probability and the first ten 1.8%: even the best-localized event leaves
+thousands of candidate hosts.*
+
+![3D localization of GW200129_065458](../img/modes/pe_GW200129_skymap3d.png)
+
+*GW200129_065458 (GWTC-3, IMRPhenomXPHM): the 33 deg² of the 90% region fall in two patches at different
+distances. The northern patch (3% of the probability) is at 664 ± 120 Mpc and the southern one at
+962 ± 165 Mpc. A 2D map cannot show this.*
+
 ## Missing PSDs
 
 A few official PE files have no PSDs. They are then taken from public supplementary releases: see

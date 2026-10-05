@@ -406,6 +406,9 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--q-fscale` | `log` | Frequency axis scaling for q-transform plots (default: log). |
 | `--pe-label` | `` | PE label used to select posterior samples and metadata. If omitted and --waveform-engine is provided, the tool selects the closest PE label by substring match in the PE label. If both are omitted: the Mixed label for the posteriors, and for the strain overlay the IMRPhenomXPHM label when the Mixed one has no PSD. |
 | `--waveform-engine` | `` | Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays. |
+| `--no-skymap-3d` | `True` | Skip the 3D sky map (FITS map of the Zenodo skymap archive: credible volume, distance by direction, host-galaxy candidates). |
+| `--galaxies` | `glade` | Galaxy catalog cross-matched with the 3D sky map: 'glade' (GLADE+ via VizieR, default), a CSV/TSV file with ra, dec and dist [Mpc] or z columns, or 'none'. |
+| `--galaxy-max-area` | `100.0` | Largest 90 percent credible area (deg2) for which GLADE+ is queried (default: 100). |
 
 ### `build_unofficial_pe`
 

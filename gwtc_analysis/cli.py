@@ -585,6 +585,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays.",
     )
+    p_pe.add_argument("--no-skymap-3d", dest="skymap_3d", action="store_false",
+                      help="Skip the 3D sky map (FITS map of the Zenodo skymap archive: credible volume, distance "
+                           "by direction, host-galaxy candidates).")
+    p_pe.add_argument("--galaxies", default="glade",
+                      help="Galaxy catalog cross-matched with the 3D sky map: 'glade' (GLADE+ via VizieR, default), "
+                           "a CSV/TSV file with ra, dec and dist [Mpc] or z columns, or 'none'.")
+    p_pe.add_argument("--galaxy-max-area", type=float, default=100.0,
+                      help="Largest 90 percent credible area (deg2) for which GLADE+ is queried (default: 100).")
 
     # ---------------------------------------------------------------------
     # build_unofficial_pe
@@ -844,6 +852,9 @@ def main(argv=None) -> int:
                 pe_vars=args.pe_vars,
                 pe_pairs=args.pe_pairs,
                 zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
+                skymap_3d=args.skymap_3d,
+                galaxies=args.galaxies,
+                galaxy_max_area=args.galaxy_max_area,
             )
             # Small manifest (like your previous behavior)
             for k, v in out.items():

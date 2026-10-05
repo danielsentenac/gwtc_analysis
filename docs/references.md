@@ -306,6 +306,11 @@ was checked against the arXiv API.
 **[90]** LVK, *GWTC-4.0: Population Properties of Merging Compact Binaries*. [arXiv:2508.18083](https://arxiv.org/abs/2508.18083)
 {: #ref-90 }
 
+## Galaxy catalogs
+
+**[91]** G. Dálya et al., *GLADE+: an extended galaxy catalogue for multimessenger searches with advanced gravitational-wave detectors*. Queried from VizieR VII/291. [arXiv:2110.06184](https://arxiv.org/abs/2110.06184)
+{: #ref-91 }
+
 ## Data releases
 
 | Release | Where |
