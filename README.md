@@ -16,6 +16,7 @@ The tool provides:
 - Global catalog statistics, including detector-network participation, sky-localization performance, and remnants (radiated energy, final-spin estimate)
 - BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
 - Hubble-constant estimate from the BBH mass spectrum (spectral siren, with icarogw)
+- Test of Hawking's area law with GW250114 (inspiral against ringdown, reproducing the published 4.4σ)
 - Hubble-constant estimate from events with an identified host (bright siren: GW170817, the candidate GW190521 flare), alone or combined with the spectral siren
 
 All gravitational-wave data products are retrieved from the **Gravitational Wave Open Science Center (GWOSC)**,
@@ -96,6 +97,7 @@ positional arguments:
     rates
     hubble_constant
     bright_siren
+    area_law
     event_selection
     search_skymaps
     parameters_estimation
@@ -272,6 +274,18 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `bright_siren.html` | Output HTML report path. |
 | `--out-summary` | `bright_siren.tsv` | Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv). |
 | `--plots-dir` | `bright_siren_plots` | Directory for the plots. |
+
+### `area_law`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--src-name` | `GW250114` | Event (only GW250114). |
+| `--cache-dir` | `` | Where the release is extracted (default: the Zenodo cache). |
+| `--with-imr` | `False` | Also show the area change of the full-signal PE (NR fits: a consistency check, not a test). |
+| `--out-report` | `area_law.html` | Output HTML report path. |
+| `--out-summary` | `area_law.tsv` | Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and <name>.ringdown.tsv). |
+| `--plots-dir` | `area_law_plots` | Directory for the plots. |
 
 ### `event_selection`
 
@@ -501,6 +515,18 @@ gwtc_analysis bright_siren --src-name GW190521                        # candidat
 - **Combination:** `--spectral-posterior` takes a `hubble_constant` work directory or a TSV with an `H0` column; the posteriors multiply (different events, same flat prior 10–200 km/s/Mpc).
 
 Method, validation and options: [bright_siren](https://danielsentenac.github.io/gwtc_analysis/modes/bright-siren/) in the documentation.
+
+### `area_law`: Hawking's Area Law With GW250114
+
+`area_law` tests Hawking's area law, A_f ≥ A₁ + A₂, with GW250114 (network SNR 80), from the LVK data release of its discovery paper ([Zenodo 16877102](https://zenodo.org/records/16877102), [arXiv:2509.08054](https://arxiv.org/abs/2509.08054)). The Kerr horizon area is A = 8π (GM/c²)² (1 + √(1 − χ²)).
+
+- **The two sides come from different parts of the signal:** the initial areas from parameter estimation on the data truncated before the peak, and the remnant area from fits of the ringdown quasinormal modes, which use the Kerr spectrum alone. The full-signal PE, whose remnant comes from fits to numerical relativity, obeys the law by construction; `--with-imr` shows it only for comparison.
+- **Result:** A_f > A_i at 4.45σ (published 4.4σ) for a truncation 40 M before the peak; at least 3.36σ over all the truncations (3.4σ); above 5σ from −10 M (−10 M); 3.63σ with the overtone from 6 M_f (3.6σ). (A_f − A_i)/A_i = 0.73 (90%: 0.41–1.16).
+- **Only GW250114** has a public release of inspiral-only and ringdown-only analyses.
+
+```bash
+gwtc_analysis area_law               # downloads 114 MB once
+```
 
 ### `parameters_estimation`: Shared Defaults And Overrides
 
@@ -749,6 +775,7 @@ gwtc_analysis catalog_statistics --catalogs GWTC-4 --data-repo s3
 gwtc_analysis catalog_statistics --catalogs GWTC-5 --data-repo zenodo
 gwtc_analysis build_unofficial_pe --src-name GW170817
 gwtc_analysis bright_siren
+gwtc_analysis area_law
 gwtc_analysis parameters_estimation --src-name GW231223_032836 --data-repo zenodo
 gwtc_analysis parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log
 ```

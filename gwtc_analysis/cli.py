@@ -7,6 +7,7 @@ from .catalogs import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES, run_cat
 from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFAULT_RELEASE, H0_SENSITIVITY_RELEASES,
                               MASS_MODELS as H0_MASS_MODELS, STAGES as H0_STAGES, run_hubble_constant)
 from .bright_siren import COUNTERPARTS as BRIGHT_SIREN_COUNTERPARTS, run_bright_siren
+from .area_law import run_area_law
 from .event_selection import run_event_selection
 from .source_classes import (MASS_GAP as SC_MASS_GAP, NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN,
                              PRESETS as SOURCE_PRESETS)
@@ -120,6 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis rates -h\n"
             "  gwtc_analysis hubble_constant -h\n"
             "  gwtc_analysis bright_siren -h\n"
+            "  gwtc_analysis area_law -h\n"
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
@@ -349,6 +351,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_bs.add_argument("--out-summary", default="bright_siren.tsv",
                       help="Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv).")
     p_bs.add_argument("--plots-dir", default="bright_siren_plots", help="Directory for the plots.")
+
+    # ---------------------------------------------------------------------
+    # area_law
+    # ---------------------------------------------------------------------
+    p_al = sub.add_parser(
+        "area_law",
+        help="Test Hawking's area law with GW250114 (inspiral against ringdown, LVK data release).",
+        description=(
+            "Hawking's area law A_f >= A_1 + A_2, with the initial areas from analyses of the data truncated\n"
+            "before the peak and the remnant area from ringdown quasinormal-mode fits, reproduced from the LVK\n"
+            "release of the GW250114 discovery paper (Zenodo 16877102, arXiv:2509.08054): 4.4 sigma for a\n"
+            "truncation 40 M before the peak, at least 3.4 sigma after -250 M, 3.6 sigma with the overtone.\n"
+            "Only GW250114 has a public release of such analyses. Downloads 114 MB once (27 MB more with\n"
+            "--with-imr).\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_al.add_argument("--src-name", default="GW250114", choices=["GW250114"], help="Event (only GW250114).")
+    p_al.add_argument("--cache-dir", default=None, help="Where the release is extracted (default: the Zenodo cache).")
+    p_al.add_argument("--with-imr", action="store_true",
+                      help="Also show the area change of the full-signal PE (NR fits: a consistency check, not a test).")
+    p_al.add_argument("--out-report", default="area_law.html", help="Output HTML report path.")
+    p_al.add_argument("--out-summary", default="area_law.tsv",
+                      help="Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and "
+                           "<name>.ringdown.tsv).")
+    p_al.add_argument("--plots-dir", default="area_law_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -624,6 +652,11 @@ def main(argv=None) -> int:
                 out_summary_tsv=args.out_summary,
                 plots_dir=args.plots_dir,
             )
+            return 0
+
+        if args.mode == "area_law":
+            run_area_law(src_name=args.src_name, cache_dir=args.cache_dir, with_imr=args.with_imr,
+                         out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "event_selection":
