@@ -298,6 +298,14 @@ was checked against the arXiv API.
 **[88]** E. Annala, T. Gorda, A. Kurkela and A. Vuorinen, *Gravitational-wave constraints on the neutron-star-matter Equation of State*. Λ₁.₄ = 2.88 × 10⁻⁶ (R/km)^7.5. [arXiv:1711.02644](https://arxiv.org/abs/1711.02644)
 {: #ref-88 }
 
+## Spin population
+
+**[89]** T. A. Callister et al., *Who Ordered That? Unequal-Mass Binary Black Hole Mergers Have Larger Effective Spins*. The χ_eff–q model. [arXiv:2106.00521](https://arxiv.org/abs/2106.00521)
+{: #ref-89 }
+
+**[90]** LVK, *GWTC-4.0: Population Properties of Merging Compact Binaries*. [arXiv:2508.18083](https://arxiv.org/abs/2508.18083)
+{: #ref-90 }
+
 ## Data releases
 
 | Release | Where |

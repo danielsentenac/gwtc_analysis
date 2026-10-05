@@ -322,8 +322,11 @@ def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: f
         ln_spin = -np.log(4 * np.pi * np.maximum(a1, 1e-12) ** 2) - np.log(4 * np.pi * np.maximum(a2, 1e-12) ** 2)
         ln_p = get(_LNPDRAW) - ln_spin
         p_det = np.exp(ln_p) / ((1 + z) ** 2 * get("dluminosity_distance_dredshift")) / get("weights")
-        return dict(mass_1=get("mass1_source") * (1 + z), mass_2=get("mass2_source") * (1 + z),
+        m1s, m2s = get("mass1_source"), get("mass2_source")
+        return dict(mass_1=m1s * (1 + z), mass_2=m2s * (1 + z),
                     luminosity_distance=get("luminosity_distance"), prior=p_det,
+                    chi_eff=(m1s * get("spin1z") + m2s * get("spin2z")) / (m1s + m2s),
+                    mass_ratio=np.minimum(m1s, m2s) / np.maximum(m1s, m2s),
                     ntotal=float(fi.attrs["total_generated"]), Tobs=float(fi.attrs["total_analysis_time"]) / _YEAR_S,
                     n_recorded=int(len(sel)))
 

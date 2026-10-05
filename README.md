@@ -16,6 +16,7 @@ The tool provides:
 - Global catalog statistics, including detector-network participation, sky-localization performance, and remnants (radiated energy, final-spin estimate)
 - BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
 - Hubble-constant estimate from the BBH mass spectrum (spectral siren, with icarogw)
+- BBH effective-spin population and its correlation with the mass ratio
 - Neutron-star equation of state from GW170817 and GW190425 jointly (Λ₁.₄, R₁.₄)
 - Predicted background of unresolved compact binaries, Ω_GW(f), against the stochastic upper limits
 - Test of Hawking's area law with GW250114 (inspiral against ringdown, reproducing the published 4.4σ)
@@ -102,6 +103,7 @@ positional arguments:
     area_law
     stochastic
     neutron_star_eos
+    spin_population
     event_selection
     search_skymaps
     parameters_estimation
@@ -318,6 +320,27 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `neutron_star_eos.html` | Output HTML report path. |
 | `--out-summary` | `neutron_star_eos.tsv` | Output TSV of Lambda_1.4 and R_1.4 (the posteriors go to <name>.posterior.tsv). |
 | `--plots-dir` | `neutron_star_eos_plots` | Directory for the plots. |
+
+### `spin_population`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--no-correlation` | `False` | Gaussian chi_eff model without the q slope. |
+| `--sensitivity-release` | `` | Injections and catalogs (default: gwtc4). |
+| `--sensitivity-file` | `` | Local sensitivity file instead of the release. |
+| `--far-threshold` | `0.25` | Events and found injections: FAR below this. |
+| `--snr-threshold` | `10.0` | Found semi-analytic O1+O2 injections. |
+| `--min-mass` | `3.0` | Both source-frame masses above it. |
+| `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
+| `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
+| `--pe-samples` | `5000` | PE samples per event. |
+| `--max-injections` | `250000` | Random subset of the found injections (0: all). |
+| `--walkers` | `20` | emcee walkers. |
+| `--steps` | `1200` | emcee steps (the first third is burn-in). |
+| `--out-report` | `spin_population.html` | Output HTML report path. |
+| `--out-summary` | `spin_population.tsv` | Output TSV of the posterior quantiles (the samples go to <name>.posterior.tsv). |
+| `--plots-dir` | `spin_population_plots` | Directory for the plots. |
 
 ### `event_selection`
 
@@ -588,6 +611,23 @@ The `hubble_constant` report now also plots the fitted merger-rate evolution R(z
 
 ```bash
 gwtc_analysis neutron_star_eos
+```
+
+### `spin_population`: BBH Effective-Spin Population
+
+`spin_population` infers the distribution of the effective spin χ_eff of the binary black holes, and its correlation with the mass ratio q, hierarchically over the 137 events of the `hubble_constant` selection, with the LVK search-sensitivity injections for the selection effects. The model is χ_eff | q ~ N(μ₀ + α (q − 0.5), σ) on [−1, 1] ([Callister et al. 2021](https://arxiv.org/abs/2106.00521); `--no-correlation` for α = 0), with the other spin components isotropic and the masses and redshifts of the `rates` population.
+
+| Parameter (GWTC-4.0 setup) | Median (90%) |
+|---|---|
+| μ₀, mean χ_eff at q = 0.5 | 0.18 (0.11–0.23) |
+| σ | 0.077 (0.067–0.097) |
+| α, slope with q | −0.44 (−0.58 to −0.24), P(α < 0) > 0.999 |
+| fraction with χ_eff < 0 | 0.35 (0.26–0.43); GWTC-4.0: 0.24–0.42 |
+
+Unequal-mass binaries have larger effective spins, as Callister et al. found; [GWTC-4.0](https://arxiv.org/abs/2508.18083) also finds evidence for a χ_eff–q correlation. A run takes about 30 minutes.
+
+```bash
+gwtc_analysis spin_population
 ```
 
 ### `parameters_estimation`: Shared Defaults And Overrides
