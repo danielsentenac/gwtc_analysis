@@ -5,7 +5,7 @@
 from GWTC-1 (2015) to GWTC-5.0 (the O4b observing run, 2025).
 
 <!-- CATALOG_COVERAGE_BEGIN -->
-> **Catalogs in version 0.6.1**: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0, and the update GWTC-4.1 (of GWTC-4.0), observing runs O1 to O4b. **Latest catalog: GWTC-5.0 (O4b)**. Registry checked against GWOSC and Zenodo on 2026-10-01; catalogs published later need a newer version of the package (`gwtc_analysis check_catalogs` tells whether GWOSC has published one).
+> **Catalogs in version 0.7.0**: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0, and the update GWTC-4.1 (of GWTC-4.0), observing runs O1 to O4b. **Latest catalog: GWTC-5.0 (O4b)**. Registry checked against GWOSC and Zenodo on 2026-10-05; catalogs published later need a newer version of the package (`gwtc_analysis check_catalogs` tells whether GWOSC has published one).
 <!-- CATALOG_COVERAGE_END -->
 
 It reads the catalogs directly from their public releases (GWOSC, Zenodo, an S3 mirror or Galaxy
