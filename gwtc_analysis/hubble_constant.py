@@ -585,6 +585,22 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     plots = workdir / "plots"
     plots.mkdir(exist_ok=True)
     images = [_plot_h0(post, published, plots / "h0_posterior.png", model_name)]
+    rate_para = None
+    if {"gamma", "kappa", "zp"} <= set(post.columns):
+        from . import rate_evolution as rev
+
+        z_ev = None
+        if (workdir / "inputs.h5").exists():          # the farthest event: largest median distance of its samples
+            import h5py
+            from astropy import units as u
+            from astropy.cosmology import Planck15, z_at_value
+
+            with h5py.File(workdir / "inputs.h5", "r") as h:
+                dmax = max((float(np.median(h[k]["dl"][:])) for k in h if not k.startswith("_")), default=None)
+            if dmax:
+                z_ev = float(z_at_value(Planck15.luminosity_distance, dmax * u.Mpc))
+        images.append(rev.plot(post, plots / "rate_evolution.png", z_max_events=z_ev))
+        rate_para = rev.report_paragraph(rev.summary(post), z_ev)
     if (workdir / "corner.png").exists():
         images.append(workdir / "corner.png")
     q = quantiles["H0"]
@@ -629,6 +645,8 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
             f"lowest events: {', '.join(d['lowest_neff_pe_events'])}. " + ("OK." if ok else "<b>Below threshold: increase "
             "--inj-fraction or --pe-samples.</b>"))
     paras.append("The upper part of the H<sub>0</sub> interval depends on the prior bound (uniform 10–200 km/s/Mpc).")
+    if rate_para:
+        paras.append(rate_para)
     tables = [("Posterior (median, 68% and 90% intervals)" + (", reweighted" if use_rw else ""),
                table.to_html(index=False, float_format=lambda x: f"{x:.3g}"))]
     if not events.empty:

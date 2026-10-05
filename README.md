@@ -16,6 +16,7 @@ The tool provides:
 - Global catalog statistics, including detector-network participation, sky-localization performance, and remnants (radiated energy, final-spin estimate)
 - BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
 - Hubble-constant estimate from the BBH mass spectrum (spectral siren, with icarogw)
+- Predicted background of unresolved compact binaries, Ω_GW(f), against the stochastic upper limits
 - Test of Hawking's area law with GW250114 (inspiral against ringdown, reproducing the published 4.4σ)
 - Hubble-constant estimate from events with an identified host (bright siren: GW170817, the candidate GW190521 flare), alone or combined with the spectral siren
 
@@ -98,6 +99,7 @@ positional arguments:
     hubble_constant
     bright_siren
     area_law
+    stochastic
     event_selection
     search_skymaps
     parameters_estimation
@@ -286,6 +288,20 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `area_law.html` | Output HTML report path. |
 | `--out-summary` | `area_law.tsv` | Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and <name>.ringdown.tsv). |
 | `--plots-dir` | `area_law_plots` | Directory for the plots. |
+
+### `stochastic`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--spectral-posterior` | `` | hubble_constant work directory (--mass-model plp) or its posterior TSV. |
+| `--rates` | `` | TSV written by the rates mode (--out-rates). |
+| `--high-z` | `sfr` | BBH rate beyond the farthest detected events: the star-formation history (sfr), or the fitted shape, which there is the prior's (posterior). |
+| `--z-horizon` | `` | Redshift of the farthest detected events (default: from the work directory, else 1). |
+| `--n-draws` | `200` | Posterior draws. |
+| `--out-report` | `stochastic.html` | Output HTML report path. |
+| `--out-summary` | `stochastic.tsv` | Output TSV of Omega_GW(25 Hz) (the spectrum goes to <name>.spectrum.tsv). |
+| `--plots-dir` | `stochastic_plots` | Directory for the plots. |
 
 ### `event_selection`
 
@@ -527,6 +543,21 @@ Method, validation and options: [bright_siren](https://danielsentenac.github.io/
 ```bash
 gwtc_analysis area_law               # downloads 114 MB once
 ```
+
+### `stochastic`: Predicted Compact-Binary Background
+
+`stochastic` predicts the gravitational-wave background of the compact binaries too faint to be detected one by one, Ω_GW(f) = f/(ρ_c c²) ∫ dz R(z) ⟨dE/df_s⟩(f(1+z)) / [(1+z) H(z)], and compares it with the upper limits of the stochastic searches.
+
+- **BBH:** the Power Law + Peak masses and the Madau–Dickinson rate shape of each draw of a spectral-siren posterior (`hubble_constant`), normalized to the BBH rate at z = 0.2 of the `rates` mode, with the inspiral–merger–ringdown spectrum of Ajith et al. 2008. Beyond the farthest detected events (z ≈ 1) the rate follows the star-formation history (`--high-z sfr`, default) or the fitted shape, there the prior's (`--high-z posterior`).
+- **BNS, NSBH:** the local rates of `rates`, the star-formation history, the inspiral spectrum up to the ISCO.
+- **Result (GWTC-4.0):** Ω_GW(25 Hz) = 7.5 × 10⁻¹⁰ (90%: 5.5–11.7 × 10⁻¹⁰), BBH 6.0 × 10⁻¹⁰. The LVK prediction from GWTC-5.0 is 6.3 (+5.0 / −2.2) × 10⁻¹⁰, and the upper limit from the data through April 2025 is 2.0 × 10⁻⁹ ([arXiv:2608.23477](https://arxiv.org/abs/2608.23477)): a factor 2.7 below detection.
+
+```bash
+gwtc_analysis rates --out-rates merger_rates.tsv
+gwtc_analysis stochastic --spectral-posterior hubble_constant_run --rates merger_rates.tsv
+```
+
+The `hubble_constant` report now also plots the fitted merger-rate evolution R(z)/R(0) against the star-formation history, and the `parameters_estimation` report summarizes the remnant (final mass and spin, radiated energy, peak luminosity) of every label.
 
 ### `parameters_estimation`: Shared Defaults And Overrides
 

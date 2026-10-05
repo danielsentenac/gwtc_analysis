@@ -273,6 +273,23 @@ was checked against the arXiv API.
 **[81]** M. Isi, W. M. Farr, M. Giesler, M. A. Scheel and S. A. Teukolsky, *Testing the black-hole area law with GW150914*. [arXiv:2012.04486](https://arxiv.org/abs/2012.04486)
 {: #ref-81 }
 
+## Rate evolution and stochastic background
+
+**[82]** P. Madau and M. Dickinson, *Cosmic Star Formation History*. [arXiv:1403.0007](https://arxiv.org/abs/1403.0007)
+{: #ref-82 }
+
+**[83]** E. S. Phinney, *A Practical Theorem on Gravitational Wave Backgrounds*. [arXiv:astro-ph/0108028](https://arxiv.org/abs/astro-ph/0108028)
+{: #ref-83 }
+
+**[84]** P. Ajith et al., *A template bank for gravitational waveforms from coalescing binary black holes: non-spinning binaries*. The phenomenological energy spectrum. [arXiv:0710.2335](https://arxiv.org/abs/0710.2335)
+{: #ref-84 }
+
+**[85]** LVK, *Updated Upper Limits on the Isotropic Gravitational-Wave Background from LIGO, Virgo, and KAGRA Data through April 2025*. [arXiv:2608.23477](https://arxiv.org/abs/2608.23477)
+{: #ref-85 }
+
+**[86]** LVK, *Upper Limits on the Isotropic Gravitational-Wave Background from Advanced LIGO's and Advanced Virgo's Third Observing Run*. [arXiv:2101.12130](https://arxiv.org/abs/2101.12130)
+{: #ref-86 }
+
 ## Data releases
 
 | Release | Where |

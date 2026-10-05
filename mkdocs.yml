@@ -65,6 +65,7 @@ nav:
       - hubble_constant: modes/hubble-constant.md
       - bright_siren: modes/bright-siren.md
       - area_law (GW250114): modes/area-law.md
+      - stochastic: modes/stochastic.md
   - Science and methods:
       - What a GW signal measures: science/gw-signals.md
       - How the redshift is obtained: science/redshift.md

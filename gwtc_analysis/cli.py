@@ -8,6 +8,7 @@ from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFA
                               MASS_MODELS as H0_MASS_MODELS, STAGES as H0_STAGES, run_hubble_constant)
 from .bright_siren import COUNTERPARTS as BRIGHT_SIREN_COUNTERPARTS, run_bright_siren
 from .area_law import run_area_law
+from .stochastic import run_stochastic
 from .event_selection import run_event_selection
 from .source_classes import (MASS_GAP as SC_MASS_GAP, NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN,
                              PRESETS as SOURCE_PRESETS)
@@ -122,6 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis hubble_constant -h\n"
             "  gwtc_analysis bright_siren -h\n"
             "  gwtc_analysis area_law -h\n"
+            "  gwtc_analysis stochastic -h\n"
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
@@ -377,6 +379,35 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and "
                            "<name>.ringdown.tsv).")
     p_al.add_argument("--plots-dir", default="area_law_plots", help="Directory for the plots.")
+
+    # ---------------------------------------------------------------------
+    # stochastic
+    # ---------------------------------------------------------------------
+    p_sto = sub.add_parser(
+        "stochastic",
+        help="Predict the background of unresolved compact binaries, Omega_GW(f), against the upper limit.",
+        description=(
+            "Omega_GW(f) of the BBH, BNS and NSBH mergers that are not resolved individually. BBH: the masses and\n"
+            "the rate shape of a Power Law + Peak spectral-siren posterior (hubble_constant), normalized to the\n"
+            "BBH rate at z = 0.2 of a rates TSV; BNS, NSBH: their local rates and the star-formation history.\n"
+            "Compared with the upper limit from the data through April 2025, Omega_GW(25 Hz) <= 2.0e-9\n"
+            "(arXiv:2608.23477), and with the LVK prediction from GWTC-5.0.\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_sto.add_argument("--spectral-posterior", required=True,
+                       help="hubble_constant work directory (--mass-model plp) or its posterior TSV.")
+    p_sto.add_argument("--rates", required=True, help="TSV written by the rates mode (--out-rates).")
+    p_sto.add_argument("--high-z", choices=("sfr", "posterior"), default="sfr",
+                       help="BBH rate beyond the farthest detected events: the star-formation history (sfr), or the "
+                            "fitted shape, which there is the prior's (posterior).")
+    p_sto.add_argument("--z-horizon", type=float, default=None,
+                       help="Redshift of the farthest detected events (default: from the work directory, else 1).")
+    p_sto.add_argument("--n-draws", type=int, default=200, help="Posterior draws.")
+    p_sto.add_argument("--out-report", default="stochastic.html", help="Output HTML report path.")
+    p_sto.add_argument("--out-summary", default="stochastic.tsv",
+                       help="Output TSV of Omega_GW(25 Hz) (the spectrum goes to <name>.spectrum.tsv).")
+    p_sto.add_argument("--plots-dir", default="stochastic_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -657,6 +688,14 @@ def main(argv=None) -> int:
         if args.mode == "area_law":
             run_area_law(src_name=args.src_name, cache_dir=args.cache_dir, with_imr=args.with_imr,
                          out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir)
+            return 0
+
+        if args.mode == "stochastic":
+            if args.n_draws < 10:
+                raise ValueError("--n-draws must be >= 10")
+            run_stochastic(args.spectral_posterior, args.rates, n_draws=args.n_draws, high_z=args.high_z,
+                           z_horizon=args.z_horizon, out_report_html=args.out_report, out_summary_tsv=args.out_summary,
+                           plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "event_selection":

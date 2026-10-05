@@ -114,6 +114,23 @@ finds a loud (3,3) multipole and strong precession that the other models do not.
 where they show. Most events have ρ well below 2: binaries of similar masses seen close to face-on,
 which suppresses both effects.
 
+## Remnant and energetics
+
+The report also summarizes, for every label, the remnant quantities stored in the PE samples (GWTC-2.1
+and later): the source-frame final mass `final_mass_source`, the final spin `final_spin`, the energy
+radiated in gravitational waves `radiated_energy` (M☉c²) and the peak luminosity `peak_luminosity`
+(10⁵⁶ erg/s), with the radiated fraction of the total mass. The table goes to `<event>_remnant.tsv`.
+
+These come from fits to numerical-relativity simulations applied to the component masses and spins, not
+from a separate measurement of the remnant: the test of the area law with a remnant measured from the
+ringdown alone is the [area_law](area-law.md) mode.
+
+![Remnant of GW150914](../img/modes/pe_GW150914_remnant.png)
+
+*GW150914 (`C01:Mixed`): a 61.5 M☉ remnant of spin 0.68 (0.686 is the value for equal masses without
+spin), 3.0 M☉c² radiated, i.e. 5.4 × 10⁵⁴ erg or 4.7% of the total mass, with a peak luminosity of
+3.6 × 10⁵⁶ erg/s.*
+
 ## Missing PSDs
 
 A few official PE files have no PSDs. They are then taken from public supplementary releases: see

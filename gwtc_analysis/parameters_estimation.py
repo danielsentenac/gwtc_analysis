@@ -1328,6 +1328,25 @@ def run_parameters_estimation(
                 except Exception as e:  # never fail the run for this section
                     pe_log(f"⚠️ [WARN] Could not summarize the multipole/precession SNRs: {e}", event_logs)
 
+                # Remnant and energetics: final mass and spin, radiated energy, peak luminosity
+                try:
+                    from . import remnants as _rem
+
+                    _rem_table, _rem_files, _rem_html = _rem.analyse(samples_dict, label_samples, src_name, outdir)
+                    multipoles_html = (multipoles_html + "\n" + _rem_html) if multipoles_html else _rem_html
+                    _rm = _rem_table[_rem_table["label"] == label_samples]
+                    if not _rm.empty:
+                        pe_log("ℹ️ [INFO] Remnant (" + label_samples + "): "
+                               + ", ".join(f"{q} {m:.3g}{(' ' + u) if u else ''}" for q, u, m in
+                                           _rm[["quantity", "unit", "median"]].itertuples(index=False)), event_logs)
+                    for fname in _rem_files:
+                        if str(fname).endswith(".png"):
+                            result.files_distribution.append(str(fname))
+                            if oda_available and PictureProduct is not None:
+                                fig_distributionList.append(PictureProduct.from_file(str(fname)))
+                except Exception as e:  # never fail the run for this section
+                    pe_log(f"⚠️ [WARN] Could not summarize the remnant: {e}", event_logs)
+
         except Exception as e:
             pe_log(f"❌ [ERROR] Failed creating posterior plots: {e}", event_logs)
             go_next_cell = False
