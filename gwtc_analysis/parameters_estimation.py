@@ -107,6 +107,101 @@ def _download_http_with_progress(
                 pbar.close()
 
 
+MAX_SKYMAP_NSIDE = 1024           # finer PE skymaps are summed down before reading (memory)
+
+
+def lighten_skymaps(path: str | Path, max_nside: int = MAX_SKYMAP_NSIDE,
+                    log_cb: Callable[[str], None] | None = None) -> Path:
+    """`path`, or a copy of it whose skymaps are summed down to `max_nside`.
+
+    pesummary loads every skymap of a PE file in memory. Some GWTC-5.0 releases store one HEALPix map per
+    label at nside 4096 (201 million pixels, 1.6 GB each), more than a laptop holds. Nested maps are summed
+    by blocks of (nside / max_nside)^2 consecutive pixels, in chunks; ring maps are regraded with healpy.
+    The copy, `<file>.nside<max_nside>.h5` next to the original, is reused while newer than the original.
+    """
+    import h5py
+
+    path = Path(path)
+    npix_max = 12 * max_nside ** 2
+    with h5py.File(path, "r") as f:
+        big = [lab for lab in f if isinstance(f[lab], h5py.Group) and "skymap" in f[lab]
+               and "data" in f[lab]["skymap"] and f[lab]["skymap"]["data"].shape[0] > npix_max]
+    if not big:
+        return path
+    lite = path.with_name(path.name.rsplit(".", 1)[0] + f".nside{max_nside}.h5")
+    if lite.exists() and lite.stat().st_mtime >= path.stat().st_mtime:
+        if log_cb:
+            log_cb(f"ℹ️ [CACHE] Using the PE file with skymaps at nside {max_nside}: {lite}")
+        return lite
+    if log_cb:
+        log_cb(f"ℹ️ [INFO] {len(big)} skymap(s) finer than nside {max_nside} in {path.name}: writing a copy with "
+               f"skymaps at nside {max_nside} ({lite.name}), to keep the memory low")
+    part = lite.with_suffix(".part")
+    with h5py.File(path, "r") as src, h5py.File(part, "w") as dst:
+        for k, v in src.attrs.items():
+            dst.attrs[k] = v
+        for name in src:
+            obj = src[name]
+            if name not in big:
+                src.copy(obj, dst, name=name)
+                continue
+            g = dst.create_group(name)
+            for k, v in obj.attrs.items():
+                g.attrs[k] = v
+            for child in obj:
+                if child != "skymap":
+                    src.copy(obj[child], g, name=child)
+            sm, out = obj["skymap"], g.create_group("skymap")
+            for k, v in sm.attrs.items():
+                out.attrs[k] = v
+            for child in sm:
+                if child != "data":
+                    src.copy(sm[child], out, name=child)
+            out.create_dataset("data", data=_regrade_skymap(sm, max_nside))
+    part.replace(lite)
+    return lite
+
+
+def _regrade_skymap(sm, max_nside: int):
+    """Probability map of an h5py skymap group summed down to max_nside (keeps its ordering)."""
+    import numpy as np
+
+    ds = sm["data"]
+    npix = ds.shape[0]
+    factor = npix // (12 * max_nside ** 2)
+    nest = True
+    try:
+        v = sm["meta_data"]["nest"][()]
+        v = v[0] if hasattr(v, "__len__") and not isinstance(v, (bytes, str)) else v
+        nest = str(v.decode() if isinstance(v, bytes) else v).strip().lower() in ("true", "1")
+    except (KeyError, TypeError, ValueError):
+        pass
+    if nest:
+        out = np.empty(npix // factor, dtype=ds.dtype)
+        step = factor * (1 << 20)
+        for i in range(0, npix, step):
+            block = np.asarray(ds[i:i + step], dtype=float)
+            out[i // factor:(i + len(block)) // factor] = block.reshape(-1, factor).sum(axis=1)
+        return out
+    import healpy as hp
+
+    return hp.ud_grade(np.asarray(ds[()], dtype=np.float32), max_nside, order_in="RING", order_out="RING",
+                       power=-2).astype(ds.dtype)
+
+
+def _shared_pe_file(fname: str) -> Path | None:
+    """The same PE file in a PE cache of the population modes (GWTC_PE_CACHE, their default, ~/.gwcache)."""
+    import os
+
+    roots = [os.environ.get("GWTC_PE_CACHE"), Path.home() / ".cache_gwtc_analysis" / "pe_catalog",
+             Path.home() / ".gwcache" / "pe_catalog"]
+    for root in filter(None, roots):
+        cand = Path(root) / "files" / fname
+        if cand.exists() and cand.stat().st_size > 0:
+            return cand
+    return None
+
+
 def download_zenodo_pe_file(
     chosen: dict[str, Any],
     *,
@@ -131,6 +226,11 @@ def download_zenodo_pe_file(
         if log_cb:
             log_cb(f"ℹ️ [CACHE] Using existing Zenodo PE file: {out_path}")
         return out_path
+    shared = _shared_pe_file(fname)
+    if shared is not None:                     # already downloaded by another mode: no second copy
+        if log_cb:
+            log_cb(f"ℹ️ [CACHE] Using the PE file of the shared PE cache: {shared}")
+        return shared
 
     if log_cb:
         log_cb(f"ℹ️ [DOWNLOAD] Zenodo PE: {fname}")
@@ -1195,6 +1295,7 @@ def run_parameters_estimation(
             pe_log(f"ℹ️ [INFO] Reading PE data from: {local_pe_path}", event_logs)
             _progress("Read data", 25, "step 2")
             try:
+                local_pe_path = str(lighten_skymaps(local_pe_path, log_cb=lambda m: pe_log(m, event_logs)))
                 data = read(local_pe_path)
                 # Some official releases ship without PSDs: take them from a
                 # registered public release of the same event (pe_supplements).
