@@ -920,12 +920,19 @@ def run_parameters_estimation(
     pe_vars: list[str] | None = None,
     pe_pairs: list[str] | None = None,
     zenodo_versions: dict[str, str] | None = None,
+    skymap_3d: bool = True,
+    galaxies: str | None = "glade",
+    galaxy_max_area: float = 100.0,
 ) -> dict[str, Any]:
     """
     Run the PE plotting pipeline and optionally write an HTML report.
 
     With data_repo="zenodo", `zenodo_versions` maps catalog keys to the release
     version to read (e.g. {"GWTC-3": "v2"}); other catalogs use the latest.
+
+    With `skymap_3d`, the FITS sky map of the event in the Zenodo skymap archive of its catalog gives the
+    credible volume, the distance by direction and, with `galaxies` ("glade", a catalog file or "none"),
+    the host-galaxy candidates (see `skymap3d`).
 
     Returns a dict of produced filenames (always relative/absolute paths as written).
     """
@@ -1113,6 +1120,7 @@ def run_parameters_estimation(
     label_waveform: Optional[str] = None
     label_samples: Optional[str] = None
     local_pe_path: Optional[str] = None
+    pe_file_name = ""                      # name of the release file, before lighten_skymaps
 
     try:
         if data_repo == "zenodo":
@@ -1295,6 +1303,7 @@ def run_parameters_estimation(
             pe_log(f"ℹ️ [INFO] Reading PE data from: {local_pe_path}", event_logs)
             _progress("Read data", 25, "step 2")
             try:
+                pe_file_name = Path(local_pe_path).name
                 local_pe_path = str(lighten_skymaps(local_pe_path, log_cb=lambda m: pe_log(m, event_logs)))
                 data = read(local_pe_path)
                 # Some official releases ship without PSDs: take them from a
@@ -1735,6 +1744,36 @@ def run_parameters_estimation(
             # Last step: the other outputs are already written, so do not fail the run.
             pe_log(f"⚠️ [WARN] Could not create skymap plot: {e}", event_logs)
 
+    # ---------------------------------------------------------------------
+    # 3D sky map (FITS map of the release: volume, distance by direction, galaxies)
+    # ---------------------------------------------------------------------
+    skymap3d_html = ""
+    if skymap_3d and go_next_cell and data is not None:
+        try:
+            import numpy as np
+
+            from .skymap3d import catalog_of_pe_file, run_skymap3d
+
+            _cat = catalog_of_pe_file(pe_file_name) if pe_file_name else None
+            try:
+                dist_samples = np.asarray(data.samples_dict[label_waveform]["luminosity_distance"], float)
+            except Exception:
+                dist_samples = None
+            out3d = run_skymap3d(
+                src_name, label_waveform, outdir, pe_file_name=pe_file_name, catalog=catalog,
+                version=(zenodo_versions or {}).get(_cat or catalog or ""), galaxies=galaxies,
+                galaxy_max_area=galaxy_max_area, dist_samples=dist_samples,
+                log_cb=lambda m: pe_log(m, event_logs),
+            )
+            if out3d is not None:
+                skymap3d_html = out3d["html"]
+                for f in out3d["files"]:
+                    result.files_skymap.append(f)
+                    if f.endswith(".png") and oda_available and PictureProduct is not None:
+                        fig_skymapList.append(PictureProduct.from_file(f))
+        except Exception as e:
+            pe_log(f"⚠️ [WARN] Could not build the 3D sky map: {e}", event_logs)
+
     _progress("Finish", 100, "step 6")
 
     # ---------------------------------------------------------------------
@@ -1778,7 +1817,7 @@ def run_parameters_estimation(
             posterior_pairs_missing_by_label=posterior_pairs_missing_by_label,
             requested_pe_pairs=pe_pairs or [],
             event_logs=event_logs,
-            extra_html=multipoles_html,
+            extra_html=multipoles_html + skymap3d_html,
         )
 
     # ---------------------------------------------------------------------
