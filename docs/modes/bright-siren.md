@@ -105,10 +105,12 @@ edge-on), each colored by the H₀ it implies at the host redshift.
 | 30–60° | 51% | 35.9 Mpc | 85 |
 | 60–90° | 6% | 23 Mpc | 132 |
 
-*The samples form one band: the distance falls as the orbit is seen more inclined. The two LIGO detectors,
-nearly co-aligned, barely measure the ratio of the two polarizations that would fix the inclination. The
-upper tail of the H₀ posterior comes from the inclined orbits; the radio jet of GW170817, which fixes the
-viewing angle, removes it.*
+*The samples form one band: the distance falls as the orbit is seen more inclined. The inclination is
+measured, from all three detectors (θ_JN = 147°, 90%: 118–171°), but broadly: Virgo's response to
+GW170817 was small (the wave came close to one of its blind directions), which constrained the sky
+position but carried little polarization information, and near face-on the two polarizations are almost
+equal, (1 + cos²ι)/2 against cos ι. The upper tail of the H₀ posterior comes from the inclined orbits; the
+radio jet of GW170817, which fixes the viewing angle, removes it.*
 
 ![H0 from GW190521 and ZTF19abanrhr](../img/modes/bright_siren_GW190521.png)
 
