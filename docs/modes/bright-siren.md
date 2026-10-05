@@ -94,6 +94,22 @@ considerably (Hotokezaka et al. 2019 [\[73\]](../references.md#ref-73)); this mo
 inclination constraints. The full ΛCDM \(d_L\) raises H₀ by 0.8% (0.6 km/s/Mpc) compared with the
 linear Hubble law of the 2017 paper.
 
+The report shows the degeneracy: the distance samples against the viewing angle (0° face-on, 90°
+edge-on), each colored by the H₀ it implies at the host redshift.
+
+![Distance against viewing angle for GW170817](../img/modes/bright_siren_degeneracy_GW170817.png)
+
+| Viewing angle | Samples | \(d_L\) median | H₀ implied |
+|---|---|---|---|
+| 0–30° | 43% | 44.6 Mpc | 68 |
+| 30–60° | 51% | 35.9 Mpc | 85 |
+| 60–90° | 6% | 23 Mpc | 132 |
+
+*The samples form one band: the distance falls as the orbit is seen more inclined. The two LIGO detectors,
+nearly co-aligned, barely measure the ratio of the two polarizations that would fix the inclination. The
+upper tail of the H₀ posterior comes from the inclined orbits; the radio jet of GW170817, which fixes the
+viewing angle, removes it.*
+
 ![H0 from GW190521 and ZTF19abanrhr](../img/modes/bright_siren_GW190521.png)
 
 **GW190521.** The posterior is bimodal because the distance posterior is, in the direction of the flare.
