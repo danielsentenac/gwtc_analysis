@@ -36,7 +36,7 @@
 | **Hierarchical inference** | Inference of population parameters from many events, each with its own uncertain parameters |
 | **Hyperprior** | Prior on population (and cosmological) parameters |
 | **PLP** | Power Law + Peak: BBH primary-mass model, a power law with a Gaussian peak and a smooth low-mass turn-on [\[15\]](../references.md#ref-15) [\[11\]](../references.md#ref-11) |
-| **MLTP** | Multi Peak model: power law with two Gaussian peaks (found near 9 and 27 M☉) [\[29\]](../references.md#ref-29) |
+| **MLTP** | Multi Peak model: power law with two Gaussian peaks, found near 9 and 27 M☉ in the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29) and near 10 and 30 M☉ in the reproduction run |
 | **FullPop-4.0** | GWTC-4.0 model of the full compact-binary population (neutron stars, mass gap, black holes) [\[13\]](../references.md#ref-13) [\[29\]](../references.md#ref-29) |
 | **Madau–Dickinson** | Shape of the merger rate with redshift: rises as (1+z)^γ, peaks near z_p, falls as (1+z)^−κ [\[16\]](../references.md#ref-16) |
 | **Nested sampling** | Bayesian sampling that computes the evidence and the posterior together (dynesty) |

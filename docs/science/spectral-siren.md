@@ -390,6 +390,7 @@ low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the 
 | Peak priors | μ_g ∈ U(20, 50), σ_g ∈ U(0.4, 10) M☉ | μ_low, μ_high ∈ U(5, 100); σ_low ∈ U(0.4, 5); σ_high ∈ U(0.4, 10) M☉; λ_low ∈ U(0, 1) |
 | Mass parameters | 8 | 11 |
 | Peaks found [\[29\]](../references.md#ref-29) | one, at 28.3 M☉ | 8.9 ± 0.5 M☉ and 26.6 ± 3 M☉ |
+| Peaks found, gwtc_analysis (reweighted, medians and 90%) | one, at 28.7 M☉ | 9.9 (7.4–35.2) M☉, σ 0.8 M☉; 29.8 (15.5–40.2) M☉, σ 6.7 M☉ |
 
 1. **The BBH mass spectrum has a peak near 9–10 M☉,** its strongest feature once selection effects are
    removed ([Merger rates](merger-rates.md#selection-corrected-mass-distribution)). PLP cannot represent
@@ -398,6 +399,8 @@ low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the 
 2. **A sharp feature gives a sharp redshift.** The spectral siren measures the shift of a feature by
    \(1+z\); the precision grows as the feature narrows relative to its position and as more events
    populate it. The 9 M☉ peak has σ/μ ≈ 6%, the 28 M☉ bump ≈ 20%, and light BBHs are numerous.
+   In the run the two Gaussians sometimes swap roles (label switching): the lower peak's 90% interval
+   reaches 35 M☉ when its Gaussian takes the upper feature. The medians describe the dominant mode.
 3. **Two rulers at different distances.** Light BBHs are detected nearby, heavy ones far away: the two
    peaks anchor the distance–redshift relation over two redshift ranges.
 4. **PLP is pulled high.** In the PLP posterior α is correlated with H₀ (+0.52,
