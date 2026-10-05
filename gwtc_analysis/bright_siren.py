@@ -351,7 +351,7 @@ def _read_pe_labels(pe_file: Path, labels: Optional[Iterable[str]]) -> dict[str,
             raise ValueError(f"label(s) {', '.join(missing)} not in {pe_file.name}; available: {', '.join(available)}")
         for k in wanted:
             ps = h[k]["posterior_samples"][()]
-            s = {c: ps[c] for c in ("luminosity_distance", "ra", "dec") if c in ps.dtype.names}
+            s = {c: ps[c] for c in ("luminosity_distance", "ra", "dec", "theta_jn", "iota") if c in ps.dtype.names}
             desc = ""
             try:
                 v = h[k]["priors"]["analytic"]["luminosity_distance"][()]
@@ -400,6 +400,63 @@ def _plot(h0: np.ndarray, curves: list[tuple[str, np.ndarray, str, str]], publis
     ax.set_title(title, color=ink, fontsize=10.5, loc="left", pad=34 if len(curves) < 3 else 46)
     ax.legend(frameon=False, fontsize=8.5, labelcolor=ink2, loc="lower left", bbox_to_anchor=(0, 1.0), ncol=2,
               borderaxespad=0.3, handlelength=1.6)
+    fig.tight_layout()
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_png, facecolor=surface)
+    plt.close(fig)
+    return out_png
+
+
+def viewing_angle(samples: dict) -> Optional[np.ndarray]:
+    """Angle between the line of sight and the orbital (or total) angular momentum, folded to 0-90 degrees."""
+    for k in ("theta_jn", "iota"):
+        if k in samples:
+            th = np.degrees(np.asarray(samples[k], float))
+            return np.minimum(th, 180 - th)
+    return None
+
+
+def implied_h0(distances: np.ndarray, z_obs: float) -> np.ndarray:
+    """H0 that puts each distance sample at the host redshift: d_L(z_obs; H0) = d."""
+    return C_KMS / np.asarray(distances, float) * float(np.interp(z_obs, _ZG, _DL))
+
+
+def degeneracy_table(distances: np.ndarray, view: np.ndarray, z_obs: float) -> pd.DataFrame:
+    h = implied_h0(distances, z_obs)
+    rows = []
+    for lo, hi in ((0, 30), (30, 60), (60, 90)):
+        m = (view >= lo) & (view <= hi)
+        rows.append(dict(viewing_angle=f"{lo}–{hi}°", fraction=float(m.mean()),
+                         distance_median=float(np.median(distances[m])) if m.any() else np.nan,
+                         h0_median=float(np.median(h[m])) if m.any() else np.nan))
+    return pd.DataFrame(rows)
+
+
+def plot_degeneracy(distances: np.ndarray, view: np.ndarray, z_obs: float, title: str, out_png: Path) -> Path:
+    """Distance against viewing angle, colored by the H0 each sample implies."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    surface, ink, ink2, grid = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
+    h = implied_h0(distances, z_obs)
+    lo, hi = np.percentile(h, [2, 98])
+    fig, ax = plt.subplots(figsize=(7.6, 4.6), dpi=150)
+    fig.patch.set_facecolor(surface); ax.set_facecolor(surface)
+    sc = ax.scatter(view, distances, c=np.clip(h, lo, hi), s=4, cmap="viridis", lw=0, alpha=0.7, zorder=2)
+    cb = fig.colorbar(sc, ax=ax, pad=0.02)
+    cb.set_label("H$_0$ implied by the host redshift (km s$^{-1}$ Mpc$^{-1}$)", color=ink2, fontsize=9)
+    cb.ax.tick_params(colors=ink2, labelsize=8)
+    ax.set_xlim(0, 90)
+    ax.set_xlabel("Viewing angle (deg): 0 = face-on, 90 = edge-on", color=ink2)
+    ax.set_ylabel("Luminosity distance d$_L$ (Mpc)", color=ink2)
+    ax.set_title(title, color=ink, fontsize=10.5, loc="left")
+    ax.grid(color=grid, lw=0.7, zorder=0)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    for s in ("left", "bottom"):
+        ax.spines[s].set_color(grid)
+    ax.tick_params(colors=ink2, labelsize=9)
     fig.tight_layout()
     out_png.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_png, facecolor=surface)
@@ -481,13 +538,15 @@ def run_bright_siren(
             _log(f"WARN: only {neff.min():.0f} effective injections")
     _log(f"selection: {sel}")
 
-    rows, posts, notes = [], {}, []
+    rows, posts, notes, degen = [], {}, [], None
     for label, s in samples.items():
         keep, how = sky_conditioned(s, cp, sky_radius_deg)
         d = np.asarray(s["luminosity_distance"], float)[keep]
         prior, prior_desc = hc.pe_distance_prior(d, s["prior_desc"], cp.run)
         p = posterior_from_ln(h0, event_ln_likelihood(h0, d, prior, z_obs, sigma_z) - ln_beta)
         posts[label] = p
+        if not degen and (view := viewing_angle(s)) is not None:
+            degen = (label, d, view[keep])
         dq = np.percentile(d, [5, 50, 95])
         rows.append(dict(analysis=f"bright siren, {label}", n_samples=len(d), distance_median=dq[1],
                          distance_low_90=dq[0], distance_high_90=dq[2], **summarize(h0, p)))
@@ -524,6 +583,12 @@ def run_bright_siren(
                    colors[i % len(colors)], "-" if i == 0 else "--") for i, (k, r) in enumerate(zip(posts, rows))]
         images = [_plot(h0, curves, published, cp.ref, f"Hubble constant from {src_name} and {cp.host} (bright siren)",
                         Path(plots_dir) / f"h0_bright_siren_{src_name}.png")]
+        dtab = None
+        if degen:
+            dlab, dd, dview = degen
+            images.append(plot_degeneracy(dd, dview, z_obs, f"{src_name} ({dlab}): the distance–inclination degeneracy",
+                                          Path(plots_dir) / f"distance_inclination_{src_name}.png"))
+            dtab = degeneracy_table(dd, dview, z_obs)
         if combined:
             r_spec, r_comb = rows[-2], rows[-1]
             images.append(_plot(h0, [
@@ -549,8 +614,20 @@ def run_bright_siren(
                          f"−{published['map'] - published['lo68']:.1f}) km/s/Mpc. It used the distance posterior of the "
                          "2017 analysis and a linear Hubble law; the public GWTC-1 samples are a later reanalysis, "
                          "whose longer low-distance tail widens the upper side of the H<sub>0</sub> interval.")
-        paras.append("The distance is degenerate with the inclination of the orbit, which dominates the uncertainty: "
-                     "the low-distance tail corresponds to inclined orbits (smaller amplitude at given distance).")
+        if dtab is not None:
+            parts = "; ".join(f"{r.viewing_angle}: {100 * r.fraction:.0f}% of the samples, d<sub>L</sub> ≈ "
+                              f"{r.distance_median:.3g} Mpc, H<sub>0</sub> ≈ {r.h0_median:.0f}"
+                              for r in dtab.itertuples() if r.fraction > 0)
+            paras.append("<b>The distance is degenerate with the inclination of the orbit</b>, which dominates the "
+                         "uncertainty: an inclined binary is fainter than a face-on one at the same distance, so the "
+                         "samples follow a band where the distance falls as the viewing angle grows (plot below the "
+                         f"posterior). By viewing angle ({degen[0]}): {parts}. The upper tail of the H<sub>0</sub> "
+                         "posterior comes from the inclined orbits; an independent constraint on the viewing angle "
+                         "(e.g. from the jet of GW170817) narrows it.")
+        else:
+            paras.append("The distance is degenerate with the inclination of the orbit, which dominates the "
+                         "uncertainty: the low-distance tail corresponds to inclined orbits (smaller amplitude at given "
+                         "distance).")
         if combined:
             paras.append(f"Combined with the spectral siren ({Path(spectral_posterior).name}, same flat prior): "
                          f"H<sub>0</sub> = <b>{_fmt(rows[-1])}</b>. The two measurements are independent (different "

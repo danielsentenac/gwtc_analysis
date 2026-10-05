@@ -90,8 +90,9 @@ def _pe_file(path, labels=("C02:Test-HighSpin", "C02:Test-LowSpin")):
     with h5py.File(path, "w") as h:
         for lab in labels:
             n = 3000
-            arr = np.zeros(n, dtype=[("luminosity_distance", "f8"), ("ra", "f8"), ("dec", "f8")])
+            arr = np.zeros(n, dtype=[("luminosity_distance", "f8"), ("ra", "f8"), ("dec", "f8"), ("theta_jn", "f8")])
             arr["luminosity_distance"] = rng.normal(43.0, 3.0, n)
+            arr["theta_jn"] = np.radians(rng.uniform(0, 180, n))
             arr["ra"], arr["dec"] = np.radians(CP.ra_deg), np.radians(CP.dec_deg)
             h.create_group(lab).create_dataset("posterior_samples", data=arr)
     return path
@@ -112,12 +113,27 @@ def test_run_bright_siren_end_to_end(tmp_path):
     grid = pd.read_csv(tmp_path / "s.posterior.tsv", sep="\t")
     assert {"H0", "p_spectral", "p_combined"} <= set(grid.columns)
     assert (tmp_path / "plots" / "h0_bright_siren_GW170817.png").exists()
+    assert (tmp_path / "plots" / "distance_inclination_GW170817.png").exists()
+    assert "By viewing angle" in (tmp_path / "r.html").read_text()
     assert (tmp_path / "plots" / "h0_combined.png").exists()
     assert "NGC 4993" in (tmp_path / "r.html").read_text()
     with pytest.raises(ValueError, match="not in pe.h5"):
         bs.run_bright_siren(pe_file=pe, pe_labels=["C02:Nope"], out_report_html=None, out_summary_tsv=None)
     with pytest.raises(ValueError, match="unknown selection"):
         bs.run_bright_siren(pe_file=pe, selection="none", out_report_html=None, out_summary_tsv=None)
+
+
+def test_viewing_angle_and_degeneracy_table():
+    """theta_jn folded to 0-90 degrees; H0 implied by the host redshift; the table by viewing angle."""
+    v = bs.viewing_angle(dict(theta_jn=np.radians([10.0, 170.0, 90.0])))
+    assert v == pytest.approx([10.0, 10.0, 90.0])
+    assert bs.viewing_angle(dict(iota=np.radians([30.0]))) == pytest.approx([30.0])
+    assert bs.viewing_angle(dict(luminosity_distance=[1.0])) is None
+    z = 3017 / bs.C_KMS
+    assert bs.implied_h0(np.array([43.0]), z)[0] == pytest.approx(3017 / 43.0 * 1.0077, rel=0.002)
+    d = np.array([45.0, 44.0, 36.0, 23.0])
+    tab = bs.degeneracy_table(d, np.array([10.0, 20.0, 45.0, 70.0]), z)
+    assert tab["fraction"].tolist() == [0.5, 0.25, 0.25] and tab["h0_median"].is_monotonic_increasing
 
 
 def test_cli_parses_bright_siren():
