@@ -66,6 +66,7 @@ nav:
       - bright_siren: modes/bright-siren.md
       - area_law (GW250114): modes/area-law.md
       - stochastic: modes/stochastic.md
+      - neutron_star_eos: modes/neutron-star-eos.md
   - Science and methods:
       - What a GW signal measures: science/gw-signals.md
       - How the redshift is obtained: science/redshift.md

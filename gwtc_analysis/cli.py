@@ -9,6 +9,7 @@ from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFA
 from .bright_siren import COUNTERPARTS as BRIGHT_SIREN_COUNTERPARTS, run_bright_siren
 from .area_law import run_area_law
 from .stochastic import run_stochastic
+from .ns_eos import EVENTS as NS_EOS_EVENTS, run_ns_eos
 from .event_selection import run_event_selection
 from .source_classes import (MASS_GAP as SC_MASS_GAP, NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN,
                              PRESETS as SOURCE_PRESETS)
@@ -124,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis bright_siren -h\n"
             "  gwtc_analysis area_law -h\n"
             "  gwtc_analysis stochastic -h\n"
+            "  gwtc_analysis neutron_star_eos -h\n"
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
@@ -408,6 +410,34 @@ def build_parser() -> argparse.ArgumentParser:
     p_sto.add_argument("--out-summary", default="stochastic.tsv",
                        help="Output TSV of Omega_GW(25 Hz) (the spectrum goes to <name>.spectrum.tsv).")
     p_sto.add_argument("--plots-dir", default="stochastic_plots", help="Directory for the plots.")
+
+    # ---------------------------------------------------------------------
+    # neutron_star_eos
+    # ---------------------------------------------------------------------
+    p_eos = sub.add_parser(
+        "neutron_star_eos",
+        help="Constrain the neutron-star equation of state jointly from GW170817 and GW190425 (Lambda_1.4, R_1.4).",
+        description=(
+            "One equation of state for all neutron stars: the tidal deformabilities of the four stars follow\n"
+            "Lambda(m) = Lambda_1.4 (m / 1.4 M_sun)^-6 (De et al. 2018). The likelihood of Lambda_1.4 is built\n"
+            "from each event's PE samples of the measured combination Lambda~, with the PE priors on Lambda\n"
+            "divided out; the events multiply. R_1.4 from Lambda_1.4 = 2.88e-6 (R / km)^7.5 (Annala et al. 2018).\n"
+            "Published for GW170817 (common EOS, arXiv:1805.11581): Lambda_1.4 = 190 (+390 / -120).\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_eos.add_argument("--events", nargs="+", choices=list(NS_EOS_EVENTS), default=list(NS_EOS_EVENTS),
+                       help="Binary neutron stars to combine.")
+    p_eos.add_argument("--spin-prior", choices=("low", "high"), default="low",
+                       help="PE analyses with the low-spin (|chi| <= 0.05) or high-spin (|chi| <= 0.89) prior.")
+    p_eos.add_argument("--lambda-max", type=float, default=5000.0,
+                       help="Upper bound of the uniform PE priors on Lambda_1, Lambda_2.")
+    p_eos.add_argument("--cache-dir", default=".cache_gwosc", help="Cache root of the GW170817 bundle.")
+    p_eos.add_argument("--pe-cache", default=None, help="PE cache of the Zenodo files (default: that of hubble_constant).")
+    p_eos.add_argument("--out-report", default="neutron_star_eos.html", help="Output HTML report path.")
+    p_eos.add_argument("--out-summary", default="neutron_star_eos.tsv",
+                       help="Output TSV of Lambda_1.4 and R_1.4 (the posteriors go to <name>.posterior.tsv).")
+    p_eos.add_argument("--plots-dir", default="neutron_star_eos_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
     # event_selection
@@ -696,6 +726,12 @@ def main(argv=None) -> int:
             run_stochastic(args.spectral_posterior, args.rates, n_draws=args.n_draws, high_z=args.high_z,
                            z_horizon=args.z_horizon, out_report_html=args.out_report, out_summary_tsv=args.out_summary,
                            plots_dir=args.plots_dir)
+            return 0
+
+        if args.mode == "neutron_star_eos":
+            run_ns_eos(events=args.events, spin_prior=args.spin_prior, lambda_max=args.lambda_max,
+                       cache_dir=args.cache_dir, pe_cache=args.pe_cache, out_report_html=args.out_report,
+                       out_summary_tsv=args.out_summary, plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "event_selection":

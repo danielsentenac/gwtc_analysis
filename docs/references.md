@@ -290,6 +290,14 @@ was checked against the arXiv API.
 **[86]** LVK, *Upper Limits on the Isotropic Gravitational-Wave Background from Advanced LIGO's and Advanced Virgo's Third Observing Run*. [arXiv:2101.12130](https://arxiv.org/abs/2101.12130)
 {: #ref-86 }
 
+## Neutron-star equation of state
+
+**[87]** S. De et al., *Tidal Deformabilities and Radii of Neutron Stars from the Observation of GW170817*. The Λ₁ = q⁶ Λ₂ (common radius) prescription. [arXiv:1804.08583](https://arxiv.org/abs/1804.08583)
+{: #ref-87 }
+
+**[88]** E. Annala, T. Gorda, A. Kurkela and A. Vuorinen, *Gravitational-wave constraints on the neutron-star-matter Equation of State*. Λ₁.₄ = 2.88 × 10⁻⁶ (R/km)^7.5. [arXiv:1711.02644](https://arxiv.org/abs/1711.02644)
+{: #ref-88 }
+
 ## Data releases
 
 | Release | Where |
