@@ -68,6 +68,23 @@ def _skymap_sources(catalogs: list[str]) -> tuple[list[str], dict[str, set[str]]
     return sources, {p: ids for p, ids in only.items() if p not in whole}
 
 
+def _one_map_per_event(names: list, label: str) -> list:
+    """The maps to search among `names` (paths or keys): all of them for label 'any', else one per event, the
+    `label` map or the fallback of `gw_stat.choose_skymap`. A substring filter on the label would keep several
+    maps per event for 'Mixed' in GWTC-3 ('Mixed', 'Mixed:NSBH:HighSpin', ...) and none in GWTC-5.0."""
+    from .gw_stat import choose_skymap, skymap_waveform
+
+    if not label or label.lower() == "any":
+        return list(names)
+    by_event: dict[str, dict[str, Any]] = {}
+    for n in names:
+        m = re.search(r"GW\d{6}_\d{6}", str(n))
+        if m:
+            by_event.setdefault(m.group(0), {}).setdefault(skymap_waveform(str(n)), n)
+    keep = {id(choose_skymap(maps, label)[1]) for maps in by_event.values()}
+    return [n for n in names if id(n) in keep]
+
+
 def _event_selected(event_id: str, selected: set[str]) -> bool:
     """Whether a skymap event (GWYYMMDD_HHMMSS...) is one of the selected GWOSC events (full or short names)."""
     m = re.search(r"GW(\d{6})(_\d{6})?", event_id or "")
@@ -121,7 +138,6 @@ def run_search_skymaps(
     plots_path.mkdir(parents=True, exist_ok=True)
 
     wf = (skymap_label or "").strip()
-    wf_filter_on = bool(wf) and wf.lower() != "any"
 
     # -------------------------
     # Zenodo repo
@@ -261,13 +277,9 @@ def run_search_skymaps(
                 if not prefix or prefix == "/":
                     raise RuntimeError(f"Refusing to scan S3 with unsafe prefix={prefix!r} for catalog={catalog!r}")
 
-                for obj in client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True):
-                    key = obj.object_name
-                    if not (key.endswith(".fits") or key.endswith(".fits.gz")):
-                        continue
-
-                    if wf_filter_on and wf not in key:
-                        continue
+                keys = [o.object_name for o in client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True)
+                        if o.object_name.endswith((".fits", ".fits.gz"))]
+                for key in _one_map_per_event(keys, wf):
 
                     try:
                         resp = client.get_object(bucket_name=bucket, object_name=key)
@@ -365,9 +377,7 @@ def run_search_skymaps(
                 )
                 continue
 
-            for skymap_path in _iter_skymaps(base_path):
-                if wf_filter_on and wf not in skymap_path.name:
-                    continue
+            for skymap_path in _one_map_per_event(list(_iter_skymaps(base_path)), wf):
                 _process_one_skymap(
                     rows=rows,
                     catalog=catalog,
