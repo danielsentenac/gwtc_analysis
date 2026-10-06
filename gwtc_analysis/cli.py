@@ -192,6 +192,10 @@ def build_parser() -> argparse.ArgumentParser:
             "source-frame masses. <VT>: sensitive volume-time from the injections, reweighted to\n"
             "fixed population models. The injection file of --sensitivity-release is retrieved\n"
             "automatically from Zenodo (latest version of the record) and cached.\n\n"
+            "BBH mass model (--mass-model): Power Law + Peak with the GWTC-3 values by default. With\n"
+            "--population-posterior (e.g. a hubble_constant work directory), the BBH rate is computed\n"
+            "over posterior draws of the mass model and of the rate evolution, so its interval includes\n"
+            "the population uncertainty; Multi Peak (mltp) needs such a posterior.\n\n"
             "Outputs:\n"
             "  --out-rates  : TSV of rates per population\n"
             "  --out-events : TSV of the events counted\n"
@@ -221,6 +225,13 @@ def build_parser() -> argparse.ArgumentParser:
                              "mixture (O3 onward).")
     p_rate.add_argument("--snr-threshold", type=float, default=10.0,
                         help="Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1).")
+    p_rate.add_argument("--mass-model", choices=("plp", "mltp"), default="plp",
+                        help="BBH mass model: plp = Power Law + Peak (GWTC-3 values unless --population-posterior); "
+                             "mltp = Multi Peak, two peaks near 10 and 35 Msun (needs --population-posterior).")
+    p_rate.add_argument("--population-posterior", default=None,
+                        help="Samples of the BBH population: a hubble_constant work directory of the same "
+                             "--mass-model, or its posterior TSV file. The BBH rate is then computed over them.")
+    p_rate.add_argument("--n-draws", type=int, default=200, help="Posterior draws with --population-posterior.")
 
     # ---------------------------------------------------------------------
     # hubble_constant
@@ -683,6 +694,8 @@ def main(argv=None) -> int:
         if args.mode == "rates":
             if args.far_threshold <= 0 or args.ns_max_mass <= 1:
                 raise ValueError("--far-threshold must be > 0 and --ns-max-mass > 1")
+            if args.n_draws < 1:
+                raise ValueError("--n-draws must be >= 1")
             run_merger_rates(
                 out_rates_tsv=args.out_rates,
                 out_events_tsv=args.out_events,
@@ -696,6 +709,9 @@ def main(argv=None) -> int:
                 bbh_z_ref=args.bbh_z_ref,
                 catalogs=_parse_catalogs(args.catalogs) if args.catalogs else None,
                 snr_threshold=args.snr_threshold,
+                bbh_mass_model=args.mass_model,
+                population_posterior=args.population_posterior,
+                n_draws=args.n_draws,
             )
             return 0
 

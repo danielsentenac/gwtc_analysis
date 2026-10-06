@@ -9,6 +9,7 @@ import csv
 
 import h5py
 import numpy as np
+import pandas as pd
 import pytest
 from scipy.stats import gamma
 
@@ -133,12 +134,18 @@ def test_run_merger_rates_end_to_end(tmp_path, fake_gwosc):
         out_rates_tsv=tmp_path / "rates.tsv", out_events_tsv=tmp_path / "events.tsv",
         out_report_html=tmp_path / "rates.html", plots_dir=tmp_path / "plots", sensitivity_file=inj,
     )
-    assert list(rates["population"]) == ["BNS", "NSBH", "BBH", "BBH"]
-    assert list(rates["n_detected"]) == [1, 2, 1, 1]
+    assert list(rates["population"]) == ["BNS", "NSBH", "BBH", "BBH", "BBH"]
+    assert list(rates["n_detected"]) == [1, 2, 1, 1, 1]
+    # the evolving BBH rate is also given at z = 0 (same model, divided by (1 + 0.2)^2.9)
+    bbh = rates[rates["population"] == "BBH"].reset_index(drop=True)
+    assert list(bbh["z_ref"]) == [0.2, 0.0, 0.0] and bbh["model"][1].endswith("at z = 0")
+    assert bbh["rate_median"][1] == pytest.approx(bbh["rate_median"][0] / 1.2 ** 2.9)
+    from gwtc_analysis.stochastic import read_rates
+    assert read_rates(tmp_path / "rates.tsv")["BBH"][1] == pytest.approx(bbh["rate_median"][0])
     assert (rates["vt_gpc3_yr"] > 0).all()
     assert (rates["rate_05"] < rates["rate_median"]).all() and (rates["rate_median"] < rates["rate_95"]).all()
     with open(tmp_path / "rates.tsv") as f:
-        assert len(list(csv.DictReader(f, delimiter="\t"))) == 4
+        assert len(list(csv.DictReader(f, delimiter="\t"))) == 5
     assert (tmp_path / "events.tsv").exists()
     assert "data:image/png;base64" in (tmp_path / "rates.html").read_text()
 
@@ -198,3 +205,85 @@ def test_event_selection_plot(tmp_path, fake_gwosc, monkeypatch):
                            out_plot=tmp_path / "sel.png")
     assert (tmp_path / "sel.png").stat().st_size > 1000
     assert len(open(tmp_path / "sel.tsv").read().splitlines()) == 3      # header + GW230518, GW230529
+
+
+def test_multi_peak_reduces_to_power_law_peak():
+    """Multi Peak with all the peak weight in its high Gaussian is Power Law + Peak; both are normalized."""
+    rng = np.random.default_rng(3)
+    m1 = rng.uniform(3, 100, 2000)
+    m2 = m1 * rng.uniform(0.05, 1, 2000)
+    plp = cat._ln_power_law_peak(m1, m2, alpha=3.0, beta=1.5, mmin=4.0, mmax=90.0, delta=3.0,
+                                 lam=0.1, mu=33.0, sig=4.0)
+    mltp = cat._ln_multi_peak(m1, m2, alpha=3.0, beta=1.5, mmin=4.0, mmax=90.0, delta_m=3.0, lambda_g=0.1,
+                              lambda_g_low=0.0, mu_g_low=10.0, sigma_g_low=2.0, mu_g_high=33.0, sigma_g_high=4.0)
+    assert np.allclose(mltp, plp)
+    # m2 integrated on [2, m1] for each m1 (the edge m2 = m1 on the grid), then m1
+    trapz = getattr(np, "trapezoid", None) or np.trapz
+    g1, u = np.linspace(2, 150, 3000), np.linspace(0, 1, 1500)
+    G1, U = np.meshgrid(g1, u, indexing="ij")
+    G2 = 2 + (G1 - 2) * U
+    p = np.exp(cat._ln_multi_peak(G1.ravel(), G2.ravel(), alpha=3.0, beta=1.5, mmin=4.0, mmax=90.0, delta_m=3.0,
+                                  lambda_g=0.3, lambda_g_low=0.6, mu_g_low=10.0, sigma_g_low=2.0,
+                                  mu_g_high=33.0, sigma_g_high=4.0)).reshape(G1.shape)
+    assert trapz(trapz(p, u, axis=1) * (g1 - 2), g1) == pytest.approx(1.0, abs=5e-3)
+
+
+def _write_population_posterior(path, mass_model, n=40, seed=2):
+    rng = np.random.default_rng(seed)
+    cols = dict(alpha=rng.normal(3.2, 0.3, n), beta=rng.normal(1.2, 0.3, n), mmin=rng.uniform(4, 5, n),
+                mmax=rng.uniform(80, 90, n), delta_m=rng.uniform(2, 4, n),
+                gamma=rng.normal(3.0, 0.5, n), kappa=rng.uniform(2, 4, n), zp=rng.uniform(1.5, 3, n))
+    if mass_model == "plp":
+        cols.update(mu_g=rng.normal(34, 1, n), sigma_g=rng.uniform(2, 5, n), lambda_peak=rng.uniform(0.02, 0.1, n))
+    else:
+        cols.update(mu_g_low=rng.normal(10, 0.5, n), sigma_g_low=rng.uniform(1, 3, n), mu_g_high=rng.normal(34, 1, n),
+                    sigma_g_high=rng.uniform(2, 5, n), lambda_g=rng.uniform(0.2, 0.5, n),
+                    lambda_g_low=rng.uniform(0.5, 0.9, n))
+    pd.DataFrame(cols).to_csv(path, sep="\t", index=False)
+    return path
+
+
+@pytest.mark.parametrize("mass_model", ["plp", "mltp"])
+def test_run_merger_rates_population_posterior(tmp_path, fake_gwosc, mass_model):
+    """With a population posterior, the BBH rate is reported at z_ref and z = 0 over the posterior draws."""
+    inj = _write_injections(tmp_path / "inj.hdf")
+    post = _write_population_posterior(tmp_path / f"{mass_model}.tsv", mass_model)
+    rates = cat.run_merger_rates(
+        out_rates_tsv=tmp_path / "rates.tsv", out_events_tsv=None, out_report_html=tmp_path / "rates.html",
+        plots_dir=tmp_path / "plots", sensitivity_file=inj, bbh_mass_model=mass_model,
+        population_posterior=post, n_draws=20,
+    )
+    assert list(rates["population"]) == ["BNS", "NSBH", "BBH", "BBH"]
+    bbh = rates[rates["population"] == "BBH"]
+    assert list(bbh["z_ref"]) == [0.2, 0.0]
+    assert bbh["model"].str.contains("20 draws").all()
+    assert (bbh["rate_05"] < bbh["rate_median"]).all() and (bbh["rate_median"] < bbh["rate_95"]).all()
+    # the rate grows with redshift (gamma > 0 over the draws)
+    assert bbh["rate_median"].iloc[0] > bbh["rate_median"].iloc[1]
+    # the stochastic mode still finds the evolving BBH rate in the TSV
+    from gwtc_analysis.stochastic import read_rates
+    assert read_rates(tmp_path / "rates.tsv")["BBH_z_ref"] == 0.2
+    assert "population posterior" in (tmp_path / "rates.html").read_text()
+
+
+def test_run_merger_rates_mltp_needs_posterior(tmp_path):
+    with pytest.raises(ValueError, match="needs --population-posterior"):
+        cat.run_merger_rates(out_rates_tsv=tmp_path / "r.tsv", bbh_mass_model="mltp")
+
+
+def test_population_posterior_columns_checked(tmp_path):
+    post = _write_population_posterior(tmp_path / "plp.tsv", "plp")
+    with pytest.raises(ValueError, match="Multi Peak population posterior"):
+        cat._read_population_posterior(post, "mltp")
+    df, path = cat._read_population_posterior(post, "plp")
+    assert len(df) == 40 and path == post
+    work = tmp_path / "work"
+    work.mkdir()
+    _write_population_posterior(work / "posterior_reweighted.tsv", "plp")
+    assert cat._read_population_posterior(work, "plp")[1] == work / "posterior_reweighted.tsv"
+
+
+def test_cli_rates_mass_model_arguments():
+    args = build_parser().parse_args(["rates", "--mass-model", "mltp", "--population-posterior", "w", "--n-draws", "50"])
+    assert args.mass_model == "mltp" and args.population_posterior == "w" and args.n_draws == 50
+    assert build_parser().parse_args(["rates"]).mass_model == "plp"

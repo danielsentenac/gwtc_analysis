@@ -71,20 +71,90 @@ NSBH rates are upper limits (90%: 113 and 40 Gpc⁻³ yr⁻¹).
 
 ## Results
 
-| Release | Candidates | BNS | NSBH | BBH at z = 0.2 |
-|---|---|---|---|---|
-| `gwtc5` (O3–O4b, 2.59 yr) | 259 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] |
-| `gwtc4` (O3–O4a, 1.7 yr) | 155 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] |
+| Release | Candidates | BNS | NSBH | BBH at z = 0.2 | BBH at z = 0 |
+|---|---|---|---|---|---|
+| `gwtc5` (O3–O4b, 2.59 yr) | 259 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] | 15 [13, 17] |
+| `gwtc4` (O3–O4a, 1.7 yr) | 155 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] | 15 [13, 18] |
 
-Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK population papers:
+Rates in Gpc⁻³ yr⁻¹, median [90%]. Compare with the LVK population papers:
 GWTC-5.0 [\[14\]](../references.md#ref-14) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉),
 GWTC-4.0 [\[13\]](../references.md#ref-13) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and
-GWTC-3 [\[12\]](../references.md#ref-12).
+GWTC-3 [\[12\]](../references.md#ref-12). The BNS and NSBH rates fall inside the LVK intervals. The
+BBH rate with the fixed GWTC-3 Power Law + Peak sits at the low edge of the GWTC-5.0 interval, with a
+much narrower interval, and so does its value at z = 0 against the GWTC-4.0 interval: see the next
+section. The BBH rate at z = 0 is the same evolving rate, R ∝ (1+z)^κ, taken at z = 0; it is given for
+comparison with local rates. The constant-rate row is a different assumption: without evolution, the
+rate is in effect averaged over the redshifts of the detected binaries (z ≈ 0.3–0.5), hence its
+higher value (41 [37, 46] with `gwtc5`).
+
+## Population uncertainty and the Multi Peak model
+
+With fixed population shapes the intervals are Poisson only, and the BBH rate depends on the mass
+model through ⟨VT⟩: light binaries are hard to detect, so a model with more of them (the peak near
+10 M☉ found since GWTC-4.0) has a smaller ⟨VT⟩ and gives a higher rate. `--population-posterior`
+takes a posterior of the BBH mass model and of the rate evolution (γ, κ, z_p), for instance a
+`hubble_constant` work directory, and computes ⟨VT⟩ for `--n-draws` posterior samples (200 by
+default), mixing the Poisson posterior of each: the interval then includes the population uncertainty.
+`--mass-model` chooses Power Law + Peak (`plp`, default) or Multi Peak (`mltp`: the power law with two
+Gaussian peaks near 10 and 35 M☉, the model of the LVK cosmology papers); `mltp` needs a posterior.
+
+```bash
+gwtc_analysis rates --mass-model mltp --population-posterior h0_mltp_workdir            # a hubble_constant work directory
+gwtc_analysis rates --mass-model mltp --population-posterior posterior_reweighted.tsv   # or its posterior file
+```
+
+### The population posterior
+
+`--population-posterior` takes posterior samples of the BBH population: the mass-model parameters and
+the rate-evolution parameters. A `hubble_constant` run of the same `--mass-model` produces them.
+
+**What to give.** Either the `hubble_constant` work directory, in which case `posterior_reweighted.tsv` is
+read (or `posterior.tsv` if the run was not reweighted), or a TSV file directly.
+
+**Columns the file must contain**, one row per sample:
+
+| `--mass-model` | Mass-model columns | Rate-evolution columns |
+|---|---|---|
+| `plp` | `alpha beta mmin mmax delta_m mu_g sigma_g lambda_peak` | `gamma kappa zp` |
+| `mltp` | `alpha beta mmin mmax delta_m mu_g_low sigma_g_low mu_g_high sigma_g_high lambda_g lambda_g_low` | `gamma kappa zp` |
+
+These are the names `hubble_constant` writes. Other columns, such as `H0`, are ignored. A missing
+column stops the run with its name.
+
+| BBH mass model | ⟨VT⟩ (Gpc³ yr) | BBH at z = 0.2 | BBH at z = 0 |
+|---|---|---|---|
+| Power Law + Peak, GWTC-3 values, R ∝ (1+z)^2.9 | 16.7 | 25 [23, 28] | 15 [13, 17] |
+| Multi Peak, 200 posterior draws, Madau–Dickinson evolution | 14.4 | 31 [21, 51] | 17 [9, 28] |
+| LVK, GWTC-5.0 / GWTC-4.0 | | 27.5–49.4 | 14–26 |
+
+*GWTC-5.0 injections, O3 to O4b, 248 BBH candidates. The Multi Peak posterior is that of a
+spectral-siren run on the GWTC-4.0 events, with H₀ free; a posterior of the same events, with the
+cosmology fixed, would be the self-consistent choice. With the population uncertainty the BBH rate
+agrees with the LVK intervals.*
+
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--sensitivity-release` | `gwtc5` | LVK injections downloaded from Zenodo: `gwtc5` = O3 + O4a + O4b (~900 MB), `gwtc4` = O3 + O4a (~400 MB) |
+| `--sensitivity-file` | none | a local LVK search-sensitivity injection file (same format as the release files), read instead of downloading the `--sensitivity-release` file from Zenodo, which is then ignored; with `--catalogs GWTC-1` it must be the mixture that includes the semi-analytic O1+O2 injections |
+| `--catalogs` | the runs of the real-injection mixture (O3 onward) | catalog keys (GWTC-1 … GWTC-5, GWTC-4.1, or ALL): events and injections restricted to their observing runs (see [Selecting catalogs](#selecting-catalogs)) |
+| `--far-threshold` | 1 per year | events and injections below this false-alarm rate |
+| `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR (with GWTC-1) |
+| `--ns-max-mass` | 2.5 M☉ | neutron stars below it, black holes above, for the classification and the BNS and NSBH models |
+| `--mass-model` | `plp` | BBH mass model: `plp` (Power Law + Peak, GWTC-3 values unless `--population-posterior`) or `mltp` (Multi Peak, two peaks near 10 and 35 M☉; needs `--population-posterior`) |
+| `--population-posterior` | none | samples of the BBH population (a `hubble_constant` run, or a TSV file): the BBH rate is then computed over them, see [The population posterior](#the-population-posterior) |
+| `--n-draws` | 200 | posterior draws with `--population-posterior` |
+| `--bbh-kappa` | 2.9 | BBH rate evolution R ∝ (1+z)^κ, for the fixed Power Law + Peak (not used with `--population-posterior`, whose evolution is fitted) |
+| `--bbh-z-ref` | 0.2 | redshift at which the evolving BBH rate is reported (also at z = 0) |
+| `--out-rates`, `--out-events`, `--out-report` | `merger_rates.tsv`, `merger_rates_events.tsv`, `merger_rates.html` | output files (see below) |
+| `--plots-dir` | `rates_plots` | directory of the plots |
 
 ## Outputs
 
 - `--out-rates` (TSV): one row per population model, with N, ⟨VT⟩, the effective number of
-  injections and the rate quantiles;
+  injections and the rate quantiles; the evolving BBH rate appears twice, at `--bbh-z-ref` and at
+  z = 0 (the `stochastic` mode uses the first, at `--bbh-z-ref`);
 - `--out-events` (TSV): the events counted, with their class;
 - `--out-report` (HTML): the tables, and the observed and selection-corrected primary-mass
   distributions.
