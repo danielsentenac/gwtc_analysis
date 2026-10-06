@@ -83,33 +83,24 @@ def catalog_of_event(event: str) -> str | None:
     return None
 
 
-def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", s.lower())
-
-
 def member_waveform(member: str) -> str:
-    """Waveform part of a skymap file name: '...C01:IMRPhenomXPHM.fits' (GWTC-2.1/3) or
-    '...GW240615_113620-IMRPhenomXPHM_SpinTaylor_Skymap_PEDataRelease.fits.gz' (GWTC-4/5)."""
-    base = os.path.basename(member)
-    base = re.sub(r"\.fits(\.gz)?$", "", base, flags=re.I)
-    m = re.search(r"GW\d{6}_\d{6}-(.+?)_Skymap", base)
-    if m:
-        return m.group(1)
-    m = re.search(r"_C\d\d[:_](.+)$", base)           # ':' becomes '_' in the cached file name
-    return m.group(1) if m else base
+    """Waveform part of a skymap file name (see `gw_stat.skymap_waveform`)."""
+    from .gw_stat import skymap_waveform
+
+    return skymap_waveform(member)
 
 
 def select_member(members: list[str], event: str, label: str | None) -> str | None:
-    """The member of `event` for the PE `label` ('C00:IMRPhenomXPHM-SpinTaylor'); else the Mixed map, else any."""
+    """The member of `event` for the PE `label` ('C00:IMRPhenomXPHM-SpinTaylor'), else the fallback of
+    `gw_stat.choose_skymap` (Mixed, then IMRPhenomXPHM_SpinTaylor, ...)."""
+    from .gw_stat import choose_skymap
+
     mine = [n for n in members if re.search(re.escape(event) + r"(?!\d)", os.path.basename(n))]
-    if not mine:
-        return None
-    wf = label.split(":", 1)[1] if label and re.match(r"C\d\d:", label) else (label or "")
-    by_wf = {_norm(member_waveform(n)): n for n in sorted(mine)}
-    for key in (_norm(wf), "mixed"):
-        if key and key in by_wf:
-            return by_wf[key]
-    return sorted(mine)[0]
+    by_wf: dict[str, str] = {}
+    for n in sorted(mine):
+        by_wf.setdefault(member_waveform(n), n)
+    hit = choose_skymap(by_wf, label)
+    return hit[1] if hit else None
 
 
 def _tar_members(tar_path: Path) -> list[str]:
