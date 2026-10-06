@@ -559,6 +559,49 @@ def _galaxy_inputs_blob_dir() -> Path:
     job_dir = wd.parent  # .../jobs/<jobid>
     return job_dir / "inputs"
 
+# Map used for an event when the requested label has none: the Mixed map (GWTC-2.1 to GWTC-4.0), else the
+# waveform run on every event of GWTC-4.0 and GWTC-5.0 (no Mixed maps in GWTC-5.0), else the others.
+SKYMAP_FALLBACK = ("Mixed", "IMRPhenomXPHM_SpinTaylor", "IMRPhenomXPHM", "IMRPhenomXPNR", "NRSur7dq4",
+                   "SEOBNRv5PHM", "SEOBNRv4PHM")
+
+
+def skymap_waveform(name: str) -> str:
+    """Waveform label of a skymap file name: '..._PEDataRelease_cosmo_reweight_C01:IMRPhenomXPHM.fits' (GWTC-2.1,
+    GWTC-3; ':' may have become '_' in a copy) or '...-GW240615_113620-IMRPhenomXPHM_SpinTaylor_Skymap_PEDataRelease
+    .fits.gz' (GWTC-4.0 onward)."""
+    base = os.path.basename(str(name))
+    base = re.sub(r"\.fits(\.gz)?$", "", base, flags=re.I)
+    m = re.search(r"GW\d{6}_\d{6}-(.+?)_Skymap", base)
+    if m:
+        return m.group(1)
+    m = re.search(r"_C\d\d[:_](.+)$", base)
+    return m.group(1) if m else "Unknown"
+
+
+def _wf_norm(s: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(s).lower())
+
+
+def choose_skymap(by_waveform: dict, prefer: str | None = "Mixed"):
+    """(waveform, value) of the map to use among `by_waveform` {waveform: value} of one event: the `prefer` label
+    (a PE label like 'C00:IMRPhenomXPHM-SpinTaylor' is accepted; '-' and '_' are not distinguished), else the
+    first of SKYMAP_FALLBACK present, else the first by name. None if empty."""
+    if not by_waveform:
+        return None
+    norm = {_wf_norm(k): k for k in sorted(by_waveform)}
+    want = re.sub(r"^C\d\d:", "", prefer or "")
+    for cand in ((want,) if want else ()) + SKYMAP_FALLBACK:
+        k = norm.get(_wf_norm(cand))
+        if k is not None:
+            return k, by_waveform[k]
+    k = sorted(by_waveform)[0]
+    return k, by_waveform[k]
+
+
+def _event_maps(index: dict, ev_key: str) -> dict:
+    return {a: v for (e, a), v in index.items() if e == ev_key}
+
+
 def build_skymap_index_from_directory(skymap_dir: str | Path, verbose: bool = False):
     """
     Build an index from a Galaxy collection directory containing symlinks to FITS skymaps.
@@ -612,16 +655,7 @@ def build_skymap_index_from_directory(skymap_dir: str | Path, verbose: bool = Fa
             continue
         ev_key = m.group(1)
 
-        low = link_name.lower()
-        if "mixed" in low:
-            approx = "Mixed"
-        else:
-            post = link_name.split(ev_key, 1)[-1]
-            post = post.lstrip("_- .")
-            token = re.split(r"[_.\- ]+", post)[0] if post else ""
-            approx = token if token else "Unknown"
-
-        index.setdefault((ev_key, approx), p)
+        index.setdefault((ev_key, skymap_waveform(link_name)), p)
 
     if verbose:
         print(f"[gw_stat] directory index entries: {len(index)} redirected={redirected} broken_links={broken}")
@@ -635,12 +669,8 @@ def build_skymap_index_from_directory(skymap_dir: str | Path, verbose: bool = Fa
     return index
 
 def select_skymap_path(index: dict, ev_key: str, prefer: str = "Mixed") -> Path | None:
-    if (ev_key, prefer) in index:
-        return index[(ev_key, prefer)]
-    for (e, _a), p in index.items():
-        if e == ev_key:
-            return p
-    return None
+    hit = choose_skymap(_event_maps(index, ev_key), prefer)
+    return hit[1] if hit else None
 
 def add_localization_area_from_directory(
     df: pd.DataFrame,
@@ -927,26 +957,9 @@ def build_skymap_index_from_tar(
                 continue
             event_id = max(matches, key=len)  # prefer GWYYYYMM_DDHHMM over GWYYYYMM
 
-            base = os.path.basename(name)
-
-            # Strip extension for parsing
-            lbase = base.lower()
-            if lbase.endswith(".fits.gz"):
-                stem = base[:-8]   # remove ".fits.gz"
-            elif lbase.endswith(".fits"):
-                stem = base[:-5]   # remove ".fits"
-            else:
-                stem = base
-
-            parts = stem.split(":")
-
-            approximant = "Unknown"
-            if len(parts) >= 3:
-                approximant = f"{parts[-2]}:{parts[-1]}"
-            elif len(parts) == 2:
-                approximant = parts[-1]
-
-            key = (event_id, approximant)
+            # the GWTC-4.0/5.0 names have no ':' — before, all their maps fell under one 'Unknown' key and
+            # the first in the archive was kept, whatever its waveform
+            key = (event_id, skymap_waveform(name))
 
             if key in index:
                 if verbose:
@@ -978,27 +991,12 @@ def select_skymap_member(
 ):
     """
     Select one skymap tar member for an event from an index keyed by
-    (event_id, approximant).
-
-    Preference order:
-    1) Exact match on preferred approximant
-    2) Any available approximant for the event
-
-    Returns
-    -------
-    member : str or None
+    (event_id, approximant): the `prefer` label, else the first of
+    SKYMAP_FALLBACK present (Mixed, IMRPhenomXPHM_SpinTaylor, ...), else
+    the first by name (see `choose_skymap`). None if the event has none.
     """
-    # Preferred approximant
-    key = (event_id, prefer)
-    if key in index:
-        return index[key]
-
-    # Fallback: first available approximant
-    for (ev, _approx), member in index.items():
-        if ev == event_id:
-            return member
-
-    return None
+    hit = choose_skymap(_event_maps(index, event_id), prefer)
+    return hit[1] if hit else None
 
 from minio import Minio
 
