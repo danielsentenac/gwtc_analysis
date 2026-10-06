@@ -8,8 +8,10 @@ reads its sky localization (HEALPix FITS skymap) and tests whether the position 
 gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.9
 ```
 
-- `--skymap-label` chooses the analysis whose skymap is used (`Mixed`, the combined samples, by
-  default).
+- `--skymap-label` chooses the analysis whose skymap is used, one map per event: `Mixed`, the combined
+  samples, by default. An event without a map for that label falls back to `Mixed`, then to
+  `IMRPhenomXPHM_SpinTaylor`: GWTC-5.0 has no `Mixed` maps, so its events use the IMRPhenomXPHM-SpinTaylor
+  map, the only waveform run on all of them. `any` searches every map of every event.
 - GWTC-1 events are covered by the GWTC-2.1 skymap release; `ALL` expands to GWTC-2.1, GWTC-3,
   GWTC-4 and GWTC-5.
 - Skymaps come from `--data-repo`: the Zenodo tarballs (a given version with `--zenodo-version`), the

@@ -40,3 +40,13 @@ def test_skymap_waveform_and_choice():
     assert choose_skymap(maps, "Mixed") == ("Mixed", 2)
     assert choose_skymap({"IMRPhenomXAS:HighSpin": 1, "IMRPhenomNSBH:LowSpin": 2}, "Mixed") == ("IMRPhenomNSBH:LowSpin", 2)
 
+
+def test_one_map_per_event():
+    from gwtc_analysis.search_skymaps import _one_map_per_event
+
+    g3 = "IGWN-GWTC3p0-v3-GW200115_042309_PEDataRelease_mixed_cosmo_reweight_C01:{}.fits"
+    g5 = "GWTC-5/IGWN-GWTC5p0-29ebe06b7_25-GW240615_113620-{}_Skymap_PEDataRelease.fits.gz"
+    names = [g3.format(w) for w in ("Mixed:NSBH:HighSpin", "Mixed", "IMRPhenomNSBH:LowSpin")] + \
+            [g5.format(w) for w in ("SEOBNRv5PHM", "IMRPhenomXPHM_SpinTaylor")]
+    assert _one_map_per_event(names, "Mixed") == [g3.format("Mixed"), g5.format("IMRPhenomXPHM_SpinTaylor")]
+    assert _one_map_per_event(names, "any") == names

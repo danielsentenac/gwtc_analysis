@@ -187,7 +187,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--ra-deg` | `` | Right ascension (deg). |
 | `--dec-deg` | `` | Declination (deg). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
-| `--skymap-label` | `Mixed` | Label selector used to filter skymap (default: Mixed). |
+| `--skymap-label` | `Mixed` | Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed then IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case). 'any': every map of every event. |
 | `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
