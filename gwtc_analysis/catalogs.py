@@ -1047,6 +1047,23 @@ def _ln_powerlaw(x: np.ndarray, alpha: float, lo: float, hi: float) -> np.ndarra
 def _ln_power_law_peak(m1: np.ndarray, m2: np.ndarray, *, alpha=3.4, mmin=5.1, mmax=87.0, lam=0.04,
                        mu=34.0, sig=3.6, beta=1.1, delta=4.8) -> np.ndarray:
     """GWTC-3 'Power Law + Peak' BBH mass model with low-mass smoothing, normalized numerically."""
+    return _ln_power_law_peaks(m1, m2, alpha=alpha, beta=beta, mmin=mmin, mmax=mmax, delta=delta,
+                               peaks=((lam, mu, sig),))
+
+
+def _ln_multi_peak(m1: np.ndarray, m2: np.ndarray, *, alpha, beta, mmin, mmax, delta_m, mu_g_low, sigma_g_low,
+                   mu_g_high, sigma_g_high, lambda_g, lambda_g_low, **_) -> np.ndarray:
+    """'Multi Peak' (MLTP) BBH mass model of the LVK cosmology papers: the power law with two Gaussian peaks,
+    a fraction lambda_g of the primaries in the peaks and lambda_g_low of those in the low one (icarogw names)."""
+    return _ln_power_law_peaks(m1, m2, alpha=alpha, beta=beta, mmin=mmin, mmax=mmax, delta=delta_m,
+                               peaks=((lambda_g * lambda_g_low, mu_g_low, sigma_g_low),
+                                      (lambda_g * (1 - lambda_g_low), mu_g_high, sigma_g_high)))
+
+
+def _ln_power_law_peaks(m1: np.ndarray, m2: np.ndarray, *, alpha, beta, mmin, mmax, delta,
+                        peaks: tuple[tuple[float, float, float], ...]) -> np.ndarray:
+    """ln p(m1, m2): m1 a power law on [mmin, mmax] plus Gaussian peaks (weight, mean, width), m2 ~ m2^beta
+    on [mmin, m1], both with the low-mass smoothing over delta; normalized numerically."""
     trapz = getattr(np, "trapezoid", None) or np.trapz
 
     def smooth(m):
@@ -1064,8 +1081,10 @@ def _ln_power_law_peak(m1: np.ndarray, m2: np.ndarray, *, alpha=3.4, mmin=5.1, m
 
     def shape1(m):
         pl = np.where((m >= mmin) & (m <= mmax), np.maximum(m, 1e-12) ** -alpha, 0.0) / pl_norm
-        peak = np.exp(-0.5 * ((m - mu) / sig) ** 2) / (sig * np.sqrt(2 * np.pi))
-        return ((1 - lam) * pl + lam * peak) * smooth(m)
+        out = (1 - sum(w for w, _, _ in peaks)) * pl
+        for w, mu, sig in peaks:
+            out = out + w * np.exp(-0.5 * ((m - mu) / sig) ** 2) / (sig * np.sqrt(2 * np.pi))
+        return out * smooth(m)
 
     norm1 = trapz(shape1(g), g)
     q = g ** beta * smooth(g)
@@ -1092,6 +1111,68 @@ def _rate_quantiles(n: int, vt: float, levels=(0.05, 0.5, 0.95)) -> np.ndarray:
     from scipy.stats import gamma
 
     return gamma.ppf(np.asarray(levels), n + 0.5) / vt
+
+
+# BBH mass models of the rates mode: the population parameters (icarogw names, as in the posterior tables of
+# hubble_constant) and ln p(m1, m2) for one set of them
+BBH_MASS_MODELS = {
+    "plp": dict(name="Power Law + Peak",
+                params=("alpha", "beta", "mmin", "mmax", "delta_m", "mu_g", "sigma_g", "lambda_peak"),
+                ln=lambda m1, m2, p: _ln_power_law_peak(m1, m2, alpha=p["alpha"], beta=p["beta"], mmin=p["mmin"],
+                                                        mmax=p["mmax"], delta=p["delta_m"], mu=p["mu_g"],
+                                                        sig=p["sigma_g"], lam=p["lambda_peak"])),
+    "mltp": dict(name="Multi Peak",
+                 params=("alpha", "beta", "mmin", "mmax", "delta_m", "mu_g_low", "sigma_g_low", "mu_g_high",
+                         "sigma_g_high", "lambda_g", "lambda_g_low"),
+                 ln=lambda m1, m2, p: _ln_multi_peak(m1, m2, **p)),
+}
+RATE_EVOLUTION_PARAMS = ("gamma", "kappa", "zp")
+
+
+def _read_population_posterior(path: str | Path, mass_model: str) -> tuple[pd.DataFrame, Path]:
+    """Population posterior samples of `mass_model` plus the rate evolution (gamma, kappa, zp): a TSV, or a
+    hubble_constant work directory (its posterior_reweighted.tsv or posterior.tsv)."""
+    src = Path(path).expanduser()
+    tsv = src
+    if src.is_dir():
+        tsv = next((src / n for n in ("posterior_reweighted.tsv", "posterior.tsv") if (src / n).exists()), None)
+        if tsv is None:
+            raise ValueError(f"no posterior_reweighted.tsv or posterior.tsv in {path}")
+    post = pd.read_csv(tsv, sep="\t")
+    need = set(BBH_MASS_MODELS[mass_model]["params"]) | set(RATE_EVOLUTION_PARAMS)
+    if not need <= set(post.columns):
+        raise ValueError(f"{tsv} lacks {sorted(need - set(post.columns))}: a {BBH_MASS_MODELS[mass_model]['name']} "
+                         f"population posterior (e.g. hubble_constant --mass-model {mass_model}) is needed")
+    return post, tsv
+
+
+def _bbh_rate_over_posterior(inj: dict, n: int, mass_model: str, post: pd.DataFrame, n_draws: int,
+                             z_ref: float, seed: int = 1, n_gamma: int = 50) -> dict:
+    """BBH rate with the population uncertainty: <VT> for each of n_draws posterior samples (mass model and
+    Madau-Dickinson rate evolution), mixed with the Poisson posterior Gamma(n + 1/2) / VT of each.
+    Returns the 5/50/95 % quantiles of R(z_ref) and R(0), the median <VT> and the smallest effective sample size."""
+    from scipy.stats import gamma
+    from .rate_evolution import md_shape
+
+    rng = np.random.default_rng(seed)
+    rows = post.iloc[rng.choice(len(post), size=min(n_draws, len(post)), replace=False)]
+    keys = BBH_MASS_MODELS[mass_model]["params"]
+    ln_mass_of = BBH_MASS_MODELS[mass_model]["ln"]
+    m1, m2, z = inj["mass1_source"], inj["mass2_source"], inj["redshift"]
+    r0, rz, vts, neffs = [], [], [], []
+    for _, row in rows.iterrows():
+        p = {k: float(row[k]) for k in keys}
+        g, k, zp = (float(row[x]) for x in RATE_EVOLUTION_PARAMS)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            lnp = ln_mass_of(m1, m2, p) + np.log(md_shape(z, g, k, zp)[0])
+        vt, neff = _sensitive_vt(inj, lnp, 0.99, 0.99, kappa=0.0)       # the evolution is inside lnp
+        draws = gamma.rvs(n + 0.5, size=n_gamma, random_state=rng) / vt
+        r0.append(draws)
+        rz.append(draws * float(md_shape(z_ref, g, k, zp)[0, 0]))
+        vts.append(vt)
+        neffs.append(neff)
+    q = lambda a: np.percentile(np.concatenate(a), [5, 50, 95])
+    return dict(r_ref=q(rz), r0=q(r0), vt=float(np.median(vts)), neff=float(min(neffs)), n_draws=len(rows))
 
 
 def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_max_mass: float,
@@ -1205,6 +1286,10 @@ def run_merger_rates(
     bbh_z_ref: float = 0.2,
     catalogs: Optional[list[str]] = None,
     snr_threshold: float = 10.0,
+    bbh_mass_model: str = "plp",
+    population_posterior: Optional[str | Path] = None,
+    n_draws: int = 200,
+    seed: int = 1,
 ) -> pd.DataFrame:
     """Merger rates per population, R = N / <VT>, from catalog events and LVK injections.
 
@@ -1216,8 +1301,21 @@ def run_merger_rates(
     NSBH with the BH mass ~ m^-2.35 on [ns_max_mass, 40] and the NS uniform in
     [1, ns_max_mass]; BBH with the GWTC-3 Power Law + Peak model, reported
     without redshift evolution and with R ∝ (1+z)^bbh_kappa at z = bbh_z_ref.
+
+    With `population_posterior` (samples of the `bbh_mass_model` parameters and of the rate evolution gamma,
+    kappa, zp, e.g. from hubble_constant), the BBH rate is computed over `n_draws` posterior samples instead,
+    so its interval includes the population uncertainty; it is reported at z = bbh_z_ref and at z = 0.
+    `bbh_mass_model` "plp" (Power Law + Peak) or "mltp" (Multi Peak); "mltp" needs a posterior.
     Returns the rates table (also written to `out_rates_tsv`).
     """
+    if bbh_mass_model not in BBH_MASS_MODELS:
+        raise ValueError(f"Unknown BBH mass model {bbh_mass_model!r}; choose from {', '.join(BBH_MASS_MODELS)}")
+    if bbh_mass_model != "plp" and population_posterior is None:
+        raise ValueError(f"--mass-model {bbh_mass_model} needs --population-posterior (its parameters are not "
+                         "fixed in the package): e.g. a hubble_constant --mass-model mltp work directory")
+    post = post_path = None
+    if population_posterior is not None:
+        post, post_path = _read_population_posterior(population_posterior, bbh_mass_model)
     runs = catalog_runs(catalogs) if catalogs else None
     if runs and not sensitivity_file:
         missing = [r for r in runs if r not in RELEASE_RUNS[sensitivity_release]]
@@ -1242,18 +1340,31 @@ def run_merger_rates(
         nsbh = _ln_powerlaw(m1, 2.35, ns, 40.0) + _ln_uniform(m2, 1.0, ns)
         bbh = _ln_power_law_peak(m1, m2)
 
-    rows = []
-    for pop, ln_mass, amax1, amax2, kappa, zref, model in (
+    fixed = [
         ("BNS", bns, 0.4, 0.4, 0.0, 0.0, f"m1, m2 uniform in [1, {ns:g}] Msun; |spin| < 0.4; constant rate"),
         ("NSBH", nsbh, 0.99, 0.4, 0.0, 0.0, f"m_BH ~ m^-2.35 on [{ns:g}, 40], m_NS uniform in [1, {ns:g}]; constant rate"),
-        ("BBH", bbh, 0.99, 0.99, bbh_kappa, bbh_z_ref, f"Power Law + Peak (GWTC-3); R ∝ (1+z)^{bbh_kappa:g}"),
-        ("BBH", bbh, 0.99, 0.99, 0.0, 0.0, "Power Law + Peak (GWTC-3); constant rate"),
-    ):
+    ]
+    if post is None:
+        evolving = f"Power Law + Peak (GWTC-3); R ∝ (1+z)^{bbh_kappa:g}"
+        fixed.append(("BBH", bbh, 0.99, 0.99, bbh_kappa, bbh_z_ref, evolving))
+        if bbh_z_ref != 0:   # the same evolving rate at z = 0, for comparison with local rates (display only)
+            fixed.append(("BBH", bbh, 0.99, 0.99, bbh_kappa, 0.0, evolving + ", at z = 0"))
+        fixed.append(("BBH", bbh, 0.99, 0.99, 0.0, 0.0, "Power Law + Peak (GWTC-3); constant rate"))
+    rows = []
+    for pop, ln_mass, amax1, amax2, kappa, zref, model in fixed:
         n = int(counts.get(pop, 0))
         vt, neff = _sensitive_vt(inj, ln_mass, amax1, amax2, kappa)
         lo, med, hi = _rate_quantiles(n, vt) * (1.0 + zref) ** kappa
         rows.append(dict(population=pop, model=model, z_ref=zref, n_detected=n, vt_gpc3_yr=vt, n_eff=neff,
                          rate_median=med, rate_05=lo, rate_95=hi))
+    if post is not None:
+        n = int(counts.get("BBH", 0))
+        res = _bbh_rate_over_posterior(inj, n, bbh_mass_model, post, n_draws, bbh_z_ref, seed=seed)
+        model = (f"{BBH_MASS_MODELS[bbh_mass_model]['name']}, {res['n_draws']} draws of {post_path.name}; "
+                 "Madau-Dickinson evolution (gamma, kappa, zp)")
+        for zref, (lo, med, hi) in ((bbh_z_ref, res["r_ref"]), (0.0, res["r0"])):
+            rows.append(dict(population="BBH", model=model, z_ref=zref, n_detected=n, vt_gpc3_yr=res["vt"],
+                             n_eff=res["neff"], rate_median=med, rate_05=lo, rate_95=hi))
     rates = pd.DataFrame(rows)
 
     Path(out_rates_tsv).parent.mkdir(parents=True, exist_ok=True)
@@ -1287,7 +1398,12 @@ def run_merger_rates(
             f"Events are classified by their median source-frame masses (NS below {ns:g} Msun); "
             f"{n_unknown} candidate(s) without masses are left out.",
             "Intervals are 90% Poisson (Jeffreys prior) for fixed population shapes; the full LVK analyses fit "
-            "the shapes together with the rates, so their intervals are wider and model-dependent.",
+            "the shapes together with the rates, so their intervals are wider and model-dependent."
+            + ("" if post is None else
+               f" The BBH rate is instead computed over {n_draws} draws of the "
+               f"{BBH_MASS_MODELS[bbh_mass_model]['name']} population posterior {post_path.name} (mass model and "
+               "rate evolution), so its interval includes the population uncertainty; that posterior should come "
+               "from the same events for the result to be self-consistent."),
         ]
         tables = [("Merger rates", show.to_html(index=False, escape=True, float_format=lambda x: f"{x:.4g}")),
                   ("Events used", events.to_html(index=False, escape=True))]

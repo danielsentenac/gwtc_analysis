@@ -224,6 +224,9 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--bbh-z-ref` | `0.2` | Redshift at which the evolving BBH rate is reported. |
 | `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5, or ALL): events and injections are restricted to their observing runs (GWTC-1: O1-O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-4.1: O4a, GWTC-5: O4b). Default: the runs of the real-injection mixture (O3 onward). |
 | `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1). |
+| `--mass-model` | `plp` | BBH mass model: plp = Power Law + Peak (GWTC-3 values unless --population-posterior); mltp = Multi Peak, two peaks near 10 and 35 Msun (needs --population-posterior). |
+| `--population-posterior` | `` | Samples of the BBH population: a hubble_constant work directory of the same --mass-model, or its posterior TSV file. The BBH rate is then computed over them. |
+| `--n-draws` | `200` | Posterior draws with --population-posterior. |
 
 ### `hubble_constant`
 
