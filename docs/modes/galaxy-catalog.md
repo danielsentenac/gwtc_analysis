@@ -1,16 +1,52 @@
 # galaxy_catalog
 
-The **galaxy catalog of the dark-siren analysis**: galaxies turned into the line-of-sight redshift prior that
+The **galaxy catalog of a dark siren**: galaxies turned into the line-of-sight redshift prior that
 [`hubble_constant --galaxy-catalog`](hubble-constant.md#dark-sirens-with-a-galaxy-catalog) uses, with the
 pixelated catalog pipeline of [icarogw](https://github.com/icarogw-developers/icarogw)
 [\[57\]](../references.md#ref-57) (the functions reviewed for the LVK analyses).
 
-```bash
-# GLADE+ K band, the GWTC-4.0 setup, 4 parallel chunks on this machine
-gwtc_analysis galaxy_catalog --workdir glade_k --jobs 4 --icarogw-python ~/.conda/envs/icarogw/bin/python
+This mode is the first of the two steps of a dark siren:
 
+```
+1. galaxy_catalog   galaxies → catalog_<band>_nside<N>_eps<ε>.hdf5      (once per catalog, any machine or cluster)
+2. hubble_constant  --galaxy-catalog <that file>: prepare, sample, ...  (once per event set and mass model)
+```
+
+The catalog does not depend on the events or on the mass model: one catalog serves every `hubble_constant` work
+directory. Its defaults are the GLADE+ K-band catalog of the GWTC-4.0 analysis [\[29\]](../references.md#ref-29),
+which reproduces the published dark siren
+([validation](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)).
+
+## Quick start
+
+**GLADE+ K band on one machine** (about an hour on 4 CPUs, 4 GB of catalog file):
+
+```bash
+gwtc_analysis galaxy_catalog --workdir glade_k --jobs 4 --icarogw-python ~/.conda/envs/icarogw/bin/python
 # then the dark siren
-gwtc_analysis hubble_constant --workdir h0_dark_plp --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5 ...
+gwtc_analysis hubble_constant --workdir h0_dark_plp --stages prepare \
+    --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5
+gwtc_analysis hubble_constant --workdir h0_dark_plp --stages sample combine reweight report \
+    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --npool 4
+```
+
+**On a Slurm cluster**: download the galaxies, then the icarogw stages as batch jobs (about 45 min on CC-IN2P3):
+
+```bash
+gwtc_analysis galaxy_catalog --workdir /sps/.../glade_k --stages galaxies
+gwtc_analysis galaxy_catalog --workdir /sps/.../glade_k --stages shard pixels gather prepare init interpolate finish summary \
+    --executor slurm --jobs 32 --icarogw-python /sps/.../venv/bin/python \
+    --slurm-option=--partition=htc --slurm-option=--licenses=sps --slurm-option=--mem=4G \
+    --slurm-option=--cpus-per-task=1 --slurm-option=--time=06:00:00 --slurm-assembly-option=--mem=16G --submit
+gwtc_analysis galaxy_catalog --workdir /sps/.../glade_k --stages report        # when the jobs have finished
+```
+
+**Another catalog** (DES, Rubin, …): give the file and map its columns ([details](#deeper-catalogs-and-clusters)):
+
+```bash
+gwtc_analysis galaxy_catalog --workdir des_r --input-catalog des_y6_gold/ --band r-upglade \
+    --columns ra=RA dec=DEC z=DNF_Z sigmaz=DNF_ZSIGMA m=SOF_CM_MAG_CORRECTED_R \
+    --where "EXT_XGB == 3 and SOF_CM_MAG_CORRECTED_R < 23.9" --nside 128 --nside-mthr 128 --zmin 0.05 --zcut 0.35 ...
 ```
 
 ## What the catalog is
@@ -19,80 +55,113 @@ For each event, the dark siren needs the redshift prior along every line of sigh
 [\[29\]](../references.md#ref-29) [\[26\]](../references.md#ref-26):
 
 - the **in-catalog** part, the galaxies of the pixel brighter than its apparent-magnitude threshold, each a
-  redshift likelihood (Gaussian, from its redshift and uncertainty) weighted by its luminosity to the power ε;
+  redshift probability (from its redshift and uncertainty) weighted by its luminosity to the power ε;
 - the **out-of-catalog** part, the galaxies missed because they are fainter than the threshold, from the
   Schechter luminosity function of the band, uniform in comoving volume.
 
-The likelihood evaluates both at every PE sample (pixel, redshift). This mode precomputes the in-catalog part as
-an interpolant in redshift for every HEALPix pixel, and the threshold map that sets the out-of-catalog part.
+The likelihood evaluates both at every PE sample (sky pixel, redshift). This mode precomputes the in-catalog part
+as an interpolant in redshift for every HEALPix pixel, and the threshold map that sets the out-of-catalog part.
 
-## Defaults: the GWTC-4.0 analysis
+## Options
 
-| Setting | Option | Default | Source |
+Every option once, grouped by the question it answers. The column "GWTC-4.0" says where the default comes from:
+**paper** = given in the paper, **open** = not given there (our choice, which can be changed).
+
+### Which galaxies
+
+| Option | Default | GWTC-4.0 | Meaning |
 |---|---|---|---|
-| galaxies | `--source glade-kband` | GLADE+ with a Ks magnitude | [\[91\]](../references.md#ref-91), [\[29\]](../references.md#ref-29) §3.2 |
-| GLADE+ selection | `--glade-types`, `--glade-redshift`, `--glade-sigmaz`, `--sigmaz`, `--where` | galaxies (G), `zcmb`, measurement and peculiar-velocity errors in quadrature | entries: [\[29\]](../references.md#ref-29) §3.2 (checked below); errors: not given in the paper |
-| band | `--band` | `K-glade+`: M* = −23.39, α = −1.09, M from −27 to −19 | [\[92\]](../references.md#ref-92), [\[29\]](../references.md#ref-29) §3.2 |
-| catalog pixels | `--nside` | 64 | [\[29\]](../references.md#ref-29) §3.2 |
-| threshold | `--nside-mthr`, `--mthr-percentile` | median magnitude in nside-32 pixels | [\[29\]](../references.md#ref-29) §2.2 |
-| luminosity weight | `--epsilon` | 1 (ε = 0: every galaxy equally likely) | [\[29\]](../references.md#ref-29) §2.2 |
-| galaxy redshift probability | `--ptype`, `--numsigma` | `gaussian`: Gaussian likelihood × uniform-in-comoving-volume prior, ±3σ | [\[29\]](../references.md#ref-29) §2.2 tests it and `gaussian_nocom` ("negligible differences") without saying which is the main result |
-| redshift grid | `--nintegration`, `--zmin`, `--zcut` | logarithmic, 5000 points from z = 10⁻⁴ to 0.5 (step 0.17%); in-catalog part from z = 0 to 0.5 | icarogw's fixed-grid path (not given in the paper) |
+| `--source` | `glade-kband` | paper | GLADE+ galaxies with a Ks magnitude, downloaded from VizieR (VII/291) |
+| `--glade-types` | `G` | paper ([checked](#glade-k-band)) | GLADE+ object types: `G` galaxies, `G,Q` with the quasars |
+| `--glade-redshift` | `zcmb` | paper | `zcmb` (CMB frame, peculiar velocities corrected below z = 0.05) or `zhelio` (heliocentric) |
+| `--glade-sigmaz` | `quadrature` | open | redshift error: measurement and peculiar-velocity errors in quadrature, `measurement` (`e_zhelio`) or `peculiar` (`e_z`) |
+| `--sigmaz`, `--sigmaz-relative` | none | open | a constant redshift error instead (per 1 + z with `--sigmaz-relative`); also for a catalog without an error column |
+| `--where` | none | — | a cut, as a pandas query on the columns: GLADE+ VizieR columns (`RAJ2000`, `DEJ2000`, `Kmag`, `zhelio`, `zcmb`, `f_zcmb`, `e_z`, `e_zhelio`), or those of `--input-catalog` |
+| `--input-catalog` | none | — | another catalog: Parquet (file or HATS/LSDB tree), FITS, HDF5 or CSV, read in chunks |
+| `--columns` | — | — | with `--input-catalog`: `ra=… dec=… z=… m=… [sigmaz=…]` |
+| `--band` | `K-glade+` | paper | the icarogw band of the magnitude, which sets the Schechter function (K-glade+: M* = −23.39, α = −1.09, M from −27 to −19 [\[92\]](../references.md#ref-92)) |
+| `--input-format`, `--angle-unit` | from the name, `deg` | — | format of `--input-catalog`, unit of its angles |
+| `--galaxies` | none | — | a standard galaxy file already made (skips the `galaxies` stage) |
 
-**GLADE+ K band.** The galaxies of GLADE+ with a Ks magnitude (2MASS, Vega), downloaded from VizieR VII/291 in
-declination bands (each cached, so an interrupted download resumes): 1,004,455 galaxies with a redshift and its
-uncertainty (median z = 0.082, median σ_z = 0.015, median Ks = 13.5), as in the GWTC-5.0 analysis (9.9 × 10⁵
-after cuts). The redshift is `zcmb`, corrected for peculiar velocities below z = 0.05; its uncertainty adds the
-measurement error (2MPZ photometric for most) and the peculiar-velocity error in quadrature. Quasars (`Type` Q)
-are left out.
+The galaxy file records its selection: changing it needs another work directory (the stage refuses to reuse a file
+made with another selection).
+
+### Completeness and weights
+
+| Option | Default | GWTC-4.0 | Meaning |
+|---|---|---|---|
+| `--nside` | 64 | paper | HEALPix resolution of the catalog (0.84 deg² pixels) |
+| `--nside-mthr` | 32 | paper | resolution of the apparent-magnitude threshold map (3.35 deg² pixels) |
+| `--mthr-percentile` | 50 | paper | the threshold of a pixel: this percentile of its galaxies' magnitudes (the median) |
+| `--epsilon` | 1 | paper | luminosity weight L^ε of the galaxies (0: every galaxy equally likely) |
+
+### Redshift prior
+
+| Option | Default | GWTC-4.0 | Meaning |
+|---|---|---|---|
+| `--ptype` | `gaussian` | open (the paper tests both Gaussian forms: "negligible differences") | each galaxy's redshift probability: `gaussian` = Gaussian likelihood × uniform-in-comoving-volume prior; `gaussian_nocom` = the Gaussian itself; `uniform` = uniform in volume within ±`--numsigma` σ |
+| `--numsigma` | 3 | open | width of each galaxy's redshift probability, in σ |
+| `--zmin`, `--zcut` | 0, 0.5 | paper (from 0), open (0.5) | redshift range of the in-catalog term. Galaxies below `--zmin` are left out; outside the range every galaxy counts as missed (completeness correction alone). `--zmin` needs a logarithmic grid, which then starts at it |
+| `--nintegration` | `logspace:0.0001:5000` | open | the redshift grid: `logspace:ZMIN:N`, one logarithmic grid up to `--zcut` (5000 points: a step of 0.17%); an integer, icarogw's adaptive grid ([why not by default](#deeper-catalogs-and-clusters)) |
+
+The published dark siren is compared in the `hubble_constant` report only when the catalog has all the settings
+marked **paper**; the **open** ones do not prevent it.
+
+### Execution
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--workdir` | `galaxy_catalog_run` | the work directory (restartable: finished stages and chunks are skipped) |
+| `--stages` | all | stages to run ([below](#stages)) |
+| `--jobs` | 4 | chunks of the parallel stages: processes on this machine, or array tasks on Slurm |
+| `--icarogw-python` | the current interpreter | Python of the icarogw environment, which runs the icarogw stages |
+| `--executor` | `local` | `local` or `slurm`: one batch script per stage, chained by dependencies |
+| `--slurm-option` | none | an `#SBATCH` option of every job, repeatable |
+| `--slurm-assembly-option` | none | an `#SBATCH` option of the jobs that hold the whole catalog (`init`, `finish`, `summary`), typically more memory |
+| `--slurm-env-setup`, `--submit` | none, no | shell lines run first in each job; submit at once |
+| `--nshards` | 1024 | files of the first pixelation pass (by pixel range) |
+| `--out-report` | `galaxy_catalog.html` | the HTML report |
+| `--settings` | none | a file of option values ([below](#settings-file)) |
+
+Changing any catalog setting needs another work directory: the mode refuses to continue a catalog built with other
+settings.
+
+### Settings file
+
+`--settings FILE` reads option values from a JSON file (or YAML, with PyYAML), the keys being the long option names;
+options given on the command line override it. The resolved options of each invocation are written to
+`<workdir>/options_galaxy_catalog.json`.
+
+```json
+{"glade-sigmaz": "measurement", "ptype": "gaussian_nocom", "jobs": 32, "executor": "slurm",
+ "icarogw-python": "/sps/.../venv/bin/python",
+ "slurm-option": ["--partition=htc", "--mem=4G", "--cpus-per-task=1", "--time=06:00:00", "--licenses=sps"]}
+```
+
+```bash
+gwtc_analysis galaxy_catalog --workdir glade_k_nocom --settings glade_nocom.json --submit
+```
+
+All options with their help text: [CLI reference](../cli-reference.md#galaxy_catalog).
+
+## GLADE+ K band
+
+The galaxies of GLADE+ with a Ks magnitude (2MASS, Vega), downloaded from VizieR VII/291 in declination bands
+(each cached, so an interrupted download resumes): 1,004,455 galaxies with a redshift and its uncertainty
+(median z = 0.082, median σ_z = 0.015, median Ks = 13.5).
+
+**The selection of the paper.** GLADE+ has 1,155,738 entries with a Ks magnitude, the "approximately 1.16 million
+sources" of the paper; 133,158 of them have no redshift (mostly faint, median Ks = 14.1) and 18,106 are quasars
+(median z = 0.76), which leaves the 1,004,455 galaxies. The threshold map shows the paper made the same choice:
+with the galaxies that have a redshift, 4.3% of the nside-32 pixels are empty, as the paper's "~5%"; with every Ks
+entry only 1.5% would be. The thresholds of 20, 40, 60 and 80% of the sky, 13.37, 13.47, 13.54 and 13.63, agree
+with the labels of its Figure 3 (13.3, 13.5, 13.6, 13.7) to their rounding.
 
 **Validated.** With this catalog, the GWTC-4.0 dark siren (Power Law + Peak, 137 BBH) gives H₀ = 120.7
 (+39.9 / −37.6) km/s/Mpc against 115.4 (+40.1 / −33.8) in the GWTC-4.0 release, 0.14σ apart
 ([hubble_constant](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)). Built on CC-IN2P3 in about
 45 min: 505,575 galaxies enter the in-catalog term, 94% of the sky has a threshold, median threshold Ks = 13.5;
 luminosity-weighted completeness 0.71 at z = 0.04, 0.25 at 0.08, 0.04 at 0.13.
-
-**The selection of the paper.** GLADE+ has 1,155,738 entries with a Ks magnitude, the "approximately 1.16 million
-sources" of the paper; 133,158 of them have no redshift (mostly faint, median Ks = 14.1) and 18,106 are quasars
-(median z = 0.76), which leaves the 1,004,455 galaxies above. The threshold map shows the paper made the same
-choice: with the galaxies that have a redshift, 4.3% of the nside-32 pixels are empty, as the paper's "~5%";
-with every Ks entry only 1.5% would be. The thresholds of 20, 40, 60 and 80% of the sky, 13.37, 13.47, 13.54 and
-13.63, agree with the labels of its Figure 3 (13.3, 13.5, 13.6, 13.7) to their rounding.
-
-## Settings the paper leaves open
-
-The GWTC-4.0 paper gives the catalog, the band, the pixels, the threshold and the luminosity weight, but not the
-redshift error of each galaxy, the form of its redshift probability, the redshift grid, nor the Monte Carlo settings
-of the likelihood ([hubble_constant](hubble-constant.md#likelihood-thresholds) `--pe-samples`, `--neff-pe`,
-`--neff-inj`). They can all be set:
-
-| Option | Values |
-|---|---|
-| `--glade-types` | `G` (default), `G,Q` (with the quasars) |
-| `--glade-redshift` | `zcmb` (default; CMB frame, peculiar velocities corrected below z = 0.05), `zhelio` (heliocentric) |
-| `--glade-sigmaz` | `quadrature` (default), `measurement` (`e_zhelio`), `peculiar` (`e_z`); or a constant with `--sigmaz` (per 1 + z with `--sigmaz-relative`) |
-| `--where` | a cut on the GLADE+ VizieR columns, e.g. `"f_zcmb == 1"` or `"Kmag < 13.5"` |
-| `--ptype` | `gaussian` (default), `gaussian_nocom` (the Gaussian taken as the redshift posterior), `uniform` (uniform in comoving volume within ±`--numsigma` σ) |
-| `--zmin`, `--zcut` | the redshift range of the in-catalog term: galaxies below `--zmin` are left out and, outside the range, icarogw counts every galaxy as missed (completeness correction alone). `--zmin` needs a logarithmic grid, which then starts at it |
-
-A changed GLADE+ selection needs a new work directory (the galaxy file records its selection, and the stage refuses
-an existing file made with another one); so does any other change of the catalog settings. The report of
-`hubble_constant` compares with the published dark siren only when the catalog has the settings the paper gives
-(band, ε, nside, threshold map, redshift range from 0, galaxy selection); `--ptype` and the grid, which the paper
-leaves open, do not prevent it.
-
-**Settings file.** `--settings FILE` reads the option values from a JSON (or YAML) file, keys as the long option
-names; options on the command line override it. The resolved options of each run are written to
-`<workdir>/options_galaxy_catalog.json`.
-
-```json
-{"glade-types": "G", "glade-sigmaz": "measurement", "ptype": "gaussian_nocom",
- "nintegration": "logspace:0.0001:5000", "zcut": 0.5}
-```
-
-```bash
-gwtc_analysis galaxy_catalog --workdir glade_k_nocom --settings glade_nocom.json --jobs 4
-```
 
 ## Stages
 
@@ -111,8 +180,9 @@ Each stage is restartable: a finished stage or chunk leaves a marker in `<workdi
 | `summary` | threshold map and completeness | — |
 | `report` | HTML report | — |
 
-The icarogw stages run in the icarogw environment (`--icarogw-python`), through the self-contained
-`dark_catalog_icarogw.py`. GLADE+ takes about an hour on 4 CPUs, most of it in `prepare` and `interpolate`.
+`galaxies` and `report` run in the gwtc_analysis environment; the others in the icarogw environment
+(`--icarogw-python`), through the self-contained `dark_catalog_icarogw.py`. Most of the time goes into `prepare`
+and `interpolate`.
 
 ## Deeper catalogs and clusters
 
@@ -120,39 +190,20 @@ The pipeline is built so that catalogs much larger than GLADE+ (DES Y6 Gold: 350
 Rubin: billions) never need to fit in memory, and run on a cluster:
 
 - **Input in chunks.** `--input-catalog` reads Parquet (a file, or a directory such as a HATS/LSDB partition tree),
-  FITS, HDF5 or CSV in chunks, with a column mapping, a quality cut applied to each chunk, and the icarogw band of
-  the magnitude:
-
-  ```bash
-  gwtc_analysis galaxy_catalog --stages galaxies --workdir des_r \
-      --input-catalog des_y6_gold/ --columns ra=RA dec=DEC z=DNF_Z sigmaz=DNF_ZSIGMA m=SOF_CM_MAG_CORRECTED_R \
-      --band r-upglade --where "EXT_XGB == 3 and SOF_CM_MAG_CORRECTED_R < 23.9"
-  ```
-
-  (the column names are an example: use those of the catalog at hand).
+  FITS, HDF5 or CSV in chunks, with the column mapping `--columns`, the cut `--where` applied to each chunk, and the
+  icarogw band of the magnitude (`--band`); the column names of the example above are those of one DES release:
+  use those of the catalog at hand.
 - **Pixelation in shards.** `shard` streams the galaxies once; the per-pixel work is then split by pixel.
 - **Batch jobs.** `--executor slurm` writes one sbatch script per stage in `<workdir>/slurm` (array jobs of `--jobs`
   tasks for `pixels`, `prepare` and `interpolate`) and `submit.sh`, which chains them with `afterok`
   dependencies; `--submit` runs it. The runner is copied next to the scripts, so the jobs only need the icarogw
-  environment:
-
-  ```bash
-  gwtc_analysis galaxy_catalog --workdir /sps/.../des_r --galaxies /sps/.../des_r/galaxies.h5 \
-      --band r-upglade --nside 128 --nside-mthr 128 --nintegration logspace:0.001:2000 --zcut 0.35 \
-      --executor slurm --jobs 200 --slurm-option=--partition=htc --slurm-option=--mem=4G --slurm-option=--cpus-per-task=1 \
-      --slurm-option=--time=24:00:00 --slurm-option=--licenses=sps --slurm-assembly-option=--mem=32G \
-      --slurm-env-setup "source ~/miniforge3/etc/profile.d/conda.sh; conda activate icarogw" \
-      --icarogw-python ~/miniforge3/envs/icarogw/bin/python --submit
-  ```
-
-  `--slurm-assembly-option` adds options to the single jobs that hold the whole catalog in memory (`init`, `finish`,
-  `summary`), typically more memory. On CC-IN2P3, every job must give its time limit, CPU count and memory, and jobs reading or writing `/sps` declare `--licenses=sps`.
-  The `report` stage then runs anywhere with access to the work directory.
+  environment. On CC-IN2P3, every job must give its time limit, CPU count and memory, and jobs reading or writing
+  `/sps` declare `--licenses=sps`.
 - **Redshift grid.** The default is one logarithmic grid (`--nintegration logspace:ZMIN:N`), icarogw's fixed-grid
   path. icarogw's adaptive grid (an integer: points per galaxy) refines around every galaxy over ±`numsigma` σ: with
   the spectroscopic redshifts of GLADE+ (σ_z down to 1.5 × 10⁻⁴), the merged grid grows to tens of thousands of
   redshifts, and its serial merge (`init`) slowed to a few pixels per second on CC-IN2P3 before it was stopped. The
-  grid must resolve the narrowest galaxy redshift likelihoods: N points from ZMIN to `--zcut` give a relative step
+  grid must resolve the narrowest galaxy redshift probabilities: N points from ZMIN to `--zcut` give a relative step
   ln(zcut/ZMIN)/N (0.17% for the default).
 - **Memory of the result.** The catalog file holds the interpolants on (redshifts × sky pixels); the likelihood
   loads them (in single precision). Its size is in the report; choose `--nside` and the redshift grid with it in
@@ -168,7 +219,6 @@ own band definition, which is not in this version.
 
 - `<workdir>/catalog_<band>_nside<N>_eps<ε>.hdf5`: the catalog for `hubble_constant --galaxy-catalog`;
 - `<workdir>/summary.json`, `plots/mthr_map.png`, `plots/completeness.png` and `--out-report` (HTML);
+- `<workdir>/catalog_settings.json`, `options_galaxy_catalog.json`: the settings of the catalog and of the run;
 - `<workdir>/pixels/`: the per-pixel files (several GB for deep catalogs; they can be removed once the catalog
   file is finished).
-
-All options: [CLI reference](../cli-reference.md#galaxy_catalog).
