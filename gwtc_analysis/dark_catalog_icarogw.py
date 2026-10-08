@@ -127,8 +127,14 @@ def stage_shard(workdir: Path, galaxies: Path, opts: dict, chunk_rows: int = 2_0
         opts.setdefault("band", band)
         handles = {}
         try:
+            zmin = float(opts.get("zmin", 0.0))
+            kept = 0
             for a in range(0, n, chunk_rows):
                 cols = {c: g["galaxies"][c][a:a + chunk_rows] for c in FIELDS}
+                if zmin > 0:                     # the in-catalog term starts at zmin: galaxies below it are left out
+                    k = cols["z"] >= zmin
+                    cols = {c: v[k] for c, v in cols.items()}
+                kept += len(cols["z"])
                 pix = hp.ang2pix(nside, np.pi / 2 - cols["dec"], cols["ra"])     # icarogw.conversions.radec2indeces
                 shard = (pix * nshards) // npix
                 order = np.argsort(shard, kind="stable")
@@ -145,7 +151,7 @@ def stage_shard(workdir: Path, galaxies: Path, opts: dict, chunk_rows: int = 2_0
                     for c, v in list(cols.items()) + [("pixel", pix)]:
                         h[c].resize((h[c].shape[0] + k,))
                         h[c][-k:] = v[sel]
-                _log(f"shard: {min(a + chunk_rows, n)}/{n} galaxies")
+                _log(f"shard: {min(a + chunk_rows, n)}/{n} galaxies read, {kept} kept")
         finally:
             for h in handles.values():
                 h.close()
@@ -295,8 +301,11 @@ def _nintegration(s: dict):
     up to zcut, much cheaper to merge for deep catalogs."""
     v = s["nintegration"]
     if isinstance(v, str) and v.startswith("logspace:"):
-        _, zmin, n = v.split(":")
-        return np.logspace(np.log10(float(zmin)), np.log10(float(s["zcut"])), int(n))
+        _, zlo, n = v.split(":")
+        # with zmin > 0 the grid starts there: below it (and above zcut) icarogw counts every galaxy as out of the
+        # catalog (completeness correction alone), the treatment of redshifts outside the catalog's range
+        zlo = max(float(zlo), float(s.get("zmin", 0.0)))
+        return np.logspace(np.log10(zlo), np.log10(float(s["zcut"])), int(n))
     return int(v)
 
 

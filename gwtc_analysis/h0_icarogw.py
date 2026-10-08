@@ -51,6 +51,18 @@ MASS_MODELS = {
 }
 OM0 = 0.3065
 NEFF_PE = 10
+LIKELIHOOD_FILE = "likelihood.json"     # likelihood settings of a work directory, written by hubble_constant
+
+
+def likelihood_settings(workdir: Path | None = None) -> dict:
+    """Numerical-stability thresholds of the likelihood: neff_pe, the effective PE samples each event needs
+    (NEFF_PE), and neff_inj, the effective injections (None: icarogw's 4 x the number of events); from
+    <workdir>/likelihood.json when present, so that every stage of a work directory uses the same."""
+    s = {"neff_pe": NEFF_PE, "neff_inj": None}
+    f = Path(workdir or Path.cwd()) / LIKELIHOOD_FILE
+    if f.exists():
+        s.update({k: v for k, v in json.loads(f.read_text()).items() if k in s})
+    return s
 
 
 def _enter(workdir: Path) -> None:
@@ -147,8 +159,9 @@ def build_likelihood(pe_samples: int, inj_fraction: float, mass_model: str = "pl
         rate = icarogw.rates.CBC_catalog_vanilla_rate(galcat, *wraps, scale_free=True)
     else:
         rate = icarogw.rates.CBC_vanilla_rate(*wraps, scale_free=True)
-    like = icarogw.likelihood.hierarchical_likelihood(cat, inj, rate, nparallel=pe_samples, neffPE=NEFF_PE,
-                                                      neffINJ=None)
+    ls = likelihood_settings()             # every stage runs in its work directory (_enter)
+    like = icarogw.likelihood.hierarchical_likelihood(cat, inj, rate, nparallel=pe_samples,
+                                                      neffPE=float(ls["neff_pe"]), neffINJ=ls["neff_inj"])
     return like, rate, cat, inj
 
 
@@ -268,7 +281,7 @@ def _diagnostics(post, n_points: int = 200) -> dict:
             k = names[int(e.argmin())]
             worst[k] = worst.get(k, 0) + 1
     ni, npe = np.array(neff_inj), np.array(neff_pe)
-    return dict(n_points=len(rows), neff_inj_threshold=int(like.neffINJ), neff_pe_threshold=NEFF_PE,
+    return dict(n_points=len(rows), neff_inj_threshold=int(like.neffINJ), neff_pe_threshold=float(like.neffPE),
                 neff_inj_min=float(ni.min()), neff_inj_median=float(np.median(ni)),
                 neff_pe_min=float(npe.min()), neff_pe_median_of_min=float(np.median(npe)),
                 lowest_neff_pe_events=sorted(worst, key=worst.get, reverse=True)[:5])

@@ -35,7 +35,16 @@ import pandas as pd
 GALAXY_COLUMNS = ("ra", "dec", "z", "sigmaz", "m")
 GLADE_ASU = "https://vizier.cds.unistra.fr/viz-bin/asu-tsv"
 GLADE_TABLE = "VII/291/gladep"
-GLADE_KBAND_COLS = ("GLADE+", "Type", "RAJ2000", "DEJ2000", "Kmag", "zcmb", "f_zcmb", "e_z", "e_zhelio")
+GLADE_KBAND_COLS = ("GLADE+", "Type", "RAJ2000", "DEJ2000", "Kmag", "zhelio", "zcmb", "f_zcmb", "e_z", "e_zhelio")
+GLADE_NUMERIC = ("RAJ2000", "DEJ2000", "Kmag", "zhelio", "zcmb", "f_zcmb", "e_z", "e_zhelio")
+GLADE_REDSHIFTS = ("zcmb", "zhelio")
+GLADE_SIGMAZ = ("quadrature", "measurement", "peculiar")
+_GLADE_SIGMAZ_TEXT = {"quadrature": "sqrt(e_z^2 + e_zhelio^2): peculiar-velocity and measurement errors in quadrature",
+                      "measurement": "e_zhelio: measurement error", "peculiar": "e_z: peculiar-velocity error"}
+# the selection of the GWTC-4.0 analysis (Section 3.2 of arXiv:2509.04348): galaxies with a Ks magnitude and a
+# redshift; its threshold map leaves ~5% of the nside-32 pixels empty, as this selection does
+GLADE_DEFAULT_SELECTION = dict(types=("G",), redshift="zcmb", sigmaz="quadrature", sigmaz_const=None,
+                               sigmaz_relative=False, where=None)
 GLADE_MAX_ROWS = 400_000
 
 
@@ -102,6 +111,36 @@ def read_galaxy_file(path: str | Path) -> tuple[dict, dict]:
 # GLADE+ Ks band
 # ---------------------------------------------------------------------------
 
+def glade_selection(**kw) -> dict:
+    """GLADE+ selection: GLADE_DEFAULT_SELECTION overridden by the arguments that are not None.
+
+    - types: GLADE+ object types kept (G galaxies, Q quasars);
+    - redshift: zcmb (CMB frame, peculiar velocities corrected below z = 0.05) or zhelio (heliocentric);
+    - sigmaz: quadrature (measurement and peculiar-velocity errors), measurement (e_zhelio), peculiar (e_z); or
+      sigmaz_const, a constant (per 1 + z with sigmaz_relative);
+    - where: a pandas query on the VizieR columns (RAJ2000, DEJ2000, Kmag, zhelio, zcmb, f_zcmb, e_z, e_zhelio)."""
+    sel = dict(GLADE_DEFAULT_SELECTION)
+    sel.update({k: v for k, v in kw.items() if v is not None})
+    if isinstance(sel["types"], str):
+        sel["types"] = tuple(t.strip() for t in sel["types"].split(",") if t.strip())
+    sel["types"] = tuple(sel["types"])
+    if not sel["types"] or not set(sel["types"]) <= {"G", "Q"}:
+        raise ValueError(f"GLADE+ types must be among G, Q, got {sel['types']}")
+    if sel["redshift"] not in GLADE_REDSHIFTS:
+        raise ValueError(f"GLADE+ redshift must be one of {', '.join(GLADE_REDSHIFTS)}")
+    if sel["sigmaz"] not in GLADE_SIGMAZ:
+        raise ValueError(f"GLADE+ sigmaz must be one of {', '.join(GLADE_SIGMAZ)}")
+    sel["sigmaz_relative"] = bool(sel["sigmaz_relative"])
+    return sel
+
+
+def glade_selection_text(sel: dict) -> str:
+    sz = (f"constant {sel['sigmaz_const']:g}" + (" (1 + z)" if sel["sigmaz_relative"] else "")
+          if sel.get("sigmaz_const") is not None else sel["sigmaz"])
+    return (f"Type {'+'.join(sel['types'])}, Kmag finite, {sel['redshift']} > 0, sigmaz {sz} finite"
+            + (f", where {sel['where']}" if sel.get("where") else ""))
+
+
 def glade_sigmaz(e_z: np.ndarray, e_zhelio: np.ndarray) -> np.ndarray:
     """Redshift uncertainty of a GLADE+ galaxy: the measurement error (spectroscopic, or 2MPZ photometric) and the
     peculiar-velocity error added in quadrature; a missing term counts as zero, both missing gives NaN."""
@@ -111,16 +150,29 @@ def glade_sigmaz(e_z: np.ndarray, e_zhelio: np.ndarray) -> np.ndarray:
     return np.where(both, np.nan, s)
 
 
-def glade_kband_frame(raw: pd.DataFrame, galaxies_only: bool = True) -> pd.DataFrame:
-    """Standard columns from a GLADE+ VizieR table: ra/dec in rad, z = zcmb, sigmaz, m = Kmag (Vega)."""
+def glade_kband_frame(raw: pd.DataFrame, galaxies_only: bool = True, selection: Optional[dict] = None) -> pd.DataFrame:
+    """Standard columns from a GLADE+ VizieR table: ra/dec in rad, z, sigmaz, m = Kmag (Vega), with the selection
+    of `glade_selection` (default: galaxies, zcmb, errors in quadrature; `galaxies_only=False` adds quasars)."""
+    sel = selection or glade_selection(types=("G",) if galaxies_only else ("G", "Q"))
     df = raw.copy()
-    for c in ("RAJ2000", "DEJ2000", "Kmag", "zcmb", "e_z", "e_zhelio"):
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    if galaxies_only and "Type" in df:
-        df = df[df["Type"].astype(str).str.strip() == "G"]
+    for c in GLADE_NUMERIC:
+        if c in df:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    if "Type" in df:
+        df = df[df["Type"].astype(str).str.strip().isin(sel["types"])]
+    if sel.get("where"):
+        df = df.query(sel["where"])
+    z = df[sel["redshift"]].to_numpy(dtype=float)
+    if sel.get("sigmaz_const") is not None:
+        sz = float(sel["sigmaz_const"]) * ((1 + z) if sel["sigmaz_relative"] else np.ones_like(z))
+    elif sel["sigmaz"] == "measurement":
+        sz = df["e_zhelio"].to_numpy(dtype=float)
+    elif sel["sigmaz"] == "peculiar":
+        sz = df["e_z"].to_numpy(dtype=float)
+    else:
+        sz = glade_sigmaz(df["e_z"], df["e_zhelio"])
     out = pd.DataFrame({"ra": np.deg2rad(df["RAJ2000"].to_numpy()), "dec": np.deg2rad(df["DEJ2000"].to_numpy()),
-                        "z": df["zcmb"].to_numpy(), "sigmaz": glade_sigmaz(df["e_z"], df["e_zhelio"]),
-                        "m": df["Kmag"].to_numpy()})
+                        "z": z, "sigmaz": sz, "m": df["Kmag"].to_numpy()})
     return out[(out["z"] > 0) & np.isfinite(out["m"])]
 
 
@@ -156,32 +208,36 @@ def glade_dec_bands(width: float = 2.0) -> list[tuple[float, float]]:
 
 
 def fetch_glade_kband(out: str | Path, *, band_width: float = 2.0, galaxies_only: bool = True,
-                      cache: Optional[Path] = None, timeout: float = 300.0,
+                      selection: Optional[dict] = None, cache: Optional[Path] = None, timeout: float = 300.0,
                       fetch: Optional[Callable[[float, float], pd.DataFrame]] = None) -> Path:
     """Standard galaxy file of the GLADE+ galaxies with a Ks magnitude, from VizieR in declination bands.
 
-    Each band is cached (raw VizieR columns, CSV) in `cache`; a rerun only downloads the missing bands.
-    `fetch(dec_lo, dec_hi)` replaces the VizieR query (tests)."""
+    `selection` (see `glade_selection`) chooses the types, redshift, redshift error and an extra cut. Each band is
+    cached (raw VizieR columns, CSV) in `cache`; a rerun only downloads the missing bands, and the bands cached
+    without a column the selection needs. `fetch(dec_lo, dec_hi)` replaces the VizieR query (tests)."""
     import requests
 
+    sel = selection or glade_selection(types=("G",) if galaxies_only else ("G", "Q"))
+    need = {"GLADE+", "Type", "RAJ2000", "DEJ2000", "Kmag", sel["redshift"], "e_z", "e_zhelio"}
     cache = Path(cache or cache_dir() / "glade_kband")
     cache.mkdir(parents=True, exist_ok=True)
     bands = glade_dec_bands(band_width)
     seen: set[str] = set()
     w = GalaxyWriter(out, band="K-glade+", attrs=dict(
         source="GLADE+ (Dalya et al. 2022), VizieR VII/291, galaxies with a Ks magnitude",
-        selection=("Type G, " if galaxies_only else "") + "Kmag finite, zcmb > 0, sigmaz finite",
-        redshift="zcmb (CMB frame, peculiar velocities corrected below z = 0.05)",
-        sigmaz="sqrt(e_z^2 + e_zhelio^2): peculiar-velocity and measurement errors in quadrature",
+        selection=glade_selection_text(sel), glade_selection=json.dumps(sel),
+        redshift=("zcmb (CMB frame, peculiar velocities corrected below z = 0.05)" if sel["redshift"] == "zcmb"
+                  else "zhelio (heliocentric)"),
+        sigmaz=_GLADE_SIGMAZ_TEXT[sel["sigmaz"]] if sel.get("sigmaz_const") is None else
+        f"constant {sel['sigmaz_const']:g}" + (" (1 + z)" if sel["sigmaz_relative"] else ""),
         magnitude="Kmag, 2MASS Ks, Vega"))
     try:
         with requests.Session() as s:
             s.headers["User-Agent"] = "gwtc_analysis (https://github.com/danielsentenac/gwtc_analysis)"
             for i, (lo, hi) in enumerate(bands):
                 f = cache / f"dec_{lo:+07.2f}_{hi:+07.2f}.csv"
-                if f.exists():
-                    raw = pd.read_csv(f, dtype=str)
-                else:
+                raw = pd.read_csv(f, dtype=str) if f.exists() else None
+                if raw is None or not need <= set(raw.columns):
                     raw = (fetch or (lambda a, b: _vizier_band(a, b, timeout, s)))(lo, hi)
                     raw.to_csv(f.with_suffix(".part"), index=False)
                     f.with_suffix(".part").replace(f)
@@ -190,7 +246,7 @@ def fetch_glade_kband(out: str | Path, *, band_width: float = 2.0, galaxies_only
                     keep = ~ids.isin(seen)
                     seen.update(ids[keep])
                     raw = raw[keep.to_numpy()]
-                k = w.append(glade_kband_frame(raw, galaxies_only))
+                k = w.append(glade_kband_frame(raw, selection=sel))
                 _log(f"band {i + 1}/{len(bands)} dec {lo:+.1f}..{hi:+.1f}: {len(raw)} rows, {k} kept, total {w.n}")
     except BaseException:
         w.h.close()
@@ -297,4 +353,19 @@ def galaxy_summary(path: str | Path) -> dict:
     return dict(n=int(len(z)), band=str(attrs.get("band")), z_median=float(np.median(z)) if len(z) else float("nan"),
                 z_max=float(np.max(z)) if len(z) else float("nan"),
                 sigmaz_median=float(np.median(cols["sigmaz"])) if len(z) else float("nan"),
-                m_median=float(np.median(m)) if len(z) else float("nan"), source=str(attrs.get("source", "")))
+                m_median=float(np.median(m)) if len(z) else float("nan"), source=str(attrs.get("source", "")),
+                selection=selection_text(attrs))
+
+
+# the selection text of GLADE+ files written before the selection was configurable (the default selection)
+_GLADE_OLD_DEFAULT_TEXT = "Type G, Kmag finite, zcmb > 0, sigmaz finite"
+
+
+def selection_text(attrs: dict) -> str:
+    """The galaxy selection of a standard galaxy file, in the wording of `glade_selection_text` for GLADE+."""
+    if "glade_selection" in attrs:
+        sel = json.loads(attrs["glade_selection"])
+        sel["types"] = tuple(sel["types"])
+        return glade_selection_text(sel)
+    text = str(attrs.get("selection", ""))
+    return glade_selection_text(glade_selection()) if text == _GLADE_OLD_DEFAULT_TEXT else text

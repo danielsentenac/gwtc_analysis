@@ -52,9 +52,9 @@ def test_fetch_glade_kband_bands_dedup_and_resume(tmp_path):
 
     def fake(lo, hi):
         calls.append((lo, hi))
-        rows = [] if lo > -86 else [("7", "G", "1.0", f"{hi}", "12", "0.02", "1", "0.001", "0.01")]
+        rows = [] if lo > -86 else [("7", "G", "1.0", f"{hi}", "12", "0.0199", "0.02", "1", "0.001", "0.01")]
         if lo == -90:
-            rows.append(("8", "G", "2.0", "-89", "11", "0.03", "1", "0.001", "0.01"))
+            rows.append(("8", "G", "2.0", "-89", "11", "0.0299", "0.03", "1", "0.001", "0.01"))
         return pd.DataFrame(rows, columns=list(gx.GLADE_KBAND_COLS))
 
     out = gx.fetch_glade_kband(tmp_path / "g.h5", band_width=2.0, cache=tmp_path / "cache", fetch=fake)
@@ -315,3 +315,186 @@ def test_assembly_from_summaries_matches_icarogw(tmp_path):
     assert sorted(a) == sorted(b) and len(b) == 7
     for k in b:
         assert np.allclose(a[k], b[k], rtol=1e-12, atol=0, equal_nan=True), k
+
+
+# ---------------------------------------------------------------------------
+# configurable selection and processing
+# ---------------------------------------------------------------------------
+
+def _raw_glade():
+    return pd.DataFrame({"GLADE+": ["1", "2", "3"], "Type": ["G", "Q", "G"], "RAJ2000": ["10", "20", "30"],
+                         "DEJ2000": ["0", "5", "10"], "Kmag": ["12", "15", "13"], "zhelio": ["0.049", "0.6", "0.2"],
+                         "zcmb": ["0.05", "0.6", "0.2"], "f_zcmb": ["1", "0", "0"], "e_z": ["0.002", "", ""],
+                         "e_zhelio": ["0.001", "0.01", "0.015"]})
+
+
+def test_glade_selection_options():
+    """Types, redshift column, redshift error and an extra cut on the VizieR columns."""
+    raw = _raw_glade()
+    assert len(gx.glade_kband_frame(raw, selection=gx.glade_selection())) == 2          # quasar dropped
+    assert len(gx.glade_kband_frame(raw, selection=gx.glade_selection(types="G,Q"))) == 3
+    df = gx.glade_kband_frame(raw, selection=gx.glade_selection(redshift="zhelio"))
+    assert df["z"].tolist() == pytest.approx([0.049, 0.2])
+    df = gx.glade_kband_frame(raw, selection=gx.glade_selection(sigmaz="measurement"))
+    assert df["sigmaz"].tolist() == pytest.approx([0.001, 0.015])
+    df = gx.glade_kband_frame(raw, selection=gx.glade_selection(sigmaz="peculiar"))
+    assert df["sigmaz"].iloc[0] == pytest.approx(0.002) and np.isnan(df["sigmaz"].iloc[1])   # NaN: dropped later
+    df = gx.glade_kband_frame(raw, selection=gx.glade_selection(sigmaz_const=0.01, sigmaz_relative=True))
+    assert df["sigmaz"].tolist() == pytest.approx([0.0105, 0.012])
+    assert len(gx.glade_kband_frame(raw, selection=gx.glade_selection(where="f_zcmb == 1"))) == 1
+    with pytest.raises(ValueError):
+        gx.glade_selection(types="G,X")
+    with pytest.raises(ValueError):
+        gx.glade_selection(sigmaz="other")
+    assert gx.glade_selection_text(gx.glade_selection()) == "Type G, Kmag finite, zcmb > 0, sigmaz quadrature finite"
+
+
+def test_fetch_glade_refetches_bands_missing_a_column(tmp_path):
+    """A band cached without a column the selection needs (zhelio) is downloaded again; the selection is recorded."""
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    old = _raw_glade().drop(columns=["zhelio"])
+    for lo, hi in gx.glade_dec_bands(90.0):
+        old.to_csv(cache / f"dec_{lo:+07.2f}_{hi:+07.2f}.csv", index=False)
+    calls = []
+
+    def fake(lo, hi):
+        calls.append(lo)
+        return _raw_glade() if lo == -90 else _raw_glade().iloc[:0]
+
+    gx.fetch_glade_kband(tmp_path / "a.h5", band_width=90.0, cache=cache, fetch=fake)
+    assert calls == []                                    # zcmb: the cached bands suffice
+    out = gx.fetch_glade_kband(tmp_path / "b.h5", band_width=90.0, cache=cache, fetch=fake,
+                               selection=gx.glade_selection(redshift="zhelio"))
+    assert calls == [-90.0, 0.0]
+    cols, attrs = gx.read_galaxy_file(out)
+    assert cols["z"].tolist() == pytest.approx([0.049, 0.2])
+    assert json.loads(attrs["glade_selection"])["redshift"] == "zhelio"
+    assert gx.selection_text(attrs).startswith("Type G, Kmag finite, zhelio > 0")
+
+
+def test_existing_galaxy_file_with_another_selection_is_refused(tmp_path):
+    def fake(lo, hi):
+        return _raw_glade() if lo == -90 else _raw_glade().iloc[:0]
+
+    gx.fetch_glade_kband(tmp_path / "galaxies.h5", band_width=90.0, cache=tmp_path / "c", fetch=fake)
+    gc.run_galaxy_catalog(stages=["galaxies"], workdir=tmp_path, out_report_html=None)        # same selection: kept
+    with pytest.raises(ValueError, match="another GLADE"):
+        gc.run_galaxy_catalog(stages=["galaxies"], workdir=tmp_path, glade_types="G,Q", out_report_html=None)
+
+
+def test_ptype_and_zmin_settings():
+    assert gc.catalog_settings("K-glade+", ptype="gaussian_nocom")["ptype"] == "gaussian_nocom"
+    with pytest.raises(ValueError, match="ptype"):
+        gc.catalog_settings("K-glade+", ptype="lorentzian")
+    assert gc.catalog_settings("K-glade+", zmin=0.05, zcut=0.35)["zmin"] == 0.05
+    with pytest.raises(ValueError, match="zmin"):
+        gc.catalog_settings("K-glade+", zmin=0.5, zcut=0.35)
+    with pytest.raises(ValueError, match="logarithmic"):
+        gc.catalog_settings("K-glade+", zmin=0.05, nintegration=10)
+
+
+def test_runner_grid_starts_at_zmin():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("dark_catalog_icarogw", gc.RUNNER)
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    s = gc.catalog_settings("K-glade+", zmin=0.05, zcut=0.35, nintegration="logspace:0.0001:100")
+    g = runner._nintegration(s)
+    assert g[0] == pytest.approx(0.05) and g[-1] == pytest.approx(0.35) and len(g) == 100
+    g = runner._nintegration(gc.catalog_settings("K-glade+"))
+    assert g[0] == pytest.approx(1e-4)
+
+
+def test_published_match_uses_all_given_settings():
+    """The comparison needs the settings the paper gives (threshold map, redshift range, selection), not those it
+    leaves open (ptype); catalogs from older versions, without the new keys, still match."""
+    pub = hc.H0_SENSITIVITY_RELEASES["gwtc4"]["published"]["dark_plp"]
+    base = gc.catalog_settings("K-glade+")
+    old = {k: v for k, v in base.items() if k not in ("zmin",)}
+    assert hc._matches_published_catalog(old, pub)
+    assert hc._matches_published_catalog(gc.catalog_settings("K-glade+", ptype="gaussian_nocom"), pub)
+    assert not hc._matches_published_catalog(gc.catalog_settings("K-glade+", zmin=0.01), pub)
+    assert not hc._matches_published_catalog(gc.catalog_settings("K-glade+", mthr_percentile=90), pub)
+    assert hc._matches_published_catalog(
+        dict(base, galaxy_selection="Type G, Kmag finite, zcmb > 0, sigmaz quadrature finite"), pub)
+    assert not hc._matches_published_catalog(
+        dict(base, galaxy_selection="Type G+Q, Kmag finite, zcmb > 0, sigmaz quadrature finite"), pub)
+
+
+def test_settings_file(tmp_path):
+    """--settings: the file's values are defaults, the command line overrides them, keys and values are checked."""
+    from gwtc_analysis.cli import _apply_settings_file
+
+    f = tmp_path / "s.json"
+    f.write_text(json.dumps({"zcut": 0.35, "zmin": "0.05", "glade-types": "G,Q", "ptype": "gaussian_nocom",
+                             "stages": ["galaxies", "shard"], "slurm_option": ["--mem=4G"]}))
+    p = build_parser()
+    a = _apply_settings_file(p, ["galaxy_catalog", "--settings", str(f), "--zcut", "0.3"])
+    assert a.zcut == 0.3 and a.zmin == 0.05 and a.glade_types == "G,Q" and a.ptype == "gaussian_nocom"
+    assert a.stages == ["galaxies", "shard"] and a.slurm_option == ["--mem=4G"]
+    f.write_text(json.dumps({"zcutt": 0.3}))
+    with pytest.raises(ValueError, match="unknown option"):
+        _apply_settings_file(build_parser(), ["galaxy_catalog", "--settings", str(f)])
+    f.write_text(json.dumps({"ptype": "lorentzian"}))
+    with pytest.raises(ValueError, match="not among"):
+        _apply_settings_file(build_parser(), ["galaxy_catalog", "--settings", str(f)])
+    f.write_text(json.dumps({"neff-pe": 20, "pe-samples": 3000}))
+    a = _apply_settings_file(build_parser(), ["hubble_constant", "--settings", str(f)])
+    assert a.neff_pe == 20.0 and a.pe_samples == 3000
+
+
+def test_likelihood_settings(tmp_path):
+    """--neff-pe and --neff-inj are recorded in likelihood.json, read by the runner, and cannot change once runs exist."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("h0_icarogw", Path(hc.__file__).with_name("h0_icarogw.py"))
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    assert runner.likelihood_settings(tmp_path) == {"neff_pe": 10, "neff_inj": None}
+    assert hc.set_likelihood_settings(tmp_path, neff_pe=20) == {"neff_pe": 20.0, "neff_inj": None}
+    assert hc.set_likelihood_settings(tmp_path, neff_inj=600) == {"neff_pe": 20.0, "neff_inj": 600}
+    assert runner.likelihood_settings(tmp_path) == {"neff_pe": 20.0, "neff_inj": 600}
+    (tmp_path / "result").mkdir()
+    (tmp_path / "result" / "plp_seed1_result.json").write_text("{}")
+    assert hc.set_likelihood_settings(tmp_path) == {"neff_pe": 20.0, "neff_inj": 600}        # unchanged: fine
+    with pytest.raises(ValueError, match="another work directory"):
+        hc.set_likelihood_settings(tmp_path, neff_pe=50)
+
+
+@pytest.mark.skipif(not ICAROGW_PYTHON, reason="set GWTC_ICAROGW_PYTHON to the icarogw interpreter")
+def test_catalog_with_zmin_and_gaussian_nocom(tmp_path):
+    """zmin: the grid starts there and below it icarogw sees no catalog (completeness correction alone);
+    the Gaussian-as-posterior redshift probability builds too."""
+    rng = np.random.default_rng(8)
+    n = 1200
+    w = gx.GalaxyWriter(tmp_path / "gal.h5", band="K-glade+", attrs=dict(source="mock"))
+    z = rng.uniform(0.005, 0.2, n)
+    w.append(pd.DataFrame({"ra": rng.uniform(0, 2 * np.pi, n), "dec": np.arcsin(rng.uniform(-1, 1, n)), "z": z,
+                           "sigmaz": np.full(n, 0.005), "m": rng.uniform(8, 13, n)}))
+    w.close()
+    out = gc.run_galaxy_catalog(workdir=tmp_path / "cat", galaxies=tmp_path / "gal.h5", nside=8, nside_mthr=4,
+                                nshards=8, jobs=2, zmin=0.05, zcut=0.3, nintegration="logspace:0.001:400",
+                                ptype="gaussian_nocom", icarogw_python=ICAROGW_PYTHON, out_report_html=None)
+    st = json.loads((tmp_path / "cat" / "catalog_settings.json").read_text())
+    assert st["zmin"] == 0.05 and st["ptype"] == "gaussian_nocom"
+    code = (
+        "import sys, numpy as np, json\n"
+        f"sys.path.insert(0, {str(Path(hc.__file__).parent)!r})\n"
+        "import h0_icarogw as r, icarogw\n"
+        f"cat = r.load_galaxy_catalog({str(out)!r}, 'K-glade+', 'eps_1')\n"
+        "cw = icarogw.wrappers.FlatLambdaCDM_wrap(zmax=20.0); cw.update(H0=70., Om0=0.3065)\n"
+        "cat.sch_fun.build_MF(cw.cosmology)\n"
+        "zz = np.array([0.02, 0.1]); pix = np.zeros(2, dtype=int)\n"
+        "gc_, bg = cat.effective_galaxy_number_interpolant(zz, pix, cw.cosmology, average=False)\n"
+        "full = cat.sch_fun.background_effective_galaxy_density(-np.inf * np.ones(2), zz) * "
+        "cw.cosmology.dVc_by_dzdOmega_at_z(zz)\n"
+        "print('OUT', json.dumps(dict(z0=float(cat.z_grid[0]), gc=gc_.tolist(), ratio=(bg / full).tolist())))\n")
+    env = dict(os.environ, HDF5_USE_FILE_LOCKING="FALSE")
+    r = subprocess.run([ICAROGW_PYTHON, "-c", code], capture_output=True, text=True, cwd=tmp_path, env=env)
+    line = [ln for ln in r.stdout.splitlines() if ln.startswith("OUT")]
+    assert r.returncode == 0 and line, r.stderr[-2000:]
+    d = json.loads(line[0][4:])
+    assert d["z0"] == pytest.approx(0.05)
+    assert d["gc"][0] == 0.0 and d["ratio"][0] == pytest.approx(1.0)     # below zmin: no catalog, full correction
