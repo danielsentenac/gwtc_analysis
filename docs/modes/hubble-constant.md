@@ -15,7 +15,7 @@ A run is defined by three choices:
 
 The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29): spectral siren
 105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8) for PLP; dark siren with GLADE+
-120.7 (+39.9 / −37.6) against 115.4 (+40.1 / −33.8) ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
+114.6 (+41.5 / −33.8) against 115.4 (+40.1 / −33.8), with 5000 PE samples per event ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
 
 ## Quick start
 
@@ -138,10 +138,10 @@ fitted with H₀ ([below](#merger-rate-evolution)).
 | `--naccept` | 60 | accepted steps per random walk | rarely |
 | `--npool` | 4 | processes per run | to the CPUs available ([npool and parallel](#npool-and-parallel)) |
 | `--parallel` | 1 | runs at the same time on this machine | idem |
-| `--pe-samples` | 1500 | PE samples per event in the likelihood (up to 5000 are prepared) | more for a more accurate likelihood, at a proportional cost |
+| `--pe-samples` | 1500 | PE samples per event in the likelihood (up to 5000 are prepared) | 1500 is fast but leaves a Monte Carlo error of several km/s/Mpc on H₀; for a result to compare with a paper, 5000, or `--reweight-pe-samples 5000` ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)) |
 | `--inj-fraction` | `auto` | injections used by the runs: `auto` (a probe chooses a fast subset, `reweight` then corrects to all of them), or a fraction in (0, 1] (1 = all, as the paper) | `1` to sample the exact likelihood (slower, no reweighting) |
 | `--min-ess-fraction`, `--probe-points` | 0.5, 30 | with `auto`: the smallest predicted effective sample size of the reweighting, the points of the probe | rarely ([details](#injection-subsets-probe-and-reweighting)) |
-| `--reweight-pe-samples` | as the runs | PE samples per event of the reweighting target | to correct the runs to more PE samples |
+| `--reweight-pe-samples` | as the runs | PE samples per event of the reweighting target | 5000: the runs (1500, fast) corrected to the accurate likelihood |
 | `--neff-pe`, `--neff-inj` | 10, 4 × events | effective PE samples per event and effective injections a likelihood point needs, else it is rejected | to match another analysis ([likelihood thresholds](#likelihood-thresholds)) |
 
 ### Where it runs
@@ -227,27 +227,38 @@ Practical points:
 ### Validation: GWTC-4.0, Power Law + Peak, GLADE+ K band
 
 The GWTC-4.0 dark siren reproduced on CC-IN2P3 (October 2026), with the [galaxy_catalog](galaxy-catalog.md)
-defaults (GLADE+ Ks, nside 64, ε = 1), the paper's 137 BBH events with 1500 PE samples each, and the Slurm chain
-(8 seeds of 100 live points, 8 CPUs each):
+defaults (GLADE+ Ks, nside 64, ε = 1), the paper's 137 BBH events, and the Slurm chain (8 seeds of 100 live
+points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injections and then to 5000 PE samples:
 
 | | H₀ (km/s/Mpc, median and 68%) | 90% |
 |---|---|---|
 | runs, 10% of the injections (7 runs, 3189 samples) | 131.1 (+40.5 / −39.3) | 73.8 – 190.2 |
-| **reweighted to all the injections** | **120.7 (+39.9 / −37.6)** | **65.6 – 182.8** |
+| reweighted to all the injections (1500 PE samples) | 120.7 (+39.9 / −37.6) | 65.6 – 182.8 |
+| **reweighted to all the injections and 5000 PE samples** | **114.6 (+41.5 / −33.8)** | **63.4 – 179.9** |
 | GWTC-4.0 release, icarogw dark siren | 115.4 (+40.1 / −33.8) | 64.7 – 179.0 |
 
-- The median is 5 km/s/Mpc (0.14σ) above the release and the intervals nearly coincide: the level of agreement of the
-  [spectral siren](../science/spectral-siren.md), where the number of PE samples alone moves H₀ by about
-  5 km/s/Mpc. The reweighting keeps an effective sample size of 70% (2240 of 3189), rejects no sample, and
-  reproduces the runs' ln L exactly.
+- With 5000 PE samples per event the result is the release's: medians 0.8 km/s/Mpc apart (0.02σ), the same
+  68% and 90% intervals. The reweightings keep effective sample sizes of 70% (all the injections, 2240 of 3189) and
+  67% (5000 PE samples, 2145), reject no sample, and reproduce the runs' ln L exactly.
 - As for the spectral siren, the 10% injection subset shifts H₀ up by about 10 km/s/Mpc; the reweighting removes it.
-- Where the 5 km/s/Mpc comes from: the release stores the ln L of each posterior sample, so our likelihood can be
-  evaluated at the LVK samples. Reweighting the LVK dark-siren posterior to our likelihood gives 120.7, our own
-  result: the sampling is right and the difference is in the likelihood. Our spectral-siren likelihood alone moves
-  the LVK spectral posterior from 110.3 to 113.5, so about 3 km/s/Mpc comes from the Monte Carlo settings the paper
-  does not give (PE samples per event, [likelihood thresholds](#likelihood-thresholds): ours reject 10% of the LVK
-  samples, mostly at high H₀), and about 2 from the catalog term. The galaxy selection matches the paper's
-  ([galaxy_catalog](galaxy-catalog.md#glade-k-band)).
+- **The number of PE samples per event matters.** With 1500 the median was 5 km/s/Mpc above the release. The
+  release stores the ln L of each posterior sample, so our likelihood can be evaluated at the LVK samples, and the
+  LVK posterior reweighted to it; the difference ln L(ours) − ln L(LVK) shows where the likelihoods differ:
+
+  | Our likelihood | Spectral siren (LVK 110.3) | Dark siren (LVK 115.4) | Tilt of the difference, per 100 km/s/Mpc (spectral / dark) |
+  |---|---|---|---|
+  | 1500 PE samples | 113.5 | 120.7 | +0.35 / +0.48 |
+  | 3000 PE samples | 111.7 | 118.5 | +0.14 / +0.26 |
+  | **5000 PE samples** | **109.1** | **116.5** | **+0.02 / +0.13** |
+  | 1500, `--neff-pe 1` | 114.3 | 121.8 | +0.12 / +0.25 |
+  | 1500, catalog with `--ptype gaussian_nocom` | — | 120.3 | — / +0.45 |
+
+  With 5000 PE samples the spectral-siren likelihood is the LVK's (no tilt, a sample-to-sample scatter of 0.11 in
+  ln L), so the release used about 5000 samples per event; the catalog term leaves a small residual (≈ 1
+  km/s/Mpc). The threshold on effective PE samples and the form of the galaxy redshift probability are not the
+  cause; the galaxy selection matches the paper's ([galaxy_catalog](galaxy-catalog.md#glade-k-band)). With 1500
+  samples the Monte Carlo noise of the likelihood alone moves the median by several km/s/Mpc: for a comparison with
+  a published value, sample with 1500 and reweight to 5000 (`--reweight-pe-samples 5000`), or sample with 5000.
 - The catalog adds almost nothing at these distances: at fixed population parameters, ln L(H₀) with and without
   the catalog differ by less than 1 over 20–200 km/s/Mpc. The sky-averaged galaxy density of the catalog (in- plus
   out-of-catalog) is within a few percent of the uniform Schechter density beyond z ≈ 0.07, where the BBHs are,
@@ -334,8 +345,9 @@ fewer than `--neff-pe` effective PE samples (default 10, the paper's choice; ica
 selection effect fewer than `--neff-inj` effective injections (default 4 × the number of events, icarogw's). The
 thresholds are written to `<workdir>/likelihood.json` and every stage (probe, runs, combine diagnostics,
 reweighting) reads them, so a work directory has one likelihood; changing them once runs exist is refused. With
-`--pe-samples`, they are the Monte Carlo settings that the LVK papers do not state, and they move H₀ by a few
-km/s/Mpc on posteriors as broad as the GWTC-4.0 ones ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
+`--pe-samples`, they are the Monte Carlo settings that the LVK papers do not state. Of the three, the number of PE
+samples matters: from 1500 to 5000 it moves the GWTC-4.0 H₀ by about 5 km/s/Mpc, while lowering `--neff-pe` changes
+little ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
 
 ### Injection subsets, probe and reweighting
 

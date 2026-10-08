@@ -136,13 +136,13 @@ prior, so their posteriors multiply. The siren density is a Gaussian kernel esti
 
 GW170817 with the *Power Law + Peak* spectral siren (GWTC-4.0 setup): H₀ = 71.7 (+22.3 / −8.0) km/s/Mpc
 (maximum a posteriori, 68%). GW170817 dominates; the broad spectral siren shifts the posterior slightly
-upwards. With the PLP dark siren (GLADE+ K band) instead: 72.7 (+26.9 / −8.4), the dark-siren posterior being
-centred higher (maximum 121).
+upwards. With the PLP dark siren (GLADE+ K band, 5000 PE samples per event) instead: 73.2 (+24.2 / −8.4),
+the dark-siren posterior being centred higher (median 115).
 
 **Which measurement dominates.** Independent posteriors multiply, so the narrower one sets the result and the
 broader one tilts it. With the GWTC-4.0 Power Law + Peak sirens, GW170817 dominates: its 68% interval is about
-32 km/s/Mpc wide (61.6–93.4), the dark siren's about 80 (83–163), so the dark siren only pushes the result up
-(maximum 69.8 → 72.7). In the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) it is the other way round: with
+32 km/s/Mpc wide (61.6–93.4), the dark siren's about 75 (81–156), so the dark siren only pushes the result up
+(maximum 69.8 → 73.2). In the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) it is the other way round: with
 235 events, the FullPop-4.0 mass model and the DES-Y6 galaxies, the dark sirens, 68.8 (+14.2 / −13.2), are narrower
 than the LVK's GW170817 bright siren, 79.1 (+27.6 / −12.4), and drive the combination, 71.7 (+9.4 / −7.5). That
 setup (FullPop-4.0, DES-Y6) is not in this version of `gwtc_analysis`.
