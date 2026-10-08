@@ -29,6 +29,7 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 | [`neutron_star_eos`](modes/neutron-star-eos.md) | The neutron-star equation of state from GW170817 and GW190425 jointly: Λ₁.₄ and R₁.₄ |
 | [`spin_population`](modes/spin-population.md) | The BBH effective-spin distribution and its correlation with the mass ratio, corrected for selection effects |
 | `zenodo_releases` | The versions of the Zenodo catalog releases ([Data sources](data-sources.md#zenodo-release-versions)) |
+| `check_catalogs` | Compares the catalogs and Zenodo records published by GWOSC with the package registry, and reports the new ones ([Adding a new catalog](data-sources.md#adding-a-new-catalog)) |
 
 ## Highlights
 

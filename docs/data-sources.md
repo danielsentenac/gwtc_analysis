@@ -129,6 +129,11 @@ instance the one of the O4c run):
     of an existing catalog (a re-analysis, as GWTC-4.1 of GWTC-4.0). The draft is a starting point: check
     it against the release notes. On the current registry it reports nothing new.
 
+    | Option | Default | Description |
+    |---|---|---|
+    | `--out-json` | none | JSON file with the full report (registry catalogs, new lists and runs, newer Zenodo versions, draft entries) |
+    | `--sample-events` | 3 | events of each new list whose PE links are followed to find its Zenodo records |
+
 1. **`OBSERVING_RUNS`**: add the run with its official start and end of observing (the GWOSC run
    limits may include the engineering run before it).
 2. **`CATALOGS`**: add an entry with the catalog key, its GWOSC event list, its run(s), its Zenodo
