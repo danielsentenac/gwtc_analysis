@@ -1,50 +1,292 @@
 # hubble_constant
 
-The Hubble constant from the binary-black-hole mass spectrum (**spectral siren**), with
-[icarogw](https://github.com/icarogw-developers/icarogw) [\[57\]](../references.md#ref-57) and bilby [\[58\]](../references.md#ref-58)/dynesty [\[60\]](../references.md#ref-60). The method, its
-validation and its results are explained in
-[Hubble constant (spectral siren)](../science/spectral-siren.md); this page is about running it.
+The Hubble constant from the binary black holes (BBHs) of the catalogs, with
+[icarogw](https://github.com/icarogw-developers/icarogw) [\[57\]](../references.md#ref-57) and
+bilby [\[58\]](../references.md#ref-58)/dynesty [\[60\]](../references.md#ref-60). The method and its validation
+are explained in [Hubble constant (spectral siren)](../science/spectral-siren.md); this page is about running it.
 
-The default setup reproduces the spectral-siren measurements of the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29)
-(published version v3): H₀ = 105.5 (+46.4 / −35.8) km/s/Mpc with the *Power Law + Peak* mass model
-(`--mass-model plp`, the default) and 72.3 (+42.5 / −25.6) km/s/Mpc with the *Multi Peak* model
-(`--mass-model mltp`). Use one work directory per mass model.
+A run is defined by three choices:
+
+| Choice | Options | Default |
+|---|---|---|
+| **Where the redshift comes from** | none: the mass spectrum alone (**spectral siren**); `--galaxy-catalog FILE`: the mass spectrum and the galaxies along each line of sight (**dark siren**), with a catalog built by the [galaxy_catalog](galaxy-catalog.md) mode | spectral siren |
+| **Which events and injections** | `--sensitivity-release`, `--catalogs`, thresholds ([below](#which-events-and-injections)) | the GWTC-4.0 analysis: 137 BBHs of O1–O4a |
+| **The mass model** | `--mass-model plp` (Power Law + Peak) or `mltp` (Multi Peak) | `plp` |
+
+The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29): spectral siren
+105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8) for PLP; dark siren with GLADE+
+120.7 (+39.9 / −37.6) against 115.4 (+40.1 / −33.8) ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
+
+## Quick start
+
+**Spectral siren on one machine** (icarogw in its own environment,
+[Installation](../installation.md#icarogw-for-the-hubble_constant-mode)):
 
 ```bash
-# prepare in the gwtc_analysis environment, then 4 runs, 2 at a time with 2 processes each, and the report
-gwtc_analysis hubble_constant --stages prepare
-gwtc_analysis hubble_constant --stages sample combine report \
+# 1. events, PE samples and injections → h0_plp/inputs.h5 (gwtc_analysis environment; ~35 GB of downloads once)
+gwtc_analysis hubble_constant --workdir h0_plp --stages prepare
+# 2. 4 sampler runs, 2 at a time with 2 processes each, then merge, reweight and report
+gwtc_analysis hubble_constant --workdir h0_plp --stages sample combine reweight report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
+```
+
+**Dark siren with GLADE+**: build the catalog once, then give it to `prepare` and the sampling stages
+([details](#dark-sirens-with-a-galaxy-catalog)):
+
+```bash
+gwtc_analysis galaxy_catalog --workdir glade_k --jobs 4 --icarogw-python ~/.conda/envs/icarogw/bin/python
+gwtc_analysis hubble_constant --workdir h0_dark_plp --stages prepare \
+    --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5
+gwtc_analysis hubble_constant --workdir h0_dark_plp --stages sample combine reweight report \
+    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 1 --npool 4
+```
+
+**On a Slurm cluster** (CC-IN2P3, for instance): the same commands with `--executor slurm`, which writes the
+sampling stages as a chain of batch jobs ([details](#on-a-slurm-cluster)):
+
+```bash
+gwtc_analysis hubble_constant --workdir /sps/.../h0_dark_plp --stages sample combine reweight \
+    --seeds 1 2 3 4 5 6 7 8 --npool 8 --icarogw-python /sps/.../venv/bin/python --executor slurm \
+    --slurm-option=--partition=htc --slurm-option=--mem=16G --slurm-option=--time=3-00:00:00 \
+    --slurm-option=--licenses=sps --submit
+gwtc_analysis hubble_constant --workdir /sps/.../h0_dark_plp --stages report      # when the jobs have finished
 ```
 
 ## Stages
 
-The work is split into stages (`--stages`, all by default) sharing a work directory (`--workdir`):
+The stages (`--stages`, all by default) share one work directory (`--workdir`) and can be run separately:
 
-| Stage | Does | Needs | Cost |
+| Stage | Does | Writes | Needs | Cost |
+|---|---|---|---|---|
+| `prepare` | selects the events, downloads their PE files, prepares the injections | `inputs.h5`, `events.tsv`, `selection.json` | gwtc_analysis environment | ~35 GB of downloads the first time (restartable) |
+| `sample` | chooses the injection subset (probe), then one dynesty run per seed | `probe.json`, `plan.json`, `result/`, `logs/` | icarogw | minutes of probe, then hours per run (resumable) |
+| `combine` | merges the runs, checks their numerical stability | `posterior.tsv`, `corner.png`, `summary.json` | icarogw | minutes |
+| `reweight` | turns the posterior of the runs into the one with all the injections | `posterior_reweighted.tsv`, `summary.json` | icarogw | minutes to an hour |
+| `report` | the HTML report and the table of quantiles | `--out-report`, `--out-summary` | gwtc_analysis environment | seconds |
+
+**One work directory = one analysis.** The options that define the analysis are fixed by the first stage that uses
+them, and a later run with other values is refused rather than mixed in:
+
+- `prepare` fixes the events, the injections and the redshift source (the [selection options](#which-events-and-injections)
+  and `--galaxy-catalog`); to change them, use another work directory;
+- the first run fixes `--mass-model`, `--nlive`, `--pe-samples` and `--inj-fraction`, and
+  `--neff-pe`/`--neff-inj` ([below](#precision-and-speed)).
+
+## Options
+
+Every option once, grouped by the question it answers. All of them can also come from a settings file
+([below](#settings-file)).
+
+### Which events and injections
+
+The likelihood needs two consistent sets: the **events** (their PE samples) and the **injections** (simulated
+signals found by the same searches, which measure the selection effect). Both are taken from the same observing
+runs and with the same thresholds; these options are read by `prepare` only.
+
+| Option | Default | Meaning | When to change it |
 |---|---|---|---|
-| `prepare` | selects the events, downloads their PE files (restartable; only the extracted samples are kept in `--pe-cache` unless `--keep-pe-files`), prepares the injections → `inputs.h5`, `events.tsv` | gwtc_analysis environment | ~35 GB of downloads the first time |
-| `sample` | with `--inj-fraction auto`, first a probe that chooses the injection subset (`probe.json`, `plan.json`); then one dynesty run per `--seeds` value, `--parallel` of them at a time (logs in `<workdir>/logs`); resumable from its checkpoint | icarogw | a few minutes of probe, then hours per run |
-| `combine` | merges the runs → `posterior.tsv`, `corner.png`, `summary.json`, with the numerical-stability diagnostics | icarogw | minutes |
-| `reweight` | when the runs used a subset of the injections, reweights their posterior to all of them → `posterior_reweighted.tsv`, weights and effective sample size in `summary.json` | icarogw | minutes to an hour, in `--parallel` × `--npool` chunks |
-| `report` | `--out-report` (HTML) and `--out-summary` (TSV of the posterior quantiles) | gwtc_analysis environment | seconds |
+| `--sensitivity-release` | `gwtc4` | the LVK injection release, which sets the runs that can be analysed: `gwtc4` = O1–O4a ([\[29\]](../references.md#ref-29), validated), `gwtc5` = O1–O4b (not yet compared with a published result) | to include O4b |
+| `--catalogs` | all the runs of the release | keep only the runs of these catalogs, for both events and injections: `GWTC-1` (O1–O2), `GWTC-2.1` (O3a), `GWTC-3` (O3b), `GWTC-4` (O4a), `GWTC-5` (O4b), `GWTC-4.1` (the update of GWTC-4.0), or `ALL`. The runs must be in the release: `--catalogs GWTC-5` needs `--sensitivity-release gwtc5` | to analyse a subset (e.g. O4a alone) |
+| `--far-threshold` | 0.25 per year | events with a published FAR ≤ threshold; real injections found with FAR < threshold | to test the sensitivity to the event selection |
+| `--snr-threshold` | 10 | O1–O2 injections are semi-analytic: found when their network SNR is above this | with `--far-threshold`, to keep the two consistent |
+| `--min-mass` | 3 M☉ | both source-frame masses above it (possible neutron stars left out) | rarely: the BBH mass models start at a few M☉ |
+| `--exclude` | GW231123_135430, GW200105_162426 | events left out, as in the paper (the most massive BBH, and an NSBH) | to test the influence of one event |
+| `--sensitivity-file` | the release's file (downloaded) | a local injection file instead | offline, or with your own injections |
+| `--pe-cache`, `--keep-pe-files` | `~/.cache_gwtc_analysis/pe_catalog`, no | where the PE samples are cached; keep the full PE files after extraction | to share the cache between machines |
 
-## Event and injection selection
+The published comparison in the report is shown only for the release's own selection (all its runs and the default
+thresholds).
+
+Examples:
+
+```bash
+# O4a events and injections alone
+gwtc_analysis hubble_constant --workdir h0_o4a --stages prepare --catalogs GWTC-4
+# all of O1–O4b, with the GWTC-5.0 injections
+gwtc_analysis hubble_constant --workdir h0_gwtc5 --stages prepare --sensitivity-release gwtc5
+```
+
+### Redshift source and population model
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--catalogs` | all the runs of the release | catalog keys (GWTC-1 … GWTC-5, or ALL): events and injections restricted to their observing runs (GWTC-1: O1–O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b). The published comparison is shown only for the release's own selection |
-| `--sensitivity-release` | `gwtc4` | injections and matching catalogs and runs: `gwtc4` = O1–O4a (validated against the paper [\[29\]](../references.md#ref-29)), `gwtc5` = O1–O4b (not yet validated against a published result) |
-| `--far-threshold` | 0.25 per year | events (published FARs, rounded, compared inclusively: FAR ≤ threshold), and real injections (full precision, FAR < threshold), below this false-alarm rate |
-| `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR |
-| `--min-mass` | 3 M☉ | both source-frame masses above it: potential neutron stars are left out |
-| `--inj-fraction` | `auto` | injections used by the sampler runs: `auto` (the probe chooses the fastest reliable subset, then the posterior is reweighted to all the injections) or a fraction in (0, 1] (1 = all, as in the paper) |
-| `--min-ess-fraction` | 0.5 | smallest predicted effective-sample-size fraction of the reweighting accepted by `auto` |
-| `--reweight-pe-samples` | as the runs | PE samples per event of the reweighting target |
-| `--mass-model` | `plp` | BBH primary-mass model: `plp` (Power Law + Peak, Table 3 of the paper) or `mltp` (Multi Peak: power law and two Gaussian peaks, Table 4) |
-| `--exclude` | GW231123_135430, GW200105_162426 | as in the GWTC-4.0 cosmology analysis [\[29\]](../references.md#ref-29) |
+| `--galaxy-catalog` | none (spectral siren) | the catalog file made by [galaxy_catalog](galaxy-catalog.md): dark siren ([below](#dark-sirens-with-a-galaxy-catalog)). Given to `prepare`, which records it in `inputs.h5`; the other stages then use it |
+| `--mass-model` | `plp` | BBH primary-mass model: `plp` (Power Law + Peak, Table 3 of [\[29\]](../references.md#ref-29)) or `mltp` (Multi Peak: power law and two Gaussian peaks, Table 4). One work directory per model; `prepare` can be copied (`inputs.h5`) |
 
-## icarogw
+The priors are those of the paper (Tables 3, 4 and 6); the merger-rate evolution is the Madau–Dickinson shape
+fitted with H₀ ([below](#merger-rate-evolution)).
+
+### Precision and speed
+
+| Option | Default | Meaning | When to change it |
+|---|---|---|---|
+| `--seeds` | 1 | one independent sampler run per seed, merged by `combine` | 2 to check, 4–5 for a result, ~10 to compare with a paper ([how many](#how-many-seeds)) |
+| `--nlive` | 100 | dynesty live points per run | instead of more seeds (fewer, longer runs) |
+| `--naccept` | 60 | accepted steps per random walk | rarely |
+| `--npool` | 4 | processes per run | to the CPUs available ([npool and parallel](#npool-and-parallel)) |
+| `--parallel` | 1 | runs at the same time on this machine | idem |
+| `--pe-samples` | 1500 | PE samples per event in the likelihood (up to 5000 are prepared) | more for a more accurate likelihood, at a proportional cost |
+| `--inj-fraction` | `auto` | injections used by the runs: `auto` (a probe chooses a fast subset, `reweight` then corrects to all of them), or a fraction in (0, 1] (1 = all, as the paper) | `1` to sample the exact likelihood (slower, no reweighting) |
+| `--min-ess-fraction`, `--probe-points` | 0.5, 30 | with `auto`: the smallest predicted effective sample size of the reweighting, the points of the probe | rarely ([details](#injection-subsets-probe-and-reweighting)) |
+| `--reweight-pe-samples` | as the runs | PE samples per event of the reweighting target | to correct the runs to more PE samples |
+| `--neff-pe`, `--neff-inj` | 10, 4 × events | effective PE samples per event and effective injections a likelihood point needs, else it is rejected | to match another analysis ([likelihood thresholds](#likelihood-thresholds)) |
+
+### Where it runs
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--icarogw-python` | the interpreter running gwtc_analysis | Python of the icarogw environment, used by `sample`, `combine` and `reweight` ([icarogw](#icarogw)) |
+| `--executor` | `local` | `local`: on this machine; `slurm`: `sample`, `combine` and `reweight` as a chain of batch jobs ([Slurm](#on-a-slurm-cluster)) |
+| `--slurm-option` | none | an `#SBATCH` option of every job, repeatable (e.g. `--slurm-option=--mem=16G`) |
+| `--slurm-env-setup` | none | shell lines run first in each job (e.g. activating an environment) |
+| `--submit` | no | submit the chain at once (else `<workdir>/slurm/submit.sh` does it) |
+| `--reweight-jobs` | 16 | array tasks of the reweighting on Slurm |
+
+### Files
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--workdir` | `hubble_constant_run` | the work directory of the analysis |
+| `--stages` | all | stages to run |
+| `--out-report`, `--out-summary` | `hubble_constant.html`, `hubble_constant.tsv` | the report and the quantiles |
+| `--settings` | none | a file of option values ([below](#settings-file)) |
+
+### Settings file
+
+`--settings FILE` reads option values from a JSON file (or YAML, with PyYAML), the keys being the long option names;
+options given on the command line override it. The resolved options of each invocation are written to
+`<workdir>/options_hubble_constant.json`.
+
+```json
+{"seeds": [1, 2, 3, 4], "npool": 8, "pe-samples": 3000, "neff-pe": 20}
+```
+
+```bash
+gwtc_analysis hubble_constant --workdir h0_plp --stages sample combine reweight report --settings precise.json
+```
+
+All options with their help text: [CLI reference](../cli-reference.md#hubble_constant).
+
+## Dark sirens with a galaxy catalog
+
+A dark siren adds to the mass spectrum the galaxies along the line of sight of each event: every galaxy is a
+possible host, weighted by its luminosity, and the galaxies the catalog misses (fainter than its threshold) are
+added as a uniform completeness term (icarogw's `CBC_catalog_vanilla_rate` [\[57\]](../references.md#ref-57)
+[\[29\]](../references.md#ref-29)). `--galaxy-catalog` adds the galaxies to the mass spectrum; it does not replace
+it: the mass model is still fitted with H₀, and the result is the combination, as the LVK dark sirens since GWTC-3
+(the catalog's own contribution is the difference with the spectral siren of the same events). It takes two modes:
+
+```
+galaxy_catalog                         hubble_constant --galaxy-catalog FILE
+──────────────                         ─────────────────────────────────────
+galaxies (GLADE+, or any catalog)      prepare: events with the sky position of their PE samples
+→ threshold map, line-of-sight         sample, combine, reweight: the likelihood reads the catalog
+  redshift prior per sky pixel           at the pixel and redshift of every PE sample
+→ catalog_<band>_nside<N>_eps<ε>.hdf5  report: compared with the published dark siren
+```
+
+1. **Build the catalog** with [galaxy_catalog](galaxy-catalog.md): its defaults are the GLADE+ K-band setup of the
+   GWTC-4.0 analysis. The catalog does not depend on the events or the mass model: one catalog serves every
+   `hubble_constant` work directory.
+2. **Prepare** with `--galaxy-catalog FILE`. `prepare` keeps the sky position of every PE sample (extracts made
+   before are made again from the cached PE files) and records the catalog, its settings and its path in `inputs.h5`.
+   The injections enter the selection effect through the sky-averaged galaxy density, for which their position
+   does not matter; since the LVK injection files carry none, they are given isotropic positions.
+3. **Sample, combine, reweight, report** as for the spectral siren; the stages find the catalog in `inputs.h5`
+   (`--galaxy-catalog` is not needed again). If the work directory moved to another machine, they use the file of
+   the same name next to `inputs.h5`: copy it there.
+
+Practical points:
+
+- **Memory.** Each process loads the catalog (single precision): a few hundred MB per process for GLADE+ at
+  nside 64, more for deeper catalogs. Lower `--parallel` × `--npool` on small machines.
+- **Speed.** A likelihood evaluation costs about as much as the spectral siren's (1.1 s with all the injections,
+  0.4 s with 10%, for 137 events and 1500 PE samples); building the catalog adds about an hour once.
+- **Published comparison.** The report compares with the dark siren of the same mass model in the GWTC-4.0 data
+  release (icarogw, GLADE+ K band, ε = 1: Power Law + Peak 115.4 (+40.1 / −33.8), Multi Peak 86.3 (+41.3 / −26.3)
+  km/s/Mpc), only when the catalog has all the settings the paper gives: band, ε, nside, threshold map, redshift
+  range from 0 and galaxy selection ([galaxy_catalog options](galaxy-catalog.md#options)). The
+  icarogw spectral sirens of the same release give 110.3 (+44.8 / −35.6) and 76.5 (+45.0 / −25.6): the catalog
+  narrows the 68% interval by 8% and 4%.
+
+### Validation: GWTC-4.0, Power Law + Peak, GLADE+ K band
+
+The GWTC-4.0 dark siren reproduced on CC-IN2P3 (October 2026), with the [galaxy_catalog](galaxy-catalog.md)
+defaults (GLADE+ Ks, nside 64, ε = 1), the paper's 137 BBH events with 1500 PE samples each, and the Slurm chain
+(8 seeds of 100 live points, 8 CPUs each):
+
+| | H₀ (km/s/Mpc, median and 68%) | 90% |
+|---|---|---|
+| runs, 10% of the injections (7 runs, 3189 samples) | 131.1 (+40.5 / −39.3) | 73.8 – 190.2 |
+| **reweighted to all the injections** | **120.7 (+39.9 / −37.6)** | **65.6 – 182.8** |
+| GWTC-4.0 release, icarogw dark siren | 115.4 (+40.1 / −33.8) | 64.7 – 179.0 |
+
+- The median is 5 km/s/Mpc (0.14σ) above the release and the intervals nearly coincide: the level of agreement of the
+  [spectral siren](../science/spectral-siren.md), where the number of PE samples alone moves H₀ by about
+  5 km/s/Mpc. The reweighting keeps an effective sample size of 70% (2240 of 3189), rejects no sample, and
+  reproduces the runs' ln L exactly.
+- As for the spectral siren, the 10% injection subset shifts H₀ up by about 10 km/s/Mpc; the reweighting removes it.
+- Where the 5 km/s/Mpc comes from: the release stores the ln L of each posterior sample, so our likelihood can be
+  evaluated at the LVK samples. Reweighting the LVK dark-siren posterior to our likelihood gives 120.7, our own
+  result: the sampling is right and the difference is in the likelihood. Our spectral-siren likelihood alone moves
+  the LVK spectral posterior from 110.3 to 113.5, so about 3 km/s/Mpc comes from the Monte Carlo settings the paper
+  does not give (PE samples per event, [likelihood thresholds](#likelihood-thresholds): ours reject 10% of the LVK
+  samples, mostly at high H₀), and about 2 from the catalog term. The galaxy selection matches the paper's
+  ([galaxy_catalog](galaxy-catalog.md#glade-k-band)).
+- The catalog adds almost nothing at these distances: at fixed population parameters, ln L(H₀) with and without
+  the catalog differ by less than 1 over 20–200 km/s/Mpc. The sky-averaged galaxy density of the catalog (in- plus
+  out-of-catalog) is within a few percent of the uniform Schechter density beyond z ≈ 0.07, where the BBHs are,
+  with a 15–25% deficit at z ≈ 0.01–0.04 and the local structures below z ≈ 0.005.
+- A deeper catalog helps: with the DES-Y6 galaxies instead of GLADE+, the O4a dark-siren H₀ has a 68% interval
+  about 11% narrower (about 10% with GW170817), although DES covers only 12% of the sky
+  (McMahon et al. 2026 [\[93\]](../references.md#ref-93)); DES-Y6 is the catalog of the GWTC-5.0 dark sirens
+  [\[30\]](../references.md#ref-30). Its galaxy density is 100 to 1000 times that of GLADE+, but at the BBH
+  distances the mass spectrum still carries most of the redshift information.
+- Timing: the catalog took about 45 min (16 jobs); the probe 32 min; the runs 7.8–10.3 h each, at 0.39 s per
+  likelihood evaluation with 10% of the injections (1.1 s with all); the reweighting 5–7 min per chunk.
+- One run (seed 1) entered a slow tail (160 s per iteration after 17 h, `dlogz` 0.65) and was cancelled; the chain
+  continued with the 7 other runs ([how](#on-a-slurm-cluster)).
+
+## The report
+
+The report leads with the H₀ posterior, compared with the published value of the same mass model:
+
+![H0 posterior of the Power Law + Peak reproduction](../img/h0_posterior.png)
+
+*GWTC-4.0, Power Law + Peak: 10 runs with 10% of the injections, reweighted to all of them; the
+published result (orange line, 90% band) and the Planck and SH0ES values for comparison. Details in
+[Hubble constant (spectral siren)](../science/spectral-siren.md).*
+
+### Merger-rate evolution
+
+The Madau–Dickinson rate shape fitted together with H₀ [\[82\]](../references.md#ref-82),
+
+\[
+\frac{R(z)}{R(0)} = \left[1 + (1 + z_p)^{-\gamma-\kappa}\right]
+\frac{(1 + z)^{\gamma}}{1 + \left(\frac{1 + z}{1 + z_p}\right)^{\gamma+\kappa}},
+\]
+
+is plotted in the report with its prior and the cosmic star-formation history (γ = 2.7, κ = 2.9,
+z_p = 1.9). The likelihood is scale-free: R(0) itself is the `rates` mode's.
+
+![BBH merger-rate evolution](../img/modes/h0_rate_evolution.png)
+
+*GWTC-4.0, Power Law + Peak: γ = 3.3 (90%: 2.5–4.4), so the rate grows faster than star formation, R(1)/R(0)
+= 9.7 (5.4–19.5) against 5.8. The detected events reach z ≈ 1.0; beyond it κ and z_p, and the shape, are
+the prior's. The [stochastic](stochastic.md) mode uses this shape up to the farthest events.*
+
+### Diagnostics
+
+`combine` evaluates, over 200 posterior draws, the effective number of injections and the smallest
+per-event effective number of PE samples, against the [likelihood thresholds](#likelihood-thresholds), and names
+the events with the fewest. The report flags values below the thresholds; more `--pe-samples` or a larger
+`--inj-fraction` then make the Monte Carlo sums more reliable. On the reproduction, the effective
+number of injections stayed above 3 800 (threshold 544), while the smallest per-event value had a
+median of 27 and reached 8 at some draws (threshold 10), for the lightest BBHs such as GW190924.
+
+## How it works
+
+### icarogw
 
 `gwtc_analysis/h0_icarogw.py` is a **driver of icarogw**, not a modified copy: icarogw is used as
 installed, through its public API. The LVK also uses a second code, gwcosmo; the two are compared in
@@ -53,26 +295,34 @@ installed, through its public API. The LVK also uses a second code, gwcosmo; the
 - **icarogw provides** the hierarchical likelihood (PE and injection reweighting, selection term,
   scale-free rate marginalisation, effective-sample-size checks), the population models
   (`massprior_PowerLawPeak` with the `m1m2_conditioned_lowpass` smoothing, `rateevolution_Madau`,
-  `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`), and the detector-frame conversion for each
-  trial H₀.
+  `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`, or `CBC_catalog_vanilla_rate` with a galaxy catalog), and
+  the detector-frame conversion for each trial H₀.
 - **The driver** reads `inputs.h5` into icarogw's `posterior_samples` and `injections` objects,
   chooses the model components and the priors (Tables 3 and 6 of the paper [\[29\]](../references.md#ref-29)), runs bilby/dynesty,
   merges the runs and computes the diagnostics with icarogw's own methods.
 - **The analysis choices made here**, outside icarogw, are the input preparation in
   `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw
   density carried to the detector frame with the spin part divided out and the mixture weights
-  applied) and three settings: at least 10 effective PE samples per event (the paper's choice; the default of icarogw's likelihood class is 20),
-  at least 4 × N_events effective injections (icarogw's default), and the injection subset of the
+  applied), the [likelihood thresholds](#likelihood-thresholds), and the injection subset of the
   runs, corrected by the reweighting stage.
 
-Only `sample` and `combine` need icarogw, which requires Python ≥ 3.12 and usually has its own
+`sample`, `combine` and `reweight` need icarogw, which requires Python ≥ 3.12 and usually has its own
 environment ([Installation](../installation.md#icarogw-for-the-hubble_constant-mode)). Its interpreter
-is passed with `--icarogw-python`; the default is the interpreter running gwtc_analysis, and the mode
-stops before sampling if icarogw or bilby cannot be imported there. The stages run `h0_icarogw.py`
-with it, in CPU mode (a `config.py` with `CUPY=False` in the work directory) and with the
-environment's `lib/` on `LD_LIBRARY_PATH`.
+is passed with `--icarogw-python`; the mode stops before sampling if icarogw or bilby cannot be imported there. The
+stages run `h0_icarogw.py` with it, in CPU mode (a `config.py` with `CUPY=False` in the work directory) and with
+the environment's `lib/` on `LD_LIBRARY_PATH`.
 
-## Injection subsets, probe and reweighting
+### Likelihood thresholds
+
+icarogw rejects a point of the population parameters when its Monte Carlo sums are too poor: when an event has
+fewer than `--neff-pe` effective PE samples (default 10, the paper's choice; icarogw's class default is 20), or the
+selection effect fewer than `--neff-inj` effective injections (default 4 × the number of events, icarogw's). The
+thresholds are written to `<workdir>/likelihood.json` and every stage (probe, runs, combine diagnostics,
+reweighting) reads them, so a work directory has one likelihood; changing them once runs exist is refused. With
+`--pe-samples`, they are the Monte Carlo settings that the LVK papers do not state, and they move H₀ by a few
+km/s/Mpc on posteriors as broad as the GWTC-4.0 ones ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
+
+### Injection subsets, probe and reweighting
 
 Each likelihood evaluation sums over the found injections: with all of them (about one million) it
 takes about 1.3 s, with 10% about 0.3 s. Sampling with a subset is therefore much faster, but it tilts
@@ -108,18 +358,17 @@ all the injections, effective sample size 2564 of 3582. For MLTP it gives 78.5 (
 89.1 with the subset, effective sample size 2592 of 3862. The runner's `reweight --target-inputs`
 also reweights to a likelihood with other inputs: adding the 137th event of the paper (GW191127) this
 way gives 105.8 (+44.7 / −33.2) for PLP and 78.6 (+38.0 / −26.5) for MLTP, with effective sample sizes
-of 68% and 66%. A numeric `--inj-fraction` bypasses the
-probe; `--inj-fraction 1` samples with all the injections, as the paper does, and needs no
-reweighting.
+of 68% and 66%. A numeric `--inj-fraction` bypasses the probe; `--inj-fraction 1` samples with all the
+injections, as the paper does, and needs no reweighting.
 
-## Seeds
+### Seeds
 
-Each seed is an independent dynesty run (`result/<model>_seed<N>_result.json`, with `<model>` = `plp` or `mltp`); `combine` merges all the
-finished ones, weighted by their evidence.
+Each seed is an independent dynesty run (`result/<model>_seed<N>_result.json`, with `<model>` = `plp` or `mltp`);
+`combine` merges all the finished ones, weighted by their evidence.
 
 - **All runs sample the same likelihood.** The PE samples are shuffled once in `prepare`, and the
-  injection subset is drawn with a fixed seed. `run_settings.json` refuses runs with another `--mass-model`, `--nlive`,
-  `--pe-samples` or `--inj-fraction` values in the same work directory.
+  injection subset is drawn with a fixed seed. `run_settings.json` refuses runs with another `--mass-model`,
+  `--nlive`, `--pe-samples` or `--inj-fraction` values in the same work directory.
 - **Restarting is safe.** Launching again resumes the interrupted runs from their checkpoint and skips
   the finished ones.
 - **One process per seed.** A lock file (`result/<model>_seed<N>.lock`, holding the host and process ID)
@@ -127,7 +376,7 @@ finished ones, weighted by their evidence.
   taken over.
 - **Interrupting** the launcher (Ctrl-C) stops its runs after they write their checkpoint.
 
-### How many seeds?
+#### How many seeds?
 
 The seeds do not change the physics: they set how precisely the sampler describes the posterior.
 
@@ -158,7 +407,7 @@ makes the agreement check more important.
 | Result to report | 4–5 seeds, or 2 seeds with `--nlive 500` |
 | Precise comparison with a paper | about 10 seeds |
 
-The individual runs of the reproduction:
+The individual runs of the spectral-siren reproduction:
 
 | Seed | Samples | H₀ median | 90% interval | ln Z |
 |---|---|---|---|---|
@@ -173,7 +422,7 @@ The individual runs of the reproduction:
 | 9 | 507 | 120.1 | 63.0 – 188.8 | −3824.22 |
 | 10 | 584 | 118.5 | 64.7 – 186.4 | −3824.09 |
 
-## `--npool` and `--parallel`
+### npool and parallel
 
 Nearly all the time of a run goes into likelihood evaluations. At each iteration dynesty replaces the
 live point of lowest likelihood L_min by a new point with L > L_min, found by a random walk from
@@ -215,18 +464,18 @@ twice.
 so the sampling can run on another machine that has icarogw (a computing cluster, for instance):
 
 1. locally: `hubble_constant --stages prepare --workdir DIR`, then copy `DIR/inputs.h5` (about
-   45 MB) and `gwtc_analysis/h0_icarogw.py` to a work directory on the remote machine;
+   45 MB) and `gwtc_analysis/h0_icarogw.py` to a work directory on the remote machine (with
+   `--galaxy-catalog`, also the catalog file);
 2. remotely, with the icarogw interpreter (and `LD_LIBRARY_PATH=<env>/lib` if needed):
    `python h0_icarogw.py run --workdir RDIR --seed N` for each seed, then
    `python h0_icarogw.py combine --workdir RDIR`;
 3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` and `RDIR/corner.png` (a few MB) back
    into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
 
-With `--galaxy-catalog`, also copy the catalog file into `RDIR`: the runner uses the path recorded in
-`inputs.h5`, else the file of the same name in the work directory.
+### On a Slurm cluster
 
-**On a Slurm cluster** (CC-IN2P3, for instance), `--executor slurm` writes the sampling stages as a chain of
-sbatch scripts in `<workdir>/slurm` and, with `--submit`, submits them, each after the previous one succeeded:
+`--executor slurm` writes the sampling stages as a chain of sbatch scripts in `<workdir>/slurm` and, with
+`--submit`, submits them, each after the previous one succeeded (`afterok`):
 
 | Script | Job |
 |---|---|
@@ -235,144 +484,18 @@ sbatch scripts in `<workdir>/slurm` and, with `--submit`, submits them, each aft
 | `combine` | the runs merged |
 | `reweight`, `reweight_merge` | the reweighting to all the injections in `--reweight-jobs` chunks, then the merge; both do nothing when the runs already used all the injections |
 
-```bash
-gwtc_analysis hubble_constant --workdir /sps/.../h0_dark_plp --stages sample combine reweight \
-    --galaxy-catalog /sps/.../catalog_K-glade+_nside64_eps1.hdf5 --seeds 1 2 3 4 5 6 7 8 --npool 8 \
-    --icarogw-python /sps/.../venv/bin/python --executor slurm \
-    --slurm-option=--partition=htc --slurm-option=--mem=16G --slurm-option=--time=3-00:00:00 \
-    --slurm-option=--licenses=sps --submit
-gwtc_analysis hubble_constant --workdir /sps/.../h0_dark_plp --stages report     # once the chain has finished
-```
-
 The runner is copied next to the scripts, so the jobs only need the icarogw environment; the `--cpus-per-task` of
-each job is set from `--npool` (1 for the single jobs). The prepare stage runs where the PE files are (`inputs.h5`
-can then be copied, see above).
+each job is set from `--npool` (1 for the single jobs). On CC-IN2P3, every job must give its time limit, CPU count
+and memory, and jobs using `/sps` declare `--licenses=sps`. The `prepare` stage runs where the PE files are
+(`inputs.h5` can then be copied), and `report` anywhere with access to the work directory.
 
-## Diagnostics
-
-`combine` evaluates, over 200 posterior draws, the effective number of injections and the smallest
-per-event effective number of PE samples, against icarogw's thresholds, and names the events with the
-fewest. The report flags values below the thresholds; more `--pe-samples` or a larger
-`--inj-fraction` then make the Monte Carlo sums more reliable. On the reproduction, the effective
-number of injections stayed above 3 800 (threshold 544), while the smallest per-event value had a
-median of 27 and reached 8 at some draws (threshold 10), for the lightest BBHs such as GW190924.
-
-## Likelihood thresholds
-
-icarogw rejects a point of the population parameters when its Monte Carlo sums are too poor: when an event has
-fewer than `--neff-pe` effective PE samples (default 10), or the selection effect fewer than `--neff-inj` effective
-injections (default 4 × the number of events). The thresholds are written to `<workdir>/likelihood.json` and every
-stage (probe, runs, combine diagnostics, reweighting) reads them, so a work directory has one likelihood; changing
-them once runs exist is refused. With `--pe-samples`, they are the Monte Carlo settings that the LVK papers do not
-state, and they move H₀ by a few km/s/Mpc on posteriors as broad as the GWTC-4.0 ones
-([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
-
-**Settings file.** `--settings FILE` reads option values from a JSON (or YAML) file, keys as the long option names,
-the command line overriding them; the resolved options are written to `<workdir>/options_hubble_constant.json`:
-
-```json
-{"pe-samples": 3000, "neff-pe": 20, "seeds": [1, 2, 3, 4], "npool": 8}
-```
-
-## Example
+**A run that does not finish.** Nested sampling occasionally enters a slow tail. To finish the chain without it,
+let the combine job start even though one run failed, then cancel the run: `combine` uses the runs that wrote a
+result.
 
 ```bash
-gwtc_analysis hubble_constant --stages prepare
-gwtc_analysis hubble_constant --stages sample combine reweight report \
-    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
+scontrol update JobId=<combine job> Dependency=afterany:<run array job>
+scancel <run array job>_<task>
 ```
-
-The report leads with the H₀ posterior, compared with the published value of the same mass model:
-
-![H0 posterior of the Power Law + Peak reproduction](../img/h0_posterior.png)
-
-*GWTC-4.0, Power Law + Peak: 10 runs with 10% of the injections, reweighted to all of them; the
-published result (orange line, 90% band) and the Planck and SH0ES values for comparison. Details in
-[Hubble constant (spectral siren)](../science/spectral-siren.md).*
-
-## Merger-rate evolution
-
-The Madau–Dickinson rate shape fitted together with H₀ [\[82\]](../references.md#ref-82),
-
-\[
-\frac{R(z)}{R(0)} = \left[1 + (1 + z_p)^{-\gamma-\kappa}\right]
-\frac{(1 + z)^{\gamma}}{1 + \left(\frac{1 + z}{1 + z_p}\right)^{\gamma+\kappa}},
-\]
-
-is plotted in the report with its prior and the cosmic star-formation history (γ = 2.7, κ = 2.9,
-z_p = 1.9). The likelihood is scale-free: R(0) itself is the `rates` mode's.
-
-![BBH merger-rate evolution](../img/modes/h0_rate_evolution.png)
-
-*GWTC-4.0, Power Law + Peak: γ = 3.3 (90%: 2.5–4.4), so the rate grows faster than star formation, R(1)/R(0)
-= 9.7 (5.4–19.5) against 5.8. The detected events reach z ≈ 1.0; beyond it κ and z_p, and the shape, are
-the prior's. The [stochastic](stochastic.md) mode uses this shape up to the farthest events.*
-
-## Dark sirens with a galaxy catalog
-
-With `--galaxy-catalog`, the analysis uses a galaxy catalog built by the [galaxy_catalog](galaxy-catalog.md)
-mode: the redshift of each event comes from the mass spectrum **and** from the galaxies along its line of sight
-(the in-catalog term, with the out-of-catalog completeness term for the galaxies the catalog misses), icarogw's
-`CBC_catalog_vanilla_rate` [\[57\]](../references.md#ref-57) [\[29\]](../references.md#ref-29).
-
-```bash
-gwtc_analysis galaxy_catalog --workdir glade_k --jobs 4 --icarogw-python ~/.conda/envs/icarogw/bin/python
-gwtc_analysis hubble_constant --workdir h0_dark_plp --stages prepare \
-    --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5
-gwtc_analysis hubble_constant --workdir h0_dark_plp --stages sample combine reweight report \
-    --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5 \
-    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 1 --npool 4
-```
-
-- `prepare` also keeps the sky position of every PE sample (extracts made before it was kept are made again from
-  the cached PE file) and records the catalog in `inputs.h5`; the other stages then use it.
-- The LVK injection files do not record sky positions. The injections enter the selection effect through the
-  sky-averaged galaxy density, for which their position does not matter; they are given isotropic positions.
-- The catalog's interpolants are loaded once per process in single precision. With GLADE+ at nside 64 this takes a
-  few hundred MB per process: lower `--parallel` on small machines.
-- The report compares with the dark-siren posterior of the same mass model in the GWTC-4.0 cosmology data release
-  (icarogw, GLADE+ K band, ε = 1: Power Law + Peak 115.4 (+40.1 / −33.8), Multi Peak 86.3 (+41.3 / −26.3)
-  km/s/Mpc), only when the catalog has the same band, ε and nside. The icarogw spectral sirens of the same release
-  give 110.3 (+44.8 / −35.6) and 76.5 (+45.0 / −25.6): the catalog narrows the 68% interval by 8% and 4%.
-
-### Validation: GWTC-4.0, Power Law + Peak, GLADE+ K band
-
-The GWTC-4.0 dark siren reproduced on CC-IN2P3 (October 2026), with the [galaxy_catalog](galaxy-catalog.md)
-defaults (GLADE+ Ks, nside 64, ε = 1), the paper's 137 BBH events with 1500 PE samples each, and the Slurm chain
-above (8 seeds of 100 live points, 8 CPUs each):
-
-| | H₀ (km/s/Mpc, median and 68%) | 90% |
-|---|---|---|
-| runs, 10% of the injections (7 runs, 3189 samples) | 131.1 (+40.5 / −39.3) | 73.8 – 190.2 |
-| **reweighted to all the injections** | **120.7 (+39.9 / −37.6)** | **65.6 – 182.8** |
-| GWTC-4.0 release, icarogw dark siren | 115.4 (+40.1 / −33.8) | 64.7 – 179.0 |
-
-- The median is 5 km/s/Mpc (0.14σ) above the release and the intervals nearly coincide: the level of agreement of the
-  [spectral siren](../science/spectral-siren.md), where the number of PE samples alone moves H₀ by about
-  5 km/s/Mpc. The reweighting keeps an effective sample size of 70% (2240 of 3189), rejects no sample, and
-  reproduces the runs' ln L exactly.
-- As for the spectral siren, the 10% injection subset shifts H₀ up by about 10 km/s/Mpc; the reweighting removes it.
-- Where the 5 km/s/Mpc comes from: the release stores the ln L of each posterior sample, so our likelihood can be
-  evaluated at the LVK samples. Reweighting the LVK dark-siren posterior to our likelihood gives 120.7, our own
-  result: the sampling is right and the difference is in the likelihood. Our spectral-siren likelihood alone moves
-  the LVK spectral posterior from 110.3 to 113.5, so about 3 km/s/Mpc comes from the Monte Carlo settings the paper
-  does not give (PE samples per event, [likelihood thresholds](#likelihood-thresholds): ours reject 10% of the LVK
-  samples, mostly at high H₀), and about 2 from the catalog term. The galaxy selection matches the paper's
-  ([galaxy_catalog](galaxy-catalog.md#settings-the-paper-leaves-open)).
-- The catalog adds almost nothing at these distances: at fixed population parameters, ln L(H₀) with and without
-  the catalog differ by less than 1 over 20–200 km/s/Mpc. The sky-averaged galaxy density of the catalog (in- plus
-  out-of-catalog) is within a few percent of the uniform Schechter density beyond z ≈ 0.07, where the BBHs are,
-  with a 15–25% deficit at z ≈ 0.01–0.04 and the local structures below z ≈ 0.005.
-- A deeper catalog helps: with the DES-Y6 galaxies instead of GLADE+, the O4a dark-siren H₀ has a 68% interval
-  about 11% narrower (about 10% with GW170817), although DES covers only 12% of the sky
-  (McMahon et al. 2026 [\[93\]](../references.md#ref-93)); DES-Y6 is the catalog of the GWTC-5.0 dark sirens
-  [\[30\]](../references.md#ref-30). Its galaxy density is 100 to 1000 times that of GLADE+, but at the BBH
-  distances the mass spectrum still carries most of the redshift information.
-- Timing: the catalog took about 45 min (16 jobs); the probe 32 min; the runs 7.8–10.3 h each, at 0.39 s per
-  likelihood evaluation with 10% of the injections (1.1 s with all); the reweighting 5–7 min per chunk.
-- One run (seed 1) entered a slow tail (160 s per iteration after 17 h, `dlogz` 0.65) and was cancelled; the chain
-  continued with the 7 other runs. To do the same, relax the dependency of the combine job before cancelling the
-  run, so that it still starts: `scontrol update JobId=<combine> Dependency=afterany:<run array>`, then
-  `scancel <run array>_<task>`. `combine` uses the runs that wrote a result.
 
 All options: [CLI reference](../cli-reference.md#hubble_constant).
