@@ -80,3 +80,44 @@ where \(R(z)\) is the merger rate per unit comoving volume and per unit source-f
 comoving volume, and the factor \(1/(1+z)\) the time dilation between the source and the detector.
 This is the redshift distribution used by the [rates](merger-rates.md) and
 [spectral-siren](spectral-siren.md) analyses.
+
+## The stochastic background
+
+The catalogs list the mergers loud enough to be detected one by one. Most mergers in the universe are too
+distant and too faint: summed over the whole universe, a binary black hole merges every few minutes and a binary
+neutron star every few tens of seconds, far more often than the detectors resolve. Their signals add up, with
+random phases and from every direction, into a **stochastic background**: not a signal with a shape, but an extra,
+persistent noise-like strain common to all detectors. Other, more speculative sources would add to it:
+gravitational waves from inflation, phase transitions or cosmic strings in the early universe. The background of
+compact binaries is the one that must exist, given the merger rates the catalogs measure.
+
+**What is measured.** The strength of a background is its energy density per logarithmic frequency interval, as
+a fraction of the critical density that makes the universe flat, Ω_GW(f): a pure number, usually quoted at 25 Hz,
+where the LIGO–Virgo network is most sensitive to it.
+
+**Why its spectrum rises.** During the inspiral a binary radiates an energy per unit frequency dE/df ∝ f^(−1/3);
+weighted by f, as Ω_GW is, this gives a background growing as **f^(2/3)** up to the frequencies where the
+redshifted binaries merge. The searches therefore look for a power law of index 2/3 for compact binaries, and of
+index 0 (a flat spectrum) for many cosmological models.
+
+**Continuous or "popcorn".** Binary-neutron-star signals last minutes in band and overlap, so their background is
+nearly continuous and Gaussian. Binary-black-hole signals last seconds and rarely overlap: their background is a
+sequence of faint, separate events, a **popcorn** background, which searches designed for Gaussian noise treat
+less efficiently.
+
+**How it is searched for: cross-correlation.** A background cannot be told apart from noise in one detector. With
+two detectors, the noise of each is independent, but the background is common to both: multiplying their strains
+and averaging over time, the noise products average away while the background adds up. The signal-to-noise ratio
+of the correlation grows as the square root of the observing time, so the sensitivity improves with every run.
+Two detectors see the same background only if they are close and similarly oriented compared with the wavelength;
+the **overlap reduction function** measures this, and for the LIGO pair it falls above a few tens of hertz, which
+is why the searches are most sensitive around 20–30 Hz.
+
+**The same idea at other frequencies.** Pulsar timing arrays use the arrival times of radio pulses from dozens of
+millisecond pulsars as a galaxy-sized detector, sensitive at nanohertz frequencies. In 2023 they reported evidence
+for a background there, most likely from supermassive black-hole binaries; their cross-correlation between pairs
+of pulsars plays the role of the overlap reduction function.
+
+The background of compact binaries has not been detected yet in the LIGO–Virgo–KAGRA band. Its prediction from
+the catalog, the formula behind it and the comparison with the current upper limits are in the
+[stochastic](../modes/stochastic.md) mode.
