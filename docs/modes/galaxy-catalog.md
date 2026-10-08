@@ -5,7 +5,8 @@ The **galaxy catalog of a dark siren**: galaxies turned into the line-of-sight r
 pixelated catalog pipeline of [icarogw](https://github.com/icarogw-developers/icarogw)
 [\[57\]](../references.md#ref-57) (the functions reviewed for the LVK analyses).
 
-This mode is the first of the two steps of a dark siren:
+A dark siren adds the galaxies to a spectral siren: run the spectral siren of the same events first
+([hubble_constant quick start](hubble-constant.md#quick-start)), then the two steps of the dark siren:
 
 ```
 1. galaxy_catalog   galaxies → catalog_<band>_nside<N>_eps<ε>.hdf5      (once per catalog, any machine or cluster)
