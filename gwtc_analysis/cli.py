@@ -313,6 +313,84 @@ def build_parser() -> argparse.ArgumentParser:
                       help="PE samples per event of the reweighting target (default: those of the runs).")
     p_h0.add_argument("--icarogw-python", default=None,
                       help="Python interpreter of the icarogw environment (default: the current one).")
+    p_h0.add_argument("--executor", choices=("local", "slurm"), default="local",
+                      help="local: runs on this machine; slurm: the sample, combine and reweight stages as a chain of "
+                           "sbatch scripts in <workdir>/slurm (probe, plan, one array task per seed, combine, reweight); "
+                           "run the report stage afterwards.")
+    p_h0.add_argument("--slurm-option", action="append", default=[], metavar="OPT",
+                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=16G).")
+    p_h0.add_argument("--slurm-env-setup", default="", help="Shell lines run first in each Slurm job.")
+    p_h0.add_argument("--submit", action="store_true", help="With --executor slurm: submit the scripts.")
+    p_h0.add_argument("--reweight-jobs", type=int, default=None,
+                      help="With --executor slurm: array tasks of the reweighting (default 16).")
+    p_h0.add_argument("--galaxy-catalog", default=None,
+                      help="icarogw galaxy catalog made by the galaxy_catalog mode: dark siren with a galaxy catalog "
+                           "instead of the spectral siren (the prepare stage then keeps the sky positions).")
+
+    # ---------------------------------------------------------------------
+    # galaxy_catalog
+    # ---------------------------------------------------------------------
+    p_gc = sub.add_parser(
+        "galaxy_catalog",
+        help="Build the icarogw line-of-sight galaxy catalog of the dark-siren analysis (GLADE+ K band, or any catalog).",
+        description=(
+            "Galaxy catalog for hubble_constant --galaxy-catalog: the galaxies (GLADE+ Ks band from VizieR, or any\n"
+            "catalog in Parquet, FITS, HDF5 or CSV converted in chunks with --columns) turned into icarogw's\n"
+            "line-of-sight catalog by its pixelated pipeline. The defaults are those of the GWTC-4.0 cosmology\n"
+            "analysis (nside 64, median apparent-magnitude threshold in nside-32 pixels, luminosity weighting).\n"
+            "The chunked stages run --jobs chunks in parallel (--executor local) or as Slurm array jobs\n"
+            "(--executor slurm, e.g. on CC-IN2P3), which deeper catalogs (DES, Rubin) need.\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    from .galaxy_catalog import DEFAULT_SETTINGS as _GCS, GC_STAGES as _GCST
+
+    p_gc.add_argument("--workdir", default="galaxy_catalog_run", help="Work directory (restartable).")
+    p_gc.add_argument("--stages", nargs="+", choices=list(_GCST), default=list(_GCST), help="Stages to run (default: all).")
+    p_gc.add_argument("--source", choices=("glade-kband",), default="glade-kband",
+                      help="Galaxy source when neither --galaxies nor --input-catalog is given: GLADE+ Ks band (VizieR).")
+    p_gc.add_argument("--galaxies", default=None, help="Standard galaxy file already made (skips the download).")
+    p_gc.add_argument("--input-catalog", default=None,
+                      help="Any catalog to convert: a Parquet file or directory (HATS/LSDB tree), FITS, HDF5 or CSV.")
+    p_gc.add_argument("--input-format", choices=("parquet", "fits", "hdf5", "csv"), default=None,
+                      help="Format of --input-catalog (default: from the name).")
+    p_gc.add_argument("--columns", nargs="+", default=None, metavar="NAME=COLUMN",
+                      help="Column mapping of --input-catalog: ra=... dec=... z=... m=... [sigmaz=...].")
+    p_gc.add_argument("--band", default=None,
+                      help="icarogw band of the magnitude (K-glade+, W1-glade+, bJ-glade+, ...); GLADE+: K-glade+.")
+    p_gc.add_argument("--angle-unit", choices=("deg", "rad"), default="deg", help="Unit of ra and dec in --input-catalog.")
+    p_gc.add_argument("--sigmaz", type=float, default=None,
+                      help="Constant redshift uncertainty when the catalog has no sigmaz column.")
+    p_gc.add_argument("--sigmaz-relative", action="store_true", help="--sigmaz is per (1 + z).")
+    p_gc.add_argument("--where", default=None,
+                      help="pandas query on the catalog's columns applied to each chunk (quality cuts, star-galaxy separation).")
+    p_gc.add_argument("--nside", type=int, default=_GCS["nside"], help="HEALPix nside of the catalog.")
+    p_gc.add_argument("--nside-mthr", type=int, default=_GCS["nside_mthr"],
+                      help="HEALPix nside of the apparent-magnitude threshold map.")
+    p_gc.add_argument("--mthr-percentile", type=float, default=_GCS["mthr_percentile"],
+                      help="Percentile of the magnitudes defining the threshold (50: the median).")
+    p_gc.add_argument("--epsilon", type=float, default=_GCS["epsilon"],
+                      help="Luminosity weight of the galaxies, L^epsilon (0: none, 1: linear).")
+    p_gc.add_argument("--nintegration", default=str(_GCS["nintegration"]),
+                      help="Redshift grid: logspace:ZMIN:N = one logarithmic grid up to --zcut (default); an integer = "
+                           "icarogw's adaptive grid (points per galaxy), only for catalogs with broad redshift errors.")
+    p_gc.add_argument("--numsigma", type=int, default=_GCS["numsigma"], help="Width of each galaxy redshift likelihood, in sigma.")
+    p_gc.add_argument("--zcut", type=float, default=_GCS["zcut"], help="Highest redshift of the in-catalog term.")
+    p_gc.add_argument("--ptype", choices=("gaussian",), default=_GCS["ptype"], help="Galaxy redshift likelihood.")
+    p_gc.add_argument("--nshards", type=int, default=_GCS["nshards"], help="Shard files of the pixelation (by pixel range).")
+    p_gc.add_argument("--jobs", type=int, default=4, help="Chunks of the chunked stages (parallel processes or array jobs).")
+    p_gc.add_argument("--executor", choices=("local", "slurm"), default="local",
+                      help="local: parallel processes; slurm: write sbatch array scripts chained by dependencies.")
+    p_gc.add_argument("--slurm-option", action="append", default=[], metavar="OPT",
+                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=8G).")
+    p_gc.add_argument("--slurm-assembly-option", action="append", default=[], metavar="OPT",
+                      help="Extra #SBATCH option of the init, finish and summary jobs, which hold the whole catalog in "
+                           "memory (e.g. --slurm-assembly-option=--mem=16G); repeatable.")
+    p_gc.add_argument("--slurm-env-setup", default="",
+                      help="Shell lines run first in each Slurm job (e.g. 'source /path/conda.sh; conda activate icarogw').")
+    p_gc.add_argument("--submit", action="store_true", help="With --executor slurm: submit the scripts.")
+    p_gc.add_argument("--icarogw-python", default=None, help="Python interpreter of the icarogw environment.")
+    p_gc.add_argument("--out-report", default="galaxy_catalog.html", help="Output HTML report path.")
 
     # ---------------------------------------------------------------------
     # bright_siren
@@ -746,6 +824,35 @@ def main(argv=None) -> int:
                 probe_points=args.probe_points,
                 reweight_pe_samples=args.reweight_pe_samples,
                 icarogw_python=args.icarogw_python,
+                galaxy_catalog=args.galaxy_catalog,
+                executor=args.executor,
+                slurm_options=args.slurm_option,
+                slurm_env_setup=args.slurm_env_setup,
+                submit=args.submit,
+                reweight_jobs=args.reweight_jobs,
+            )
+            return 0
+
+        if args.mode == "galaxy_catalog":
+            from .galaxy_catalog import run_galaxy_catalog
+
+            cols = None
+            if args.columns:
+                bad = [c for c in args.columns if "=" not in c]
+                if bad:
+                    raise ValueError(f"--columns expects NAME=COLUMN, got {bad}")
+                cols = dict(c.split("=", 1) for c in args.columns)
+            nint = args.nintegration if str(args.nintegration).startswith("logspace:") else int(args.nintegration)
+            run_galaxy_catalog(
+                stages=args.stages, workdir=args.workdir, source=args.source, galaxies=args.galaxies,
+                input_catalog=args.input_catalog, columns=cols, band=args.band, angle_unit=args.angle_unit,
+                sigmaz=args.sigmaz, sigmaz_relative=args.sigmaz_relative, where=args.where,
+                input_format=args.input_format, nside=args.nside, nside_mthr=args.nside_mthr,
+                mthr_percentile=args.mthr_percentile, epsilon=args.epsilon, nintegration=nint,
+                numsigma=args.numsigma, zcut=args.zcut, ptype=args.ptype, nshards=args.nshards, jobs=args.jobs,
+                executor=args.executor, slurm_options=args.slurm_option, slurm_env_setup=args.slurm_env_setup,
+                slurm_assembly_options=args.slurm_assembly_option,
+                submit=args.submit, icarogw_python=args.icarogw_python, out_report_html=args.out_report,
             )
             return 0
 
