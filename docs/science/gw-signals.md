@@ -81,15 +81,20 @@ comoving volume, and the factor \(1/(1+z)\) the time dilation between the source
 This is the redshift distribution used by the [rates](merger-rates.md) and
 [spectral-siren](spectral-siren.md) analyses.
 
-## The stochastic background
+## The stochastic background of compact binaries
 
 The catalogs list the mergers loud enough to be detected one by one. Most mergers in the universe are too
 distant and too faint: summed over the whole universe, a binary black hole merges every few minutes and a binary
 neutron star every few tens of seconds, far more often than the detectors resolve. Their signals add up, with
 random phases and from every direction, into a **stochastic background**: not a signal with a shape, but an extra,
-persistent noise-like strain common to all detectors. Other, more speculative sources would add to it:
-gravitational waves from inflation, phase transitions or cosmic strings in the early universe. The background of
-compact binaries is the one that must exist, given the merger rates the catalogs measure.
+persistent noise-like strain common to all detectors. This background of mergers must exist, given the merger
+rates the catalogs measure, and it is the one this page and the [stochastic](../modes/stochastic.md) mode deal with.
+
+!!! note "Stochastic: the kind of signal, not its origin"
+    "Stochastic" means random, persistent and unresolved, and also applies to gravitational waves from the early
+    universe (inflation, phase transitions, cosmic strings). Those are a different subject: the background from
+    standard inflation is about a million times too weak for ground-based detectors, and primordial gravitational
+    waves are sought mainly in the polarization of the cosmic microwave background.
 
 **What is measured.** The strength of a background is its energy density per logarithmic frequency interval, as
 a fraction of the critical density that makes the universe flat, Ω_GW(f): a pure number, usually quoted at 25 Hz,
