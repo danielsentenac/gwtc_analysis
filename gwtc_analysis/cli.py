@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from typing import List, Optional
 
 from .catalogs import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES, run_catalog_statistics, run_merger_rates
@@ -23,6 +24,7 @@ from .catalog_registry import DEFAULT_H0_RELEASE, catalog_help, catalog_runs_hel
 DEFAULT_H0_RELEASE_TEXT = f"{DEFAULT_H0_RELEASE}: the published analysis"
 from .data_repo import parse_zenodo_version, zenodo_catalogs
 import sys
+from pathlib import Path
 
 
 def _format_allowed_catalogs() -> str:
@@ -145,6 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Show the version and the catalogs it covers, then exit.")
 
     sub = p.add_subparsers(dest="mode", required=True, metavar="MODE")
+    p._mode_parsers = sub.choices        # for --settings (see _apply_settings_file)
 
     # ---------------------------------------------------------------------
     # catalog_statistics
@@ -321,6 +324,14 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=16G).")
     p_h0.add_argument("--slurm-env-setup", default="", help="Shell lines run first in each Slurm job.")
     p_h0.add_argument("--submit", action="store_true", help="With --executor slurm: submit the scripts.")
+    p_h0.add_argument("--settings", default=None, metavar="FILE",
+                      help="JSON (or YAML) file of option values, keys as the long option names (e.g. pe-samples, "
+                           "neff-pe); options given on the command line override it.")
+    p_h0.add_argument("--neff-pe", type=float, default=None,
+                      help="Effective PE samples each event needs at a likelihood point, else the point is rejected "
+                           "(default 10; recorded in <workdir>/likelihood.json and used by every stage).")
+    p_h0.add_argument("--neff-inj", type=int, default=None,
+                      help="Effective injections needed at a likelihood point (default: 4 x the number of events).")
     p_h0.add_argument("--reweight-jobs", type=int, default=None,
                       help="With --executor slurm: array tasks of the reweighting (default 16).")
     p_h0.add_argument("--galaxy-catalog", default=None,
@@ -345,6 +356,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     from .galaxy_catalog import DEFAULT_SETTINGS as _GCS, GC_STAGES as _GCST
 
+    p_gc.add_argument("--settings", default=None, metavar="FILE",
+                      help="JSON (or YAML) file of option values, keys as the long option names (e.g. zcut, glade-types); "
+                           "options given on the command line override it.")
     p_gc.add_argument("--workdir", default="galaxy_catalog_run", help="Work directory (restartable).")
     p_gc.add_argument("--stages", nargs="+", choices=list(_GCST), default=list(_GCST), help="Stages to run (default: all).")
     p_gc.add_argument("--source", choices=("glade-kband",), default="glade-kband",
@@ -360,10 +374,19 @@ def build_parser() -> argparse.ArgumentParser:
                       help="icarogw band of the magnitude (K-glade+, W1-glade+, bJ-glade+, ...); GLADE+: K-glade+.")
     p_gc.add_argument("--angle-unit", choices=("deg", "rad"), default="deg", help="Unit of ra and dec in --input-catalog.")
     p_gc.add_argument("--sigmaz", type=float, default=None,
-                      help="Constant redshift uncertainty when the catalog has no sigmaz column.")
+                      help="Constant redshift uncertainty: for a catalog without a sigmaz column, or instead of the GLADE+ errors.")
     p_gc.add_argument("--sigmaz-relative", action="store_true", help="--sigmaz is per (1 + z).")
     p_gc.add_argument("--where", default=None,
-                      help="pandas query on the catalog's columns applied to each chunk (quality cuts, star-galaxy separation).")
+                      help="pandas query on the catalog's columns applied to each chunk (quality cuts, star-galaxy "
+                           "separation); for GLADE+ on its VizieR columns RAJ2000, DEJ2000, Kmag, zhelio, zcmb, f_zcmb, e_z, e_zhelio.")
+    p_gc.add_argument("--glade-types", default=None, metavar="G[,Q]",
+                      help="GLADE+ object types kept: G galaxies (default), Q quasars.")
+    p_gc.add_argument("--glade-redshift", choices=("zcmb", "zhelio"), default=None,
+                      help="GLADE+ redshift: zcmb, CMB frame, peculiar velocities corrected below z = 0.05 (default); "
+                           "zhelio, heliocentric.")
+    p_gc.add_argument("--glade-sigmaz", choices=("quadrature", "measurement", "peculiar"), default=None,
+                      help="GLADE+ redshift uncertainty: measurement and peculiar-velocity errors in quadrature (default), "
+                           "the measurement error alone (e_zhelio), or the peculiar-velocity error alone (e_z).")
     p_gc.add_argument("--nside", type=int, default=_GCS["nside"], help="HEALPix nside of the catalog.")
     p_gc.add_argument("--nside-mthr", type=int, default=_GCS["nside_mthr"],
                       help="HEALPix nside of the apparent-magnitude threshold map.")
@@ -375,8 +398,13 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Redshift grid: logspace:ZMIN:N = one logarithmic grid up to --zcut (default); an integer = "
                            "icarogw's adaptive grid (points per galaxy), only for catalogs with broad redshift errors.")
     p_gc.add_argument("--numsigma", type=int, default=_GCS["numsigma"], help="Width of each galaxy redshift likelihood, in sigma.")
+    p_gc.add_argument("--zmin", type=float, default=_GCS["zmin"],
+                      help="Lowest redshift of the in-catalog term: galaxies below it are left out and the catalog counts as "
+                           "empty there (completeness correction alone); needs a logspace grid.")
     p_gc.add_argument("--zcut", type=float, default=_GCS["zcut"], help="Highest redshift of the in-catalog term.")
-    p_gc.add_argument("--ptype", choices=("gaussian",), default=_GCS["ptype"], help="Galaxy redshift likelihood.")
+    p_gc.add_argument("--ptype", choices=("gaussian", "gaussian_nocom", "uniform"), default=_GCS["ptype"],
+                      help="Galaxy redshift probability: gaussian = Gaussian likelihood x uniform-in-comoving-volume prior "
+                           "(default); gaussian_nocom = the Gaussian itself; uniform = uniform in volume within +-numsigma.")
     p_gc.add_argument("--nshards", type=int, default=_GCS["nshards"], help="Shard files of the pixelation (by pixel range).")
     p_gc.add_argument("--jobs", type=int, default=4, help="Chunks of the chunked stages (parallel processes or array jobs).")
     p_gc.add_argument("--executor", choices=("local", "slurm"), default="local",
@@ -749,10 +777,66 @@ def _print_zenodo_releases(catalogs: list[str]) -> None:
                 print(f"  v{i}  record {v['record_id']:>9}  {v['publication_date']}{latest}")
 
 
+SETTINGS_MODES = ("galaxy_catalog", "hubble_constant")
+
+
+def load_settings_file(path: str | Path) -> dict:
+    """Option values from a JSON file, or a YAML one (.yaml/.yml, needs PyYAML)."""
+    path = Path(path).expanduser()
+    text = path.read_text()
+    if path.suffix.lower() in (".yaml", ".yml"):
+        try:
+            import yaml
+        except ImportError as e:
+            raise ValueError(f"{path}: reading YAML needs PyYAML (pip install pyyaml), or use JSON") from e
+        data = yaml.safe_load(text) or {}
+    else:
+        data = json.loads(text)
+    if not isinstance(data, dict):
+        raise ValueError(f"{path}: expected a mapping of option names to values")
+    return data
+
+
+def _apply_settings_file(p: argparse.ArgumentParser, argv) -> argparse.Namespace:
+    """Parse, then, for a mode with --settings FILE, use the file's values as defaults and parse again, so that the
+    command line still overrides them. Keys are long option names, with - or _; values are checked like the
+    command line's (type and choices)."""
+    args = p.parse_args(argv)
+    if args.mode not in SETTINGS_MODES or not getattr(args, "settings", None):
+        return args
+    sp = p._mode_parsers[args.mode]
+    actions = {a.dest: a for a in sp._actions if a.option_strings}
+    data = load_settings_file(args.settings)
+    defaults = {}
+    for key, val in data.items():
+        dest = str(key).lstrip("-").replace("-", "_")
+        a = actions.get(dest)
+        if a is None or dest in ("help", "settings"):
+            raise ValueError(f"{args.settings}: unknown option {key!r} for {args.mode}")
+        vals = val if isinstance(val, list) else [val]
+        if a.type is not None and val is not None:
+            vals = [a.type(v) for v in vals]
+        if a.choices is not None and any(v not in a.choices for v in vals):
+            raise ValueError(f"{args.settings}: {key} = {val!r} not among {list(a.choices)}")
+        listy = isinstance(val, list) or a.nargs in ("+", "*") or isinstance(a, argparse._AppendAction)
+        defaults[dest] = vals if listy else vals[0]
+    sp.set_defaults(**defaults)
+    return p.parse_args(argv)
+
+
+def _record_options(args: argparse.Namespace, workdir: str | Path) -> None:
+    """The resolved options of the run (command line and --settings file), in <workdir>/options_<mode>.json."""
+    d = Path(workdir).expanduser()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"options_{args.mode}.json").write_text(json.dumps(vars(args), indent=1, default=str))
+
+
 def main(argv=None) -> int:
     try:
         p = build_parser()
-        args = p.parse_args(argv)
+        args = _apply_settings_file(p, argv)
+        if args.mode in SETTINGS_MODES:
+            _record_options(args, args.workdir)
 
         if args.mode == "catalog_statistics":
             catalogs = _parse_catalogs(args.catalogs)
@@ -830,6 +914,8 @@ def main(argv=None) -> int:
                 slurm_env_setup=args.slurm_env_setup,
                 submit=args.submit,
                 reweight_jobs=args.reweight_jobs,
+                neff_pe=args.neff_pe,
+                neff_inj=args.neff_inj,
             )
             return 0
 
@@ -847,9 +933,10 @@ def main(argv=None) -> int:
                 stages=args.stages, workdir=args.workdir, source=args.source, galaxies=args.galaxies,
                 input_catalog=args.input_catalog, columns=cols, band=args.band, angle_unit=args.angle_unit,
                 sigmaz=args.sigmaz, sigmaz_relative=args.sigmaz_relative, where=args.where,
+                glade_types=args.glade_types, glade_redshift=args.glade_redshift, glade_sigmaz=args.glade_sigmaz,
                 input_format=args.input_format, nside=args.nside, nside_mthr=args.nside_mthr,
                 mthr_percentile=args.mthr_percentile, epsilon=args.epsilon, nintegration=nint,
-                numsigma=args.numsigma, zcut=args.zcut, ptype=args.ptype, nshards=args.nshards, jobs=args.jobs,
+                numsigma=args.numsigma, zmin=args.zmin, zcut=args.zcut, ptype=args.ptype, nshards=args.nshards, jobs=args.jobs,
                 executor=args.executor, slurm_options=args.slurm_option, slurm_env_setup=args.slurm_env_setup,
                 slurm_assembly_options=args.slurm_assembly_option,
                 submit=args.submit, icarogw_python=args.icarogw_python, out_report_html=args.out_report,

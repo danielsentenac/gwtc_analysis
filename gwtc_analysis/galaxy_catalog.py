@@ -18,8 +18,11 @@ with ``afterok`` dependencies and submitted with ``submit=True``): the way to bu
 
 The defaults are those of the GWTC-4.0 cosmology analysis (arXiv:2509.04348, Sections 2.2 and 3.2): GLADE+ K band,
 HEALPix nside 64 for the catalog, apparent-magnitude threshold at the median in nside-32 pixels, luminosity
-weighting epsilon = 1. The redshift-grid settings (`nintegration`, `numsigma`, `zcut`) are not given in the paper:
-the grid is one logarithmic grid fine enough for the spectroscopic redshifts of GLADE+ (see DEFAULT_SETTINGS).
+weighting epsilon = 1. The redshift-grid settings (`nintegration`, `numsigma`, `zmin`, `zcut`) and the form of the
+galaxy redshift probability (`ptype`) are not given in the paper: the grid is one logarithmic grid fine enough for the
+spectroscopic redshifts of GLADE+ (see DEFAULT_SETTINGS), and `ptype` is icarogw's Gaussian likelihood times a
+uniform-in-comoving-volume prior (the paper tests it against the Gaussian taken as the posterior, gaussian_nocom, and
+finds negligible differences).
 """
 from __future__ import annotations
 
@@ -44,7 +47,11 @@ RUNNER = Path(__file__).with_name("dark_catalog_icarogw.py")
 # GLADE+ (sigma_z of a few 1e-4) the merged grid grows to tens of thousands of redshifts, too slow to build and too
 # large to load. 5000 points from 1e-4 to zcut = 0.5: a relative step of 0.17%, 8.5e-5 at z = 0.05.
 DEFAULT_SETTINGS = dict(nside=64, nside_mthr=32, mthr_percentile=50.0, epsilon=1.0, nintegration="logspace:0.0001:5000",
-                        numsigma=3, zcut=0.5, ptype="gaussian", cosmo_zmax=10.0, nshards=1024)
+                        numsigma=3, zmin=0.0, zcut=0.5, ptype="gaussian", cosmo_zmax=10.0, nshards=1024)
+# icarogw's galaxy redshift probabilities (icarogw.catalog.EM_likelihood_prior_differential_volume): gaussian =
+# Gaussian likelihood x uniform-in-comoving-volume prior, normalized; gaussian_nocom = the Gaussian itself;
+# uniform = uniform in comoving volume within +-numsigma sigma
+PTYPES = ("gaussian", "gaussian_nocom", "uniform")
 
 
 def _log(msg: str) -> None:
@@ -63,6 +70,14 @@ def catalog_settings(band: str, **kw) -> dict:
         raise ValueError("nside_mthr must not exceed nside")
     if not 0 < float(s["mthr_percentile"]) <= 100:
         raise ValueError("mthr_percentile must be in (0, 100]")
+    if s["ptype"] not in PTYPES:
+        raise ValueError(f"ptype must be one of {', '.join(PTYPES)}")
+    s["zmin"] = float(s["zmin"])
+    if not 0 <= s["zmin"] < float(s["zcut"]):
+        raise ValueError("zmin must be in [0, zcut)")
+    if s["zmin"] > 0 and not str(s["nintegration"]).startswith("logspace:"):
+        raise ValueError("zmin needs a logarithmic redshift grid (nintegration logspace:ZMIN:N): with the adaptive "
+                         "grid, redshifts below zmin would count as an empty catalog instead of out of its range")
     return s
 
 
@@ -152,6 +167,7 @@ def write_catalog_report(workdir: Path, out_report_html: Path) -> None:
     paras = [
         f"Galaxy catalog for the dark-siren analysis: <b>{summ['n_galaxies']:,}</b> galaxies"
         + (f" from {gal_attrs.get('source')}" if gal_attrs.get("source") else "")
+        + (f" (selection: {s['galaxy_selection']})" if s.get("galaxy_selection") else "")
         + f", band {s['band']} (median redshift {gal_attrs.get('z_median', float('nan')):.3f}, median redshift "
         f"uncertainty {gal_attrs.get('sigmaz_median', float('nan')):.3f}); {summ['n_galaxies_in_catalog_term']:,} are "
         "brighter than the apparent-magnitude threshold of their pixel and enter the in-catalog term.",
@@ -159,8 +175,9 @@ def write_catalog_report(workdir: Path, out_report_html: Path) -> None:
         f"sky). Apparent-magnitude threshold: percentile {s['mthr_percentile']:g} of the magnitudes in nside-"
         f"{s['nside_mthr']} pixels, median {summ['mthr_median']:.2f} (10–90%: {summ['mthr_p10_p90'][0]:.2f}–"
         f"{summ['mthr_p10_p90'][1]:.2f}).",
-        f"Line-of-sight interpolants: luminosity weight ε = {s['epsilon']:g}, galaxy redshift likelihood {s['ptype']} "
-        f"(±{s['numsigma']}σ), redshift grid {s['nintegration']} up to z = {s['zcut']}: {summ['n_redshifts']} "
+        f"Line-of-sight interpolants: luminosity weight ε = {s['epsilon']:g}, galaxy redshift probability {s['ptype']} "
+        f"(±{s['numsigma']}σ), redshift grid {s['nintegration']}, in-catalog term from z = {s.get('zmin', 0):g} to "
+        f"{s['zcut']}: {summ['n_redshifts']} "
         f"redshifts × {summ['n_moc_pixels']:,} sky pixels, {summ['file_mb']:.0f} MB "
         f"(<code>{workdir / s['outfile']}</code>).",
         "Completeness (fraction of the luminosity-weighted galaxy density in the catalog, median and 20–80% over the "
@@ -190,6 +207,9 @@ def run_galaxy_catalog(
     sigmaz: Optional[float] = None,
     sigmaz_relative: bool = False,
     where: Optional[str] = None,
+    glade_types: Optional[str | Iterable[str]] = None,
+    glade_redshift: Optional[str] = None,
+    glade_sigmaz: Optional[str] = None,
     input_format: Optional[str] = None,
     nside: Optional[int] = None,
     nside_mthr: Optional[int] = None,
@@ -197,6 +217,7 @@ def run_galaxy_catalog(
     epsilon: Optional[float] = None,
     nintegration: Optional[int | str] = None,
     numsigma: Optional[int] = None,
+    zmin: Optional[float] = None,
     zcut: Optional[float] = None,
     ptype: Optional[str] = None,
     nshards: Optional[int] = None,
@@ -229,10 +250,21 @@ def run_galaxy_catalog(
             gx.convert_catalog(input_catalog, gal, band=band, columns=columns, angle_unit=angle_unit, sigmaz=sigmaz,
                                sigmaz_relative=sigmaz_relative, where=where, fmt=input_format)
         elif source == "glade-kband":
-            if not gal.exists():
-                gx.fetch_glade_kband(gal)
-            else:
+            sel = gx.glade_selection(types=glade_types, redshift=glade_redshift, sigmaz=glade_sigmaz,
+                                     sigmaz_const=sigmaz, sigmaz_relative=sigmaz_relative or None, where=where)
+            if gal.exists():
+                import h5py
+
+                with h5py.File(gal, "r") as h:
+                    prev = json.loads(h.attrs["glade_selection"]) if "glade_selection" in h.attrs else \
+                        dict(gx.GLADE_DEFAULT_SELECTION)       # files written before the selection was recorded
+                prev["types"] = tuple(prev["types"])
+                if prev != sel:
+                    raise ValueError(f"{gal} was made with another GLADE+ selection ({gx.glade_selection_text(prev)}); "
+                                     "use another work directory, or remove it")
                 _log(f"{gal} exists, kept")
+            else:
+                gx.fetch_glade_kband(gal, selection=sel)
         else:
             raise ValueError(f"Unknown galaxy source {source!r} (glade-kband, or --input-catalog)")
     icarogw_stages = [s for s in stages if s in ICAROGW_STAGES]
@@ -244,15 +276,19 @@ def run_galaxy_catalog(
         with h5py.File(gal, "r") as h:
             file_band = str(h.attrs["band"])
         st = catalog_settings(band or file_band, nside=nside, nside_mthr=nside_mthr, mthr_percentile=mthr_percentile,
-                              epsilon=epsilon, nintegration=nintegration, numsigma=numsigma, zcut=zcut, ptype=ptype,
-                              nshards=nshards)
-        st["source"] = gx.galaxy_summary(gal)["source"]
+                              epsilon=epsilon, nintegration=nintegration, numsigma=numsigma, zmin=zmin, zcut=zcut,
+                              ptype=ptype, nshards=nshards)
+        summ = gx.galaxy_summary(gal)
+        st["source"] = summ["source"]
+        st["galaxy_selection"] = summ.get("selection", "")
         st["galaxies"] = str(gal)
         old = workdir / "catalog_settings.json"
         if old.exists():
             prev = json.loads(old.read_text())
-            diff = {k: (prev.get(k), v) for k, v in st.items() if k not in ("galaxies", "source", "nshards")
-                    and str(prev.get(k)) != str(v)}
+            # settings added in later versions take their default in an older catalog_settings.json
+            diff = {k: (prev.get(k, DEFAULT_SETTINGS.get(k)), v) for k, v in st.items()
+                    if k not in ("galaxies", "source", "nshards") and not (k == "galaxy_selection" and k not in prev)
+                    and str(prev.get(k, DEFAULT_SETTINGS.get(k))) != str(v)}
             if diff:
                 raise ValueError(f"{workdir} holds a catalog built with other settings {diff}; use another work "
                                  "directory")

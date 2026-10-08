@@ -112,6 +112,10 @@ CATALOGS: dict[str, Catalog] = {c.key: c for c in (
             s3_prefix="GWTC-5/"),
 )}
 
+# the GLADE+ catalog of the GWTC-4.0 dark sirens (arXiv:2509.04348, Sections 2.2 and 3.2): the galaxy_catalog settings
+# the paper gives; the report compares with the published value only when the catalog has them all
+_GWTC4_GLADE_K = dict(band="K-glade+", epsilon=1.0, nside=64, nside_mthr=32, mthr_percentile=50.0, zmin=0.0,
+                      galaxy_selection="Type G, Kmag finite, zcmb > 0, sigmaz quadrature finite")
 SENSITIVITY_RELEASES: dict[str, SensitivityRelease] = {s.key: s for s in (
     SensitivityRelease(
         "gwtc5", "19500052", "GWTC-5.0 cumulative, real O3 + O4a + O4b injections (~900 MB)",
@@ -142,10 +146,10 @@ SENSITIVITY_RELEASES: dict[str, SensitivityRelease] = {s.key: s for s in (
             # (+45.0 / -25.6)
             "dark_plp": dict(ref="GWTC-4.0 cosmology data release, icarogw dark siren, GLADE+ K band, ε = 1 (PLP)",
                              median=115.4, plus=40.1, minus=33.8, lo90=64.7, hi90=179.0,
-                             catalog=dict(band="K-glade+", epsilon=1.0, nside=64)),
+                             catalog=_GWTC4_GLADE_K),
             "dark_mltp": dict(ref="GWTC-4.0 cosmology data release, icarogw dark siren, GLADE+ K band, ε = 1 (MLTP)",
                               median=86.3, plus=41.3, minus=26.3, lo90=46.8, hi90=160.8,
-                              catalog=dict(band="K-glade+", epsilon=1.0, nside=64)),
+                              catalog=_GWTC4_GLADE_K),
         }),
 )}
 

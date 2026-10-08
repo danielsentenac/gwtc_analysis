@@ -701,17 +701,34 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
 
 
 def _matches_published_catalog(st: dict, published: dict) -> bool:
-    """Whether the catalog settings are those of the published dark siren (band, epsilon, nside)."""
+    """Whether the catalog has the settings of the published dark siren (those the paper gives: band, epsilon,
+    nside, threshold map, redshift range, galaxy selection). Settings missing from a catalog built by an older version
+    take their default; an unrecorded galaxy selection is the default one."""
+    from .galaxy_catalog import DEFAULT_SETTINGS
+
     want = published.get("catalog") or {}
-    return all(str(st.get(k)) == str(v) for k, v in want.items())
+    for k, v in want.items():
+        have = st.get(k, DEFAULT_SETTINGS.get(k, v if k == "galaxy_selection" else None))
+        if isinstance(v, float) and have is not None:
+            try:
+                if float(have) != v:
+                    return False
+                continue
+            except (TypeError, ValueError):
+                return False
+        if str(have) != str(v):
+            return False
+    return True
 
 
 def _catalog_paragraph(st: dict) -> str:
     return (f"Galaxy catalog: {st.get('source', st.get('galaxies', '?'))}, band {st.get('band')}, luminosity weight "
             f"ε = {st.get('epsilon')}; HEALPix nside {st.get('nside')} (apparent-magnitude threshold: percentile "
             f"{st.get('mthr_percentile')} in nside-{st.get('nside_mthr')} pixels); galaxy redshift likelihood "
-            f"{st.get('ptype')}, ±{st.get('numsigma')}σ, redshift grid {st.get('nintegration')}, in-catalog part up to "
-            f"z = {st.get('zcut')}. Built with icarogw's pixelated catalog pipeline (galaxy_catalog mode).")
+            f"{st.get('ptype')}, ±{st.get('numsigma')}σ, redshift grid {st.get('nintegration')}, in-catalog part from "
+            f"z = {st.get('zmin', 0.0):g} to {st.get('zcut')}"
+            + (f"; galaxy selection: {st['galaxy_selection']}" if st.get("galaxy_selection") else "")
+            + ". Built with icarogw's pixelated catalog pipeline (galaxy_catalog mode).")
 
 
 def _plan_injection_fraction(python: str, workdir: Path, mass_model: str, pe_samples: int, probe_points: int,
@@ -788,6 +805,33 @@ def write_h0_slurm_chain(workdir: Path, python: str, stages: list[str], *, seeds
                        options=slurm_options, env_setup=env_setup, env=env)
 
 
+def set_likelihood_settings(workdir: Path, neff_pe: Optional[float] = None, neff_inj: Optional[int] = None) -> dict:
+    """Write the likelihood thresholds of a work directory (<workdir>/likelihood.json, read by every runner stage).
+    Unset values keep those already recorded, else the runner defaults; changing them once runs exist is refused,
+    since the runs, their combination and the reweighting must share one likelihood."""
+    from .h0_icarogw import LIKELIHOOD_FILE, likelihood_settings
+
+    workdir.mkdir(parents=True, exist_ok=True)
+    f = workdir / LIKELIHOOD_FILE
+    old = likelihood_settings(workdir)
+    new = dict(old)
+    if neff_pe is not None:
+        if neff_pe <= 0:
+            raise ValueError("--neff-pe must be positive")
+        new["neff_pe"] = float(neff_pe)
+    if neff_inj is not None:
+        if neff_inj <= 0:
+            raise ValueError("--neff-inj must be positive")
+        new["neff_inj"] = int(neff_inj)
+    runs = list((workdir / "result").glob("*_result.json")) if (workdir / "result").exists() else []
+    if new != old and runs:
+        raise ValueError(f"{workdir} has runs made with neff_pe={old['neff_pe']}, neff_inj={old['neff_inj']}; use "
+                         "another work directory to change them")
+    if new != old or not f.exists():
+        f.write_text(json.dumps(new, indent=1))
+    return new
+
+
 def run_hubble_constant(
     stages: Iterable[str] = STAGES,
     workdir: str | Path = "hubble_constant_run",
@@ -820,6 +864,8 @@ def run_hubble_constant(
     slurm_env_setup: str = "",
     submit: bool = False,
     reweight_jobs: Optional[int] = None,
+    neff_pe: Optional[float] = None,
+    neff_inj: Optional[int] = None,
 ) -> Optional[pd.DataFrame]:
     """Spectral-siren H0 with the `mass_model` BBH mass distribution, or dark siren with `galaxy_catalog`; see the
     module docstring for the stages."""
@@ -834,6 +880,10 @@ def run_hubble_constant(
                        runs=catalog_runs(catalogs) if catalogs else None,
                        updates=_reg.update_catalogs(catalogs or ()),
                        galaxy_catalog=Path(galaxy_catalog) if galaxy_catalog else None)
+    if any(st in stages for st in ("sample", "combine", "reweight")) or neff_pe is not None or neff_inj is not None:
+        ls = set_likelihood_settings(workdir, neff_pe, neff_inj)
+        _log(f"likelihood thresholds: {ls['neff_pe']:g} effective PE samples per event, "
+             + (f"{ls['neff_inj']} effective injections" if ls["neff_inj"] else "4 x the events effective injections"))
     if executor == "slurm" and any(st in stages for st in ("sample", "combine", "reweight")):
         if not (workdir / "inputs.h5").exists():
             raise ValueError(f"{workdir / 'inputs.h5'} not found: run the prepare stage first")
