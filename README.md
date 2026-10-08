@@ -99,6 +99,7 @@ positional arguments:
     catalog_statistics
     rates
     hubble_constant
+    galaxy_catalog
     bright_siren
     area_law
     stochastic
@@ -258,6 +259,47 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--probe-points` | `30` | With --inj-fraction auto: finite-likelihood prior points used by the probe. |
 | `--reweight-pe-samples` | `` | PE samples per event of the reweighting target (default: those of the runs). |
 | `--icarogw-python` | `` | Python interpreter of the icarogw environment (default: the current one). |
+| `--executor` | `local` | local: runs on this machine; slurm: the sample, combine and reweight stages as a chain of sbatch scripts in <workdir>/slurm (probe, plan, one array task per seed, combine, reweight); run the report stage afterwards. |
+| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=16G). |
+| `--slurm-env-setup` | `` | Shell lines run first in each Slurm job. |
+| `--submit` | `False` | With --executor slurm: submit the scripts. |
+| `--reweight-jobs` | `` | With --executor slurm: array tasks of the reweighting (default 16). |
+| `--galaxy-catalog` | `` | icarogw galaxy catalog made by the galaxy_catalog mode: dark siren with a galaxy catalog instead of the spectral siren (the prepare stage then keeps the sky positions). |
+
+### `galaxy_catalog`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--workdir` | `galaxy_catalog_run` | Work directory (restartable). |
+| `--stages` | `['galaxies', 'shard', 'pixels', 'gather', 'prepare', 'init', 'interpolate', 'finish', 'summary', 'report']` | Stages to run (default: all). |
+| `--source` | `glade-kband` | Galaxy source when neither --galaxies nor --input-catalog is given: GLADE+ Ks band (VizieR). |
+| `--galaxies` | `` | Standard galaxy file already made (skips the download). |
+| `--input-catalog` | `` | Any catalog to convert: a Parquet file or directory (HATS/LSDB tree), FITS, HDF5 or CSV. |
+| `--input-format` | `` | Format of --input-catalog (default: from the name). |
+| `--columns` | `` | Column mapping of --input-catalog: ra=... dec=... z=... m=... [sigmaz=...]. |
+| `--band` | `` | icarogw band of the magnitude (K-glade+, W1-glade+, bJ-glade+, ...); GLADE+: K-glade+. |
+| `--angle-unit` | `deg` | Unit of ra and dec in --input-catalog. |
+| `--sigmaz` | `` | Constant redshift uncertainty when the catalog has no sigmaz column. |
+| `--sigmaz-relative` | `False` | --sigmaz is per (1 + z). |
+| `--where` | `` | pandas query on the catalog's columns applied to each chunk (quality cuts, star-galaxy separation). |
+| `--nside` | `64` | HEALPix nside of the catalog. |
+| `--nside-mthr` | `32` | HEALPix nside of the apparent-magnitude threshold map. |
+| `--mthr-percentile` | `50.0` | Percentile of the magnitudes defining the threshold (50: the median). |
+| `--epsilon` | `1.0` | Luminosity weight of the galaxies, L^epsilon (0: none, 1: linear). |
+| `--nintegration` | `logspace:0.0001:5000` | Redshift grid: logspace:ZMIN:N = one logarithmic grid up to --zcut (default); an integer = icarogw's adaptive grid (points per galaxy), only for catalogs with broad redshift errors. |
+| `--numsigma` | `3` | Width of each galaxy redshift likelihood, in sigma. |
+| `--zcut` | `0.5` | Highest redshift of the in-catalog term. |
+| `--ptype` | `gaussian` | Galaxy redshift likelihood. |
+| `--nshards` | `1024` | Shard files of the pixelation (by pixel range). |
+| `--jobs` | `4` | Chunks of the chunked stages (parallel processes or array jobs). |
+| `--executor` | `local` | local: parallel processes; slurm: write sbatch array scripts chained by dependencies. |
+| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=8G). |
+| `--slurm-assembly-option` | `[]` | Extra #SBATCH option of the init, finish and summary jobs, which hold the whole catalog in memory (e.g. --slurm-assembly-option=--mem=16G); repeatable. |
+| `--slurm-env-setup` | `` | Shell lines run first in each Slurm job (e.g. 'source /path/conda.sh; conda activate icarogw'). |
+| `--submit` | `False` | With --executor slurm: submit the scripts. |
+| `--icarogw-python` | `` | Python interpreter of the icarogw environment. |
+| `--out-report` | `galaxy_catalog.html` | Output HTML report path. |
 
 ### `bright_siren`
 

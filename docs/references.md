@@ -311,6 +311,12 @@ was checked against the arXiv API.
 **[91]** G. Dálya et al., *GLADE+: an extended galaxy catalogue for multimessenger searches with advanced gravitational-wave detectors*. Queried from VizieR VII/291. [arXiv:2110.06184](https://arxiv.org/abs/2110.06184)
 {: #ref-91 }
 
+**[92]** C. S. Kochanek et al., *The K-Band Galaxy Luminosity Function*. ApJ 560, 566 (2001). The K-band Schechter function of the dark siren. [arXiv:astro-ph/0011456](https://arxiv.org/abs/astro-ph/0011456)
+{: #ref-92 }
+
+**[93]** I. McMahon et al., *Measurement of the Hubble constant using the Dark Energy Survey Year 6 Gold galaxy catalogue and the fourth Gravitational-Wave Transient Catalogue*. MNRAS 550, stag1167 (2026). [arXiv:2602.04766](https://arxiv.org/abs/2602.04766)
+{: #ref-93 }
+
 ## Data releases
 
 | Release | Where |

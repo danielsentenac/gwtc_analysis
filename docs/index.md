@@ -21,7 +21,8 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 | [`parameters_estimation`](modes/parameters-estimation.md) | Posterior plots of one event, whitened strain overlays, q-transforms, matched-filter SNR, 3D sky map and host-galaxy candidates |
 | [`build_unofficial_pe`](modes/unofficial-pe.md) | A PESummary-compatible bundle for GW170817, rebuilt from public GWTC-1 products |
 | [`rates`](modes/rates.md) | BNS, NSBH and BBH merger rates, R = N / ⟨VT⟩, from the catalogs and the LVK sensitivity injections |
-| [`hubble_constant`](modes/hubble-constant.md) | The Hubble constant from the binary-black-hole mass spectrum (spectral siren), with icarogw |
+| [`hubble_constant`](modes/hubble-constant.md) | The Hubble constant from the binary-black-hole mass spectrum (spectral siren), or with a galaxy catalog (dark siren), with icarogw |
+| [`galaxy_catalog`](modes/galaxy-catalog.md) | The galaxy catalog of the dark siren: GLADE+ K band, or any catalog read in chunks, turned into icarogw's line-of-sight redshift prior; local or Slurm (cluster) execution |
 | [`bright_siren`](modes/bright-siren.md) | The Hubble constant from an event with an identified host (bright siren): GW170817 and NGC 4993, or the candidate GW190521 flare; alone or combined with the spectral siren |
 | [`area_law`](modes/area-law.md) | Hawking's area law with GW250114: initial areas from the inspiral against the remnant area from the ringdown, reproducing the published 4.4σ |
 | [`stochastic`](modes/stochastic.md) | The background of unresolved compact binaries, Ω_GW(f), from the spectral-siren masses and rate evolution and the `rates` local rates, against the upper limits |
