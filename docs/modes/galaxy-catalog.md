@@ -31,12 +31,13 @@ an interpolant in redshift for every HEALPix pixel, and the threshold map that s
 | Setting | Option | Default | Source |
 |---|---|---|---|
 | galaxies | `--source glade-kband` | GLADE+ with a Ks magnitude | [\[91\]](../references.md#ref-91), [\[29\]](../references.md#ref-29) §3.2 |
+| GLADE+ selection | `--glade-types`, `--glade-redshift`, `--glade-sigmaz`, `--sigmaz`, `--where` | galaxies (G), `zcmb`, measurement and peculiar-velocity errors in quadrature | entries: [\[29\]](../references.md#ref-29) §3.2 (checked below); errors: not given in the paper |
 | band | `--band` | `K-glade+`: M* = −23.39, α = −1.09, M from −27 to −19 | [\[92\]](../references.md#ref-92), [\[29\]](../references.md#ref-29) §3.2 |
 | catalog pixels | `--nside` | 64 | [\[29\]](../references.md#ref-29) §3.2 |
 | threshold | `--nside-mthr`, `--mthr-percentile` | median magnitude in nside-32 pixels | [\[29\]](../references.md#ref-29) §2.2 |
 | luminosity weight | `--epsilon` | 1 (ε = 0: every galaxy equally likely) | [\[29\]](../references.md#ref-29) §2.2 |
-| galaxy redshift likelihood | `--ptype`, `--numsigma` | Gaussian, ±3σ | icarogw |
-| redshift grid | `--nintegration`, `--zcut` | logarithmic, 5000 points from z = 10⁻⁴ to 0.5 (step 0.17%); in-catalog part to z = 0.5 | icarogw's fixed-grid path (not given in the paper) |
+| galaxy redshift probability | `--ptype`, `--numsigma` | `gaussian`: Gaussian likelihood × uniform-in-comoving-volume prior, ±3σ | [\[29\]](../references.md#ref-29) §2.2 tests it and `gaussian_nocom` ("negligible differences") without saying which is the main result |
+| redshift grid | `--nintegration`, `--zmin`, `--zcut` | logarithmic, 5000 points from z = 10⁻⁴ to 0.5 (step 0.17%); in-catalog part from z = 0 to 0.5 | icarogw's fixed-grid path (not given in the paper) |
 
 **GLADE+ K band.** The galaxies of GLADE+ with a Ks magnitude (2MASS, Vega), downloaded from VizieR VII/291 in
 declination bands (each cached, so an interrupted download resumes): 1,004,455 galaxies with a redshift and its
@@ -50,6 +51,48 @@ are left out.
 ([hubble_constant](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)). Built on CC-IN2P3 in about
 45 min: 505,575 galaxies enter the in-catalog term, 94% of the sky has a threshold, median threshold Ks = 13.5;
 luminosity-weighted completeness 0.71 at z = 0.04, 0.25 at 0.08, 0.04 at 0.13.
+
+**The selection of the paper.** GLADE+ has 1,155,738 entries with a Ks magnitude, the "approximately 1.16 million
+sources" of the paper; 133,158 of them have no redshift (mostly faint, median Ks = 14.1) and 18,106 are quasars
+(median z = 0.76), which leaves the 1,004,455 galaxies above. The threshold map shows the paper made the same
+choice: with the galaxies that have a redshift, 4.3% of the nside-32 pixels are empty, as the paper's "~5%";
+with every Ks entry only 1.5% would be. The thresholds of 20, 40, 60 and 80% of the sky, 13.37, 13.47, 13.54 and
+13.63, agree with the labels of its Figure 3 (13.3, 13.5, 13.6, 13.7) to their rounding.
+
+## Settings the paper leaves open
+
+The GWTC-4.0 paper gives the catalog, the band, the pixels, the threshold and the luminosity weight, but not the
+redshift error of each galaxy, the form of its redshift probability, the redshift grid, nor the Monte Carlo settings
+of the likelihood ([hubble_constant](hubble-constant.md#likelihood-thresholds) `--pe-samples`, `--neff-pe`,
+`--neff-inj`). They can all be set:
+
+| Option | Values |
+|---|---|
+| `--glade-types` | `G` (default), `G,Q` (with the quasars) |
+| `--glade-redshift` | `zcmb` (default; CMB frame, peculiar velocities corrected below z = 0.05), `zhelio` (heliocentric) |
+| `--glade-sigmaz` | `quadrature` (default), `measurement` (`e_zhelio`), `peculiar` (`e_z`); or a constant with `--sigmaz` (per 1 + z with `--sigmaz-relative`) |
+| `--where` | a cut on the GLADE+ VizieR columns, e.g. `"f_zcmb == 1"` or `"Kmag < 13.5"` |
+| `--ptype` | `gaussian` (default), `gaussian_nocom` (the Gaussian taken as the redshift posterior), `uniform` (uniform in comoving volume within ±`--numsigma` σ) |
+| `--zmin`, `--zcut` | the redshift range of the in-catalog term: galaxies below `--zmin` are left out and, outside the range, icarogw counts every galaxy as missed (completeness correction alone). `--zmin` needs a logarithmic grid, which then starts at it |
+
+A changed GLADE+ selection needs a new work directory (the galaxy file records its selection, and the stage refuses
+an existing file made with another one); so does any other change of the catalog settings. The report of
+`hubble_constant` compares with the published dark siren only when the catalog has the settings the paper gives
+(band, ε, nside, threshold map, redshift range from 0, galaxy selection); `--ptype` and the grid, which the paper
+leaves open, do not prevent it.
+
+**Settings file.** `--settings FILE` reads the option values from a JSON (or YAML) file, keys as the long option
+names; options on the command line override it. The resolved options of each run are written to
+`<workdir>/options_galaxy_catalog.json`.
+
+```json
+{"glade-types": "G", "glade-sigmaz": "measurement", "ptype": "gaussian_nocom",
+ "nintegration": "logspace:0.0001:5000", "zcut": 0.5}
+```
+
+```bash
+gwtc_analysis galaxy_catalog --workdir glade_k_nocom --settings glade_nocom.json --jobs 4
+```
 
 ## Stages
 
@@ -115,11 +158,11 @@ Rubin: billions) never need to fit in memory, and run on a cluster:
   loads them (in single precision). Its size is in the report; choose `--nside` and the redshift grid with it in
   mind.
 
-The DES Y6 settings of the GWTC-5.0 analysis [\[14\]](../references.md#ref-14) [\[93\]](../references.md#ref-93)
-are r band, nside 128 for the catalog and the threshold map, in-catalog part between z = 0.05 and 0.35, and a
-Schechter function M* = −20.9, α = −1.01, M from −24.29 to −16.33. icarogw's `r-upglade` band uses different
-Schechter parameters and expects per-galaxy K-corrections; a DES analysis needs its own band definition, which
-is not in this version.
+The DES Y6 settings of the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) [\[93\]](../references.md#ref-93)
+are r band, nside 128 for the catalog and the threshold map, in-catalog part between z = 0.05 and 0.35
+(`--zmin 0.05 --zcut 0.35`), and a Schechter function M* = −20.9, α = −1.01, M from −24.29 to −16.33. icarogw's
+`r-upglade` band uses different Schechter parameters and expects per-galaxy K-corrections; a DES analysis needs its
+own band definition, which is not in this version.
 
 ## Outputs
 
