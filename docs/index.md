@@ -38,6 +38,12 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
   H₀ = 105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8), with the same
   137 binary black holes, PE samples, injections and priors. See
   [Hubble constant (spectral siren)](science/spectral-siren.md).
+- **Dark sirens with a galaxy catalog.** The `galaxy_catalog` mode builds the GLADE+ K-band catalog of the
+  GWTC-4.0 analysis (1.0 million galaxies, about 45 min on a cluster, as Slurm jobs on CC-IN2P3); with it,
+  `hubble_constant --galaxy-catalog` gives H₀ = 120.7 (+39.9 / −37.6) km/s/Mpc against the published
+  115.4 (+40.1 / −33.8), 0.14σ apart. Deeper catalogs (DES, Rubin) go through the same pipeline. See
+  [galaxy_catalog](modes/galaxy-catalog.md) and the
+  [validation](modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band).
 - **Merger rates** of the three source classes, corrected for selection effects with the LVK
   search-sensitivity injections. See [Merger rates](science/merger-rates.md).
 - **Robust access to the releases:** Zenodo versions resolved at run time, and missing PSDs of
