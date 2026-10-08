@@ -11,6 +11,11 @@ installed. It only needs numpy, h5py, icarogw and bilby, and reads the `inputs.h
     python h0_icarogw.py probe --workdir DIR [--mass-model plp --pe-samples 1500 --fractions 0.1 0.2 0.5]
     python h0_icarogw.py reweight --workdir DIR --chunk I --nchunks N [--target-inj-fraction 1]
     python h0_icarogw.py reweight-merge --workdir DIR
+    python h0_icarogw.py plan --workdir DIR [--min-ess-fraction 0.5]
+
+`plan` chooses the injection fraction of the runs from the probe (plan.json); `run --inj-fraction plan` reads it,
+so that probe, plan and runs can be chained as batch jobs. `reweight` and `reweight-merge` do nothing when the runs
+already used all the injections and the target number of PE samples (`--skip-if-done`).
 
 Independent runs (different seeds, possibly on different machines sharing DIR) are merged by
 `combine`, which also writes the posterior as TSV, a corner plot, and a summary with the
@@ -52,38 +57,96 @@ def _enter(workdir: Path) -> None:
     """icarogw reads `config` from the import path: CPU mode (CUPY=False) from the work directory."""
     workdir.mkdir(parents=True, exist_ok=True)
     os.chdir(workdir)
-    Path("config.py").write_text("CUPY=False\n")
+    # parallel jobs share the work directory: write only when needed, and atomically, so that no job imports a
+    # config.py that another job is rewriting
+    cfg = Path("config.py")
+    if not cfg.exists() or cfg.read_text() != "CUPY=False\n":
+        tmp = Path(f".config.py.{os.getpid()}")
+        tmp.write_text("CUPY=False\n")
+        os.replace(tmp, cfg)
     sys.path.insert(0, str(workdir))
 
 
+_GALAXY_CATALOGS: dict = {}
+
+
+def load_galaxy_catalog(path: str, grouping: str, subgrouping: str):
+    """icarogw line-of-sight catalog (galaxy_catalog mode), loaded once per process; the interpolant tables are kept
+    in float32, which halves their memory (single precision is far below the other numerical errors)."""
+    import icarogw
+
+    key = (str(path), grouping, subgrouping)
+    if key not in _GALAXY_CATALOGS:
+        cat = icarogw.catalog.icarogw_catalog(str(path), grouping, subgrouping)
+        cat.load_from_hdf5_file()
+        cat.dNgal_dzdOm_vals = cat.dNgal_dzdOm_vals.astype(np.float32)
+        _GALAXY_CATALOGS[key] = cat
+        print(f"[h0] galaxy catalog {Path(path).name} ({grouping}/{subgrouping}): {len(cat.z_grid)} redshifts x "
+              f"{cat.dNgal_dzdOm_vals.shape[1]} sky pixels", flush=True)
+    return _GALAXY_CATALOGS[key]
+
+
+def catalog_path(recorded: str, inputs: str) -> str:
+    """The galaxy catalog recorded in inputs.h5, or, when the work directory was moved to another machine, the file
+    of the same name next to inputs.h5."""
+    if Path(recorded).exists():
+        return recorded
+    here = Path(inputs).resolve().parent / Path(recorded).name
+    if here.exists():
+        return str(here)
+    raise SystemExit(f"[h0] galaxy catalog {recorded} not found, nor {here}: copy the catalog file into the work "
+                     "directory")
+
+
 def build_likelihood(pe_samples: int, inj_fraction: float, mass_model: str = "plp", inputs: str = "inputs.h5"):
-    """Hierarchical likelihood on the events and found injections of `inputs` (default: inputs.h5 of the cwd)."""
+    """Hierarchical likelihood on the events and found injections of `inputs` (default: inputs.h5 of the cwd).
+
+    When `inputs` records a galaxy catalog (dark siren), the rate is icarogw's CBC_catalog_vanilla_rate and the PE
+    samples and injections carry their sky pixel; the isotropic sky density 1/(4 pi) enters the priors."""
     import h5py
     import icarogw
 
     with h5py.File(inputs, "r") as h:
+        galcat = None
+        if "galaxy_catalog" in h.attrs:
+            galcat = load_galaxy_catalog(catalog_path(str(h.attrs["galaxy_catalog"]), inputs),
+                                         str(h.attrs["catalog_grouping"]), str(h.attrs["catalog_subgrouping"]))
+        sky = 1.0 / (4 * np.pi) if galcat is not None else 1.0
         pes = {}
         for name in h:
             if name.startswith("_"):
                 continue
             g = h[name]
             n = min(pe_samples, g["dl"].shape[0])
-            pes[name] = icarogw.posterior_samples.posterior_samples(
-                {"mass_1": g["m1"][:n], "mass_2": g["m2"][:n], "luminosity_distance": g["dl"][:n]},
-                prior=g["prior"][:n])
+            data = {"mass_1": g["m1"][:n], "mass_2": g["m2"][:n], "luminosity_distance": g["dl"][:n]}
+            if galcat is not None:
+                data.update(right_ascension=g["ra"][:n], declination=g["dec"][:n])
+            pes[name] = icarogw.posterior_samples.posterior_samples(data, prior=g["prior"][:n] * sky)
+            if galcat is not None:
+                pes[name].pixelize_with_catalog(galcat)
         gi = h["_injections"]
         # random subset of the found injections: unbiased when ntotal is scaled by the kept fraction
         keep = np.random.default_rng(2024).random(gi["prior"].shape[0]) < inj_fraction
+        keys = ("mass_1", "mass_2", "luminosity_distance")
+        idata = {k: gi[k][:][keep] for k in keys}
+        if galcat is not None:
+            idata.update(right_ascension=gi["ra"][:][keep], declination=gi["dec"][:][keep])
         inj = icarogw.injections.injections(
-            {k: gi[k][:][keep] for k in ("mass_1", "mass_2", "luminosity_distance")},
-            prior=gi["prior"][:][keep], ntotal=float(gi.attrs["ntotal"]) * keep.mean(), Tobs=float(gi.attrs["Tobs"]))
+            idata, prior=gi["prior"][:][keep] * sky, ntotal=float(gi.attrs["ntotal"]) * keep.mean(),
+            Tobs=float(gi.attrs["Tobs"]))
+        if galcat is not None:
+            inj.pixelize_with_catalog(galcat)
     print(f"[h0] {len(pes)} events, {pe_samples} PE samples each at most; {int(keep.sum())} injections "
-          f"(fraction {keep.mean():.3f})", flush=True)
+          f"(fraction {keep.mean():.3f})" + ("; dark siren with a galaxy catalog" if galcat is not None else ""),
+          flush=True)
     cat = icarogw.posterior_samples.posterior_samples_catalog(pes)
-    rate = icarogw.rates.CBC_vanilla_rate(
-        icarogw.wrappers.FlatLambdaCDM_wrap(zmax=20.0),
-        icarogw.wrappers.m1m2_conditioned_lowpass(getattr(icarogw.wrappers, MASS_MODELS[mass_model]["prior"])()),
-        icarogw.wrappers.rateevolution_Madau(), scale_free=True)
+    wraps = (icarogw.wrappers.FlatLambdaCDM_wrap(zmax=20.0),
+             icarogw.wrappers.m1m2_conditioned_lowpass(getattr(icarogw.wrappers, MASS_MODELS[mass_model]["prior"])()),
+             icarogw.wrappers.rateevolution_Madau())
+    if galcat is not None:
+        rate = icarogw.rates.CBC_catalog_vanilla_rate(galcat, *wraps, scale_free=True)
+    else:
+        rate = icarogw.rates.CBC_vanilla_rate(*wraps, scale_free=True)
     like = icarogw.likelihood.hierarchical_likelihood(cat, inj, rate, nparallel=pe_samples, neffPE=NEFF_PE,
                                                       neffINJ=None)
     return like, rate, cat, inj
@@ -472,6 +535,64 @@ def reweight_merge(workdir: Path, seed: int = 1) -> dict:
     return summary["reweighted"]
 
 
+def choose_injection_fraction(probe: dict, min_ess_fraction: float = 0.5, max_rejected: float = 0.05,
+                              min_speedup: float = 1.25) -> tuple[float, str]:
+    """Fastest reliable injection fraction from a probe (see `probe`).
+
+    The smallest fraction that is at least `min_speedup` times faster per likelihood evaluation than all
+    the injections, whose predicted reweighting ESS fraction is at least `min_ess_fraction` and which
+    rejects at most `max_rejected` of the probe points; otherwise all the injections (1.0)."""
+    t_all = float(probe["seconds_per_eval"]["1.0"])
+    reasons = []
+    for key in sorted(probe.get("fractions", {}), key=float):
+        f, info = float(key), probe["fractions"][key]
+        speedup = t_all / max(float(probe["seconds_per_eval"][key]), 1e-9)
+        ess, rej = float(info["predicted_ess_fraction"]), float(info["rejected_fraction"])
+        if speedup < min_speedup:
+            reasons.append(f"{f:g}: only {speedup:.2f}x faster")
+        elif ess < min_ess_fraction:
+            reasons.append(f"{f:g}: predicted ESS fraction {ess:.2f} < {min_ess_fraction:g}")
+        elif rej > max_rejected:
+            reasons.append(f"{f:g}: rejects {rej:.0%} of the probe points")
+        else:
+            return f, (f"fraction {f:g}: {speedup:.1f}x faster per evaluation, predicted reweighting ESS fraction "
+                       f"{ess:.2f}, rejects {rej:.0%} of the probe points; then reweighted to all the injections")
+    return 1.0, "all the injections (" + ("; ".join(reasons) or "no subset probed") + ")"
+
+
+def plan(workdir: Path, min_ess_fraction: float = 0.5) -> float:
+    """plan.json: the injection fraction of the runs, the one already used in the work directory, else chosen from
+    probe.json."""
+    old = _settings(workdir)
+    if old:
+        f, reason = float(old["inj_fraction"]), "as in the runs already in the work directory"
+    else:
+        f, reason = choose_injection_fraction(json.loads((workdir / "probe.json").read_text()),
+                                              min_ess_fraction=min_ess_fraction)
+    (workdir / "plan.json").write_text(json.dumps(dict(inj_fraction=f, reason=reason, min_ess_fraction=min_ess_fraction),
+                                                  indent=1))
+    print(f"[h0] plan: injection fraction {f:g}: {reason}", flush=True)
+    return f
+
+
+def _inj_fraction(value: str, workdir: Path) -> float:
+    """A number, or "plan": the fraction in <workdir>/plan.json."""
+    if value == "plan":
+        p = workdir / "plan.json"
+        if not p.exists():
+            raise SystemExit(f"[h0] {p} not found: run probe and plan first")
+        return float(json.loads(p.read_text())["inj_fraction"])
+    return float(value)
+
+
+def _reweight_needed(workdir: Path, target_inj_fraction: float, target_pe_samples: int | None) -> bool:
+    s = _settings(workdir)
+    if not s:
+        return True
+    return not (float(s["inj_fraction"]) >= target_inj_fraction
+                and int(target_pe_samples or s["pe_samples"]) == int(s["pe_samples"]))
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="icarogw spectral-siren sampler of gwtc_analysis hubble_constant.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -484,7 +605,7 @@ def main(argv=None) -> int:
     r.add_argument("--npool", type=int, default=4)
     r.add_argument("--naccept", type=int, default=60)
     r.add_argument("--pe-samples", type=int, default=1500)
-    r.add_argument("--inj-fraction", type=float, default=0.1)
+    r.add_argument("--inj-fraction", default="0.1", help="a fraction, or plan (the one in plan.json)")
     c = sub.add_parser("combine")
     c.add_argument("--workdir", required=True)
     c.add_argument("--no-diagnostics", action="store_true")
@@ -504,20 +625,36 @@ def main(argv=None) -> int:
     rw.add_argument("--target-inj-fraction", type=float, default=1.0)
     rw.add_argument("--target-pe-samples", type=int, default=None)
     rw.add_argument("--target-inputs", default=None, help="inputs.h5 of the target likelihood (default: the runs')")
+    rw.add_argument("--skip-if-done", action="store_true",
+                    help="do nothing when the runs already used the target fraction and PE samples")
     rm = sub.add_parser("reweight-merge")
     rm.add_argument("--workdir", required=True)
+    rm.add_argument("--skip-if-done", action="store_true")
+    rm.add_argument("--target-pe-samples", type=int, default=None)
+    pl = sub.add_parser("plan")
+    pl.add_argument("--workdir", required=True)
+    pl.add_argument("--min-ess-fraction", type=float, default=0.5)
     a = p.parse_args(argv)
     wd = Path(a.workdir).expanduser().resolve()
     if a.cmd == "run":
-        run(wd, a.seed, a.nlive, a.npool, a.naccept, a.pe_samples, a.inj_fraction, a.mass_model, a.prior_set)
+        run(wd, a.seed, a.nlive, a.npool, a.naccept, a.pe_samples, _inj_fraction(a.inj_fraction, wd), a.mass_model,
+            a.prior_set)
     elif a.cmd == "combine":
         combine(wd, diagnostics=not a.no_diagnostics)
     elif a.cmd == "probe":
         probe(wd, a.mass_model, a.pe_samples, a.fractions, a.npoints, npool=a.npool, pilot_steps=a.pilot_steps,
               prior_set=a.prior_set)
     elif a.cmd == "reweight":
+        if a.skip_if_done and not a.target_inputs and not _reweight_needed(wd, a.target_inj_fraction, a.target_pe_samples):
+            print("[h0] reweight: the runs already use all the injections, nothing to do", flush=True)
+            return 0
         reweight(wd, a.chunk, a.nchunks, a.target_inj_fraction, a.target_pe_samples, a.target_inputs)
+    elif a.cmd == "plan":
+        plan(wd, a.min_ess_fraction)
     else:
+        if a.skip_if_done and not _reweight_needed(wd, 1.0, a.target_pe_samples):
+            print("[h0] reweight-merge: nothing to reweight", flush=True)
+            return 0
         reweight_merge(wd)
     return 0
 

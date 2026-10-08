@@ -14,6 +14,14 @@ Stages of `run_hubble_constant`:
   them (importance weights exp(ln L_all - ln L_runs), checked by their effective sample size).
 - ``report``: HTML report.
 
+With ``galaxy_catalog`` (an icarogw line-of-sight catalog built by the ``galaxy_catalog`` mode), the analysis is
+a dark siren with a galaxy catalog: ``prepare`` also keeps the sky position of every PE sample and records the
+catalog in ``inputs.h5``, and the likelihood (``h0_icarogw.build_likelihood``) uses icarogw's
+``CBC_catalog_vanilla_rate``: the redshift prior of each event along its line of sight is the in-catalog galaxy
+density plus the out-of-catalog completeness term. The LVK injection files do not record sky positions; the
+injections enter through the sky-averaged galaxy density, for which their position does not matter, and are given
+isotropic positions.
+
 With ``inj_fraction="auto"`` (the default), a probe measures before sampling the speed and the
 accuracy of likelihoods built on subsets of the injections, and the fastest reliable strategy is
 chosen (`choose_injection_fraction`): sample with a subset and reweight, or sample with all.
@@ -38,6 +46,7 @@ import pandas as pd
 
 from . import gw_stat as gw
 from .report import write_simple_html_report
+from .h0_icarogw import choose_injection_fraction  # noqa: E402,F401  (one implementation, in the runner)
 
 from .catalogs import CATALOG_RUNS, OBSERVING_RUNS, SEMI_ANALYTIC_RUNS, _in_runs, catalog_runs  # noqa: E402
 
@@ -56,6 +65,7 @@ H0_DEFAULT_EXCLUDE = ("GW231123_135430", "GW200105_162426")
 # PE labels, in order of preference (the GWTC-4.0 cosmology choice first)
 PE_LABELS = ("C00:IMRPhenomXPHM-SpinTaylor", "C01:IMRPhenomXPHM", "C00:IMRPhenomXPHM")
 _PE_COLUMNS = ("mass_1", "mass_2", "luminosity_distance")
+_PE_SKY = ("ra", "dec")                    # kept when present, for the dark siren with a galaxy catalog
 _LNPDRAW = "lnpdraw_mass1_source_mass2_source_redshift_spin1x_spin1y_spin1z_spin2x_spin2y_spin2z"
 _YEAR_S = 3.15576e7
 STAGES = ("prepare", "sample", "combine", "reweight", "report")
@@ -130,7 +140,8 @@ def _pick_pe_file(cands: list[dict]) -> dict:
 
 
 def _extract_pe(path: Path, out: Path) -> None:
-    """Keep (m1, m2, D_L) of every analysis in a PESummary file, with its recorded priors."""
+    """Keep (m1, m2, D_L) and the sky position (ra, dec) of every analysis in a PESummary file, with its recorded
+    priors."""
     import h5py
 
     part = out.with_suffix(".part")
@@ -144,7 +155,7 @@ def _extract_pe(path: Path, out: Path) -> None:
             if not all(c in (ps.dtype.names or ()) for c in _PE_COLUMNS):
                 continue
             og = o.create_group(lab)
-            for c in _PE_COLUMNS:
+            for c in _PE_COLUMNS + tuple(c for c in _PE_SKY if c in ps.dtype.names):
                 og.create_dataset(c, data=np.asarray(ps[c], dtype=float), compression="gzip")
             pr = g.get("priors")
             if pr is not None and "analytic" in pr:
@@ -173,14 +184,26 @@ def _pe_extract_path(cache: Path, name: str) -> Optional[Path]:
     return None
 
 
+def _extract_has_sky(path: Path) -> bool:
+    """Whether an extract holds the sky position (extracts made before it was kept do not)."""
+    import h5py
+
+    with h5py.File(path, "r") as f:
+        lab = _choose_label(f)
+        return lab is not None and all(c in f[lab] for c in _PE_SKY)
+
+
 def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False, workers: int = 3,
-                     prefer_catalogs: Iterable[str] = ()) -> dict[str, Path]:
-    """Download (once) the PE file of each event from Zenodo and extract its samples; restartable."""
+                     prefer_catalogs: Iterable[str] = (), need_sky: bool = False) -> dict[str, Path]:
+    """Download (once) the PE file of each event from Zenodo and extract its samples; restartable.
+
+    With `need_sky`, an extract without the sky position is made again (from the kept PE file, else downloaded)."""
     from . import parameters_estimation as pe
 
     (cache / "samples").mkdir(parents=True, exist_ok=True)
     (cache / "files").mkdir(parents=True, exist_ok=True)
-    out = {n: p for n in events["event"] if (p := _pe_extract_path(cache, n)) is not None}
+    out = {n: p for n in events["event"] if (p := _pe_extract_path(cache, n)) is not None
+           and (not need_sky or _extract_has_sky(p))}
     todo = [r for _, r in events.iterrows() if r["event"] not in out]
     if not todo:
         return out
@@ -331,6 +354,23 @@ def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: f
                     n_recorded=int(len(sel)))
 
 
+def galaxy_catalog_info(path: str | Path) -> dict:
+    """Path, group names and construction settings of an icarogw catalog file made by the galaxy_catalog mode."""
+    import h5py
+
+    p = Path(path).expanduser().resolve()
+    if not p.exists():
+        raise ValueError(f"Galaxy catalog not found: {p}")
+    with h5py.File(p, "r") as h:
+        raw = h.attrs.get("gwtc_analysis_settings")
+        if raw is None:
+            raise ValueError(f"{p} is not a finished galaxy_catalog file (no gwtc_analysis_settings attribute)")
+        st = json.loads(raw)
+        if st["grouping"] not in h or st["subgrouping"] not in h[st["grouping"]]:
+            raise ValueError(f"{p}: group {st['grouping']}/{st['subgrouping']} missing; run the finish stage")
+    return dict(path=p, grouping=st["grouping"], subgrouping=st["subgrouping"], settings=st)
+
+
 # ---------------------------------------------------------------------------
 # stages
 # ---------------------------------------------------------------------------
@@ -338,8 +378,10 @@ def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: f
 def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold: float, snr_threshold: float,
                    min_mass: float, exclude: Iterable[str], pe_cache: Path, keep_pe_files: bool,
                    max_pe_samples: int = 5000, runs: Optional[Iterable[str]] = None,
-                   updates: tuple[str, ...] = ()) -> pd.DataFrame:
-    """Write <workdir>/inputs.h5 (events + injections), <workdir>/events.tsv and <workdir>/selection.json."""
+                   updates: tuple[str, ...] = (), galaxy_catalog: Optional[Path] = None) -> pd.DataFrame:
+    """Write <workdir>/inputs.h5 (events + injections), <workdir>/events.tsv and <workdir>/selection.json.
+
+    With `galaxy_catalog`, the sky positions of the PE samples are kept and the catalog is recorded in inputs.h5."""
     import h5py
 
     workdir.mkdir(parents=True, exist_ok=True)
@@ -354,8 +396,9 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
     if events.empty:
         raise ValueError("No event passes the selection")
     _log(f"{len(events)} BBH events: " + ", ".join(f"{r} {n}" for r, n in events["run"].value_counts().sort_index().items()))
+    catalog = galaxy_catalog_info(galaxy_catalog) if galaxy_catalog else None
     extracts = fetch_pe_samples(events, pe_cache if not updates else pe_cache / "_".join(updates),
-                                keep_files=keep_pe_files, prefer_catalogs=updates)
+                                keep_files=keep_pe_files, prefer_catalogs=updates, need_sky=catalog is not None)
     rng = np.random.default_rng(12345)
     labels, priors, nsamp = [], [], []
     with h5py.File(workdir / "inputs.h5.part", "w") as h:
@@ -367,12 +410,15 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
                                      f"(labels {list(f)})")
                 g = f[lab]
                 m1, m2, dl = g["mass_1"][:], g["mass_2"][:], g["luminosity_distance"][:]
+                sky = {c: g[c][:] for c in _PE_SKY} if catalog else {}
                 desc = str(g.attrs.get("prior:luminosity_distance", ""))
             idx = rng.permutation(len(dl))[:max_pe_samples]   # shuffled: the sampler takes the first N
             prior, desc = pe_distance_prior(dl[idx], desc, r["run"])
             gr = h.create_group(r["event"])
             for k, v in (("m1", m1[idx]), ("m2", m2[idx]), ("dl", dl[idx]), ("prior", prior)):
                 gr.create_dataset(k, data=v)
+            for k, v in sky.items():
+                gr.create_dataset(k, data=v[idx])
             gr.attrs.update(run=r["run"], label=lab, prior_desc=desc[:200])
             labels.append(lab); priors.append(re.sub(r"\(.*", "", desc).replace("bilby.gw.prior.", "")); nsamp.append(len(idx))
         inj = detector_frame_injections(inj_path, far_threshold, snr_threshold, runs)
@@ -381,11 +427,20 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
             gi.create_dataset(k, data=inj[k])
         gi.attrs.update(ntotal=inj["ntotal"], Tobs=inj["Tobs"], n_found=len(inj["prior"]), source=inj_path.name,
                         runs=",".join(runs))
+        if catalog:
+            # isotropic positions: the injections enter through the sky-averaged galaxy density (see module doc)
+            sky_rng = np.random.default_rng(777)
+            n_inj = len(inj["prior"])
+            gi.create_dataset("ra", data=sky_rng.uniform(0, 2 * np.pi, n_inj))
+            gi.create_dataset("dec", data=np.arcsin(sky_rng.uniform(-1, 1, n_inj)))
+            h.attrs.update(galaxy_catalog=str(catalog["path"]), catalog_grouping=catalog["grouping"],
+                           catalog_subgrouping=catalog["subgrouping"], catalog_settings=json.dumps(catalog["settings"]))
     (workdir / "inputs.h5.part").replace(workdir / "inputs.h5")
     events["pe_label"], events["pe_distance_prior"], events["pe_samples"] = labels, priors, nsamp
     events.to_csv(workdir / "events.tsv", sep="\t", index=False)
     (workdir / "selection.json").write_text(json.dumps(dict(release=release, runs=list(runs), updates=list(updates),
-                                                            default_runs=runs == tuple(release_runs) and not updates)))
+                                                            default_runs=runs == tuple(release_runs) and not updates,
+                                                            galaxy_catalog=catalog["settings"] if catalog else None)))
     _log(f"{len(inj['prior'])} found injections of {inj['n_recorded']} recorded ({inj_path.name}); "
          f"inputs written to {workdir / 'inputs.h5'}")
     return events
@@ -444,31 +499,6 @@ def jobs_failed(err: ValueError) -> list[str]:
 
     txt = str(err)
     return ast.literal_eval(txt[txt.index("["):txt.index("]") + 1])
-
-
-def choose_injection_fraction(probe: dict, min_ess_fraction: float = 0.5, max_rejected: float = 0.05,
-                              min_speedup: float = 1.25) -> tuple[float, str]:
-    """Fastest reliable injection fraction from a probe (see h0_icarogw.probe).
-
-    The smallest fraction that is at least `min_speedup` times faster per likelihood evaluation than all
-    the injections, whose predicted reweighting ESS fraction is at least `min_ess_fraction` and which
-    rejects at most `max_rejected` of the probe points; otherwise all the injections (1.0)."""
-    t_all = float(probe["seconds_per_eval"]["1.0"])
-    reasons = []
-    for key in sorted(probe.get("fractions", {}), key=float):
-        f, info = float(key), probe["fractions"][key]
-        speedup = t_all / max(float(probe["seconds_per_eval"][key]), 1e-9)
-        ess, rej = float(info["predicted_ess_fraction"]), float(info["rejected_fraction"])
-        if speedup < min_speedup:
-            reasons.append(f"{f:g}: only {speedup:.2f}x faster")
-        elif ess < min_ess_fraction:
-            reasons.append(f"{f:g}: predicted ESS fraction {ess:.2f} < {min_ess_fraction:g}")
-        elif rej > max_rejected:
-            reasons.append(f"{f:g}: rejects {rej:.0%} of the probe points")
-        else:
-            return f, (f"fraction {f:g}: {speedup:.1f}x faster per evaluation, predicted reweighting ESS fraction "
-                       f"{ess:.2f}, rejects {rej:.0%} of the probe points; then reweighted to all the injections")
-    return 1.0, "all the injections (" + ("; ".join(reasons) or "no subset probed") + ")"
 
 
 def run_jobs_parallel(python: str, workdir: Path, jobs: list[tuple[str, list[str]]], parallel: int) -> None:
@@ -573,9 +603,13 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     events = pd.read_csv(workdir / "events.tsv", sep="\t") if (workdir / "events.tsv").exists() else pd.DataFrame()
     model = summary.get("mass_model", "plp")
     model_name = MASS_MODELS.get(model, model)
-    published = (H0_SENSITIVITY_RELEASES.get(release, {}).get("published") or {}).get(model)
     sel_file = workdir / "selection.json"
     selection = json.loads(sel_file.read_text()) if sel_file.exists() else {}
+    cat_settings = selection.get("galaxy_catalog")
+    published = (H0_SENSITIVITY_RELEASES.get(release, {}).get("published") or {}).get(
+        f"dark_{model}" if cat_settings else model)
+    if cat_settings and published and not _matches_published_catalog(cat_settings, published):
+        published = None          # the published dark siren is for its own catalog settings
     if selection and not selection.get("default_runs", True):
         published = None          # the published value is for all the runs of the release
     quantiles = rw["quantiles"] if use_rw else summary["quantiles"]
@@ -612,10 +646,12 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     paras = [
         f"H<sub>0</sub> = <b>{q[2]:.1f} (+{q[3] - q[2]:.1f} / −{q[2] - q[1]:.1f}) km/s/Mpc</b> (median, 68%); "
         f"90%: {q[0]:.1f}–{q[4]:.1f}" + (" (reweighted to all the injections)" if use_rw and rw["target_inj_fraction"] >= 1 else "")
-        + f". Spectral siren with {len(events) or '?'} BBH events"
+        + (f". Dark siren with a galaxy catalog, {len(events) or '?'} BBH events" if cat_settings else
+           f". Spectral siren with {len(events) or '?'} BBH events")
         + (f" (runs {', '.join(selection['runs'])})" if selection.get("runs") else "") + ": the redshift comes from the "
-        f"source-frame mass distribution ({model_name}, fitted together with H<sub>0</sub>) and the "
-        "Madau–Dickinson rate evolution, with flat ΛCDM (Ω<sub>m</sub> = 0.3065).",
+        f"source-frame mass distribution ({model_name}, fitted together with H<sub>0</sub>)"
+        + (" and from the galaxies along each line of sight" if cat_settings else "") + ", with the "
+        "Madau–Dickinson rate evolution and flat ΛCDM (Ω<sub>m</sub> = 0.3065).",
         f"{summary['n_runs']} dynesty run(s) of {s.get('nlive', '?')} live points, {summary['n_samples']} posterior samples, "
         f"ln Z = {summary['log_evidence']:.2f} ± {summary['log_evidence_err']:.2f} (runs: "
         + ", ".join(f"{x:.1f}" for x in summary["run_log_evidences"]) + f"). PE samples per event: {s.get('pe_samples', '?')}; "
@@ -632,6 +668,8 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
             f"{rw['rejected']} sample(s) rejected by the target likelihood"
             + ("" if rw.get("runs_lnl_match", True) else "; <b>the ln L of the runs was not reproduced</b>") + ". "
             + ("<b>Low effective sample size: sample directly with --inj-fraction 1.</b>" if low else "Reliable reweighting."))
+    if cat_settings:
+        paras.append(_catalog_paragraph(cat_settings))
     if published:
         paras.append(f"Published ({published['ref']}): {published['median']} (+{published['plus']} / −{published['minus']}), "
                      f"90%: {published['lo90']}–{published['hi90']} km/s/Mpc.")
@@ -655,10 +693,25 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     if not events.empty:
         tables.append(("Events", events.to_html(index=False, escape=True, float_format=lambda x: f"{x:.4g}")))
     Path(out_report_html).parent.mkdir(parents=True, exist_ok=True)
-    write_simple_html_report(out_report_html, title="Hubble constant (spectral siren)", paragraphs=paras,
+    write_simple_html_report(out_report_html, title="Hubble constant (" + ("dark siren, galaxy catalog" if cat_settings
+                                                                     else "spectral siren") + ")", paragraphs=paras,
                              images=images, tables=tables)
     _log(f"report written to {out_report_html}")
     return table
+
+
+def _matches_published_catalog(st: dict, published: dict) -> bool:
+    """Whether the catalog settings are those of the published dark siren (band, epsilon, nside)."""
+    want = published.get("catalog") or {}
+    return all(str(st.get(k)) == str(v) for k, v in want.items())
+
+
+def _catalog_paragraph(st: dict) -> str:
+    return (f"Galaxy catalog: {st.get('source', st.get('galaxies', '?'))}, band {st.get('band')}, luminosity weight "
+            f"ε = {st.get('epsilon')}; HEALPix nside {st.get('nside')} (apparent-magnitude threshold: percentile "
+            f"{st.get('mthr_percentile')} in nside-{st.get('nside_mthr')} pixels); galaxy redshift likelihood "
+            f"{st.get('ptype')}, ±{st.get('numsigma')}σ, redshift grid {st.get('nintegration')}, in-catalog part up to "
+            f"z = {st.get('zcut')}. Built with icarogw's pixelated catalog pipeline (galaxy_catalog mode).")
 
 
 def _plan_injection_fraction(python: str, workdir: Path, mass_model: str, pe_samples: int, probe_points: int,
@@ -684,6 +737,55 @@ def _plan_injection_fraction(python: str, workdir: Path, mass_model: str, pe_sam
                                                   indent=1))
     _log(f"strategy: {reason}")
     return f
+
+
+def write_h0_slurm_chain(workdir: Path, python: str, stages: list[str], *, seeds: Iterable[int], mass_model: str,
+                         prior_set: str, nlive: int, npool: int, naccept: int, pe_samples: int,
+                         inj_fraction: float | str, probe_points: int, min_ess_fraction: float,
+                         reweight_pe_samples: Optional[int], reweight_jobs: int, slurm_options: Iterable[str] = (),
+                         env_setup: str = "") -> Path:
+    """Slurm chain of the sampling stages in <workdir>/slurm (see `slurm.write_chain`): probe and plan (with
+    inj_fraction "auto" and no runs yet), the runs as an array job (one task per seed, `npool` CPUs each), combine,
+    and the reweighting to all the injections (an array of `reweight_jobs` chunks, then the merge; both do nothing
+    when the runs already used all the injections)."""
+    from .slurm import ARRAY_INDEX, Step, write_chain
+
+    wd = str(workdir)
+    seeds = list(dict.fromkeys(int(x) for x in seeds))
+    settings = json.loads((workdir / "run_settings.json").read_text()) if (workdir / "run_settings.json").exists() else {}
+    steps = []
+    if "sample" in stages:
+        if inj_fraction == "auto" and not settings:
+            steps.append(Step("probe", ["probe", "--workdir", wd, "--mass-model", mass_model, "--prior-set", prior_set,
+                                        "--pe-samples", str(pe_samples), "--npoints", str(probe_points), "--npool",
+                                        str(npool), "--fractions"] + [str(f) for f in PROBE_FRACTIONS],
+                              options=[f"--cpus-per-task={npool}"]))
+            steps.append(Step("plan", ["plan", "--workdir", wd, "--min-ess-fraction", str(min_ess_fraction)],
+                              options=["--cpus-per-task=1"]))
+            frac = "plan"
+        else:
+            frac = str(float(settings["inj_fraction"]) if settings and inj_fraction == "auto" else float(inj_fraction))
+        steps.append(Step("run", ["run", "--workdir", wd, "--seed", "${SEEDS[$SLURM_ARRAY_TASK_ID]}", "--mass-model",
+                                  mass_model, "--prior-set", prior_set, "--nlive", str(nlive), "--npool", str(npool),
+                                  "--naccept", str(naccept), "--pe-samples", str(pe_samples), "--inj-fraction", frac],
+                          array=len(seeds), options=[f"--cpus-per-task={npool}"],
+                          pre=["SEEDS=(" + " ".join(str(x) for x in seeds) + ")"]))
+    if "combine" in stages:
+        steps.append(Step("combine", ["combine", "--workdir", wd], options=["--cpus-per-task=1"],
+                          pre=[f"rm -rf {wd}/reweight    # chunks of an earlier reweighting"]))
+    if "reweight" in stages:
+        target_pe = str(int(reweight_pe_samples or settings.get("pe_samples", pe_samples)))
+        steps.append(Step("reweight", ["reweight", "--workdir", wd, "--chunk", ARRAY_INDEX, "--nchunks",
+                                       str(reweight_jobs), "--target-inj-fraction", "1.0", "--target-pe-samples",
+                                       target_pe, "--skip-if-done"], array=reweight_jobs,
+                          options=["--cpus-per-task=1"]))
+        steps.append(Step("reweight_merge", ["reweight-merge", "--workdir", wd, "--skip-if-done",
+                                             "--target-pe-samples", target_pe], options=["--cpus-per-task=1"]))
+    if not steps:
+        raise ValueError("no sampling stage to run on Slurm (sample, combine, reweight)")
+    cmd, env = _runner_command(python)
+    return write_chain(workdir / "slurm", cmd[0], Path(cmd[1]), steps, logs=workdir / "logs", prefix="h0",
+                       options=slurm_options, env_setup=env_setup, env=env)
 
 
 def run_hubble_constant(
@@ -712,8 +814,15 @@ def run_hubble_constant(
     probe_points: int = 30,
     reweight_pe_samples: Optional[int] = None,
     icarogw_python: Optional[str] = None,
+    galaxy_catalog: Optional[str | Path] = None,
+    executor: str = "local",
+    slurm_options: Iterable[str] = (),
+    slurm_env_setup: str = "",
+    submit: bool = False,
+    reweight_jobs: Optional[int] = None,
 ) -> Optional[pd.DataFrame]:
-    """Spectral-siren H0 with the `mass_model` BBH mass distribution; see the module docstring for the stages."""
+    """Spectral-siren H0 with the `mass_model` BBH mass distribution, or dark siren with `galaxy_catalog`; see the
+    module docstring for the stages."""
     if mass_model not in MASS_MODELS:
         raise ValueError(f"Unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
     stages = [s for s in STAGES if s in set(stages)]
@@ -723,7 +832,25 @@ def run_hubble_constant(
         prepare_inputs(workdir, sensitivity_release, sensitivity_file, far_threshold, snr_threshold, min_mass,
                        exclude, Path(pe_cache).expanduser() if pe_cache else default_pe_cache(), keep_pe_files,
                        runs=catalog_runs(catalogs) if catalogs else None,
-                       updates=_reg.update_catalogs(catalogs or ()))
+                       updates=_reg.update_catalogs(catalogs or ()),
+                       galaxy_catalog=Path(galaxy_catalog) if galaxy_catalog else None)
+    if executor == "slurm" and any(st in stages for st in ("sample", "combine", "reweight")):
+        if not (workdir / "inputs.h5").exists():
+            raise ValueError(f"{workdir / 'inputs.h5'} not found: run the prepare stage first")
+        script = write_h0_slurm_chain(workdir, python, stages, seeds=seeds, mass_model=mass_model,
+                                      prior_set=sensitivity_release, nlive=nlive, npool=npool, naccept=naccept,
+                                      pe_samples=pe_samples, inj_fraction=inj_fraction, probe_points=probe_points,
+                                      min_ess_fraction=min_ess_fraction, reweight_pe_samples=reweight_pe_samples,
+                                      reweight_jobs=reweight_jobs or 16, slurm_options=slurm_options,
+                                      env_setup=slurm_env_setup)
+        _log(f"Slurm scripts written to {script.parent}; submit with {script}; then run the report stage")
+        if submit:
+            from .slurm import submit as _submit
+
+            print(_submit(script), end="")
+        return None
+    elif executor != "local":
+        raise ValueError("executor must be local or slurm")
     if any(st in stages for st in ("sample", "combine", "reweight")):
         _check_runner(python)
     ncpu = os.cpu_count() or 1

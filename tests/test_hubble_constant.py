@@ -369,3 +369,55 @@ def test_event_far_threshold_is_inclusive(monkeypatch):
                                                              mass_1_source=51.0, mass_2_source=30.0)}}
     monkeypatch.setattr(hc.gw, "fetch_gwtc_events", lambda c: {"events": lists.get(c, {})})
     assert list(hc.select_h0_events("gwtc4", 0.25, 3.0, [])["common_name"]) == ["GW191127_050227"]
+
+
+def test_slurm_chain_auto_fraction(tmp_path):
+    """--executor slurm: probe and plan, one array task per seed reading the planned fraction, combine (clearing an
+    earlier reweighting), reweighting array and merge that skip when nothing is to be done."""
+    (tmp_path / "inputs.h5").write_bytes(b"")
+    s = hc.write_h0_slurm_chain(tmp_path, "/env/bin/python", ["sample", "combine", "reweight"], seeds=[1, 2, 3, 2],
+                                mass_model="plp", prior_set="gwtc4", nlive=100, npool=8, naccept=60, pe_samples=1500,
+                                inj_fraction="auto", probe_points=30, min_ess_fraction=0.5, reweight_pe_samples=None,
+                                reweight_jobs=12, slurm_options=["--partition=htc", "--mem=16G"])
+    d = tmp_path / "slurm"
+    names = sorted(p.name for p in d.glob("[0-9]*.sh"))
+    assert names == ["00_probe.sh", "01_plan.sh", "02_run.sh", "03_combine.sh", "04_reweight.sh", "05_reweight_merge.sh"]
+    run = (d / "02_run.sh").read_text()
+    assert "#SBATCH --array=0-2" in run and "SEEDS=(1 2 3)" in run and "--seed ${SEEDS[$SLURM_ARRAY_TASK_ID]}" in run
+    assert "--inj-fraction plan" in run and "#SBATCH --cpus-per-task=8" in run and "#SBATCH --mem=16G" in run
+    assert (d / "h0_icarogw.py").exists()
+    assert "rm -rf" in (d / "03_combine.sh").read_text()
+    rw = (d / "04_reweight.sh").read_text()
+    assert "#SBATCH --array=0-11" in rw and "--skip-if-done" in rw and "--chunk $SLURM_ARRAY_TASK_ID" in rw
+    assert s.read_text().count("sbatch --parsable") == 6
+
+
+def test_slurm_chain_fixed_fraction_and_existing_runs(tmp_path):
+    (tmp_path / "run_settings.json").write_text(json.dumps(dict(inj_fraction=0.2, pe_samples=1500)))
+    hc.write_h0_slurm_chain(tmp_path, "/env/bin/python", ["sample"], seeds=[5], mass_model="mltp", prior_set="gwtc4",
+                            nlive=100, npool=4, naccept=60, pe_samples=1500, inj_fraction="auto", probe_points=30,
+                            min_ess_fraction=0.5, reweight_pe_samples=None, reweight_jobs=4)
+    names = sorted(p.name for p in (tmp_path / "slurm").glob("[0-9]*.sh"))
+    assert names == ["00_run.sh"]                                       # the runs' fraction, no new probe
+    assert "--inj-fraction 0.2" in (tmp_path / "slurm" / "00_run.sh").read_text()
+
+
+def test_runner_plan_and_skip(tmp_path):
+    from gwtc_analysis import h0_icarogw as runner
+
+    probe = {"seconds_per_eval": {"1.0": 2.0, "0.1": 0.4},
+             "fractions": {"0.1": {"predicted_ess_fraction": 0.8, "rejected_fraction": 0.0}}}
+    (tmp_path / "probe.json").write_text(json.dumps(probe))
+    assert runner.plan(tmp_path) == 0.1
+    assert runner._inj_fraction("plan", tmp_path) == 0.1 and runner._inj_fraction("0.3", tmp_path) == 0.3
+    assert runner._reweight_needed(tmp_path, 1.0, None)                  # no runs yet
+    (tmp_path / "run_settings.json").write_text(json.dumps(dict(inj_fraction=1.0, pe_samples=1500)))
+    assert not runner._reweight_needed(tmp_path, 1.0, None) and runner._reweight_needed(tmp_path, 1.0, 3000)
+    assert runner.plan(tmp_path) == 1.0                                  # the runs' fraction wins
+    assert hc.choose_injection_fraction is runner.choose_injection_fraction
+
+
+def test_cli_hubble_constant_slurm_arguments():
+    a = build_parser().parse_args(["hubble_constant", "--executor", "slurm", "--slurm-option=--mem=16G", "--submit",
+                                   "--reweight-jobs", "20", "--galaxy-catalog", "c.hdf5"])
+    assert a.executor == "slurm" and a.slurm_option == ["--mem=16G"] and a.submit and a.reweight_jobs == 20
