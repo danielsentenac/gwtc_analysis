@@ -2,6 +2,7 @@
 sirens (simulated detections with known H0, which the analysis must recover)."""
 from __future__ import annotations
 
+import json
 import h5py
 import numpy as np
 import pandas as pd
@@ -83,6 +84,11 @@ def test_spectral_density_and_reader(tmp_path):
     (tmp_path / "empty").mkdir()
     with pytest.raises(ValueError, match="no posterior"):
         bs.read_spectral_posterior(tmp_path / "empty")
+    # a dark-siren work directory is named as such (from its selection.json)
+    assert bs.siren_kind(tmp_path) == "spectral siren"
+    (tmp_path / "selection.json").write_text(json.dumps({"galaxy_catalog": {"band": "K-glade+"}}))
+    assert bs.siren_kind(tmp_path).startswith("dark siren (K-glade+")
+    assert bs.siren_kind(tmp_path / "posterior.tsv").startswith("dark siren")
 
 
 def _pe_file(path, labels=("C02:Test-HighSpin", "C02:Test-LowSpin")):
