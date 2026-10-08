@@ -421,3 +421,10 @@ def test_cli_hubble_constant_slurm_arguments():
     a = build_parser().parse_args(["hubble_constant", "--executor", "slurm", "--slurm-option=--mem=16G", "--submit",
                                    "--reweight-jobs", "20", "--galaxy-catalog", "c.hdf5"])
     assert a.executor == "slurm" and a.slurm_option == ["--mem=16G"] and a.submit and a.reweight_jobs == 20
+
+
+def test_prepare_refuses_runs_outside_the_release(tmp_path):
+    """--catalogs GWTC-5 (O4b) with the gwtc4 injections (O1-O4a) is an error, not a silent analysis of O1-O4a."""
+    with pytest.raises(ValueError, match="does not cover O4b"):
+        hc.prepare_inputs(tmp_path / "work", "gwtc4", tmp_path / "mix.hdf", 0.25, 10.0, 3.0, hc.H0_DEFAULT_EXCLUDE,
+                          tmp_path / "cache", False, runs=["O4b"])

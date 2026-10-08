@@ -386,10 +386,11 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
 
     workdir.mkdir(parents=True, exist_ok=True)
     release_runs = H0_SENSITIVITY_RELEASES[release]["runs"]
-    runs = tuple(release_runs if not runs else [r for r in release_runs if r in set(runs)])
     missing = [r for r in (runs or ()) if r not in release_runs]
-    if missing:
-        raise ValueError(f"The {release} sensitivity release does not cover {', '.join(missing)}")
+    if missing:             # checked before filtering: an uncovered run must not fall back to all the release's runs
+        raise ValueError(f"The {release} sensitivity release does not cover {', '.join(missing)}: choose a "
+                         "--sensitivity-release that does (gwtc5 for O4b)")
+    runs = tuple(release_runs if not runs else [r for r in release_runs if r in set(runs)])
     inj_path = h0_sensitivity_path(sensitivity_file, release)
     events = select_h0_events(release, far_threshold, min_mass, exclude, runs,
                               extra_lists=_reg.gwosc_lists(updates) if updates else ())
