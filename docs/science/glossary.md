@@ -45,7 +45,7 @@
 | **Seed** | Initialization of the random generator of one sampler run |
 | **icarogw** | Python package for population and cosmology inference with GW events (Mastrogiovanni et al. 2024 [\[57\]](../references.md#ref-57)) |
 | **bilby / dynesty** | Bayesian inference library (Ashton et al. 2019 [\[58\]](../references.md#ref-58)) / its nested sampler (Speagle 2020 [\[60\]](../references.md#ref-60)) |
-| **IMRPhenomXPHM** | Frequency-domain waveform model with precession and higher modes (Pratten et al. 2021 [\[51\]](../references.md#ref-51)) |
+| **IMRPhenomXPHM** | Frequency-domain waveform model with precession and higher modes (Pratten et al. 2021 [\[51\]](../references.md#ref-51)); the other models and their names: [Waveform models](waveforms.md) |
 | **XPHM-SpinTaylor** | IMRPhenomXPHM with numerically evolved spin precession (Colleoni et al. 2024 [\[52\]](../references.md#ref-52)) |
 | **q-transform** | Time–frequency representation of the strain, showing the chirp |
 | **Whitening** | Dividing the data by the noise amplitude spectrum, so that all frequencies have equal noise |

@@ -186,6 +186,27 @@ was checked against the arXiv API.
 **[56]** L. P. Singer et al., *Going the Distance: Mapping Host Galaxies of LIGO and Virgo Sources in Three Dimensions Using Local Cosmography and Targeted Follow-up*. Three-dimensional skymaps. [arXiv:1603.07333](https://arxiv.org/abs/1603.07333)
 {: #ref-56 }
 
+**[94]** A. Buonanno and T. Damour, *Effective one-body approach to general relativistic two-body dynamics*. Phys. Rev. D 59, 084006 (1999). [arXiv:gr-qc/9811091](https://arxiv.org/abs/gr-qc/9811091)
+{: #ref-94 }
+
+**[95]** S. Ossokine et al., *Multipolar effective-one-body waveforms for precessing binary black holes: construction and validation* (SEOBNRv4PHM). Phys. Rev. D 102, 044055 (2020). [arXiv:2004.09442](https://arxiv.org/abs/2004.09442)
+{: #ref-95 }
+
+**[96]** A. Ramos-Buades et al., *Next generation of accurate and efficient multipolar precessing-spin effective-one-body waveforms for binary black holes* (SEOBNRv5PHM). Phys. Rev. D 108, 124037 (2023). [arXiv:2303.18046](https://arxiv.org/abs/2303.18046)
+{: #ref-96 }
+
+**[97]** A. Nagar et al., *Time-domain effective-one-body gravitational waveforms for coalescing compact binaries with nonprecessing spins, tides, and self-spin effects* (TEOBResumS). Phys. Rev. D 98, 104052 (2018). [arXiv:1806.01772](https://arxiv.org/abs/1806.01772)
+{: #ref-97 }
+
+**[98]** V. Varma et al., *Surrogate models for precessing binary black hole simulations with unequal masses* (NRSur7dq4). Phys. Rev. Research 1, 033015 (2019). [arXiv:1905.09300](https://arxiv.org/abs/1905.09300)
+{: #ref-98 }
+
+**[99]** P. C. Peters, *Gravitational radiation and the motion of two point masses*. Phys. Rev. 136, B1224 (1964).
+{: #ref-99 }
+
+**[100]** S. Roy, R. Vicente, J. C. Aurrekoetxea, K. Clough and P. G. Ferreira, *Scalar fields around black hole binaries in LIGO-Virgo-KAGRA*. [arXiv:2510.17967](https://arxiv.org/abs/2510.17967)
+{: #ref-100 }
+
 ## Software
 
 **[57]** S. Mastrogiovanni et al., *ICAROGW: A python package for inference of astrophysical population properties of noisy, heterogeneous and incomplete observations*; code on [GitHub](https://github.com/icarogw-developers/icarogw). [arXiv:2305.17973](https://arxiv.org/abs/2305.17973)
