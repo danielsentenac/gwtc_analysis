@@ -363,7 +363,7 @@ features the mass spectrum has, the better it pins the redshift (spectral sirens
 | Analysis | H₀ (km/s/Mpc, median and 68%) |
 |---|---|
 | GWTC-4.0, PLP (reproduced here) [\[29\]](../references.md#ref-29) | 105.5 (+46.4 / −35.8) |
-| GWTC-4.0 data release, PLP dark siren with GLADE+ K band (reproduced: 120.7 (+39.9 / −37.6), [validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8) |
+| GWTC-4.0 data release, PLP dark siren with GLADE+ K band (reproduced: 114.6 (+41.5 / −33.8) with 5000 PE samples, [validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8) |
 | GWTC-4.0, MLTP (power law with two peaks) [\[29\]](../references.md#ref-29) | 72.3 (+42.5 / −25.6) |
 | GWTC-4.0, FullPop-4.0 (BNS, NSBH and BBH in one mass distribution) [\[29\]](../references.md#ref-29) | 72.9 (+21.9 / −18.8) |
 | GWTC-4.0, FullPop-4.0 + GW170817 [\[29\]](../references.md#ref-29) | 73.4 (+12.8 / −8.6) |
