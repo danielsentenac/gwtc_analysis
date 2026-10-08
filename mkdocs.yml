@@ -63,6 +63,7 @@ nav:
       - build_unofficial_pe (GW170817): modes/unofficial-pe.md
       - rates: modes/rates.md
       - hubble_constant: modes/hubble-constant.md
+      - galaxy_catalog: modes/galaxy-catalog.md
       - bright_siren: modes/bright-siren.md
       - area_law (GW250114): modes/area-law.md
       - stochastic: modes/stochastic.md

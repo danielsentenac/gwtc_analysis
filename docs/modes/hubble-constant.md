@@ -222,6 +222,32 @@ so the sampling can run on another machine that has icarogw (a computing cluster
 3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` and `RDIR/corner.png` (a few MB) back
    into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
 
+With `--galaxy-catalog`, also copy the catalog file into `RDIR`: the runner uses the path recorded in
+`inputs.h5`, else the file of the same name in the work directory.
+
+**On a Slurm cluster** (CC-IN2P3, for instance), `--executor slurm` writes the sampling stages as a chain of
+sbatch scripts in `<workdir>/slurm` and, with `--submit`, submits them, each after the previous one succeeded:
+
+| Script | Job |
+|---|---|
+| `probe`, `plan` | with `--inj-fraction auto` and no runs yet: the probe (`--npool` CPUs), then the choice of the fraction (`plan.json`) |
+| `run` | one array task per seed, `--npool` CPUs each, reading the planned fraction |
+| `combine` | the runs merged |
+| `reweight`, `reweight_merge` | the reweighting to all the injections in `--reweight-jobs` chunks, then the merge; both do nothing when the runs already used all the injections |
+
+```bash
+gwtc_analysis hubble_constant --workdir /sps/.../h0_dark_plp --stages sample combine reweight \
+    --galaxy-catalog /sps/.../catalog_K-glade+_nside64_eps1.hdf5 --seeds 1 2 3 4 5 6 7 8 --npool 8 \
+    --icarogw-python /sps/.../venv/bin/python --executor slurm \
+    --slurm-option=--partition=htc --slurm-option=--mem=16G --slurm-option=--time=3-00:00:00 \
+    --slurm-option=--licenses=sps --submit
+gwtc_analysis hubble_constant --workdir /sps/.../h0_dark_plp --stages report     # once the chain has finished
+```
+
+The runner is copied next to the scripts, so the jobs only need the icarogw environment; the `--cpus-per-task` of
+each job is set from `--npool` (1 for the single jobs). The prepare stage runs where the PE files are (`inputs.h5`
+can then be copied, see above).
+
 ## Diagnostics
 
 `combine` evaluates, over 200 posterior draws, the effective number of injections and the smallest
@@ -264,5 +290,60 @@ z_p = 1.9). The likelihood is scale-free: R(0) itself is the `rates` mode's.
 *GWTC-4.0, Power Law + Peak: γ = 3.3 (90%: 2.5–4.4), so the rate grows faster than star formation, R(1)/R(0)
 = 9.7 (5.4–19.5) against 5.8. The detected events reach z ≈ 1.0; beyond it κ and z_p, and the shape, are
 the prior's. The [stochastic](stochastic.md) mode uses this shape up to the farthest events.*
+
+## Dark sirens with a galaxy catalog
+
+With `--galaxy-catalog`, the analysis uses a galaxy catalog built by the [galaxy_catalog](galaxy-catalog.md)
+mode: the redshift of each event comes from the mass spectrum **and** from the galaxies along its line of sight
+(the in-catalog term, with the out-of-catalog completeness term for the galaxies the catalog misses), icarogw's
+`CBC_catalog_vanilla_rate` [\[57\]](../references.md#ref-57) [\[29\]](../references.md#ref-29).
+
+```bash
+gwtc_analysis galaxy_catalog --workdir glade_k --jobs 4 --icarogw-python ~/.conda/envs/icarogw/bin/python
+gwtc_analysis hubble_constant --workdir h0_dark_plp --stages prepare \
+    --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5
+gwtc_analysis hubble_constant --workdir h0_dark_plp --stages sample combine reweight report \
+    --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5 \
+    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 1 --npool 4
+```
+
+- `prepare` also keeps the sky position of every PE sample (extracts made before it was kept are made again from
+  the cached PE file) and records the catalog in `inputs.h5`; the other stages then use it.
+- The LVK injection files do not record sky positions. The injections enter the selection effect through the
+  sky-averaged galaxy density, for which their position does not matter; they are given isotropic positions.
+- The catalog's interpolants are loaded once per process in single precision. With GLADE+ at nside 64 this takes a
+  few hundred MB per process: lower `--parallel` on small machines.
+- The report compares with the dark-siren posterior of the same mass model in the GWTC-4.0 cosmology data release
+  (icarogw, GLADE+ K band, ε = 1: Power Law + Peak 115.4 (+40.1 / −33.8), Multi Peak 86.3 (+41.3 / −26.3)
+  km/s/Mpc), only when the catalog has the same band, ε and nside. The icarogw spectral sirens of the same release
+  give 110.3 (+44.8 / −35.6) and 76.5 (+45.0 / −25.6): the catalog narrows the 68% interval by 8% and 4%.
+
+### Validation: GWTC-4.0, Power Law + Peak, GLADE+ K band
+
+The GWTC-4.0 dark siren reproduced on CC-IN2P3 (October 2026), with the [galaxy_catalog](galaxy-catalog.md)
+defaults (GLADE+ Ks, nside 64, ε = 1), the paper's 137 BBH events with 1500 PE samples each, and the Slurm chain
+above (8 seeds of 100 live points, 8 CPUs each):
+
+| | H₀ (km/s/Mpc, median and 68%) | 90% |
+|---|---|---|
+| runs, 10% of the injections (7 runs, 3189 samples) | 131.1 (+40.5 / −39.3) | 73.8 – 190.2 |
+| **reweighted to all the injections** | **120.7 (+39.9 / −37.6)** | **65.6 – 182.8** |
+| GWTC-4.0 release, icarogw dark siren | 115.4 (+40.1 / −33.8) | 64.7 – 179.0 |
+
+- The median is 5 km/s/Mpc (0.14σ) above the release and the intervals nearly coincide: the level of agreement of the
+  [spectral siren](../science/spectral-siren.md), where the number of PE samples alone moves H₀ by about
+  5 km/s/Mpc. The reweighting keeps an effective sample size of 70% (2240 of 3189), rejects no sample, and
+  reproduces the runs' ln L exactly.
+- As for the spectral siren, the 10% injection subset shifts H₀ up by about 10 km/s/Mpc; the reweighting removes it.
+- The catalog adds almost nothing at these distances: at fixed population parameters, ln L(H₀) with and without
+  the catalog differ by less than 1 over 20–200 km/s/Mpc. The sky-averaged galaxy density of the catalog (in- plus
+  out-of-catalog) is within a few percent of the uniform Schechter density beyond z ≈ 0.07, where the BBHs are,
+  with a 15–25% deficit at z ≈ 0.01–0.04 and the local structures below z ≈ 0.005.
+- Timing: the catalog took about 45 min (16 jobs); the probe 32 min; the runs 7.8–10.3 h each, at 0.39 s per
+  likelihood evaluation with 10% of the injections (1.1 s with all); the reweighting 5–7 min per chunk.
+- One run (seed 1) entered a slow tail (160 s per iteration after 17 h, `dlogz` 0.65) and was cancelled; the chain
+  continued with the 7 other runs. To do the same, relax the dependency of the combine job before cancelling the
+  run, so that it still starts: `scontrol update JobId=<combine> Dependency=afterany:<run array>`, then
+  `scancel <run array>_<task>`. `combine` uses the runs that wrote a result.
 
 All options: [CLI reference](../cli-reference.md#hubble_constant).
