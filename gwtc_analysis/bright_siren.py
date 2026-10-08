@@ -302,6 +302,20 @@ def read_spectral_posterior(path: str | Path) -> np.ndarray:
     return df["H0"].to_numpy(float)
 
 
+def siren_kind(path: str | Path) -> str:
+    """'dark siren (<catalog>)' when the hubble_constant work directory of `path` used a galaxy catalog, else
+    'spectral siren'. The two are combined with the bright siren the same way: both are independent of it."""
+    path = Path(path).expanduser()
+    sel = (path if path.is_dir() else path.parent) / "selection.json"
+    if sel.exists():
+        import json
+
+        cat = json.loads(sel.read_text()).get("galaxy_catalog")
+        if cat:
+            return f"dark siren ({cat.get('band', 'galaxy catalog')}, mass spectrum + galaxies)"
+    return "spectral siren"
+
+
 def spectral_density(h0: np.ndarray, samples: np.ndarray) -> np.ndarray:
     """Density of spectral-siren H0 samples on the grid (Gaussian KDE, reflected at the prior bounds)."""
     from scipy.stats import gaussian_kde
@@ -559,11 +573,14 @@ def run_bright_siren(
         if (lo, hi) != H0_PRIOR:
             _log(f"WARN: H0 range {lo:g}–{hi:g} differs from the spectral-siren prior {H0_PRIOR[0]:g}–{H0_PRIOR[1]:g}")
         spec = spectral_density(h0, read_spectral_posterior(spectral_posterior))
-        rows.append(dict(analysis="spectral siren", n_samples=None, **summarize(h0, spec)))
+        kind = siren_kind(spectral_posterior)
+        short = kind.split(" (")[0]
+        rows.append(dict(analysis=kind, n_samples=None, **summarize(h0, spec)))
         main = next(iter(posts))
         combined = (main, _normalize(h0, posts[main] * spec), spec)
-        rows.append(dict(analysis=f"bright ({main}) × spectral", n_samples=None, **summarize(h0, combined[1])))
-        _log(f"combined with the spectral siren: H0 = {_fmt(rows[-1])}")
+        rows.append(dict(analysis=f"bright ({main}) × {short.replace(' siren', '')}", n_samples=None,
+                         **summarize(h0, combined[1])))
+        _log(f"combined with the {short}: H0 = {_fmt(rows[-1])}")
 
     table = pd.DataFrame(rows)
     if out_summary_tsv:
@@ -593,10 +610,10 @@ def run_bright_siren(
             r_spec, r_comb = rows[-2], rows[-1]
             images.append(_plot(h0, [
                 (f"bright siren: {rows[0]['map']:.0f}", posts[combined[0]], "#2a78d6", "--"),
-                (f"spectral siren: {r_spec['map']:.0f}", combined[2], "#52514e", ":"),
+                (f"{short}: {r_spec['map']:.0f}", combined[2], "#52514e", ":"),
                 (f"combined: {r_comb['map']:.0f}, 68% {r_comb['hpd68_low']:.0f}–{r_comb['hpd68_high']:.0f}",
                  combined[1], "#eb6834", "-")], None, cp.ref,
-                f"Bright siren ({src_name}) combined with the spectral siren", Path(plots_dir) / "h0_combined.png"))
+                f"Bright siren ({src_name}) combined with the {short}", Path(plots_dir) / "h0_combined.png"))
         paras = [
             f"H<sub>0</sub> = <b>{_fmt(rows[0])}</b> from {src_name} ({next(iter(posts))}) and its "
             f"{'candidate ' if cp.candidate else ''}host {cp.host} ({cp.transient}): the luminosity distance comes "
@@ -629,7 +646,7 @@ def run_bright_siren(
                          "uncertainty: the low-distance tail corresponds to inclined orbits (smaller amplitude at given "
                          "distance).")
         if combined:
-            paras.append(f"Combined with the spectral siren ({Path(spectral_posterior).name}, same flat prior): "
+            paras.append(f"Combined with the {kind} ({Path(spectral_posterior).name}, same flat prior): "
                          f"H<sub>0</sub> = <b>{_fmt(rows[-1])}</b>. The two measurements are independent (different "
                          "events), so their posteriors multiply.")
         Path(out_report_html).parent.mkdir(parents=True, exist_ok=True)

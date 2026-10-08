@@ -5,7 +5,8 @@ with the [spectral siren](hubble-constant.md). It takes seconds: no sampling.
 
 ```bash
 gwtc_analysis bright_siren                                            # GW170817 and NGC 4993
-gwtc_analysis bright_siren --spectral-posterior hubble_constant_run   # combined with the spectral siren
+gwtc_analysis bright_siren --spectral-posterior h0_plp              # combined with the spectral siren
+gwtc_analysis bright_siren --spectral-posterior h0_dark_plp         # combined with the dark siren
 gwtc_analysis bright_siren --src-name GW190521                        # candidate AGN flare, z = 0.438
 ```
 
@@ -121,19 +122,30 @@ of the flare have a median of 4.6 Gpc with 16% below 2.2 Gpc. The result depends
 samples near the flare in GWTC-2.1. The selection term is computed from 106,376 found O3a injections,
 with 13,000–16,000 effective injections over the H₀ range.
 
-## Combination with the spectral siren
+## Combination with the spectral or dark siren
 
 `--spectral-posterior` takes a `hubble_constant` work directory (its `posterior_reweighted.tsv`, else
-`posterior.tsv`) or any TSV with an `H0` column. The two measurements use different events (the
-spectral siren uses binary black holes; leave the bright-siren event out of it) and the same flat
-prior, so their posteriors multiply. The spectral-siren density is a Gaussian kernel estimate,
-reflected at the prior bounds.
+`posterior.tsv`) or any TSV with an `H0` column. The work directory can be a spectral siren or a dark siren
+(`hubble_constant --galaxy-catalog`): the combination is the same, and the report names which it is (from the
+work directory's `selection.json`). Bright siren × dark siren is the LVK's headline combination (GWTC-5.0: 71.7
+(+9.4 / −7.5) km/s/Mpc with DES-Y6 [\[30\]](../references.md#ref-30)). The two measurements use different events
+(the spectral and dark sirens use binary black holes; leave the bright-siren event out of them) and the same flat
+prior, so their posteriors multiply. The siren density is a Gaussian kernel estimate, reflected at the prior bounds.
 
 ![Bright siren combined with the spectral siren](../img/modes/bright_siren_combined.png)
 
 GW170817 with the *Power Law + Peak* spectral siren (GWTC-4.0 setup): H₀ = 71.7 (+22.3 / −8.0) km/s/Mpc
 (maximum a posteriori, 68%). GW170817 dominates; the broad spectral siren shifts the posterior slightly
-upwards.
+upwards. With the PLP dark siren (GLADE+ K band) instead: 72.7 (+26.9 / −8.4), the dark-siren posterior being
+centred higher (maximum 121).
+
+**Which measurement dominates.** Independent posteriors multiply, so the narrower one sets the result and the
+broader one tilts it. With the GWTC-4.0 Power Law + Peak sirens, GW170817 dominates: its 68% interval is about
+32 km/s/Mpc wide (61.6–93.4), the dark siren's about 80 (83–163), so the dark siren only pushes the result up
+(maximum 69.8 → 72.7). In the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) it is the other way round: with
+235 events, the FullPop-4.0 mass model and the DES-Y6 galaxies, the dark sirens, 68.8 (+14.2 / −13.2), are narrower
+than the LVK's GW170817 bright siren, 79.1 (+27.6 / −12.4), and drive the combination, 71.7 (+9.4 / −7.5). That
+setup (FullPop-4.0, DES-Y6) is not in this version of `gwtc_analysis`.
 
 ## Validation: mock bright sirens
 
@@ -177,7 +189,7 @@ population; the report gives the effective number of injections over the H₀ ra
 | `--sensitivity-release`, `--sensitivity-file` | `gwtc4` | injections of the selection term |
 | `--far-threshold`, `--snr-threshold` | 0.25 /yr, 10 | found injections (real searches, semi-analytic O1+O2) |
 | `--sky-radius` | 3° | for samples not fixed to the counterpart |
-| `--spectral-posterior` | none | spectral-siren posterior to combine with |
+| `--spectral-posterior` | none | spectral- or dark-siren posterior to combine with: a `hubble_constant` work directory or a TSV |
 | `--h0-range MIN MAX` | 10 200 | flat prior; keep the spectral siren's for a combination |
 
 The published comparison is shown only with the registry's velocities or redshift.

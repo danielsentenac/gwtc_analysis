@@ -466,8 +466,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_bs.add_argument("--sky-radius", type=float, default=3.0,
                       help="For samples not fixed to the counterpart's position: keep those within this angle (deg).")
     p_bs.add_argument("--spectral-posterior", default=None,
-                      help="Spectral-siren H0 posterior to combine with: a hubble_constant work directory or a "
-                           "posterior TSV with an H0 column.")
+                      help="Spectral- or dark-siren H0 posterior to combine with: a hubble_constant work directory "
+                           "(spectral, or dark with --galaxy-catalog) or a posterior TSV with an H0 column.")
     p_bs.add_argument("--h0-range", nargs=2, type=float, metavar=("MIN", "MAX"), default=[10.0, 200.0],
                       help="Flat H0 prior range, km/s/Mpc (that of the spectral siren by default).")
     p_bs.add_argument("--out-report", default="bright_siren.html", help="Output HTML report path.")

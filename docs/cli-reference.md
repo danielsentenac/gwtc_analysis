@@ -139,7 +139,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--snr-threshold` | `10.0` | Found semi-analytic O1+O2 injections: network SNR above this. |
 | `--pe-cache` | `` | PE cache of the events read from Zenodo (default: that of hubble_constant). |
 | `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
-| `--spectral-posterior` | `` | Spectral-siren H0 posterior to combine with: a hubble_constant work directory or a posterior TSV with an H0 column. |
+| `--spectral-posterior` | `` | Spectral- or dark-siren H0 posterior to combine with: a hubble_constant work directory (spectral, or dark with --galaxy-catalog) or a posterior TSV with an H0 column. |
 | `--h0-range` | `[10.0, 200.0]` | Flat H0 prior range, km/s/Mpc (that of the spectral siren by default). |
 | `--out-report` | `bright_siren.html` | Output HTML report path. |
 | `--out-summary` | `bright_siren.tsv` | Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv). |
