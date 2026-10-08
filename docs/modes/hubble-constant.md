@@ -19,26 +19,39 @@ The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#re
 
 ## Quick start
 
-**Spectral siren on one machine** (icarogw in its own environment,
+Run the **spectral siren first**, then, if wanted, **add the dark siren** on the same events:
+
+- the spectral siren is the reference: the galaxies' own contribution is the difference between the dark siren and
+  the spectral siren of the same events, mass model and settings;
+- its `prepare` downloads the PE files once (~35 GB) and keeps the extracted samples, sky positions included, in the
+  PE cache; the dark siren's `prepare` reuses them without downloading again;
+- it checks the setup (icarogw environment, selection, seeds) at a lower cost, without the catalog to build.
+
+**Step 1: spectral siren** (icarogw in its own environment,
 [Installation](../installation.md#icarogw-for-the-hubble_constant-mode)):
 
 ```bash
-# 1. events, PE samples and injections → h0_plp/inputs.h5 (gwtc_analysis environment; ~35 GB of downloads once)
+# events, PE samples and injections → h0_plp/inputs.h5 (gwtc_analysis environment)
 gwtc_analysis hubble_constant --workdir h0_plp --stages prepare
-# 2. 4 sampler runs, 2 at a time with 2 processes each, then merge, reweight and report
+# 4 sampler runs, 2 at a time with 2 processes each, then merge, reweight and report
 gwtc_analysis hubble_constant --workdir h0_plp --stages sample combine reweight report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 
-**Dark siren with GLADE+**: build the catalog once, then give it to `prepare` and the sampling stages
-([details](#dark-sirens-with-a-galaxy-catalog)):
+**Step 2: add the dark siren with GLADE+.** It needs a galaxy catalog file, which `hubble_constant` does not make:
+it is built by another mode, [**galaxy_catalog**](galaxy-catalog.md), once (about an hour on 4 CPUs; its defaults
+are the GLADE+ K-band catalog of the GWTC-4.0 analysis). Then run the same analysis as step 1 in a new work
+directory, with `--galaxy-catalog` pointing to that file; keep the selection options, `--mass-model` and the
+sampling settings of step 1 so that the two results compare ([details](#dark-sirens-with-a-galaxy-catalog)):
 
 ```bash
+# 2a. the galaxy catalog, with the galaxy_catalog mode → glade_k/catalog_K-glade+_nside64_eps1.hdf5
 gwtc_analysis galaxy_catalog --workdir glade_k --jobs 4 --icarogw-python ~/.conda/envs/icarogw/bin/python
+# 2b. the dark siren with hubble_constant, reading that catalog
 gwtc_analysis hubble_constant --workdir h0_dark_plp --stages prepare \
     --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5
 gwtc_analysis hubble_constant --workdir h0_dark_plp --stages sample combine reweight report \
-    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 1 --npool 4
+    --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 
 **On a Slurm cluster** (CC-IN2P3, for instance): the same commands with `--executor slurm`, which writes the
@@ -185,6 +198,8 @@ galaxies (GLADE+, or any catalog)      prepare: events with the sky position of 
 → catalog_<band>_nside<N>_eps<ε>.hdf5  report: compared with the published dark siren
 ```
 
+0. **Run the spectral siren of the same events first** ([quick start](#quick-start)): it is the reference the dark
+   siren is compared with, and its PE downloads are reused.
 1. **Build the catalog** with [galaxy_catalog](galaxy-catalog.md): its defaults are the GLADE+ K-band setup of the
    GWTC-4.0 analysis. The catalog does not depend on the events or the mass model: one catalog serves every
    `hubble_constant` work directory.
