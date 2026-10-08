@@ -71,6 +71,7 @@ nav:
       - spin_population: modes/spin-population.md
   - Science and methods:
       - What a GW signal measures: science/gw-signals.md
+      - Waveform models: science/waveforms.md
       - How the redshift is obtained: science/redshift.md
       - Selection effects and injections: science/selection-effects.md
       - Merger rates: science/merger-rates.md
