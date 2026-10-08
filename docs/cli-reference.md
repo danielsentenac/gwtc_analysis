@@ -74,6 +74,9 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=16G). |
 | `--slurm-env-setup` | `` | Shell lines run first in each Slurm job. |
 | `--submit` | `False` | With --executor slurm: submit the scripts. |
+| `--settings` | `` | JSON (or YAML) file of option values, keys as the long option names (e.g. pe-samples, neff-pe); options given on the command line override it. |
+| `--neff-pe` | `` | Effective PE samples each event needs at a likelihood point, else the point is rejected (default 10; recorded in <workdir>/likelihood.json and used by every stage). |
+| `--neff-inj` | `` | Effective injections needed at a likelihood point (default: 4 x the number of events). |
 | `--reweight-jobs` | `` | With --executor slurm: array tasks of the reweighting (default 16). |
 | `--galaxy-catalog` | `` | icarogw galaxy catalog made by the galaxy_catalog mode: dark siren with a galaxy catalog instead of the spectral siren (the prepare stage then keeps the sky positions). |
 
@@ -82,6 +85,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
+| `--settings` | `` | JSON (or YAML) file of option values, keys as the long option names (e.g. zcut, glade-types); options given on the command line override it. |
 | `--workdir` | `galaxy_catalog_run` | Work directory (restartable). |
 | `--stages` | `['galaxies', 'shard', 'pixels', 'gather', 'prepare', 'init', 'interpolate', 'finish', 'summary', 'report']` | Stages to run (default: all). |
 | `--source` | `glade-kband` | Galaxy source when neither --galaxies nor --input-catalog is given: GLADE+ Ks band (VizieR). |
@@ -91,17 +95,21 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--columns` | `` | Column mapping of --input-catalog: ra=... dec=... z=... m=... [sigmaz=...]. |
 | `--band` | `` | icarogw band of the magnitude (K-glade+, W1-glade+, bJ-glade+, ...); GLADE+: K-glade+. |
 | `--angle-unit` | `deg` | Unit of ra and dec in --input-catalog. |
-| `--sigmaz` | `` | Constant redshift uncertainty when the catalog has no sigmaz column. |
+| `--sigmaz` | `` | Constant redshift uncertainty: for a catalog without a sigmaz column, or instead of the GLADE+ errors. |
 | `--sigmaz-relative` | `False` | --sigmaz is per (1 + z). |
-| `--where` | `` | pandas query on the catalog's columns applied to each chunk (quality cuts, star-galaxy separation). |
+| `--where` | `` | pandas query on the catalog's columns applied to each chunk (quality cuts, star-galaxy separation); for GLADE+ on its VizieR columns RAJ2000, DEJ2000, Kmag, zhelio, zcmb, f_zcmb, e_z, e_zhelio. |
+| `--glade-types` | `` | GLADE+ object types kept: G galaxies (default), Q quasars. |
+| `--glade-redshift` | `` | GLADE+ redshift: zcmb, CMB frame, peculiar velocities corrected below z = 0.05 (default); zhelio, heliocentric. |
+| `--glade-sigmaz` | `` | GLADE+ redshift uncertainty: measurement and peculiar-velocity errors in quadrature (default), the measurement error alone (e_zhelio), or the peculiar-velocity error alone (e_z). |
 | `--nside` | `64` | HEALPix nside of the catalog. |
 | `--nside-mthr` | `32` | HEALPix nside of the apparent-magnitude threshold map. |
 | `--mthr-percentile` | `50.0` | Percentile of the magnitudes defining the threshold (50: the median). |
 | `--epsilon` | `1.0` | Luminosity weight of the galaxies, L^epsilon (0: none, 1: linear). |
 | `--nintegration` | `logspace:0.0001:5000` | Redshift grid: logspace:ZMIN:N = one logarithmic grid up to --zcut (default); an integer = icarogw's adaptive grid (points per galaxy), only for catalogs with broad redshift errors. |
 | `--numsigma` | `3` | Width of each galaxy redshift likelihood, in sigma. |
+| `--zmin` | `0.0` | Lowest redshift of the in-catalog term: galaxies below it are left out and the catalog counts as empty there (completeness correction alone); needs a logspace grid. |
 | `--zcut` | `0.5` | Highest redshift of the in-catalog term. |
-| `--ptype` | `gaussian` | Galaxy redshift likelihood. |
+| `--ptype` | `gaussian` | Galaxy redshift probability: gaussian = Gaussian likelihood x uniform-in-comoving-volume prior (default); gaussian_nocom = the Gaussian itself; uniform = uniform in volume within +-numsigma. |
 | `--nshards` | `1024` | Shard files of the pixelation (by pixel range). |
 | `--jobs` | `4` | Chunks of the chunked stages (parallel processes or array jobs). |
 | `--executor` | `local` | local: parallel processes; slurm: write sbatch array scripts chained by dependencies. |

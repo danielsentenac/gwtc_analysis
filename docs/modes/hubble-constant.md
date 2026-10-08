@@ -257,6 +257,23 @@ fewest. The report flags values below the thresholds; more `--pe-samples` or a l
 number of injections stayed above 3 800 (threshold 544), while the smallest per-event value had a
 median of 27 and reached 8 at some draws (threshold 10), for the lightest BBHs such as GW190924.
 
+## Likelihood thresholds
+
+icarogw rejects a point of the population parameters when its Monte Carlo sums are too poor: when an event has
+fewer than `--neff-pe` effective PE samples (default 10), or the selection effect fewer than `--neff-inj` effective
+injections (default 4 × the number of events). The thresholds are written to `<workdir>/likelihood.json` and every
+stage (probe, runs, combine diagnostics, reweighting) reads them, so a work directory has one likelihood; changing
+them once runs exist is refused. With `--pe-samples`, they are the Monte Carlo settings that the LVK papers do not
+state, and they move H₀ by a few km/s/Mpc on posteriors as broad as the GWTC-4.0 ones
+([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
+
+**Settings file.** `--settings FILE` reads option values from a JSON (or YAML) file, keys as the long option names,
+the command line overriding them; the resolved options are written to `<workdir>/options_hubble_constant.json`:
+
+```json
+{"pe-samples": 3000, "neff-pe": 20, "seeds": [1, 2, 3, 4], "npool": 8}
+```
+
 ## Example
 
 ```bash
@@ -335,10 +352,22 @@ above (8 seeds of 100 live points, 8 CPUs each):
   5 km/s/Mpc. The reweighting keeps an effective sample size of 70% (2240 of 3189), rejects no sample, and
   reproduces the runs' ln L exactly.
 - As for the spectral siren, the 10% injection subset shifts H₀ up by about 10 km/s/Mpc; the reweighting removes it.
+- Where the 5 km/s/Mpc comes from: the release stores the ln L of each posterior sample, so our likelihood can be
+  evaluated at the LVK samples. Reweighting the LVK dark-siren posterior to our likelihood gives 120.7, our own
+  result: the sampling is right and the difference is in the likelihood. Our spectral-siren likelihood alone moves
+  the LVK spectral posterior from 110.3 to 113.5, so about 3 km/s/Mpc comes from the Monte Carlo settings the paper
+  does not give (PE samples per event, [likelihood thresholds](#likelihood-thresholds): ours reject 10% of the LVK
+  samples, mostly at high H₀), and about 2 from the catalog term. The galaxy selection matches the paper's
+  ([galaxy_catalog](galaxy-catalog.md#settings-the-paper-leaves-open)).
 - The catalog adds almost nothing at these distances: at fixed population parameters, ln L(H₀) with and without
   the catalog differ by less than 1 over 20–200 km/s/Mpc. The sky-averaged galaxy density of the catalog (in- plus
   out-of-catalog) is within a few percent of the uniform Schechter density beyond z ≈ 0.07, where the BBHs are,
   with a 15–25% deficit at z ≈ 0.01–0.04 and the local structures below z ≈ 0.005.
+- A deeper catalog helps: with the DES-Y6 galaxies instead of GLADE+, the O4a dark-siren H₀ has a 68% interval
+  about 11% narrower (about 10% with GW170817), although DES covers only 12% of the sky
+  (McMahon et al. 2026 [\[93\]](../references.md#ref-93)); DES-Y6 is the catalog of the GWTC-5.0 dark sirens
+  [\[30\]](../references.md#ref-30). Its galaxy density is 100 to 1000 times that of GLADE+, but at the BBH
+  distances the mass spectrum still carries most of the redshift information.
 - Timing: the catalog took about 45 min (16 jobs); the probe 32 min; the runs 7.8–10.3 h each, at 0.39 s per
   likelihood evaluation with 10% of the injections (1.1 s with all); the reweighting 5–7 min per chunk.
 - One run (seed 1) entered a slow tail (160 s per iteration after 17 h, `dlogz` 0.65) and was cancelled; the chain
