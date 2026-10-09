@@ -122,8 +122,10 @@ H0_METHODS = ("spectral", "dark", "bright", "joint")
 def _add_counterpart_options(p: argparse.ArgumentParser, tag: str) -> None:
     """Options shared by hubble_constant --method bright and counterpart: PE samples, host redshift, viewing angle."""
     p.add_argument("--pe-label", nargs="+", default=None,
-                   help=tag + "PE label(s) to use (default: those of the counterpart, or all the labels of the PE "
-                              "file, LowSpin first).")
+                   help=tag + "Analyses of the PE file to use, by label (one waveform model and prior each, e.g. "
+                              "C02:IMRPhenomPv2_NRTidal-HighSpin): one result per label, plots from the first. Default: "
+                              "the labels set for the event (GW190521: C01:IMRPhenomXPHM), else all those of the file, "
+                              "LowSpin first.")
     p.add_argument("--pe-file", default=None, help=tag + "PE file to read instead of the event's.")
     p.add_argument("--cache-dir", default=".cache_gwosc",
                    help=tag + "Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe).")
@@ -381,7 +383,8 @@ def build_parser() -> argparse.ArgumentParser:
                       help="[dark] icarogw galaxy catalog made by the galaxy_catalog mode (the prepare stage then keeps "
                            "the sky positions of the PE samples).")
     p_h0.add_argument("--event", default="GW170817", choices=list(COUNTERPARTS),
-                      help="[bright] Event with an identified host galaxy.")
+                      help="[bright] Event of the built-in list of known counterparts (COUNTERPARTS in "
+                           "counterpart.py), which gives its counterpart's position, host redshift and PE file.")
     _add_counterpart_options(p_h0, "[bright] ")
     p_h0.add_argument("--selection", choices=("auto", "euclidean", "injections"), default="auto",
                       help="[bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections "
@@ -491,7 +494,8 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_cp.add_argument("--event", default="GW170817", choices=list(COUNTERPARTS),
-                      help="Event with a registered counterpart.")
+                      help="Event of the built-in list of known counterparts (COUNTERPARTS in counterpart.py), "
+                           "which gives its counterpart's position, host redshift and PE file.")
     p_cp.add_argument("--ra", type=float, default=None, help="Right ascension of another position to test (deg).")
     p_cp.add_argument("--dec", type=float, default=None, help="Declination of another position to test (deg).")
     _add_counterpart_options(p_cp, "")

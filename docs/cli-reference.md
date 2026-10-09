@@ -80,8 +80,8 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--neff-inj` | `` | Effective injections needed at a likelihood point (default: 4 x the number of events). |
 | `--reweight-jobs` | `` | With --executor slurm: array tasks of the reweighting (default 16). |
 | `--galaxy-catalog` | `` | [dark] icarogw galaxy catalog made by the galaxy_catalog mode (the prepare stage then keeps the sky positions of the PE samples). |
-| `--event` | `GW170817` | [bright] Event with an identified host galaxy. |
-| `--pe-label` | `` | [bright] PE label(s) to use (default: those of the counterpart, or all the labels of the PE file, LowSpin first). |
+| `--event` | `GW170817` | [bright] Event of the built-in list of known counterparts (COUNTERPARTS in counterpart.py), which gives its counterpart's position, host redshift and PE file. |
+| `--pe-label` | `` | [bright] Analyses of the PE file to use, by label (one waveform model and prior each, e.g. C02:IMRPhenomPv2_NRTidal-HighSpin): one result per label, plots from the first. Default: the labels set for the event (GW190521: C01:IMRPhenomXPHM), else all those of the file, LowSpin first. |
 | `--pe-file` | `` | [bright] PE file to read instead of the event's. |
 | `--cache-dir` | `.cache_gwosc` | [bright] Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe). |
 | `--v-recession` | `` | [bright] Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
@@ -138,10 +138,10 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--event` | `GW170817` | Event with a registered counterpart. |
+| `--event` | `GW170817` | Event of the built-in list of known counterparts (COUNTERPARTS in counterpart.py), which gives its counterpart's position, host redshift and PE file. |
 | `--ra` | `` | Right ascension of another position to test (deg). |
 | `--dec` | `` | Declination of another position to test (deg). |
-| `--pe-label` | `` | PE label(s) to use (default: those of the counterpart, or all the labels of the PE file, LowSpin first). |
+| `--pe-label` | `` | Analyses of the PE file to use, by label (one waveform model and prior each, e.g. C02:IMRPhenomPv2_NRTidal-HighSpin): one result per label, plots from the first. Default: the labels set for the event (GW190521: C01:IMRPhenomXPHM), else all those of the file, LowSpin first. |
 | `--pe-file` | `` | PE file to read instead of the event's. |
 | `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe). |
 | `--v-recession` | `` | Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
