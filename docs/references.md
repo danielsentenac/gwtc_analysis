@@ -327,6 +327,20 @@ was checked against the arXiv API.
 **[90]** LVK, *GWTC-4.0: Population Properties of Merging Compact Binaries*. [arXiv:2508.18083](https://arxiv.org/abs/2508.18083)
 {: #ref-90 }
 
+## Primordial black holes
+
+**[101]** LVK, *Searches for Binary Mergers with Sub-solar Mass Components in Data from the First Part of LIGO–Virgo–KAGRA's Fourth Observing Run*. Components 0.2–1 M☉, LIGO data of 24 May 2023 to 16 January 2024; limits on the fraction of dark matter in primordial black holes. [arXiv:2605.05444](https://arxiv.org/abs/2605.05444)
+{: #ref-101 }
+
+**[102]** M. Andrés-Carcasona, A. J. Iovino, E. Vallejo-Pagès, V. Vaskonen, H. Veermäe, M. Martínez and Ll. M. Mir, *Constraints on primordial black holes from the first part of LIGO-Virgo-KAGRA fourth observing run* (not an LVK paper). [arXiv:2605.15749](https://arxiv.org/abs/2605.15749)
+{: #ref-102 }
+
+**[103]** B. D. Metzger, L. Hui and M. Cantiello, *Fragmentation in Gravitationally Unstable Collapsar Disks and Subsolar Neutron Star Mergers*. ApJ Lett. 971, L34 (2024). An astrophysical alternative to primordial black holes for sub-solar mergers. [arXiv:2407.07955](https://arxiv.org/abs/2407.07955)
+{: #ref-103 }
+
+**[104]** B. Carr and F. Kühnel, *Primordial Black Holes as Dark Matter: Recent Developments*. Ann. Rev. Nucl. Part. Sci. 70, 355 (2020). [arXiv:2006.02838](https://arxiv.org/abs/2006.02838)
+{: #ref-104 }
+
 ## Galaxy catalogs
 
 **[91]** G. Dálya et al., *GLADE+: an extended galaxy catalogue for multimessenger searches with advanced gravitational-wave detectors*. Queried from VizieR VII/291. [arXiv:2110.06184](https://arxiv.org/abs/2110.06184)

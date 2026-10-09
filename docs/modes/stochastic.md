@@ -82,6 +82,36 @@ The prediction agrees with the LVK one and lies a factor 2.7 below the current u
 *Below ~100 Hz the background grows as f^2/3 (the inspiral), in the band where the searches are most
 sensitive; the BBH spectrum turns over at the merger frequencies of the redshifted masses.*
 
+### In numbers of mergers
+
+The same rates, integrated over the whole sky and redshift, \(\dot N = \int R(z)\, \frac{dV_c}{dz}\,
+\frac{dz}{1+z}\) (the 1 + z is the time dilation: mergers per year of our time), with the rate history of the
+background: the star-formation history for BNS and NSBH, the fitted Madau–Dickinson shape for BBH up to z_h ≈ 1
+and the star-formation history beyond. Rates: BNS 26 [4, 87] and NSBH 33 [13, 67] Gpc⁻³ yr⁻¹ today, BBH 25.2
+at z = 0.2 (`rates --sensitivity-release gwtc5`, median [90%]).
+
+| | Local rate (Gpc⁻³ yr⁻¹) | Whole Universe (z < 10), one every | z < 1, one every | Within 40 Mpc, one every | Detected per year | Ω_GW(25 Hz) |
+|---|---|---|---|---|---|---|
+| BBH | 25 at z = 0.2 | ~6 min (3.5–9) | ~70 min | — | ~96 (248 in 2.59 yr) | 6.0 × 10⁻¹⁰ |
+| NSBH | 33 [13, 67] | ~4 min (2–10) | ~40 min | ~110 yr (56–290) | ~1.5 (4 in 2.59 yr) | 0.9 × 10⁻¹⁰ |
+| BNS | 26 [4, 87] | ~5 min (1.5–33) | ~50 min | ~140 yr (43–930) | ~0.4 (1 in 2.59 yr) | 0.3 × 10⁻¹⁰ |
+
+*90% ranges from the rate intervals (BNS, NSBH) or from 300 draws of the Madau–Dickinson shape of a Power Law
++ Peak posterior with R(0.2) fixed (BBH, so its range is too narrow by about ±10%). Detected: the candidates of
+O3, O4a and O4b used by `rates` (FAR < 1/yr).*
+
+- **The three populations merge about as often**, one every few minutes each in the observable Universe:
+  about 10⁵ per year each. About 90% of these mergers are beyond z = 1, where the rate is the assumed
+  star-formation history, not a measurement.
+- **What differs is how far they are seen.** A BBH is detected out to a few Gpc, an NSBH to a few hundred Mpc,
+  a BNS to ~160 Mpc (the O4 range): BBHs dominate both the detections and the background. The rest, more than
+  99.7% of all mergers, are too faint to detect one by one and make up the background.
+- **GW170817 was a rare close event.** At the current rate a BNS within 40 Mpc happens about once in 140 years;
+  catching one in the ~2.5 years of O1–O3 had a chance of about 2% (6% at the upper end of the rate).
+- **The background bounds these numbers.** One BNS every 0.1 s, for instance, would need R(0) ≈ 80 000
+  Gpc⁻³ yr⁻¹; the background would then be Ω_BNS ≈ 9 × 10⁻⁸ at 25 Hz, 45 times the upper limit, and the
+  detectors would see ~1000 BNS per year.
+
 ## Systematics
 
 - **The rate beyond the detected events dominates.** With `--high-z posterior`, Ω_BBH(25 Hz) = 9.8 × 10⁻¹⁰:
