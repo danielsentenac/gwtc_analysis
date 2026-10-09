@@ -162,6 +162,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis hubble_constant -h\n"
             "  gwtc_analysis counterpart -h\n"
             "  gwtc_analysis area_law -h\n"
+            "  gwtc_analysis scalar_cloud -h\n"
             "  gwtc_analysis stochastic -h\n"
             "  gwtc_analysis neutron_star_eos -h\n"
             "  gwtc_analysis spin_population -h\n"
@@ -543,6 +544,53 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and "
                            "<name>.ringdown.tsv).")
     p_al.add_argument("--plots-dir", default="area_law_plots", help="Directory for the plots.")
+
+    # ---------------------------------------------------------------------
+    # scalar_cloud
+    # ---------------------------------------------------------------------
+    p_sc = sub.add_parser(
+        "scalar_cloud",
+        help="Is a binary black hole better fitted with a scalar-field cloud around it (IMRPhenomXPHM_Scalar)?",
+        description=(
+            "Fit of a binary black hole with the IMRPhenomXPHM_Scalar waveform of Roy et al. (arXiv:2510.17967):\n"
+            "IMRPhenomXPHM plus the angular momentum lost to an ultralight scalar cloud (density rho, alpha = M m_phi).\n"
+            "Stages:\n"
+            "  prepare   : the PE file's settings, noise spectra and top samples; GWOSC strain of the event and of\n"
+            "              --n-background off-source segments within an hour of it;\n"
+            "  fit       : vacuum best fit, profile over (alpha, rho) and free cloud fit: Lambda = 2 (lnL_cloud - lnL_vac);\n"
+            "  background: the same procedure on the vacuum best fit injected into the off-source segments (p-value);\n"
+            "  sample    : nested sampling (bilby, dynesty, the paper's settings) of vacuum, agnostic and superradiance\n"
+            "              priors, hence the Bayes factor (a cluster job);\n"
+            "  report    : HTML report with the whitened strain, the fits, the background and the evidences.\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_sc.add_argument("--event", default="GW190728_064510", help="Event name (as in the GWTC PE releases).")
+    p_sc.add_argument("--pe-file", default=None, help="PE file to read instead of the event's Zenodo file.")
+    p_sc.add_argument("--pe-label", default="C01:IMRPhenomXPHM",
+                      help="Analysis of the PE file: settings, noise spectra, starting points of the fits.")
+    p_sc.add_argument("--workdir", default="scalar_cloud", help="Work directory.")
+    p_sc.add_argument("--stages", nargs="+", default=["prepare", "fit", "report"],
+                      choices=["prepare", "fit", "background", "sample", "report"], help="Stages to run.")
+    p_sc.add_argument("--sampling-frequency", type=float, default=2048.0, help="Sampling frequency of the fits (Hz).")
+    p_sc.add_argument("--n-background", type=int, default=150, help="Off-source injections of the background.")
+    p_sc.add_argument("--jobs", type=int, default=1,
+                      help="Local parallel processes (fit, background) or sampler pool (sample).")
+    p_sc.add_argument("--sample-models", nargs="+", default=["vacuum", "agnostic", "superradiance"],
+                      choices=["vacuum", "agnostic", "superradiance"], help="Models of the sample stage.")
+    p_sc.add_argument("--tau-d", type=float, default=1e6,
+                      help="Superradiance prior: years between black-hole formation and merger.")
+    p_sc.add_argument("--npool", type=int, default=32, help="With --executor slurm: CPUs of each sampling job.")
+    p_sc.add_argument("--executor", choices=("local", "slurm"), default="local",
+                      help="slurm: the fit, background and sample stages as sbatch scripts in <workdir>/slurm and "
+                           "<workdir>/slurm_sample; run the report stage afterwards.")
+    p_sc.add_argument("--python", default=None, help="With --executor slurm: Python of the jobs (default: this one).")
+    p_sc.add_argument("--slurm-option", action="append", default=[], metavar="OPT",
+                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc).")
+    p_sc.add_argument("--slurm-env-setup", default="", help="Shell lines run first in each Slurm job.")
+    p_sc.add_argument("--submit", action="store_true", help="With --executor slurm: submit the scripts.")
+    p_sc.add_argument("--out-report", default="scalar_cloud.html", help="Output HTML report path.")
+    p_sc.add_argument("--out-summary", default="scalar_cloud.tsv", help="Output TSV of the fits.")
 
     # ---------------------------------------------------------------------
     # stochastic
@@ -1050,6 +1098,18 @@ def main(argv=None) -> int:
                 executor=args.executor, slurm_options=args.slurm_option, slurm_env_setup=args.slurm_env_setup,
                 slurm_assembly_options=args.slurm_assembly_option,
                 submit=args.submit, icarogw_python=args.icarogw_python, out_report_html=args.out_report,
+            )
+            return 0
+
+        if args.mode == "scalar_cloud":
+            from .scalar_cloud_mode import run_scalar_cloud
+
+            run_scalar_cloud(
+                event=args.event, workdir=args.workdir, stages=args.stages, pe_file=args.pe_file,
+                pe_label=args.pe_label, sampling_frequency=args.sampling_frequency, n_background=args.n_background,
+                jobs=args.jobs, executor=args.executor, python=args.python, slurm_options=args.slurm_option,
+                slurm_env_setup=args.slurm_env_setup, submit=args.submit, sample_models=args.sample_models,
+                tau_d=args.tau_d, npool=args.npool, out_report_html=args.out_report, out_summary_tsv=args.out_summary,
             )
             return 0
 
