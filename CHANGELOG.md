@@ -44,7 +44,8 @@ or dark siren, formerly `--spectral-posterior`) and `counterpart` (degeneracy pl
   chains of batch jobs); likelihood thresholds `--neff-pe`, `--neff-inj`; settings files (`--settings`); the
   resolved options recorded in `<workdir>/options_<mode>.json`.
 - Validation: the GWTC-4.0 Power Law + Peak dark siren with GLADE+, 114.6 (+41.5 / −33.8) km/s/Mpc with 5000 PE
-  samples per event, against 115.4 (+40.1 / −33.8) published.
+  samples per event, against 115.4 (+40.1 / −33.8) published; Multi Peak, 86.8 (+39.8 / −26.1) against
+  86.3 (+41.3 / −26.3); with GW170817, a median of 77.5 against the paper's 75.4.
 - `--catalogs` outside the observing runs of the injection release is refused (it was silently restricted).
 
 ### Other changes

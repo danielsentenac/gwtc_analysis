@@ -26,7 +26,8 @@ three choices:
 
 The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29): spectral siren
 105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8) for PLP; dark siren with GLADE+
-114.6 (+41.5 / −33.8) against 115.4 (+40.1 / −33.8), with 5000 PE samples per event ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)).
+114.6 (+41.5 / −33.8) against 115.4 (+40.1 / −33.8), with 5000 PE samples per event ([validation](#validation-gwtc-40-power-law-peak-glade-k-band));
+with Multi Peak, 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3) ([validation](#validation-gwtc-40-multi-peak-glade-k-band)).
 
 ## Quick start
 
@@ -294,6 +295,31 @@ points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injection
 - One run (seed 1) entered a slow tail (160 s per iteration after 17 h, `dlogz` 0.65) and was cancelled; the chain
   continued with the 7 other runs ([how](#on-a-slurm-cluster)).
 
+### Validation: GWTC-4.0, Multi Peak, GLADE+ K band
+
+The same chain with `--mass-model mltp` (October 2026), on the same catalog, events and injections:
+
+| | H₀ (km/s/Mpc, median and 68%) | 90% |
+|---|---|---|
+| runs, 10% of the injections (6 runs, 3809 samples) | 96.3 (+43.0 / −26.7) | 54.5 – 173.0 |
+| reweighted to all the injections (1500 PE samples) | 89.9 (+41.8 / −27.0) | 48.0 – 163.3 |
+| **reweighted to all the injections and 5000 PE samples** | **86.8 (+39.8 / −26.1)** | **46.8 – 159.7** |
+| GWTC-4.0 release, icarogw dark siren | 86.3 (+41.3 / −26.3) | |
+| GWTC-4.0 paper, Table 1 [\[29\]](../references.md#ref-29) | 81.6 (+41.2 / −27.6) | |
+
+- With 5000 PE samples the median is 0.5 km/s/Mpc from the release's, with the same 68% interval. The
+  reweightings keep effective sample sizes of 69% (2645 and 2619 of 3809), reject no sample, and reproduce the
+  runs' ln L exactly. The paper's value is 4.7 below the release's for the same model and catalog; the release
+  is the one the samples reproduce.
+- The two corrections go the same way as for Power Law + Peak: all the injections lower H₀ by 6 km/s/Mpc, 5000 PE
+  samples by 3 more.
+- Against the spectral siren of the same model (78.6 (+38.0 / −26.5), [Hubble constant (spectral
+  siren)](../science/spectral-siren.md)), the catalog moves the median up and leaves the width almost unchanged,
+  as in the release (76.5 and 86.3).
+- Timing: the runs took 15–25 h each, about twice the Power Law + Peak runs (15 parameters instead of 12); the
+  reweighting 5–9 min per chunk. Two runs (seeds 2 and 3) were still in their slow tail after 25 h and were
+  cancelled; the chain combined the 6 others.
+
 ## Joint posterior
 
 `--method joint --inputs A B ...` multiplies independent H₀ posteriors: work directories of the other methods
@@ -324,6 +350,15 @@ interval) and their posteriors:
 | **Joint** | **73.2** (+24.2 / −8.4) | 84.8, 65.3–131.7 |
 | GW170817 with the Power Law + Peak spectral siren instead | 71.7 (+22.3 / −8.0) | |
 | GW170817 with the jet viewing angle (20 ± 3°) × the dark siren | 69.2 (+4.6 / −4.4) | 69.4, 62.2–77.1 |
+| Dark siren, Multi Peak, GLADE+ K band (5000 PE samples) | 75.5 (+38.6 / −24.8) | 87.3, 45.1–160.2 |
+| **GW170817 × the Multi Peak dark siren** | **70.6** (+17.3 / −7.5) | 77.5, 63.2–113.0 |
+
+**Against the paper.** Table 1 of [\[29\]](../references.md#ref-29) quotes medians: GW170817 with the dark siren
+gives 75.4 (+16.6 / −10.0) for Multi Peak and 82.5 for Power Law + Peak. The medians here are 77.5 (+18.7 / −10.0)
+and 84.8 (+23.7 / −14.2): about 2 km/s/Mpc above the paper for both models, although the dark sirens themselves
+match the release. An offset common to both models more likely comes from the GW170817 input (here the GWTC-1
+low-spin samples and the NGC 4993 velocities of the [bright siren](hubble-constant-bright.md)) than from the dark
+siren; this has not been checked.
 
 **Which measurement dominates.** Independent posteriors multiply, so the narrower one sets the result and the
 broader one tilts it. With the GWTC-4.0 Power Law + Peak sirens, GW170817 dominates: its 68% interval is about

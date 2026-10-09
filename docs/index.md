@@ -41,7 +41,8 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 - **Dark sirens with a galaxy catalog.** The `galaxy_catalog` mode builds the GLADE+ K-band catalog of the
   GWTC-4.0 analysis (1.0 million galaxies, about 45 min on a cluster, as Slurm jobs on CC-IN2P3); with it,
   `hubble_constant --method dark` gives H₀ = 114.6 (+41.5 / −33.8) km/s/Mpc against the published
-  115.4 (+40.1 / −33.8), with 5000 PE samples per event. Deeper catalogs (DES, Rubin) go through the same pipeline. See
+  115.4 (+40.1 / −33.8) with Power Law + Peak, and 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3) with Multi Peak,
+  with 5000 PE samples per event. Deeper catalogs (DES, Rubin) go through the same pipeline. See
   [galaxy_catalog](modes/galaxy-catalog.md) and the
   [validation](modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band).
 - **Merger rates** of the three source classes, corrected for selection effects with the LVK

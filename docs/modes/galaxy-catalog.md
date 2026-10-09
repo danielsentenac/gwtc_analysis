@@ -160,7 +160,9 @@ with the labels of its Figure 3 (13.3, 13.5, 13.6, 13.7) to their rounding.
 
 **Validated.** With this catalog, the GWTC-4.0 dark siren (Power Law + Peak, 137 BBH, 5000 PE samples per event)
 gives H₀ = 114.6 (+41.5 / −33.8) km/s/Mpc against 115.4 (+40.1 / −33.8) in the GWTC-4.0 release
-([hubble_constant](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)). Built on CC-IN2P3 in about
+([hubble_constant](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)), and with Multi Peak
+86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3)
+([hubble_constant](hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)). Built on CC-IN2P3 in about
 45 min: 505,575 galaxies enter the in-catalog term, 94% of the sky has a threshold, median threshold Ks = 13.5;
 luminosity-weighted completeness 0.71 at z = 0.04, 0.25 at 0.08, 0.04 at 0.13.
 
