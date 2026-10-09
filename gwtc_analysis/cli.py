@@ -517,7 +517,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawTextHelpFormatter,
     )
     p_sto.add_argument("--spectral-posterior", required=True,
-                       help="hubble_constant work directory (--mass-model plp) or its posterior TSV.")
+                       help="hubble_constant work directory (--mass-model plp or mltp) or its posterior TSV.")
     p_sto.add_argument("--rates", required=True, help="TSV written by the rates mode (--out-rates).")
     p_sto.add_argument("--high-z", choices=("sfr", "posterior"), default="sfr",
                        help="BBH rate beyond the farthest detected events: the star-formation history (sfr), or the "

@@ -351,7 +351,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--spectral-posterior` | `` | hubble_constant work directory (--mass-model plp) or its posterior TSV. |
+| `--spectral-posterior` | `` | hubble_constant work directory (--mass-model plp or mltp) or its posterior TSV. |
 | `--rates` | `` | TSV written by the rates mode (--out-rates). |
 | `--high-z` | `sfr` | BBH rate beyond the farthest detected events: the star-formation history (sfr), or the fitted shape, which there is the prior's (posterior). |
 | `--z-horizon` | `` | Redshift of the farthest detected events (default: from the work directory, else 1). |
