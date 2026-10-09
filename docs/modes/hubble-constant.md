@@ -353,12 +353,25 @@ interval) and their posteriors:
 | Dark siren, Multi Peak, GLADE+ K band (5000 PE samples) | 75.5 (+38.6 / −24.8) | 87.3, 45.1–160.2 |
 | **GW170817 × the Multi Peak dark siren** | **70.6** (+17.3 / −7.5) | 77.5, 63.2–113.0 |
 
-**Against the paper.** Table 1 of [\[29\]](../references.md#ref-29) quotes medians: GW170817 with the dark siren
-gives 75.4 (+16.6 / −10.0) for Multi Peak and 82.5 for Power Law + Peak. The medians here are 77.5 (+18.7 / −10.0)
-and 84.8 (+23.7 / −14.2): about 2 km/s/Mpc above the paper for both models, although the dark sirens themselves
-match the release. An offset common to both models more likely comes from the GW170817 input (here the GWTC-1
-low-spin samples and the NGC 4993 velocities of the [bright siren](hubble-constant-bright.md)) than from the dark
-siren; this has not been checked.
+**Against the paper.** Table 1 of [\[29\]](../references.md#ref-29) quotes medians and 68% intervals of GW170817
+with the dark siren. The paper's GW170817 uses the FullPop-4.0 population and a selection term from injections
+([bright siren](hubble-constant-bright.md#against-the-gwtc-40-reanalysis)); with the default bright siren
+(uniform in comoving volume) the joint medians are about 2 km/s/Mpc above the paper's for both models, with
+`--population fullpop4` about 1:
+
+| GW170817 × dark siren (5000 PE samples) | Default bright siren | `--population fullpop4` | GWTC-4.0 paper |
+|---|---|---|---|
+| Power Law + Peak | 84.8 (+23.7 / −14.2) | 83.5 (+22.4 / −13.5) | 82.5 (+22.6 / −14.2) |
+| Multi Peak | 77.5 (+18.7 / −10.0) | 76.7 (+17.8 / −9.6) | 75.4 (+16.6 / −10.0) |
+
+The remaining difference is that of GW170817 alone (78.5 against 77.8) carried through the product, plus that of
+the dark sirens (our Power Law + Peak and Multi Peak reproduce the release, which is 4.8 and 4.7 above the paper's
+Table 1 for the dark sirens alone).
+
+```bash
+gwtc_analysis hubble_constant --method bright --population fullpop4 --pe-label C02:IMRPhenomPv2_NRTidal-LowSpin
+gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright h0_dark_mltp
+```
 
 **Which measurement dominates.** Independent posteriors multiply, so the narrower one sets the result and the
 broader one tilts it. With the GWTC-4.0 Power Law + Peak sirens, GW170817 dominates: its 68% interval is about

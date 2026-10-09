@@ -24,7 +24,14 @@ sample spacing (a distant host with a spectroscopic redshift).
   numerator and, for a d_L^2 PE prior, p(H0) ∝ Σ_i N(v_H; H0 d_i, σ_v) (LVK 2017, arXiv:1710.05835).
 - ``injections``: the LVK sensitivity injections of the event's observing run, reweighted to the
   population (the mass model of its class; the injected isotropic spins) at each trial H0.
-- ``auto`` (default): ``euclidean`` below z = 0.05, ``injections`` above.
+- ``auto`` (default): ``euclidean`` below z = 0.05, ``injections`` above; ``injections`` with a population model.
+
+The population (``--population``) is, by default, sources uniform in comoving volume and source-frame time, with no
+mass term in the numerator (the mass of the event's class enters the selection only). ``fullpop4`` is the model of the
+GWTC-4.0 reanalysis of GW170817 (arXiv:2509.04348, Appendix E): the FullPop-4.0 mass distribution (BNS, NSBH and BBH
+in one, icarogw's ``m1m2_paired_massratio_bplmulti_dip``) and the Madau-Dickinson rate, fixed to the medians of the
+paper's spectral siren. The numerator then carries p_m(m1/(1+z), m2/(1+z)) ψ(z) / (1+z)^2 for each sample (the PE
+mass prior is uniform in the detector-frame masses), and the selection the same density.
 
 The samples must be conditioned on the sky position of the counterpart: the GWTC-1 GW170817 samples are
 (the sky was fixed to AT2017gfo); for samples that are not, only those near the counterpart are kept.
@@ -34,6 +41,7 @@ weighted by it. The counterparts and the PE samples come from the `counterpart` 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
@@ -89,6 +97,117 @@ def pop_z(z):
     return np.interp(z, _ZG, _POPZ)
 
 
+# ---------------------------------------------------------------------------
+# population models (--population): FullPop-4.0 and the Madau-Dickinson rate, as in icarogw
+# ---------------------------------------------------------------------------
+# medians of the GWTC-4.0 spectral siren, used by the paper for GW170817 (arXiv:2509.04348, Appendix E); names of
+# icarogw's m1m2_paired_massratio_bplmulti_dip (bottomsmooth, topsmooth: δm min and max; leftdip...deep: the dip)
+FULLPOP4_GWTC4 = dict(alpha_1=2.52, alpha_2=1.79, beta_bottom=1.30, beta_top=2.62, mmin=0.99, mmax=93.8,
+                      bottomsmooth=0.074, topsmooth=0.035, mu_g_low=8.98, sigma_g_low=0.77, mu_g_high=26.7,
+                      sigma_g_high=7.8, lambda_g=0.18, lambda_g_low=0.72, leftdip=2.33, rightdip=7.23,
+                      leftdipsmooth=0.11, rightdipsmooth=0.14, deep=0.52)
+MADAU_GWTC4 = dict(gamma=3.57, kappa=2.97, zp=2.59)
+
+
+def _highpass(m: np.ndarray, mmin: float, delta: float) -> np.ndarray:
+    """icarogw's _highpass_filter: 0 below mmin, a smooth rise over delta, 1 above."""
+    out = np.where(m >= mmin + delta, 1.0, 0.0)
+    w = (m > mmin) & (m < mmin + delta)
+    x = m[w] - mmin
+    with np.errstate(over="ignore"):
+        out[w] = 1.0 / (np.exp(delta / x + delta / (x - delta)) + 1.0)
+    return out
+
+
+def _lowpass(m: np.ndarray, mmax: float, delta: float) -> np.ndarray:
+    """icarogw's _lowpass_filter: 1 below mmax - delta, a smooth fall over delta, 0 above mmax."""
+    out = np.where(m <= mmax - delta, 1.0, 0.0)
+    w = (m < mmax) & (m > mmax - delta)
+    x = mmax - m[w]
+    with np.errstate(over="ignore"):
+        out[w] = 1.0 / (np.exp(delta / x + delta / (x - delta)) + 1.0)
+    return out
+
+
+def _ln_power_law(m: np.ndarray, lo: float, hi: float, slope: float) -> np.ndarray:
+    """ln of the normalized m^slope on [lo, hi]."""
+    norm = np.log(hi / lo) if slope == -1 else (hi ** (slope + 1) - lo ** (slope + 1)) / (slope + 1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where((m >= lo) & (m <= hi), slope * np.log(m) - np.log(norm), -np.inf)
+
+
+def _ln_truncated_gaussian(m: np.ndarray, mu: float, sigma: float, lo: float, hi: float) -> np.ndarray:
+    from math import erf, sqrt
+
+    norm = 0.5 * (erf((hi - mu) / (sigma * sqrt(2))) - erf((lo - mu) / (sigma * sqrt(2))))
+    return np.where((m >= lo) & (m <= hi),
+                    -0.5 * ((m - mu) / sigma) ** 2 - np.log(sigma * np.sqrt(2 * np.pi) * norm), -np.inf)
+
+
+def _fullpop4_mbreak(p: dict) -> float:
+    return 0.5 * (p["leftdip"] + p["leftdipsmooth"] + p["rightdip"] - p["rightdipsmooth"])
+
+
+def ln_mass_1d_fullpop4(m: np.ndarray, p: dict = FULLPOP4_GWTC4) -> np.ndarray:
+    """ln p_S(m) of FullPop-4.0 up to a constant: a broken power law (break at m_break, between the dip edges) and
+    two Gaussians, times the low- and high-mass windows and the dip (icarogw's SmoothedPlusDipProb)."""
+    m = np.asarray(m, float)
+    lo, hi, b = p["mmin"], p["mmax"], _fullpop4_mbreak(p)
+    with np.errstate(divide="ignore"):
+        ln_pl1 = _ln_power_law(m, lo, b, -p["alpha_1"])
+        ln_pl2 = _ln_power_law(m, b, hi, -p["alpha_2"])
+        bb = np.array([b])
+        ln_join = (_ln_power_law(bb, lo, b, -p["alpha_1"]) - _ln_power_law(bb, b, hi, -p["alpha_2"]))[0]
+        ln_bpl = np.logaddexp(ln_pl1, ln_pl2 + ln_join) - np.log1p(np.exp(ln_join))
+        lam, lam_low = p["lambda_g"], p["lambda_g_low"]
+        ln_mix = np.logaddexp.reduce([
+            np.log1p(-lam) + ln_bpl,
+            np.log(lam * lam_low) + _ln_truncated_gaussian(m, p["mu_g_low"], p["sigma_g_low"], lo,
+                                                           p["mu_g_low"] + 5 * p["sigma_g_low"]),
+            np.log(lam * (1 - lam_low)) + _ln_truncated_gaussian(m, p["mu_g_high"], p["sigma_g_high"], lo,
+                                                                 p["mu_g_high"] + 5 * p["sigma_g_high"]),
+        ])
+        notch = 1.0 - p["deep"] * _highpass(m, p["leftdip"], p["leftdipsmooth"]) * _lowpass(m, p["rightdip"],
+                                                                                             p["rightdipsmooth"])
+        window = _highpass(m, lo, p["bottomsmooth"]) * _lowpass(m, hi, p["topsmooth"]) * notch
+        return np.where((m >= lo) & (m <= hi), ln_mix + np.log(window), -np.inf)
+
+
+def ln_mass_fullpop4(m1: np.ndarray, m2: np.ndarray, p: dict = FULLPOP4_GWTC4) -> np.ndarray:
+    """ln p(m1, m2) of FullPop-4.0 up to a constant: p_S(m1) p_S(m2) times the pairing function q^β, with
+    β = beta_bottom when m2 <= m_break, beta_top above, and m2 <= m1."""
+    m1, m2 = np.broadcast_arrays(np.asarray(m1, float), np.asarray(m2, float))
+    q = m2 / m1
+    beta = np.where(m2 <= _fullpop4_mbreak(p), p["beta_bottom"], p["beta_top"])
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ln_pair = np.where(q <= 1, beta * np.log(q), -np.inf)
+    return ln_mass_1d_fullpop4(m1, p) + ln_mass_1d_fullpop4(m2, p) + ln_pair
+
+
+def ln_rate_madau(z: np.ndarray, gamma: float, kappa: float, zp: float) -> np.ndarray:
+    """ln ψ(z) of the Madau-Dickinson rate, normalized to 1 at z = 0 (icarogw's md_rate)."""
+    z = np.asarray(z, float)
+    return (np.log1p((1 + zp) ** (-gamma - kappa)) + gamma * np.log1p(z)
+            - np.log1p(((1 + z) / (1 + zp)) ** (gamma + kappa)))
+
+
+@dataclass(frozen=True)
+class Population:
+    """Mass and redshift density of the sources, beyond uniform in comoving volume and source-frame time."""
+    ln_mass: Callable          # ln p(m1, m2) in the source frame
+    ln_rate: Callable          # ln ψ(z)
+    description: str
+
+
+POPULATIONS: dict[str, Optional[Population]] = {
+    "volume": None,
+    "fullpop4": Population(
+        ln_mass_fullpop4, lambda z: ln_rate_madau(z, **MADAU_GWTC4),
+        "FullPop-4.0 masses and the Madau–Dickinson rate (γ = 3.57, κ = 2.97, z<sub>p</sub> = 2.59), fixed to "
+        "the medians of the GWTC-4.0 spectral siren, as the GWTC-4.0 reanalysis of GW170817"),
+}
+
+
 def _log(msg: str) -> None:
     print(f"[hubble_constant] {msg}", flush=True)
 
@@ -104,9 +223,15 @@ def _logsumexp(a: np.ndarray, axis: int) -> np.ndarray:
 
 
 def event_ln_likelihood(h0: np.ndarray, distances: np.ndarray, pe_prior: np.ndarray, z_obs: float, sigma_z: float,
-                        weights: Optional[np.ndarray] = None, rows: int = 64) -> np.ndarray:
+                        weights: Optional[np.ndarray] = None, rows: int = 64,
+                        population: Optional[Population] = None,
+                        masses: Optional[tuple[np.ndarray, np.ndarray]] = None) -> np.ndarray:
     """ln ∫ N(z_obs; z, σ_z) p_pop(z) L_GW(d_L(z, H0)) dz on the H0 grid, up to a constant (no selection).
-    `weights`: an independent likelihood of each sample (e.g. a viewing-angle constraint)."""
+    `weights`: an independent likelihood of each sample (e.g. a viewing-angle constraint). With a `population`,
+    `masses` are the detector-frame (mass_1, mass_2) of the samples, and each sample also carries
+    p_m(m1/(1+z), m2/(1+z)) ψ(z) / (1+z)^2."""
+    if population is not None:
+        m1d, m2d = (np.asarray(m, float)[None, :] for m in masses)
     d = np.asarray(distances, float)[None, :]
     ln_w0 = -np.log(np.asarray(pe_prior, float))[None, :]
     if weights is not None:
@@ -119,6 +244,9 @@ def event_ln_likelihood(h0: np.ndarray, distances: np.ndarray, pe_prior: np.ndar
         z, pz, dd = _at_dimensionless_distance(d * h / C_KMS)
         with np.errstate(divide="ignore"):
             ln_w = ln_w0 + np.log(pz) - np.log(dd) + np.log(h / C_KMS)
+            if population is not None:
+                ln_w = ln_w + (population.ln_rate(z) + population.ln_mass(m1d / (1 + z), m2d / (1 + z))
+                               - 2 * np.log1p(z))
         bw = 1.06 * np.std(z, axis=1, keepdims=True) * n ** -0.2
         s = np.maximum(sigma_z, bw)
         out[i:i + rows] = _logsumexp(ln_w - 0.5 * ((z_obs - z) / s) ** 2 - np.log(s), axis=1) - np.log(n)
@@ -149,14 +277,14 @@ def ln_selection_euclidean(h0: np.ndarray) -> np.ndarray:
     return 3 * np.log(np.asarray(h0, float))
 
 
-def ln_selection_injections(h0: np.ndarray, inj: dict, ln_pop_mass: Callable, n_grid: int = 77
-                            ) -> tuple[np.ndarray, np.ndarray]:
+def ln_selection_injections(h0: np.ndarray, inj: dict, ln_pop_mass: Callable, n_grid: int = 77,
+                            ln_rate: Optional[Callable] = None) -> tuple[np.ndarray, np.ndarray]:
     """(ln β, effective injections) on the H0 grid, from found injections in the detector frame.
 
     `inj` has detector-frame mass_1, mass_2, luminosity_distance, their draw density `prior` in these
     variables, and `ntotal` (as `hubble_constant.detector_frame_injections` returns). At each trial H0 the
     injections are carried to the source frame and weighted by the population density in the detector frame,
-    p_m(m1_s, m2_s) p_pop(z) / [(1+z)^2 dd_L/dz].
+    p_m(m1_s, m2_s) p_pop(z) / [(1+z)^2 dd_L/dz], times the rate ψ(z) when `ln_rate` is given.
     """
     hg = np.linspace(h0[0], h0[-1], n_grid)
     ln_b, neff = np.empty(n_grid), np.empty(n_grid)
@@ -166,6 +294,8 @@ def ln_selection_injections(h0: np.ndarray, inj: dict, ln_pop_mass: Callable, n_
         with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
             lnp = (ln_pop_mass(m1 / (1 + z), m2 / (1 + z)) + np.log(pz) - 2 * np.log1p(z)
                    - np.log(dd) + np.log(h / C_KMS))
+            if ln_rate is not None:
+                lnp = lnp + ln_rate(z)
             w = np.exp(lnp) / prior
         w = np.where(np.isfinite(w), w, 0.0)
         s = w.sum()
@@ -293,11 +423,16 @@ def run_h0_bright(
     far_threshold: float = 0.25,
     snr_threshold: float = 10.0,
     h0_range: tuple[float, float] = H0_PRIOR,
+    population: str = "volume",
+    pe_distance_prior: Optional[str] = None,
 ) -> pd.DataFrame:
     """Bright-siren H0 of `event` for each of its PE labels, in `workdir` (the posterior grid, ``bright.json``, plots).
     The first label is the result; `hubble_constant --method joint` combines it with other methods."""
     if selection not in ("auto", "euclidean", "injections"):
         raise ValueError(f"unknown selection {selection!r}; choose auto, euclidean or injections")
+    if population not in POPULATIONS:
+        raise ValueError(f"unknown population {population!r}; choose {', '.join(POPULATIONS)}")
+    pop = POPULATIONS[population]
     lo, hi = h0_range
     if not 0 < lo < hi or sky_radius_deg <= 0:
         raise ValueError("the H0 range must be 0 < MIN < MAX and the sky radius > 0")
@@ -308,35 +443,48 @@ def run_h0_bright(
 
     cp = get_counterpart(event)
     z_obs, sigma_z, z_desc = hubble_flow_redshift(cp, v_recession, v_peculiar, redshift)
-    defaults = v_recession is None and v_peculiar is None and redshift is None and viewing_angle_constraint is None
+    defaults = (v_recession is None and v_peculiar is None and redshift is None and viewing_angle_constraint is None
+                and pop is None and pe_distance_prior is None)
     _log(f"bright siren {event}, {cp.host}: {z_desc.replace('<sub>', '').replace('</sub>', '')}")
     if cp.candidate:
         _log(f"WARN: {cp.transient} is a candidate counterpart; the association is not established")
     pe_path, samples = load_event_samples(event, cp, pe_file, pe_labels, cache_dir, pe_cache, log_cb=_log)
 
     h0 = np.linspace(lo, hi, int(round((hi - lo) / 0.05)) + 1)
-    sel = selection if selection != "auto" else ("euclidean" if z_obs < EUCLIDEAN_ZMAX else "injections")
+    sel = selection if selection != "auto" else (
+        "euclidean" if z_obs < EUCLIDEAN_ZMAX and pop is None else "injections")
     if sel == "euclidean":
         ln_beta, sel_note = ln_selection_euclidean(h0), (
             "Selection: GW-limited detection of nearby sources, β(H<sub>0</sub>) ∝ H<sub>0</sub><sup>3</sup>, which "
             "cancels the volume factor of the population.")
     else:
         inj = load_injections(cp, sensitivity_release, sensitivity_file, far_threshold, snr_threshold)
-        ln_beta, neff = ln_selection_injections(h0, inj, MASS_POPULATIONS[cp.population])
+        if pop is None:
+            ln_beta, neff = ln_selection_injections(h0, inj, MASS_POPULATIONS[cp.population])
+            mass_desc = "Power Law + Peak" if cp.population == "BBH" else "uniform 1–2.5 M☉"
+            pop_desc = f"the {cp.population} population ({mass_desc}, uniform in comoving volume)"
+        else:
+            ln_beta, neff = ln_selection_injections(h0, inj, pop.ln_mass, ln_rate=pop.ln_rate)
+            pop_desc = "the population"
         sel_note = (f"Selection: {len(inj['prior'])} found injections of {cp.run} (FAR &lt; {far_threshold:g}/yr), "
-                    f"reweighted at each H<sub>0</sub> to the {cp.population} population "
-                    f"({'Power Law + Peak' if cp.population == 'BBH' else 'uniform 1–2.5 M☉'}, uniform in comoving "
-                    f"volume); effective injections {neff.min():.0f}–{neff.max():.0f}.")
+                    f"reweighted at each H<sub>0</sub> to {pop_desc}; effective injections "
+                    f"{neff.min():.0f}–{neff.max():.0f}.")
         if neff.min() < MIN_NEFF_INJECTIONS:
             sel_note += f" <b>Fewer than {MIN_NEFF_INJECTIONS} effective injections: β is noisy.</b>"
             _log(f"WARN: only {neff.min():.0f} effective injections")
-    _log(f"selection: {sel}")
+    _log(f"selection: {sel}; population: {population}")
 
     rows, posts, notes = [], {}, []
     for label, s in samples.items():
         keep, how = sky_conditioned(s, cp, sky_radius_deg)
         d = np.asarray(s["luminosity_distance"], float)[keep]
-        prior, prior_desc = hc.pe_distance_prior(d, s["prior_desc"], cp.run)
+        prior, prior_desc = hc.pe_distance_prior(d, s["prior_desc"], cp.run, kind=pe_distance_prior)
+        masses = None
+        if pop is not None:
+            if "mass_1" not in s or "mass_2" not in s:
+                raise ValueError(f"{label}: no detector-frame masses (mass_1, mass_2) in the samples for "
+                                 f"--population {population}")
+            masses = (np.asarray(s["mass_1"], float)[keep], np.asarray(s["mass_2"], float)[keep])
         w, w_note = None, ""
         if viewing_angle_constraint is not None:
             view = viewing_angle(s)
@@ -344,7 +492,8 @@ def run_h0_bright(
                 raise ValueError(f"{label}: no viewing angle (theta_jn or iota) in the samples for the constraint")
             w = viewing_angle_weights(view[keep], viewing_angle_constraint)
             w_note = f"; {w.sum() ** 2 / (w * w).sum():.0f} effective samples with the viewing-angle constraint"
-        p = posterior_from_ln(h0, event_ln_likelihood(h0, d, prior, z_obs, sigma_z, weights=w) - ln_beta)
+        p = posterior_from_ln(h0, event_ln_likelihood(h0, d, prior, z_obs, sigma_z, weights=w, population=pop,
+                                                          masses=masses) - ln_beta)
         posts[label] = p
         dq = np.percentile(d, [5, 50, 95])
         rows.append(dict(analysis=f"bright siren {event}, {label}", n_samples=len(d), distance_median=dq[1],
@@ -361,7 +510,7 @@ def run_h0_bright(
     (workdir / BRIGHT_FILE).write_text(json.dumps(dict(
         method="bright", event=event, host=cp.host, transient=cp.transient, candidate=cp.candidate,
         events=[e for e in (event, cp.pe_event) if e], label=main, labels=list(posts), pe_file=str(pe_path), z=z_obs, sigma_z=sigma_z, selection=sel,
-        h0_range=[lo, hi], viewing_angle=list(viewing_angle_constraint) if viewing_angle_constraint else None,
+        population=population, pe_distance_prior=pe_distance_prior, h0_range=[lo, hi], viewing_angle=list(viewing_angle_constraint) if viewing_angle_constraint else None,
         summary={r["analysis"]: {k: r[k] for k in ("map", "hpd68_low", "hpd68_high", "median", "low_90", "high_90")}
                  for r in rows}), indent=1))
     table = pd.DataFrame(rows)
@@ -384,7 +533,8 @@ def run_h0_bright(
             paras.append(f"<b>Caveat.</b> {cp.caveat}")
         paras += [
             f"Host: {z_desc}. Flat ΛCDM (Ω<sub>m</sub> = {OM0}), flat H<sub>0</sub> prior {lo:g}–{hi:g} km/s/Mpc, "
-            "sources uniform in comoving volume. " + sel_note,
+            + ("sources uniform in comoving volume. " if pop is None else f"Population: {pop.description}. ")
+            + sel_note,
             *notes,
         ]
         if viewing_angle_constraint is not None:

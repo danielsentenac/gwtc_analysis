@@ -136,6 +136,7 @@ association, whose odds are 1 to 12 depending on the waveform model (Ashton et a
 | `--sky-radius` | 3° | when the PE samples are spread over the sky: the samples kept as "along the line of sight", those within this angle of the position. Not used for GW170817, whose samples are all at AT2017gfo |
 | `--sky-map` | the event's LVK sky map | FITS sky map for the searched probability; `none` computes it from the PE samples instead |
 | `--viewing-angle MEAN SIGMA` | none | an independent measurement of the viewing angle (degrees, Gaussian), e.g. from the radio jet of GW170817, to see how it narrows the distance |
+| `--pe-distance-prior` | the file's, else \(d_L^2\) up to O3 | distance prior of the PE samples, divided out of the distance posterior: `dl2`, `comoving` or `source-frame` |
 | `--out-report`, `--out-summary`, `--plots-dir` | `counterpart.html`, `counterpart.tsv`, `counterpart_plots` | the HTML report, the summary table (one row per PE label) and the plots |
 
 ## Outputs

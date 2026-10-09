@@ -45,7 +45,13 @@ or dark siren, formerly `--spectral-posterior`) and `counterpart` (degeneracy pl
   resolved options recorded in `<workdir>/options_<mode>.json`.
 - Validation: the GWTC-4.0 Power Law + Peak dark siren with GLADE+, 114.6 (+41.5 / −33.8) km/s/Mpc with 5000 PE
   samples per event, against 115.4 (+40.1 / −33.8) published; Multi Peak, 86.8 (+39.8 / −26.1) against
-  86.3 (+41.3 / −26.3); with GW170817, a median of 77.5 against the paper's 75.4.
+  86.3 (+41.3 / −26.3); with GW170817, a median of 77.5 against the paper's 75.4 (76.7 with
+  `--population fullpop4`).
+- `hubble_constant --method bright --population fullpop4`: the FullPop-4.0 mass distribution and the
+  Madau–Dickinson rate at the GWTC-4.0 medians, in the numerator and the selection term, as the GWTC-4.0
+  reanalysis of GW170817 (78.5 against the paper's 77.8; 79.9 by default).
+- `--pe-distance-prior dl2|comoving|source-frame` (`hubble_constant --method bright`, `counterpart`): the PE distance
+  prior, instead of the recorded one or the catalog default.
 - `--catalogs` outside the observing runs of the injection release is refused (it was silently restricted).
 
 ### Other changes

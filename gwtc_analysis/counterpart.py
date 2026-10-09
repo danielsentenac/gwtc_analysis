@@ -162,7 +162,8 @@ def _read_pe_labels(pe_file: Path, labels: Optional[Iterable[str]]) -> dict[str,
             raise ValueError(f"label(s) {', '.join(missing)} not in {pe_file.name}; available: {', '.join(available)}")
         for k in wanted:
             ps = h[k]["posterior_samples"][()]
-            s = {c: ps[c] for c in ("luminosity_distance", "ra", "dec", "theta_jn", "iota") if c in ps.dtype.names}
+            s = {c: ps[c] for c in ("luminosity_distance", "ra", "dec", "theta_jn", "iota", "mass_1", "mass_2")
+                 if c in ps.dtype.names}
             desc = ""
             try:
                 v = h[k]["priors"]["analytic"]["luminosity_distance"][()]
@@ -408,6 +409,7 @@ def run_counterpart(
     redshift: Optional[tuple[float, float]] = None,
     sky_radius_deg: float = 3.0,
     viewing_angle_constraint: Optional[tuple[float, float]] = None,
+    pe_distance_prior: Optional[str] = None,
     sky_map: Optional[str | Path] = None,
     out_report_html: Optional[str | Path] = "counterpart.html",
     out_summary_tsv: Optional[str | Path] = "counterpart.tsv",
@@ -418,7 +420,7 @@ def run_counterpart(
     `sky_map`: FITS sky map for the searched probability; by default the event's LVK map when its PE file is read
     from Zenodo, else (or with "none") a kernel estimate on the PE samples."""
     from . import h0_bright as hb
-    from .hubble_constant import pe_distance_prior
+    from .hubble_constant import pe_distance_prior as distance_prior
 
     cp = get_counterpart(event, ra_deg, dec_deg)
     if sky_radius_deg <= 0:
@@ -459,7 +461,7 @@ def run_counterpart(
             rows.append(row)
             continue
         d = np.asarray(s["luminosity_distance"], float)[keep]
-        prior, _ = pe_distance_prior(d, s["prior_desc"], cp.run)
+        prior, _ = distance_prior(d, s["prior_desc"], cp.run, kind=pe_distance_prior)
         row["n_line_of_sight"] = int(keep.sum())
         row["distance_median"], row["distance_low_90"], row["distance_high_90"] = _q(d)
         for name, dl in refs:

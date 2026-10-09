@@ -278,7 +278,9 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--redshift` | `` | [bright] Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
 | `--sky-radius` | `3.0` | [bright] For samples not fixed to the counterpart's position: keep those within this angle (deg). |
 | `--viewing-angle` | `` | [bright] Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
+| `--pe-distance-prior` | `` | [bright] Luminosity-distance prior of the PE samples, divided out of the distance posterior: dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE file, else D_L^2 up to O3 and source-frame from O4. |
 | `--selection` | `auto` | [bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05). |
+| `--population` | `volume` | [bright] Population of the sources: volume (uniform in comoving volume and source-frame time; the masses enter the selection only) or fullpop4 (FullPop-4.0 masses and the Madau-Dickinson rate fixed to the GWTC-4.0 spectral-siren medians, as the GWTC-4.0 reanalysis of GW170817; selection by injections with --selection auto). |
 | `--h0-range` | `[10.0, 200.0]` | [bright] Flat H0 prior range, km/s/Mpc (that of the spectral siren, needed by joint). |
 | `--inputs` | `` | [joint] Independent results to combine: hubble_constant work directories (spectral, dark or bright) or posterior TSV files (H0 samples, or an H0 grid with a p column). |
 
@@ -338,6 +340,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--redshift` | `` | Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
 | `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
 | `--viewing-angle` | `` | Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
+| `--pe-distance-prior` | `` | Luminosity-distance prior of the PE samples, divided out of the distance posterior: dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE file, else D_L^2 up to O3 and source-frame from O4. |
 | `--sky-map` | `` | FITS sky map for the searched probability of the position (default: the event's LVK map when its PE file comes from Zenodo; 'none': a kernel estimate on the PE samples). |
 | `--pe-cache` | `` | PE cache of the events read from Zenodo (default: that of hubble_constant). |
 | `--out-report` | `counterpart.html` | Output HTML report path. |
