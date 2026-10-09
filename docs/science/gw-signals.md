@@ -116,6 +116,26 @@ So the two meet only partly: LIGO–Virgo probe sub-solar masses down to ~0.1–
 striking but PBHs can only be part of the dark matter; the masses where they could be all of it are out of
 reach of any GW detector today.
 
+**Counterparts of sub-solar mergers.** Whether a sub-solar binary shines depends on its origin, and the
+search for a counterpart is what separates the two:
+
+| Origin | Counterpart | Why |
+|---|---|---|
+| Primordial black holes | none: the binary is dark | two black holes with no gas or disk around them emit no light |
+| Neutron-star fragments of a collapsar disk [\[103\]](../references.md#ref-103) | yes, inside an explosion | they form and merge inside a collapsing massive star: a long gamma-ray burst and a supernova with a kilonova inside it (a "superkilonova") |
+
+A transient in the localization points to the collapsar channel, a new kind of neutron-star merger rather than
+dark matter; a dark field in a well-covered map points to primordial black holes. The dark-matter question thus
+becomes partly an optical one. Two practical points for the follow-up:
+
+- **They are seen only nearby.** The detection range scales roughly as \(\mathcal{M}^{5/6}\): against 160 Mpc for
+  1.4 + 1.4 M☉ in O4, about 70 Mpc for 0.5 + 0.5 M☉ and 30 Mpc for 0.2 + 0.2 M☉. A counterpart would be close,
+  hence bright, but such events are rare and none is confirmed.
+- **The alerts flag them.** Since O4c every LVK alert carries HasSSM, the probability that a component is below
+  1 M☉, and a chirp-mass bin whose lowest bin (up to 0.87 M☉) marks sub-solar systems. S251112cm, from the
+  dedicated sub-solar search, was followed up by Rubin (GCN 43257); a dark result is informative only if the
+  map was well covered.
+
 **What the GW data say.**
 
 | Mass range | Data | Bound on \(f_\text{PBH}\) |
