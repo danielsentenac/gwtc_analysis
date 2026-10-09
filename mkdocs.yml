@@ -62,9 +62,11 @@ nav:
       - parameters_estimation: modes/parameters-estimation.md
       - build_unofficial_pe (GW170817): modes/unofficial-pe.md
       - rates: modes/rates.md
-      - hubble_constant: modes/hubble-constant.md
+      - hubble_constant:
+          - Spectral and dark sirens, joint posterior: modes/hubble-constant.md
+          - Bright siren: modes/hubble-constant-bright.md
       - galaxy_catalog: modes/galaxy-catalog.md
-      - bright_siren: modes/bright-siren.md
+      - counterpart: modes/counterpart.md
       - area_law (GW250114): modes/area-law.md
       - stochastic: modes/stochastic.md
       - neutron_star_eos: modes/neutron-star-eos.md

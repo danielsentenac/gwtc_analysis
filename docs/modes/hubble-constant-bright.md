@@ -1,13 +1,16 @@
-# bright_siren
+# hubble_constant: bright siren
 
-The Hubble constant from an event with an **identified host galaxy** (bright siren), alone or combined
-with the [spectral siren](hubble-constant.md). It takes seconds: no sampling.
+The Hubble constant from an event with an **identified host galaxy** (bright siren), with
+`hubble_constant --method bright`. It takes seconds: no sampling. The result goes to a work directory that
+`--method joint` combines with the [spectral or dark siren](hubble-constant.md#joint-posterior); where the
+counterpart sits in the GW posterior (sky, distance, viewing angle) is the [counterpart](counterpart.md) mode.
 
 ```bash
-gwtc_analysis bright_siren                                            # GW170817 and NGC 4993
-gwtc_analysis bright_siren --spectral-posterior h0_plp              # combined with the spectral siren
-gwtc_analysis bright_siren --spectral-posterior h0_dark_plp         # combined with the dark siren
-gwtc_analysis bright_siren --src-name GW190521                        # candidate AGN flare, z = 0.438
+gwtc_analysis hubble_constant --method bright                          # GW170817 and NGC 4993
+gwtc_analysis hubble_constant --method bright --viewing-angle 20 3     # with a viewing-angle constraint
+gwtc_analysis hubble_constant --method bright --event GW190521         # candidate AGN flare, z = 0.438
+gwtc_analysis hubble_constant --method joint \
+    --inputs hubble_constant_bright h0_dark_plp                        # combined with the dark siren
 ```
 
 ## Method
@@ -36,13 +39,14 @@ file (\(d_L^2\) up to O3, uniform in comoving volume in O4). Over the PE samples
 redshift at a trial H₀ is \(z_i\), the integral is a kernel sum:
 
 \[
-\sum_i \mathcal{N}(z_\text{obs};\, z_i,\, \sigma)\,
+\sum_i w_i\, \mathcal{N}(z_\text{obs};\, z_i,\, \sigma)\,
 \frac{p_\text{pop}(z_i)}{\pi_\text{PE}(d_i)\; \partial d_L/\partial z\,(z_i)},
 \qquad \sigma = \max(\sigma_z, h),
 \]
 
 where \(h\) is the kernel width of the \(z_i\) (Silverman's rule). It only matters for a distant host
-with a spectroscopic redshift, much narrower than the spread of the samples.
+with a spectroscopic redshift, much narrower than the spread of the samples. The weights \(w_i\) are 1,
+or an independent constraint on the viewing angle ([below](#viewing-angle-constraint)).
 
 **The selection term** \(\beta(H_0)\) is the fraction of the population that would be detected. At a
 given redshift a larger H₀ means a smaller distance, so a louder signal. Leaving β out biases H₀:
@@ -69,9 +73,10 @@ the sky fixed to AT2017gfo and are used as they are. Other samples are restricte
 **GW190521 is a candidate.** Graham et al. proposed the ZTF flare in an AGN disk as the counterpart
 [\[74\]](../references.md#ref-74). The odds of a common source are only 1 to 12, depending on the
 waveform model (Ashton et al. 2021 [\[75\]](../references.md#ref-75)). Its result is H₀ *if* the flare is
-the counterpart, and the report says so.
+the counterpart, and the report says so. The [counterpart](counterpart.md) mode shows where the flare sits
+in the GW posterior.
 
-A new event needs one entry in `COUNTERPARTS` (`gwtc_analysis/bright_siren.py`): the host, the
+A new event needs one entry in `COUNTERPARTS` (`gwtc_analysis/counterpart.py`): the host, the
 counterpart's position, the redshift or the velocities, the observing run, the population class, and
 the PE file (`pe_event`, read from Zenodo).
 
@@ -82,38 +87,35 @@ the PE file (`pe_event`, read from Zenodo).
 | GW170817, LowSpin | **69.8** (+23.6 / −8.2) | 79.9, 63.0–135.5 |
 | GW170817, HighSpin | **69.4** (+14.8 / −7.4) | 74.8, 62.2–112.2 |
 | GW170817, LVK 2017 [\[27\]](../references.md#ref-27) | **70.0** (+12.0 / −8.0) | |
+| GW170817, LowSpin, viewing angle 20 ± 3° | **68.2** (+4.7 / −4.4) | 68.4, 61.1–76.1 |
+| GW170817 and the radio jet, Hotokezaka et al. 2019 [\[73\]](../references.md#ref-73) | 70.3 (+5.3 / −5.0) | |
 | GW190521 + ZTF19abanrhr, IMRPhenomXPHM | **30.4** (+61.0 / −7.0) | 63.2, 26.1–129.5 |
 
-![H0 from GW170817 and NGC 4993](../img/modes/bright_siren_GW170817.png)
+![H0 from GW170817 and NGC 4993](../img/modes/h0_bright_GW170817.png)
 
 **GW170817.** The maximum a posteriori and the lower side agree with the published value. The upper
 side is wider because the public GWTC-1 samples come from a later reanalysis (GWTC-1,
 IMRPhenomPv2_NRTidal), whose distance has a longer low-distance tail than the 2017 analysis (43.8 +2.9
 −6.9 Mpc). That tail comes from the **distance–inclination degeneracy**: an inclined binary is fainter
-than a face-on one at the same distance. Constraining the inclination with the radio jet narrows H₀
-considerably (Hotokezaka et al. 2019 [\[73\]](../references.md#ref-73)); this mode does not use EM
-inclination constraints. The full ΛCDM \(d_L\) raises H₀ by 0.8% (0.6 km/s/Mpc) compared with the
-linear Hubble law of the 2017 paper.
+than a face-on one at the same distance (see the [counterpart](counterpart.md#the-distanceinclination-degeneracy)
+mode). The full ΛCDM \(d_L\) raises H₀ by 0.8% (0.6 km/s/Mpc) compared with the linear Hubble law of the
+2017 paper.
 
-The report shows the degeneracy: the distance samples against the viewing angle (0° face-on, 90°
-edge-on), each colored by the H₀ it implies at the host redshift.
+### Viewing-angle constraint
 
-![Distance against viewing angle for GW170817](../img/modes/bright_siren_degeneracy_GW170817.png)
+`--viewing-angle MEAN SIGMA` multiplies the GW likelihood by an independent Gaussian constraint on the viewing
+angle (degrees, folded to 0–90°): the PE samples are weighted by it. For GW170817 the superluminal motion of the
+radio jet gives \(0.25 < \theta_\text{obs}\,(d_L / 41\ \text{Mpc}) < 0.45\) rad, i.e. 14–26° at 41 Mpc
+(Hotokezaka et al. 2019 [\[73\]](../references.md#ref-73)). Approximated as 20 ± 3°, it removes the inclined
+orbits, hence the upper tail:
 
-| Viewing angle | Samples | \(d_L\) median | H₀ implied |
-|---|---|---|---|
-| 0–30° | 43% | 44.6 Mpc | 68 |
-| 30–60° | 51% | 35.9 Mpc | 85 |
-| 60–90° | 6% | 23 Mpc | 132 |
+![H0 from GW170817 with the viewing angle constrained to 20 ± 3 degrees](../img/modes/h0_bright_viewing_angle_GW170817.png)
 
-*The samples form one band: the distance falls as the orbit is seen more inclined. The inclination is
-measured, from all three detectors (θ_JN = 147°, 90%: 118–171°), but broadly: Virgo's response to
-GW170817 was small (the wave came close to one of its blind directions), which constrained the sky
-position but carried little polarization information, and near face-on the two polarizations are almost
-equal, (1 + cos²ι)/2 against cos ι. The upper tail of the H₀ posterior comes from the inclined orbits; the
-radio jet of GW170817, which fixes the viewing angle, removes it.*
+H₀ = 68.2 (+4.7 / −4.4) km/s/Mpc, against 70.3 (+5.3 / −5.0) in the paper. The Gaussian ignores the distance
+dependence of the jet constraint (the angle scales as 1/d_L) and the jet modelling behind it; the constraint
+must not come from the GW data.
 
-![H0 from GW190521 and ZTF19abanrhr](../img/modes/bright_siren_GW190521.png)
+![H0 from GW190521 and ZTF19abanrhr](../img/modes/h0_bright_GW190521.png)
 
 **GW190521.** The posterior is bimodal because the distance posterior is, in the direction of the flare.
 At z = 0.438, H₀ ≈ 30 corresponds to \(d_L\) ≈ 5.6 Gpc and H₀ ≈ 75 to 2.25 Gpc; the samples within 3°
@@ -122,34 +124,9 @@ of the flare have a median of 4.6 Gpc with 16% below 2.2 Gpc. The result depends
 samples near the flare in GWTC-2.1. The selection term is computed from 106,376 found O3a injections,
 with 13,000–16,000 effective injections over the H₀ range.
 
-## Combination with the spectral or dark siren
-
-`--spectral-posterior` takes a `hubble_constant` work directory (its `posterior_reweighted.tsv`, else
-`posterior.tsv`) or any TSV with an `H0` column. The work directory can be a spectral siren or a dark siren
-(`hubble_constant --galaxy-catalog`): the combination is the same, and the report names which it is (from the
-work directory's `selection.json`). Bright siren × dark siren is the LVK's headline combination (GWTC-5.0: 71.7
-(+9.4 / −7.5) km/s/Mpc with DES-Y6 [\[30\]](../references.md#ref-30)). The two measurements use different events
-(the spectral and dark sirens use binary black holes; leave the bright-siren event out of them) and the same flat
-prior, so their posteriors multiply. The siren density is a Gaussian kernel estimate, reflected at the prior bounds.
-
-![Bright siren combined with the spectral siren](../img/modes/bright_siren_combined.png)
-
-GW170817 with the *Power Law + Peak* spectral siren (GWTC-4.0 setup): H₀ = 71.7 (+22.3 / −8.0) km/s/Mpc
-(maximum a posteriori, 68%). GW170817 dominates; the broad spectral siren shifts the posterior slightly
-upwards. With the PLP dark siren (GLADE+ K band, 5000 PE samples per event) instead: 73.2 (+24.2 / −8.4),
-the dark-siren posterior being centred higher (median 115).
-
-**Which measurement dominates.** Independent posteriors multiply, so the narrower one sets the result and the
-broader one tilts it. With the GWTC-4.0 Power Law + Peak sirens, GW170817 dominates: its 68% interval is about
-32 km/s/Mpc wide (61.6–93.4), the dark siren's about 75 (81–156), so the dark siren only pushes the result up
-(maximum 69.8 → 73.2). In the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) it is the other way round: with
-235 events, the FullPop-4.0 mass model and the DES-Y6 galaxies, the dark sirens, 68.8 (+14.2 / −13.2), are narrower
-than the LVK's GW170817 bright siren, 79.1 (+27.6 / −12.4), and drive the combination, 71.7 (+9.4 / −7.5). That
-setup (FullPop-4.0, DES-Y6) is not in this version of `gwtc_analysis`.
-
 ## Validation: mock bright sirens
 
-The analysis is tested on simulated detections with a known H₀ (`tests/test_bright_siren.py`).
+The analysis is tested on simulated detections with a known H₀ (`tests/test_h0_bright.py`).
 
 - **Sources:** uniform in comoving volume up to z = 4, masses uniform in 20–40 M☉, random orientations.
 - **Detection:** each source has a network SNR \(\rho = A(\mathcal{M}_\text{det})\, w(\iota) / d_L\)
@@ -167,8 +144,9 @@ The analysis is tested on simulated detections with a known H₀ (`tests/test_br
 | the same without the selection term | 80.7 ± 2.7: biased by more than 3σ |
 | P–P test, 100 events with H₀ drawn from the prior | uniform with the selection term (KS p = 0.16), not without (p = 10⁻⁴) |
 | nearby sources (horizon z ≈ 0.02) | β from injections ∝ H₀^3.0, the `euclidean` selection |
+| distance correlated with the viewing angle, constraint 20 ± 3° | H₀ moves to the distance of the constrained angles and narrows |
 
-![Mock bright sirens: catalog posterior and P–P test](../img/modes/bright_siren_mock_validation.png)
+![Mock bright sirens: catalog posterior and P–P test](../img/modes/h0_bright_mock_validation.png)
 
 The injections must cover the population at every trial H₀. In a first version of the mock, with
 injection masses drawn from the population's own 20–40 M☉, β was wrong by up to a factor of 2.5 at the
@@ -177,28 +155,35 @@ population; the report gives the effective number of injections over the H₀ ra
 
 ## Options
 
+Options of `--method bright` (the others of `hubble_constant` are refused):
+
 | Option | Default | Meaning |
 |---|---|---|
-| `--src-name` | `GW170817` | registered event (`GW170817`, `GW190521`) |
-| `--pe-label` | the registry's, else all the labels (LowSpin first) | PE labels; the first one is the main result and the one combined |
+| `--event` | `GW170817` | registered event (`GW170817`, `GW190521`) |
+| `--pe-label` | the registry's, else all the labels (LowSpin first) | PE labels; the first one is the result, the one `--method joint` uses |
 | `--pe-file` | the event's bundle or Zenodo file | another PE file (PESummary layout) |
-| `--pe-cache` | that of `hubble_constant` | where Zenodo PE files are downloaded |
+| `--cache-dir` | `.cache_gwosc` | cache of the unofficial GW170817 bundle |
+| `--pe-cache` | that of the spectral siren | where Zenodo PE files are downloaded |
 | `--v-recession V SIGMA`, `--v-peculiar V SIGMA` | the registry's | velocities of a nearby host, km/s |
 | `--redshift Z SIGMA` | the registry's | Hubble-flow redshift of the host, instead of the velocities |
+| `--viewing-angle MEAN SIGMA` | none | independent Gaussian constraint on the viewing angle, degrees |
 | `--selection` | `auto` | `euclidean`, `injections` or `auto` |
 | `--sensitivity-release`, `--sensitivity-file` | `gwtc4` | injections of the selection term |
 | `--far-threshold`, `--snr-threshold` | 0.25 /yr, 10 | found injections (real searches, semi-analytic O1+O2) |
 | `--sky-radius` | 3° | for samples not fixed to the counterpart |
-| `--spectral-posterior` | none | spectral- or dark-siren posterior to combine with: a `hubble_constant` work directory or a TSV |
-| `--h0-range MIN MAX` | 10 200 | flat prior; keep the spectral siren's for a combination |
+| `--h0-range MIN MAX` | 10 200 | flat prior; `--method joint` needs the default |
+| `--workdir` | `hubble_constant_bright` | the work directory |
+| `--out-report`, `--out-summary` | `hubble_constant_bright.html`, `.tsv` | the report and the summary |
 
-The published comparison is shown only with the registry's velocities or redshift.
+The published comparison is shown only with the registry's velocities or redshift and no viewing-angle constraint.
 
 ## Outputs
 
 - `--out-report` (HTML): the result, the caveat of a candidate counterpart, the inputs, the selection
-  term and the plots;
+  term and the plot;
 - `--out-summary` (TSV): maximum a posteriori, 68.3% highest-density interval, median and 90%
-  interval of each analysis, with the distance of each label;
-- `<summary>.posterior.tsv`: the posterior densities on an H₀ grid;
-- `--plots-dir`: `h0_bright_siren_<event>.png`, and `h0_combined.png` with `--spectral-posterior`.
+  interval of each PE label, with its distance;
+- `<workdir>/posterior_grid.tsv`: the posterior densities on an H₀ grid (`p`: the first label);
+- `<workdir>/bright.json`: the event, host, redshift, labels, selection, prior range and constraint, read by
+  `--method joint`;
+- `<workdir>/plots/h0_posterior.png`.

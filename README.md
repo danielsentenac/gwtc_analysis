@@ -15,12 +15,12 @@ The tool provides:
 - Selection of events based on physical constraints (masses, distance, χ_eff), or by class of sources: neutron stars, the lower mass gap (3–5 M☉), hierarchical-merger candidates (pair-instability gap, negative χ_eff)
 - Global catalog statistics, including detector-network participation, sky-localization performance, and remnants (radiated energy, final-spin estimate)
 - BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
-- Hubble-constant estimate from the BBH mass spectrum (spectral siren, with icarogw)
+- Hubble-constant estimate (`hubble_constant --method`): from the BBH mass spectrum (spectral siren) or with a galaxy catalog (dark siren), with icarogw; from an event with an identified host (bright siren: GW170817, the candidate GW190521 flare); the joint posterior of independent results
 - BBH effective-spin population and its correlation with the mass ratio
 - Neutron-star equation of state from GW170817 and GW190425 jointly (Λ₁.₄, R₁.₄)
 - Predicted background of unresolved compact binaries, Ω_GW(f), against the stochastic upper limits
 - Test of Hawking's area law with GW250114 (inspiral against ringdown, reproducing the published 4.4σ)
-- Hubble-constant estimate from events with an identified host (bright siren: GW170817, the candidate GW190521 flare), alone or combined with the spectral siren
+- Electromagnetic counterparts in the GW posterior (`counterpart`): searched probability, distance along the line of sight against the host redshift, viewing angle and an independent constraint on it
 
 All gravitational-wave data products are retrieved from the **Gravitational Wave Open Science Center (GWOSC)**,
 or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
@@ -28,7 +28,7 @@ or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
 📖 **Documentation:** https://danielsentenac.github.io/gwtc_analysis/ (user guide, methods of the rates and Hubble-constant modes, references).
 
 <!-- CATALOG_COVERAGE_BEGIN -->
-> **Catalogs in version 0.7.0**: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0, and the update GWTC-4.1 (of GWTC-4.0), observing runs O1 to O4b. **Latest catalog: GWTC-5.0 (O4b)**. Registry checked against GWOSC and Zenodo on 2026-10-05; catalogs published later need a newer version of the package (`gwtc_analysis check_catalogs` tells whether GWOSC has published one).
+> **Catalogs in version 0.8.0**: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0, and the update GWTC-4.1 (of GWTC-4.0), observing runs O1 to O4b. **Latest catalog: GWTC-5.0 (O4b)**. Registry checked against GWOSC and Zenodo on 2026-10-05; catalogs published later need a newer version of the package (`gwtc_analysis check_catalogs` tells whether GWOSC has published one).
 <!-- CATALOG_COVERAGE_END -->
 
 ---
@@ -100,7 +100,7 @@ positional arguments:
     rates
     hubble_constant
     galaxy_catalog
-    bright_siren
+    counterpart
     area_law
     stochastic
     neutron_star_eos
@@ -234,10 +234,11 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
+| `--method` | `spectral` | spectral (mass spectrum), dark (mass spectrum + galaxy catalog), bright (identified host) or joint (product of independent results). |
 | `--stages` | `['prepare', 'sample', 'combine', 'reweight', 'report']` | Stages to run (default: all). |
-| `--workdir` | `hubble_constant_run` | Work directory (inputs, runs, posterior). |
-| `--out-report` | `hubble_constant.html` | Output HTML report path. |
-| `--out-summary` | `hubble_constant.tsv` | Output TSV of the posterior quantiles. |
+| `--workdir` | `` | Work directory (inputs, runs, posterior); default hubble_constant_<method>. |
+| `--out-report` | `` | Output HTML report path; default hubble_constant_<method>.html. |
+| `--out-summary` | `` | Output TSV of the posterior summary; default hubble_constant_<method>.tsv. |
 | `--sensitivity-release` | `gwtc4` | LVK search-sensitivity release (and matching catalogs and runs): gwtc4 = GWTC-4.0 cumulative, semi-analytic O1+O2 + real O3+O4a injections; gwtc5 = GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections. |
 | `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5, or ALL): events and injections are restricted to their observing runs. Default: all the runs of --sensitivity-release (gwtc4: O1-O4a; gwtc5: O1-O4b; gwtc4: the published analysis). |
 | `--sensitivity-file` | `` | Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's. |
@@ -267,7 +268,19 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--neff-pe` | `` | Effective PE samples each event needs at a likelihood point, else the point is rejected (default 10; recorded in <workdir>/likelihood.json and used by every stage). |
 | `--neff-inj` | `` | Effective injections needed at a likelihood point (default: 4 x the number of events). |
 | `--reweight-jobs` | `` | With --executor slurm: array tasks of the reweighting (default 16). |
-| `--galaxy-catalog` | `` | icarogw galaxy catalog made by the galaxy_catalog mode: dark siren with a galaxy catalog instead of the spectral siren (the prepare stage then keeps the sky positions). |
+| `--galaxy-catalog` | `` | [dark] icarogw galaxy catalog made by the galaxy_catalog mode (the prepare stage then keeps the sky positions of the PE samples). |
+| `--event` | `GW170817` | [bright] Event with an identified host galaxy. |
+| `--pe-label` | `` | [bright] PE label(s) to use (default: those of the counterpart, or all the labels of the PE file, LowSpin first). |
+| `--pe-file` | `` | [bright] PE file to read instead of the event's. |
+| `--cache-dir` | `.cache_gwosc` | [bright] Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe). |
+| `--v-recession` | `` | [bright] Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
+| `--v-peculiar` | `` | [bright] Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
+| `--redshift` | `` | [bright] Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
+| `--sky-radius` | `3.0` | [bright] For samples not fixed to the counterpart's position: keep those within this angle (deg). |
+| `--viewing-angle` | `` | [bright] Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
+| `--selection` | `auto` | [bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05). |
+| `--h0-range` | `[10.0, 200.0]` | [bright] Flat H0 prior range, km/s/Mpc (that of the spectral siren, needed by joint). |
+| `--inputs` | `` | [joint] Independent results to combine: hubble_constant work directories (spectral, dark or bright) or posterior TSV files (H0 samples, or an H0 grid with a p column). |
 
 ### `galaxy_catalog`
 
@@ -309,30 +322,27 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--icarogw-python` | `` | Python interpreter of the icarogw environment. |
 | `--out-report` | `galaxy_catalog.html` | Output HTML report path. |
 
-### `bright_siren`
+### `counterpart`
 
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--src-name` | `GW170817` | Event with an identified host galaxy. |
-| `--pe-label` | `` | PE label(s) to use (default: all the labels of the PE file, LowSpin first). |
-| `--pe-file` | `` | PE file to read instead of the event's bundle. |
-| `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle (as in build_unofficial_pe). |
+| `--event` | `GW170817` | Event with a registered counterpart. |
+| `--ra` | `` | Right ascension of another position to test (deg). |
+| `--dec` | `` | Declination of another position to test (deg). |
+| `--pe-label` | `` | PE label(s) to use (default: those of the counterpart, or all the labels of the PE file, LowSpin first). |
+| `--pe-file` | `` | PE file to read instead of the event's. |
+| `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe). |
 | `--v-recession` | `` | Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
 | `--v-peculiar` | `` | Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
 | `--redshift` | `` | Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
-| `--selection` | `auto` | Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05). |
-| `--sensitivity-release` | `` | Injections of the selection term (default: gwtc4). |
-| `--sensitivity-file` | `` | Local sensitivity file instead of the release. |
-| `--far-threshold` | `0.25` | Found injections: FAR below this, per year. |
-| `--snr-threshold` | `10.0` | Found semi-analytic O1+O2 injections: network SNR above this. |
-| `--pe-cache` | `` | PE cache of the events read from Zenodo (default: that of hubble_constant). |
 | `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
-| `--spectral-posterior` | `` | Spectral- or dark-siren H0 posterior to combine with: a hubble_constant work directory (spectral, or dark with --galaxy-catalog) or a posterior TSV with an H0 column. |
-| `--h0-range` | `[10.0, 200.0]` | Flat H0 prior range, km/s/Mpc (that of the spectral siren by default). |
-| `--out-report` | `bright_siren.html` | Output HTML report path. |
-| `--out-summary` | `bright_siren.tsv` | Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv). |
-| `--plots-dir` | `bright_siren_plots` | Directory for the plots. |
+| `--viewing-angle` | `` | Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
+| `--sky-map` | `` | FITS sky map for the searched probability of the position (default: the event's LVK map when its PE file comes from Zenodo; 'none': a kernel estimate on the PE samples). |
+| `--pe-cache` | `` | PE cache of the events read from Zenodo (default: that of hubble_constant). |
+| `--out-report` | `counterpart.html` | Output HTML report path. |
+| `--out-summary` | `counterpart.tsv` | Output TSV of the summary, one row per PE label. |
+| `--plots-dir` | `counterpart_plots` | Directory for the plots. |
 
 ### `area_law`
 
@@ -520,7 +530,7 @@ Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK popula
 
 ### `hubble_constant`: Hubble Constant From The BBH Mass Spectrum
 
-`hubble_constant` measures H₀ with the **spectral-siren** method. Each event gives its luminosity distance D_L and its detector-frame masses m_det = m_src (1+z), but not its redshift. The redshift comes from the population: for a trial H₀, every D_L gives a z and every m_det a source-frame mass, and only the right H₀ makes the events near and far fall on one distance-independent mass distribution. The *Power Law + Peak* (PLP) mass model and the Madau–Dickinson rate evolution are therefore fitted together with H₀ (flat ΛCDM, Ω_m = 0.3065), with the hierarchical likelihood of [icarogw](https://github.com/icarogw-developers/icarogw) and bilby/dynesty. Selection effects are corrected with the LVK search-sensitivity injections.
+`hubble_constant` measures H₀ by four methods, `--method spectral` (default), `dark` (with a galaxy catalog built by `galaxy_catalog`), `bright` (an event with an identified host, [below](#hubble_constant---method-bright-hubble-constant-from-an-identified-host)) and `joint` (the product of independent results). This section is about the **spectral-siren** method. Each event gives its luminosity distance D_L and its detector-frame masses m_det = m_src (1+z), but not its redshift. The redshift comes from the population: for a trial H₀, every D_L gives a z and every m_det a source-frame mass, and only the right H₀ makes the events near and far fall on one distance-independent mass distribution. The *Power Law + Peak* (PLP) mass model and the Madau–Dickinson rate evolution are therefore fitted together with H₀ (flat ΛCDM, Ω_m = 0.3065), with the hierarchical likelihood of [icarogw](https://github.com/icarogw-developers/icarogw) and bilby/dynesty. Selection effects are corrected with the LVK search-sensitivity injections.
 
 The default setup reproduces the spectral-siren measurements of the [GWTC-4.0 cosmology paper](https://arxiv.org/abs/2509.04348) (published version v3): H₀ = 105.5 (+46.4 / −35.8) km/s/Mpc with the *Power Law + Peak* mass model (`--mass-model plp`, the default) and 72.3 (+42.5 / −25.6) km/s/Mpc with the *Multi Peak* model (`--mass-model mltp`: a power law and two Gaussian peaks, found near 9 and 27 M☉ in the paper and near 10 and 30 M☉ in the reproduction run). Use one work directory per mass model. The setup:
 
@@ -599,14 +609,15 @@ Runs can be spread over several machines that share the work directory: start `p
 
 With 10 runs of 100 live points and 1500 PE samples per event, sampled with 10% of the found injections and 136 events, then reweighted to all the injections and the paper's 137 events, the result is H₀ = 105.8 (+44.7 / −33.2) km/s/Mpc [68%], 90%: 54.4–175.7, and μ_g = 28.7 (+3.8 / −4.6) M☉ (PLP), against 105.5 (+46.4 / −35.8), 90%: 50.5–176.1, and 28.3 (+4.1 / −4.4) M☉ in the published paper; MLTP gives 78.6 (+38.0 / −26.5) against 72.3 (+42.5 / −25.6). Without the reweighting, the 10% subset alone shifts H₀ by about +13 km/s/Mpc for PLP (119.3) and +10 for MLTP (89.1): a subset estimates the detectable fraction without bias, but its Monte Carlo noise, raised to the power N = 136 in the likelihood, tilts the posterior. This is why `--inj-fraction auto` (the default) probes the subsets before sampling and reweights afterwards; `--inj-fraction 1` samples with all the injections, as the paper does. The number of PE samples per event also matters (3000 instead of 1500 raises H₀ by about 5 km/s/Mpc). H₀ is strongly anti-correlated with μ_g, and the upper part of its interval depends on the prior bound of 200 km/s/Mpc. The lower peak of MLTP, near 9–10 M☉ (σ ≈ 0.8 M☉ in the run), is a much sharper feature than the ~28–30 M☉ bump, hence its tighter and lower H₀; FullPop-4.0 (72.9 km/s/Mpc in the paper) is not implemented.
 
-### `bright_siren`: Hubble Constant From An Identified Host
+### `hubble_constant --method bright`: Hubble Constant From An Identified Host
 
-`bright_siren` measures H₀ with the **bright-siren** method: the luminosity distance of an event from the GW signal alone, at the sky position of its counterpart, against the Hubble-flow redshift of its host, with d_L = (c/H₀) D(z) in flat ΛCDM (Ω_m = 0.3065). The likelihood marginalizes over the true redshift with a population uniform in comoving volume, divides out the PE distance prior recorded in the file, and corrects for selection effects. It runs in seconds.
+`hubble_constant --method bright` measures H₀ with the **bright-siren** method: the luminosity distance of an event from the GW signal alone, at the sky position of its counterpart, against the Hubble-flow redshift of its host, with d_L = (c/H₀) D(z) in flat ΛCDM (Ω_m = 0.3065). The likelihood marginalizes over the true redshift with a population uniform in comoving volume, divides out the PE distance prior recorded in the file, and corrects for selection effects. It runs in seconds. `--method joint` multiplies it with the spectral or dark siren.
 
 ```bash
-gwtc_analysis bright_siren                                            # GW170817 and NGC 4993
-gwtc_analysis bright_siren --spectral-posterior hubble_constant_run   # combined with the spectral siren
-gwtc_analysis bright_siren --src-name GW190521                        # candidate AGN flare ZTF19abanrhr
+gwtc_analysis hubble_constant --method bright                          # GW170817 and NGC 4993
+gwtc_analysis hubble_constant --method bright --viewing-angle 20 3     # with the viewing angle of the radio jet
+gwtc_analysis hubble_constant --method bright --event GW190521         # candidate AGN flare ZTF19abanrhr
+gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright hubble_constant_spectral
 ```
 
 | Event | Host | Selection term | H₀ (km/s/Mpc): maximum a posteriori, 68% |
@@ -614,18 +625,31 @@ gwtc_analysis bright_siren --src-name GW190521                        # candidat
 | GW170817, LowSpin | NGC 4993: v_H = 3327 − 310 = 3017 ± 166 km/s ([LVK 2017](https://arxiv.org/abs/1710.05835)) | euclidean, β ∝ H₀³ | 69.8 (+23.6 / −8.2) |
 | GW170817, HighSpin | | | 69.4 (+14.8 / −7.4) |
 | GW170817, published (2017 distance) | | | 70.0 (+12.0 / −8.0) |
-| GW170817 × spectral siren (Power Law + Peak) | | | 71.7 (+22.3 / −8.0) |
+| GW170817, viewing angle 20 ± 3° (radio jet, [Hotokezaka et al. 2019](https://arxiv.org/abs/1806.10596): 70.3 (+5.3 / −5.0)) | | | 68.2 (+4.7 / −4.4) |
+| GW170817 × spectral siren (Power Law + Peak), `--method joint` | | | 71.7 (+22.3 / −8.0) |
+| GW170817 × dark siren (Power Law + Peak, GLADE+ K), `--method joint` | | | 73.2 (+24.2 / −8.4) |
 | GW190521, IMRPhenomXPHM | **candidate** AGN flare at z = 0.438 ([Graham et al. 2020](https://arxiv.org/abs/2006.14122)) | O3a injections, BBH population | 30.4 (+61.0 / −7.0), bimodal |
 
 - **Selection term** (`--selection`, `auto` by default):
   - **nearby events** (z < 0.05): GW-limited detection, β ∝ H₀³. This cancels the volume factor and gives the LVK 2017 formula p(H₀) ∝ Σᵢ N(v_H; H₀ dᵢ, σ).
   - **distant events:** β is computed from the LVK sensitivity injections of the event's run, reweighted at each trial H₀ to the population of its class.
-- **GW170817:** the upper side of its interval is wider than published because the public GWTC-1 distance has a longer low-distance tail, from the distance–inclination degeneracy. Its samples come from the [unofficial bundle](#build_unofficial_pe-unofficial-bundle-workflow), whose sky position is fixed to AT2017gfo.
+- **GW170817:** the upper side of its interval is wider than published because the public GWTC-1 distance has a longer low-distance tail, from the distance–inclination degeneracy; an independent constraint on the viewing angle (`--viewing-angle MEAN SIGMA`) removes it. Its samples come from the [unofficial bundle](#build_unofficial_pe-unofficial-bundle-workflow), whose sky position is fixed to AT2017gfo.
 - **GW190521:** the association with ZTF19abanrhr is not established; [Ashton et al. 2021](https://arxiv.org/abs/2009.12346) find odds of 1 to 12. The report gives H₀ *if* the flare is the counterpart.
 - **Validation:** mock bright sirens (simulated detections at z ≈ 0.5 with a known H₀) check the analysis. It recovers H₀ = 70 to within its uncertainty with the selection term, against a 3σ bias without it, and passes a P–P coverage test.
-- **Combination:** `--spectral-posterior` takes a `hubble_constant` work directory or a TSV with an `H0` column; the posteriors multiply (different events, same flat prior 10–200 km/s/Mpc).
+- **Joint posterior:** `--method joint --inputs` takes `hubble_constant` work directories (or TSVs); the posteriors multiply (same flat prior 10–200 km/s/Mpc). The inputs are checked to be independent: at most one spectral or dark siren, no event in two inputs.
 
-Method, validation and options: [bright_siren](https://danielsentenac.github.io/gwtc_analysis/modes/bright-siren/) in the documentation.
+Method, validation and options: [bright siren](https://danielsentenac.github.io/gwtc_analysis/modes/hubble-constant-bright/) in the documentation.
+
+### `counterpart`: Electromagnetic Counterpart In The GW Posterior
+
+`counterpart` shows where a counterpart and its host sit in the GW posterior of an event: the searched probability of its position (from the LVK sky map, else the PE samples), the distance along its line of sight against the distance of the host redshift for Planck and SH0ES H₀, the viewing angle and the distance–inclination degeneracy, and, with `--viewing-angle`, an independent constraint on the angle.
+
+```bash
+gwtc_analysis counterpart                          # GW170817 and AT2017gfo
+gwtc_analysis counterpart --event GW190521         # ZTF19abanrhr: searched probability 0.64
+```
+
+Details: [counterpart](https://danielsentenac.github.io/gwtc_analysis/modes/counterpart/) in the documentation.
 
 ### `area_law`: Hawking's Area Law With GW250114
 
@@ -649,7 +673,7 @@ gwtc_analysis area_law               # downloads 114 MB once
 
 ```bash
 gwtc_analysis rates --out-rates merger_rates.tsv
-gwtc_analysis stochastic --spectral-posterior hubble_constant_run --rates merger_rates.tsv
+gwtc_analysis stochastic --spectral-posterior hubble_constant_spectral --rates merger_rates.tsv
 ```
 
 The `hubble_constant` report now also plots the fitted merger-rate evolution R(z)/R(0) against the star-formation history, and the `parameters_estimation` report summarizes the remnant (final mass and spin, radiated energy, peak luminosity) of every label.
@@ -932,7 +956,8 @@ gwtc_analysis event_selection --catalogs ALL --preset hierarchical --out-plot hi
 gwtc_analysis catalog_statistics --catalogs GWTC-4 --data-repo s3
 gwtc_analysis catalog_statistics --catalogs GWTC-5 --data-repo zenodo
 gwtc_analysis build_unofficial_pe --src-name GW170817
-gwtc_analysis bright_siren
+gwtc_analysis hubble_constant --method bright
+gwtc_analysis counterpart
 gwtc_analysis area_law
 gwtc_analysis parameters_estimation --src-name GW231223_032836 --data-repo zenodo
 gwtc_analysis parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log

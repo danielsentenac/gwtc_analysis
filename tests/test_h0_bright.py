@@ -1,16 +1,20 @@
-"""Offline tests for the `bright_siren` mode: cosmology, likelihood, selection, report, CLI, and mock bright
-sirens (simulated detections with known H0, which the analysis must recover)."""
+"""Offline tests for `hubble_constant --method bright` and `--method joint`: cosmology, likelihood, selection,
+work directory, joint posterior, CLI, and mock bright sirens (simulated detections with known H0, which the
+analysis must recover)."""
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
 import h5py
 import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import kstest
 
-from gwtc_analysis import bright_siren as bs
-from gwtc_analysis.cli import build_parser
+from gwtc_analysis import h0_bright as bs
+from gwtc_analysis import h0_joint as hj
+from gwtc_analysis.cli import _resolve_h0_method, build_parser
 
 CP = bs.COUNTERPARTS["GW170817"]
 
@@ -72,23 +76,16 @@ def test_sky_conditioning():
         bs.sky_conditioned(spread, CP, 0.5)
 
 
-def test_spectral_density_and_reader(tmp_path):
-    """A spectral posterior is read from a TSV or a work directory, and its density integrates to 1."""
+def test_sample_density_and_kind(tmp_path):
+    """Spectral samples give a density that integrates to 1; a dark-siren work directory is named as such."""
     rng = np.random.default_rng(2)
-    pd.DataFrame({"H0": np.clip(rng.normal(90, 30, 4000), 10.5, 199.5)}).to_csv(tmp_path / "posterior.tsv", sep="\t",
-                                                                                  index=False)
-    assert bs.read_spectral_posterior(tmp_path).shape == (4000,)
     h0 = np.linspace(10, 200, 3801)
-    assert bs._trapz(bs.spectral_density(h0, bs.read_spectral_posterior(tmp_path / "posterior.tsv")), h0) == \
+    assert bs._trapz(hj.sample_density(h0, np.clip(rng.normal(90, 30, 4000), 10.5, 199.5)), h0) == \
         pytest.approx(1, abs=0.02)
-    (tmp_path / "empty").mkdir()
-    with pytest.raises(ValueError, match="no posterior"):
-        bs.read_spectral_posterior(tmp_path / "empty")
-    # a dark-siren work directory is named as such (from its selection.json)
-    assert bs.siren_kind(tmp_path) == "spectral siren"
+    assert hj.siren_kind(tmp_path) == "spectral siren"
     (tmp_path / "selection.json").write_text(json.dumps({"galaxy_catalog": {"band": "K-glade+"}}))
-    assert bs.siren_kind(tmp_path).startswith("dark siren (K-glade+")
-    assert bs.siren_kind(tmp_path / "posterior.tsv").startswith("dark siren")
+    assert hj.siren_kind(tmp_path).startswith("dark siren (K-glade+")
+    assert hj.siren_kind(tmp_path / "posterior.tsv").startswith("dark siren")
 
 
 def _pe_file(path, labels=("C02:Test-HighSpin", "C02:Test-LowSpin")):
@@ -104,50 +101,134 @@ def _pe_file(path, labels=("C02:Test-HighSpin", "C02:Test-LowSpin")):
     return path
 
 
-def test_run_bright_siren_end_to_end(tmp_path):
-    """Both labels (LowSpin first), the combination, the TSVs and the report."""
-    pe = _pe_file(tmp_path / "pe.h5")
+def _spectral_workdir(path, events=("GW150914_095045",), common=("GW150914",), mean=90.0):
     rng = np.random.default_rng(4)
-    pd.DataFrame({"H0": np.clip(rng.normal(90, 30, 4000), 10.5, 199.5)}).to_csv(tmp_path / "spec.tsv", sep="\t",
-                                                                                  index=False)
-    table = bs.run_bright_siren(pe_file=pe, spectral_posterior=tmp_path / "spec.tsv",
-                                out_report_html=tmp_path / "r.html", out_summary_tsv=tmp_path / "s.tsv",
-                                plots_dir=tmp_path / "plots")
-    assert list(table["analysis"])[:2] == ["bright siren, C02:Test-LowSpin", "bright siren, C02:Test-HighSpin"]
+    path.mkdir()
+    pd.DataFrame({"H0": np.clip(rng.normal(mean, 30, 4000), 10.5, 199.5)}).to_csv(path / "posterior_reweighted.tsv",
+                                                                                   sep="\t", index=False)
+    pd.DataFrame({"event": list(events), "common_name": list(common)}).to_csv(path / "events.tsv", sep="\t",
+                                                                               index=False)
+    (path / "summary.json").write_text(json.dumps({"mass_model": "plp"}))
+    return path
+
+
+def test_run_h0_bright_end_to_end(tmp_path):
+    """Both labels (LowSpin first), the work directory, the TSV and the report."""
+    pe = _pe_file(tmp_path / "pe.h5")
+    wd = tmp_path / "bright"
+    table = bs.run_h0_bright(pe_file=pe, workdir=wd, out_report_html=tmp_path / "r.html",
+                             out_summary_tsv=tmp_path / "s.tsv")
+    assert list(table["analysis"]) == ["bright siren GW170817, C02:Test-LowSpin",
+                                       "bright siren GW170817, C02:Test-HighSpin"]
     assert table["map"].iloc[0] == pytest.approx(3017 / 43.0 * 1.0077, rel=0.03)
-    assert "spectral" in table["analysis"].iloc[-1]
-    grid = pd.read_csv(tmp_path / "s.posterior.tsv", sep="\t")
-    assert {"H0", "p_spectral", "p_combined"} <= set(grid.columns)
-    assert (tmp_path / "plots" / "h0_bright_siren_GW170817.png").exists()
-    assert (tmp_path / "plots" / "distance_inclination_GW170817.png").exists()
-    assert "By viewing angle" in (tmp_path / "r.html").read_text()
-    assert (tmp_path / "plots" / "h0_combined.png").exists()
-    assert "NGC 4993" in (tmp_path / "r.html").read_text()
+    grid = pd.read_csv(wd / bs.GRID_FILE, sep="\t")
+    assert {"H0", "p", "p_C02:Test-LowSpin"} <= set(grid.columns) and len(grid) == 3801
+    info = json.loads((wd / bs.BRIGHT_FILE).read_text())
+    assert info["method"] == "bright" and info["label"] == "C02:Test-LowSpin" and info["h0_range"] == [10.0, 200.0]
+    assert (wd / "plots" / "h0_posterior.png").exists()
+    html = (tmp_path / "r.html").read_text()
+    assert "NGC 4993" in html and "counterpart" in html
     with pytest.raises(ValueError, match="not in pe.h5"):
-        bs.run_bright_siren(pe_file=pe, pe_labels=["C02:Nope"], out_report_html=None, out_summary_tsv=None)
+        bs.run_h0_bright(pe_file=pe, pe_labels=["C02:Nope"], workdir=wd, out_report_html=None, out_summary_tsv=None)
     with pytest.raises(ValueError, match="unknown selection"):
-        bs.run_bright_siren(pe_file=pe, selection="none", out_report_html=None, out_summary_tsv=None)
+        bs.run_h0_bright(pe_file=pe, selection="none", workdir=wd, out_report_html=None, out_summary_tsv=None)
 
 
-def test_viewing_angle_and_degeneracy_table():
-    """theta_jn folded to 0-90 degrees; H0 implied by the host redshift; the table by viewing angle."""
-    v = bs.viewing_angle(dict(theta_jn=np.radians([10.0, 170.0, 90.0])))
-    assert v == pytest.approx([10.0, 10.0, 90.0])
-    assert bs.viewing_angle(dict(iota=np.radians([30.0]))) == pytest.approx([30.0])
-    assert bs.viewing_angle(dict(luminosity_distance=[1.0])) is None
-    z = 3017 / bs.C_KMS
-    assert bs.implied_h0(np.array([43.0]), z)[0] == pytest.approx(3017 / 43.0 * 1.0077, rel=0.002)
-    d = np.array([45.0, 44.0, 36.0, 23.0])
-    tab = bs.degeneracy_table(d, np.array([10.0, 20.0, 45.0, 70.0]), z)
-    assert tab["fraction"].tolist() == [0.5, 0.25, 0.25] and tab["h0_median"].is_monotonic_increasing
+def test_viewing_angle_constraint_narrows_h0(tmp_path):
+    """A viewing-angle constraint weights the samples: with distance and inclination correlated, it narrows H0
+    and moves it to the distance of the constrained angles."""
+    rng = np.random.default_rng(5)
+    n = 6000
+    view = rng.uniform(0, 80, n)
+    d = 47.0 - 0.3 * view + rng.normal(0, 1.0, n)          # inclined orbits look closer
+    arr = np.zeros(n, dtype=[("luminosity_distance", "f8"), ("ra", "f8"), ("dec", "f8"), ("theta_jn", "f8")])
+    arr["luminosity_distance"], arr["theta_jn"] = d, np.radians(view)
+    arr["ra"], arr["dec"] = np.radians(CP.ra_deg), np.radians(CP.dec_deg)
+    with h5py.File(tmp_path / "pe.h5", "w") as h:
+        h.create_group("C02:Test-LowSpin").create_dataset("posterior_samples", data=arr)
+    free = bs.run_h0_bright(pe_file=tmp_path / "pe.h5", workdir=tmp_path / "a", out_report_html=None,
+                            out_summary_tsv=None).iloc[0]
+    con = bs.run_h0_bright(pe_file=tmp_path / "pe.h5", workdir=tmp_path / "b", out_report_html=None,
+                           out_summary_tsv=None, viewing_angle_constraint=(20.0, 3.0)).iloc[0]
+    assert con["high_90"] - con["low_90"] < free["high_90"] - free["low_90"]
+    assert con["median"] == pytest.approx(3017 / (47.0 - 6.0) * 1.0077, rel=0.06)
+    assert json.loads((tmp_path / "b" / bs.BRIGHT_FILE).read_text())["viewing_angle"] == [20.0, 3.0]
+    del arr
+    with h5py.File(tmp_path / "noview.h5", "w") as h:
+        a = np.zeros(300, dtype=[("luminosity_distance", "f8")])
+        a["luminosity_distance"] = 43.0
+        h.create_group("L").create_dataset("posterior_samples", data=a)
+    with pytest.raises(ValueError, match="no viewing angle"):
+        bs.run_h0_bright(pe_file=tmp_path / "noview.h5", workdir=tmp_path / "c", out_report_html=None,
+                         out_summary_tsv=None, viewing_angle_constraint=(20.0, 3.0))
 
 
-def test_cli_parses_bright_siren():
-    args = build_parser().parse_args(["bright_siren", "--v-peculiar", "300", "100", "--pe-label", "A", "B",
-                                      "--selection", "injections"])
-    assert args.src_name == "GW170817" and args.v_peculiar == [300.0, 100.0] and args.pe_label == ["A", "B"]
-    assert args.h0_range == [10.0, 200.0] and args.selection == "injections"
-    assert build_parser().parse_args(["bright_siren", "--src-name", "GW190521"]).src_name == "GW190521"
+def test_joint_posterior(tmp_path):
+    """The joint posterior is the normalized product; independence is checked."""
+    pe = _pe_file(tmp_path / "pe.h5")
+    bs.run_h0_bright(pe_file=pe, workdir=tmp_path / "bright", out_report_html=None, out_summary_tsv=None)
+    spec = _spectral_workdir(tmp_path / "spec")
+    table = hj.run_h0_joint([tmp_path / "bright", spec], workdir=tmp_path / "joint",
+                            out_report_html=tmp_path / "j.html", out_summary_tsv=tmp_path / "j.tsv")
+    assert table["analysis"].tolist()[1:] == ["spectral siren, plp", "joint"]
+    b, sp, j = (table.iloc[k] for k in range(3))
+    assert b["map"] < j["map"] < sp["map"] and j["high_90"] - j["low_90"] < b["high_90"] - b["low_90"]
+    h0 = np.linspace(10, 200, 3801)
+    ref = bs._normalize(h0, hj.read_input(tmp_path / "bright", h0)["density"] * hj.read_input(spec, h0)["density"])
+    assert j["median"] == pytest.approx(bs.summarize(h0, ref)["median"], abs=0.1)
+    grid = pd.read_csv(tmp_path / "joint" / "posterior_joint.tsv", sep="\t")
+    assert bs._trapz(grid["p"], grid["H0"]) == pytest.approx(1, abs=1e-3)
+    assert (tmp_path / "joint" / "plots" / "h0_joint.png").exists() and "joint" in (tmp_path / "j.html").read_text()
+    # a posterior TSV: samples, or a grid with a p column
+    grid[["H0", "p"]].to_csv(tmp_path / "g.tsv", sep="\t", index=False)
+    assert hj.read_input(tmp_path / "g.tsv", h0)["method"] == "file"
+    with pytest.raises(ValueError, match="at least two"):
+        hj.run_h0_joint([spec])
+    with pytest.raises(ValueError, match="at most one spectral or dark"):
+        hj.run_h0_joint([spec, _spectral_workdir(tmp_path / "spec2", events=("GW190412_053044",))])
+    with pytest.raises(ValueError, match="GW170817 in both"):
+        hj.run_h0_joint([tmp_path / "bright", _spectral_workdir(tmp_path / "spec3", events=("GW170817",))])
+    with pytest.raises(ValueError, match="not a hubble_constant work directory"):
+        (tmp_path / "empty").mkdir()
+        hj.run_h0_joint([tmp_path / "bright", tmp_path / "empty"])
+
+
+def test_cli_hubble_constant_methods():
+    """--method selects the options; those of another method are refused; defaults are named after the method."""
+    p = build_parser()
+    sp = p._mode_parsers["hubble_constant"]
+
+    def parse(*argv):
+        args = p.parse_args(["hubble_constant", *argv])
+        _resolve_h0_method(args, sp)
+        return args
+
+    args = parse("--method", "bright", "--v-peculiar", "300", "100", "--pe-label", "A", "B", "--selection",
+                 "injections", "--viewing-angle", "20", "5")
+    assert args.event == "GW170817" and args.v_peculiar == [300.0, 100.0] and args.pe_label == ["A", "B"]
+    assert args.h0_range == [10.0, 200.0] and args.viewing_angle == [20.0, 5.0]
+    assert (args.workdir, args.out_report, args.out_summary) == ("hubble_constant_bright", "hubble_constant_bright.html",
+                                                                 "hubble_constant_bright.tsv")
+    assert parse("--method", "bright", "--event", "GW190521").event == "GW190521"
+    assert parse().workdir == "hubble_constant_spectral"
+    assert parse("--method", "joint", "--inputs", "a", "b").inputs == ["a", "b"]
+    assert parse("--method", "dark", "--galaxy-catalog", "c.hdf5", "--workdir", "w").workdir == "w"
+    # later stages take the method from the work directory
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d) / "selection.json").write_text(json.dumps({"galaxy_catalog": {"band": "K"}}))
+        assert parse("--method", "dark", "--stages", "sample", "--workdir", d).method == "dark"
+        with pytest.raises(ValueError, match="use --method dark"):
+            parse("--stages", "report", "--workdir", d)
+    for argv, msg in ((("--method", "bright", "--nlive", "50"), "--nlive: not an option of hubble_constant --method bright"),
+                      (("--event", "GW190521"), "--event: not an option"),
+                      (("--method", "joint", "--inputs", "a", "--pe-cache", "x"), "--pe-cache: not an option"),
+                      (("--galaxy-catalog", "c.hdf5"), "use --method dark"),
+                      (("--method", "dark",), "needs --galaxy-catalog"),
+                      (("--method", "dark", "--stages", "sample", "--workdir", "/nonexistent"), "not been prepared"),
+                      (("--method", "joint",), "needs --inputs")):
+        with pytest.raises(ValueError, match=msg):
+            parse(*argv)
 
 
 # ---------------------------------------------------------------------------

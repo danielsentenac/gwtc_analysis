@@ -56,10 +56,17 @@ gwtc_analysis parameters_estimation --src-name GW170817 \
 # merger rates, with the GWTC-5.0 injections downloaded automatically
 gwtc_analysis rates
 
-# Hubble constant: prepare the inputs, then 4 sampler runs, 2 at a time
+# Hubble constant, spectral siren: prepare the inputs, then 4 sampler runs, 2 at a time
 gwtc_analysis hubble_constant --stages prepare
 gwtc_analysis hubble_constant --stages sample combine report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
+
+# Hubble constant from GW170817 and its host (seconds), then joint with the spectral siren
+gwtc_analysis hubble_constant --method bright
+gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright hubble_constant_spectral
+
+# where AT2017gfo sits in the GW posterior: distance, viewing angle
+gwtc_analysis counterpart
 ```
 
 ## Outputs
