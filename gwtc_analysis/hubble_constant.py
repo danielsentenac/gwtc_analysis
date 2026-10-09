@@ -271,16 +271,24 @@ def _pe_cosmology(name: str):
     return FlatLambdaCDM(H0=67.90, Om0=0.3065) if name.lower() == "planck15_lal" else Planck15
 
 
-def pe_distance_prior(dl: np.ndarray, desc: str, run: str) -> tuple[np.ndarray, str]:
+PE_DISTANCE_PRIORS = {"dl2": "D_L^2", "comoving": "UniformComovingVolume", "source-frame": "UniformSourceFrame"}
+
+
+def pe_distance_prior(dl: np.ndarray, desc: str, run: str, kind: Optional[str] = None) -> tuple[np.ndarray, str]:
     """Density (up to a constant) of the PE luminosity-distance prior, from its recorded bilby description.
 
     The mass priors of the LVK analyses are uniform in the detector-frame component masses, so only the
     distance prior matters. Without a recorded prior, the catalog default is used: D_L^2 up to O3, uniform in
-    source-frame comoving volume (Planck15_LAL) from O4.
+    source-frame comoving volume (Planck15_LAL) from O4. `kind` (a key of PE_DISTANCE_PRIORS) overrides both,
+    with the Planck15_LAL cosmology for the volume priors.
     """
     desc = desc or ""
-    kind = None
-    if re.match(r"(bilby\.core\.prior\.)?PowerLaw\(", desc) and re.search(r"alpha=2(\.0)?\b", desc):
+    if kind is not None:
+        if kind not in PE_DISTANCE_PRIORS:
+            raise ValueError(f"unknown PE distance prior {kind!r}; choose {', '.join(PE_DISTANCE_PRIORS)}")
+        kind = PE_DISTANCE_PRIORS[kind]
+        desc = f"{kind} (given)"
+    elif re.match(r"(bilby\.core\.prior\.)?PowerLaw\(", desc) and re.search(r"alpha=2(\.0)?\b", desc):
         kind = "D_L^2"
     elif "UniformSourceFrame" in desc or "UniformComovingVolume" in desc:
         kind = "UniformSourceFrame" if "UniformSourceFrame" in desc else "UniformComovingVolume"

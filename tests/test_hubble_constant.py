@@ -36,6 +36,13 @@ def test_pe_distance_prior_from_recorded_description():
     with pytest.raises(ValueError, match="Unsupported PE distance prior"):
         hc.pe_distance_prior(dl, "Uniform(minimum=10, maximum=5000)", "O3a")
 
+    # a given kind overrides the recorded prior and the catalog default
+    assert hc.pe_distance_prior(dl, desc, "O4a", kind="dl2")[0] == pytest.approx(dl ** 2)
+    p_sf, how = hc.pe_distance_prior(dl, "", "O2", kind="source-frame")
+    assert p_sf == pytest.approx(p) and "given" in how
+    with pytest.raises(ValueError, match="unknown PE distance prior"):
+        hc.pe_distance_prior(dl, "", "O2", kind="flat")
+
 
 def test_choose_label_prefers_the_cosmology_paper_waveforms():
     """O4a SpinTaylor first, then the O1-O3 IMRPhenomXPHM run; mixed-waveform labels are not used."""

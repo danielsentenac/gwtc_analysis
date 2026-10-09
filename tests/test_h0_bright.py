@@ -88,12 +88,15 @@ def test_sample_density_and_kind(tmp_path):
     assert hj.siren_kind(tmp_path / "posterior.tsv").startswith("dark siren")
 
 
-def _pe_file(path, labels=("C02:Test-HighSpin", "C02:Test-LowSpin")):
+def _pe_file(path, labels=("C02:Test-HighSpin", "C02:Test-LowSpin"), masses=False):
     rng = np.random.default_rng(3)
+    cols = [("luminosity_distance", "f8"), ("ra", "f8"), ("dec", "f8"), ("theta_jn", "f8")]
     with h5py.File(path, "w") as h:
         for lab in labels:
             n = 3000
-            arr = np.zeros(n, dtype=[("luminosity_distance", "f8"), ("ra", "f8"), ("dec", "f8"), ("theta_jn", "f8")])
+            arr = np.zeros(n, dtype=cols + ([("mass_1", "f8"), ("mass_2", "f8")] if masses else []))
+            if masses:
+                arr["mass_1"], arr["mass_2"] = rng.normal(1.48, 0.05, n), rng.normal(1.27, 0.05, n)
             arr["luminosity_distance"] = rng.normal(43.0, 3.0, n)
             arr["theta_jn"] = np.radians(rng.uniform(0, 180, n))
             arr["ra"], arr["dec"] = np.radians(CP.ra_deg), np.radians(CP.dec_deg)
@@ -132,6 +135,39 @@ def test_run_h0_bright_end_to_end(tmp_path):
         bs.run_h0_bright(pe_file=pe, pe_labels=["C02:Nope"], workdir=wd, out_report_html=None, out_summary_tsv=None)
     with pytest.raises(ValueError, match="unknown selection"):
         bs.run_h0_bright(pe_file=pe, selection="none", workdir=wd, out_report_html=None, out_summary_tsv=None)
+    with pytest.raises(ValueError, match="unknown population"):
+        bs.run_h0_bright(pe_file=pe, population="bbh", workdir=wd, out_report_html=None, out_summary_tsv=None)
+    with pytest.raises(ValueError, match="no detector-frame masses"):
+        bs.run_h0_bright(pe_file=pe, population="fullpop4", selection="euclidean", workdir=wd, out_report_html=None,
+                         out_summary_tsv=None)
+
+
+def test_fullpop4_matches_icarogw():
+    """FullPop-4.0 at the GWTC-4.0 medians against icarogw's m1m2_paired_massratio_bplmulti_dip (values relative to
+    the first point, computed with icarogw): the BNS region, the dip, the low peak, the BBH range, near mmax."""
+    m1 = np.array([1.4, 1.03, 4.5, 9.0, 30.0, 93.79])
+    m2 = np.array([1.3, 1.02, 1.4, 8.0, 25.0, 20.0])
+    lp = bs.ln_mass_fullpop4(m1, m2)
+    assert lp - lp[0] == pytest.approx([0.0, -0.23554, -5.282925, -4.824762, -10.50374, -19.719131], abs=1e-5)
+    assert np.isneginf(bs.ln_mass_fullpop4(np.array([1.3, 0.9, 95.0]), np.array([1.4, 0.8, 10.0]))).all()
+    z = np.array([0.0, 1.0, 2.59, 5.0])
+    psi = (1 + z) ** 3.57 / (1 + ((1 + z) / 3.59) ** 6.54)
+    assert bs.ln_rate_madau(z, **bs.MADAU_GWTC4) == pytest.approx(np.log(psi / psi[0]))
+
+
+def test_population_and_distance_prior_options(tmp_path):
+    """--population fullpop4 adds the mass and rate terms (a small change at 43 Mpc) and is recorded; an explicit
+    distance prior equal to the default leaves the result unchanged."""
+    pe = _pe_file(tmp_path / "pe.h5", labels=("C02:Test-LowSpin",), masses=True)
+    kw = dict(pe_file=pe, out_report_html=None, out_summary_tsv=None, selection="euclidean")
+    base = bs.run_h0_bright(workdir=tmp_path / "a", **kw)
+    pop = bs.run_h0_bright(workdir=tmp_path / "b", population="fullpop4", **kw)
+    same = bs.run_h0_bright(workdir=tmp_path / "c", pe_distance_prior="dl2", **kw)
+    assert pop["median"].iloc[0] == pytest.approx(base["median"].iloc[0], rel=0.02)
+    assert pop["median"].iloc[0] != base["median"].iloc[0]
+    assert same["median"].iloc[0] == pytest.approx(base["median"].iloc[0], rel=1e-9)
+    info = json.loads((tmp_path / "b" / bs.BRIGHT_FILE).read_text())
+    assert info["population"] == "fullpop4" and info["selection"] == "euclidean"
 
 
 def test_viewing_angle_constraint_narrows_h0(tmp_path):

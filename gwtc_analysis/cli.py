@@ -142,6 +142,11 @@ def _add_counterpart_options(p: argparse.ArgumentParser, tag: str) -> None:
     p.add_argument("--viewing-angle", nargs=2, type=float, metavar=("MEAN", "SIGMA"), default=None,
                    help=tag + "Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; "
                               "weights the PE samples.")
+    p.add_argument("--pe-distance-prior", choices=("dl2", "comoving", "source-frame"), default=None,
+                   help=tag + "Luminosity-distance prior of the PE samples, divided out of the distance posterior: "
+                              "dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving "
+                              "volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE "
+                              "file, else D_L^2 up to O3 and source-frame from O4.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -389,6 +394,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_h0.add_argument("--selection", choices=("auto", "euclidean", "injections"), default="auto",
                       help="[bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections "
                            "(LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05).")
+    p_h0.add_argument("--population", choices=("volume", "fullpop4"), default="volume",
+                      help="[bright] Population of the sources: volume (uniform in comoving volume and source-frame "
+                           "time; the masses enter the selection only) or fullpop4 (FullPop-4.0 masses and the "
+                           "Madau-Dickinson rate fixed to the GWTC-4.0 spectral-siren medians, as the GWTC-4.0 "
+                           "reanalysis of GW170817; selection by injections with --selection auto).")
     p_h0.add_argument("--h0-range", nargs=2, type=float, metavar=("MIN", "MAX"), default=[10.0, 200.0],
                       help="[bright] Flat H0 prior range, km/s/Mpc (that of the spectral siren, needed by joint).")
     p_h0.add_argument("--inputs", nargs="+", default=None, metavar="DIR",
@@ -859,7 +869,7 @@ def _apply_settings_file(p: argparse.ArgumentParser, argv) -> argparse.Namespace
 
 H0_ALL_METHODS_OPTS = ("workdir", "out_report", "out_summary", "settings")
 H0_BRIGHT_OPTS = ("event", "pe_label", "pe_file", "cache_dir", "v_recession", "v_peculiar", "redshift", "sky_radius",
-                  "viewing_angle", "selection", "h0_range")
+                  "viewing_angle", "pe_distance_prior", "selection", "population", "h0_range")
 H0_BRIGHT_SHARED_OPTS = ("sensitivity_release", "sensitivity_file", "far_threshold", "snr_threshold", "pe_cache")
 
 
@@ -967,7 +977,8 @@ def main(argv=None) -> int:
                 viewing_angle_constraint=tuple(args.viewing_angle) if args.viewing_angle else None,
                 selection=args.selection, sensitivity_release=args.sensitivity_release,
                 sensitivity_file=args.sensitivity_file, far_threshold=args.far_threshold,
-                snr_threshold=args.snr_threshold, h0_range=tuple(args.h0_range),
+                snr_threshold=args.snr_threshold, h0_range=tuple(args.h0_range), population=args.population,
+                pe_distance_prior=args.pe_distance_prior,
             )
             return 0
 
@@ -1050,7 +1061,7 @@ def main(argv=None) -> int:
                 v_peculiar=tuple(args.v_peculiar) if args.v_peculiar else None,
                 redshift=tuple(args.redshift) if args.redshift else None, sky_radius_deg=args.sky_radius,
                 viewing_angle_constraint=tuple(args.viewing_angle) if args.viewing_angle else None,
-                sky_map=args.sky_map,
+                pe_distance_prior=args.pe_distance_prior, sky_map=args.sky_map,
                 out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir,
             )
             return 0

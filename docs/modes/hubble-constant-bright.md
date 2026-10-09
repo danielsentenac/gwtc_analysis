@@ -35,7 +35,7 @@ p(H_0 \mid \text{data}) \propto \frac{1}{\beta(H_0)}
 \]
 
 \(\mathcal{L}_\text{GW}\) is the posterior of \(d_L\) divided by the PE distance prior, read from the
-file (\(d_L^2\) up to O3, uniform in comoving volume in O4). Over the PE samples \(d_i\), whose
+file (\(d_L^2\) up to O3, uniform in comoving volume in O4), or set by `--pe-distance-prior`. Over the PE samples \(d_i\), whose
 redshift at a trial H₀ is \(z_i\), the integral is a kernel sum:
 
 \[
@@ -56,7 +56,17 @@ see [Validation](#validation-mock-bright-sirens). `--selection`:
 |---|---|---|
 | `euclidean` | ∝ H₀³: GW-limited detection of nearby sources. It cancels the volume factor of the numerator, and with a \(d_L^2\) prior the posterior becomes \(\sum_i \mathcal{N}(v_H;\, H_0 d_i,\, \sigma_v)\), the LVK 2017 formula [\[27\]](../references.md#ref-27) | z < 0.05 |
 | `injections` | the found LVK sensitivity injections of the event's observing run, carried to the source frame at each trial H₀ and reweighted to the population of the event's class: Power Law + Peak for black holes (as in `rates`), uniform 1–2.5 M☉ for neutron stars; the injected isotropic spins | distant events |
-| `auto` (default) | `euclidean` below z = 0.05, `injections` above | |
+| `auto` (default) | `euclidean` below z = 0.05, `injections` above; `injections` with `--population fullpop4` | |
+
+**The population** (`--population`). By default the sources are uniform in comoving volume and source-frame time,
+and the masses enter only the selection. `fullpop4` is the population of the GWTC-4.0 reanalysis of GW170817
+[\[29\]](../references.md#ref-29) (Appendix E): the FullPop-4.0 mass distribution, which covers BNS, NSBH and BBH in
+one (a broken power law with a dip between neutron stars and black holes, two Gaussian peaks, and a pairing function
+in the mass ratio), and the Madau–Dickinson rate, fixed to the medians of the paper's spectral siren. Each sample then
+also carries \(p_m\big(m_1/(1+z_i), m_2/(1+z_i)\big)\, \psi(z_i) / (1+z_i)^2\), with the detector-frame masses of
+the samples (the PE mass prior is uniform in them), and the injections are reweighted to the same population. The
+density is icarogw's `m1m2_paired_massratio_bplmulti_dip`, reimplemented with numpy (it agrees with icarogw to
+10⁻¹³ in ln p), so that the bright siren does not need the icarogw environment.
 
 **Sky position.** The distance must be the one at the counterpart's position: distance and sky
 position are correlated through the antenna pattern. The GWTC-1 GW170817 samples were produced with
@@ -105,6 +115,27 @@ IMRPhenomPv2_NRTidal), whose distance has a longer low-distance tail than the 20
 than a face-on one at the same distance (see the [counterpart](counterpart.md#the-distanceinclination-degeneracy)
 mode). The full ΛCDM \(d_L\) raises H₀ by 0.8% (0.6 km/s/Mpc) compared with the linear Hubble law of the
 2017 paper.
+
+### Against the GWTC-4.0 reanalysis
+
+The GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29) reanalyses GW170817 with the same LowSpin samples
+(H₀ = 77.8 (+25.7 / −11.6), median and 68%). Its setup differs from the default here in the population and the
+selection term, which `--population fullpop4` reproduces:
+
+| GW170817, LowSpin | Median, 68% | 90% |
+|---|---|---|
+| default (uniform in comoving volume, `euclidean`) | 79.9 (+27.6 / −12.4) | +55.6 / −16.9 |
+| `--selection injections` | 80.0 | |
+| `--population fullpop4 --selection euclidean` | 79.9 | |
+| **`--population fullpop4`** (selection from injections) | **78.5 (+25.6 / −11.5)** | +51.9 / −15.9 |
+| `--pe-distance-prior comoving` or `source-frame` | 79.8, 79.7 | |
+| GWTC-4.0 paper | 77.8 (+25.7 / −11.6) | +52.2 / −16.2 |
+
+The shift comes from the selection term with the full population, not from the mass term of the numerator: with
+FullPop-4.0 most of the detectable binaries are black holes, seen out to z ≈ 0.3, and β(H₀) no longer goes as H₀³.
+With it the widths are the paper's to 0.3 km/s/Mpc and the median is 0.7 above; the paper's result is an equal
+mixture of icarogw and gwcosmo. The distance prior does not matter at 40 Mpc, where a uniform-in-volume prior is
+\(d_L^2\) to 1%.
 
 ### Viewing-angle constraint
 
@@ -172,7 +203,9 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 | `--v-recession V SIGMA`, `--v-peculiar V SIGMA` | from the list (GW170817) | velocities of a nearby host, km/s: measured recession velocity, and the peculiar velocity subtracted from it |
 | `--redshift Z SIGMA` | from the list (GW190521) | Hubble-flow redshift of the host, instead of the velocities |
 | `--viewing-angle MEAN SIGMA` | none | independent Gaussian constraint on the viewing angle, degrees |
+| `--pe-distance-prior` | the file's, else \(d_L^2\) up to O3 | distance prior of the PE samples: `dl2`, `comoving` or `source-frame` (Planck15_LAL) |
 | `--selection` | `auto` | `euclidean`, `injections` or `auto` |
+| `--population` | `volume` | `volume` (uniform in comoving volume) or `fullpop4` (FullPop-4.0 and Madau–Dickinson at the GWTC-4.0 medians, [Method](#method)) |
 | `--sensitivity-release`, `--sensitivity-file` | `gwtc4` | injections of the selection term |
 | `--far-threshold`, `--snr-threshold` | 0.25 /yr, 10 | found injections (real searches, semi-analytic O1+O2) |
 | `--sky-radius` | 3° | for samples not fixed to the counterpart |
@@ -180,7 +213,8 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 | `--workdir` | `hubble_constant_bright` | the work directory |
 | `--out-report`, `--out-summary` | `hubble_constant_bright.html`, `.tsv` | the report and the summary |
 
-The published comparison is shown only with the velocities or redshift from the list and no viewing-angle constraint.
+The published comparison is shown only with the velocities or redshift from the list, no viewing-angle constraint,
+the default population and the file's distance prior.
 
 ## Outputs
 
