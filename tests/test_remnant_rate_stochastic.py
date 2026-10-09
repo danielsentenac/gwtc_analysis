@@ -1,6 +1,9 @@
 """Offline tests of the remnant section, the rate evolution and the stochastic-background prediction."""
 from __future__ import annotations
 
+import json
+import os
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -123,3 +126,66 @@ def test_run_stochastic(tmp_path):
     with pytest.raises(ValueError, match="Power Law"):
         pd.DataFrame(dict(H0=[70.0])).to_csv(tmp_path / "bad.tsv", sep="\t", index=False)
         st.run_stochastic(tmp_path / "bad.tsv", tmp_path / "rates.tsv", out_report_html=None, out_summary_tsv=None)
+
+
+MLTP = dict(alpha=3.5, beta=1.1, mmin=5.0, mmax=90.0, delta_m=4.0, mu_g_low=10.0, sigma_g_low=1.0, lambda_g_low=0.6,
+            mu_g_high=33.0, sigma_g_high=4.0, lambda_g=0.3)
+
+
+def test_mltp_sampler_and_model_detection():
+    """The Multi Peak sampler puts the expected weight in its two peaks; the model is read from the columns."""
+    rng = np.random.default_rng(3)
+    m1, m2 = st.sample_mltp(rng, 20000, *(MLTP[k] for k in ("alpha", "beta", "mmin", "mmax", "delta_m", "mu_g_low",
+                                                              "sigma_g_low", "lambda_g_low", "mu_g_high",
+                                                              "sigma_g_high", "lambda_g")))
+    assert (m2 <= m1 + 1e-9).all() and m1.min() >= 5.0
+    assert 0.45 < np.mean(np.abs(m1 - 10) < 2) < 0.6          # icarogw: 0.50 between 8 and 12
+    assert 0.15 < np.mean((m1 > 25) & (m1 < 40)) < 0.25      # icarogw: 0.20
+    common = dict(alpha=3.4, beta=1.1, mmin=5.0, mmax=87.0, delta_m=4.8, gamma=2.7, kappa=2.9, zp=1.9)
+    assert st.mass_model_of(pd.DataFrame([dict(common, mu_g=34.0, sigma_g=3.6, lambda_peak=0.04)])) == "plp"
+    assert st.mass_model_of(pd.DataFrame([dict(common, **{k: MLTP[k] for k in st.MASS_MODELS["mltp"]["params"]})])) \
+        == "mltp"
+    with pytest.raises(ValueError, match="neither"):
+        st.mass_model_of(pd.DataFrame([common]))
+
+
+def test_run_stochastic_mltp(tmp_path):
+    rng = np.random.default_rng(5)
+    n = 30
+    post = pd.DataFrame(dict(H0=70.0, gamma=rng.normal(2.7, 0.3, n), kappa=2.9, zp=1.9, **MLTP))
+    post.to_csv(tmp_path / "posterior.tsv", sep="\t", index=False)
+    pd.DataFrame([dict(population="BNS", model="", z_ref=0.0, rate_median=100.0, rate_05=20.0, rate_95=300.0),
+                  dict(population="NSBH", model="", z_ref=0.0, rate_median=30.0, rate_05=10.0, rate_95=70.0),
+                  dict(population="BBH", model="", z_ref=0.2, rate_median=25.0, rate_05=22.0, rate_95=28.0)]
+                 ).to_csv(tmp_path / "rates.tsv", sep="\t", index=False)
+    t = st.run_stochastic(tmp_path, tmp_path / "rates.tsv", n_draws=15, out_report_html=tmp_path / "r.html",
+                          out_summary_tsv=None, plots_dir=tmp_path / "p").set_index("population")
+    assert 1e-10 < t.loc["BBH", "omega_25Hz_median"] < 3e-9
+    assert "Multi Peak masses" in (tmp_path / "r.html").read_text()
+
+
+@pytest.mark.skipif(not os.environ.get("GWTC_ICAROGW_PYTHON"), reason="set GWTC_ICAROGW_PYTHON to the icarogw interpreter")
+def test_mltp_sampler_matches_icarogw(tmp_path):
+    """The m1 distribution of sample_mltp is icarogw's massprior_MultiPeak with the low-mass smoothing."""
+    import subprocess
+
+    code = (
+        "import sys, json, numpy as np\n"
+        f"sys.path.insert(0, {str(tmp_path)!r})\n"
+        "import icarogw\n"
+        f"p = json.loads({json.dumps(json.dumps(MLTP))})\n"
+        "w = icarogw.wrappers.m1m2_conditioned_lowpass(icarogw.wrappers.massprior_MultiPeak()); w.update(**p)\n"
+        "g = np.linspace(5, 120, 20000); pg = np.exp(w.prior.pdf1.log_pdf(g))\n"
+        "out = [float(np.trapz(pg[(g > a) & (g < b)], g[(g > a) & (g < b)])) for a, b in ((8, 12), (25, 40), (40, 90))]\n"
+        "print('OUT', json.dumps(out))\n")
+    (tmp_path / "config.py").write_text("CUPY=False\n")
+    r = subprocess.run([os.environ["GWTC_ICAROGW_PYTHON"], "-c", code], capture_output=True, text=True, cwd=tmp_path)
+    line = [ln for ln in r.stdout.splitlines() if ln.startswith("OUT")]
+    assert r.returncode == 0 and line, r.stderr[-1500:]
+    ref = json.loads(line[0][4:])
+    rng = np.random.default_rng(1)
+    m1, _ = st.sample_mltp(rng, 200000, *(MLTP[k] for k in ("alpha", "beta", "mmin", "mmax", "delta_m", "mu_g_low",
+                                                              "sigma_g_low", "lambda_g_low", "mu_g_high",
+                                                              "sigma_g_high", "lambda_g")))
+    for (a, b), r_ in zip(((8, 12), (25, 40), (40, 90)), ref):
+        assert np.mean((m1 > a) & (m1 < b)) == pytest.approx(r_, abs=0.005)

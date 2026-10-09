@@ -8,8 +8,8 @@ The energy density of the background, per logarithmic frequency and in units of 
 with R(z) the merger rate per comoving volume and source-frame time, <dE/df_s> the energy spectrum of one
 merger averaged over the population, and rho_c c^2 = 3 H0^2 c^2 / (8 pi G).
 
-- BBH: R(z) = R(0.2) psi(z) / psi(0.2), with psi the Madau-Dickinson shape and the Power Law + Peak mass
-  model of each posterior draw of a spectral-siren run (`hubble_constant`), and R(0.2), where the catalog
+- BBH: R(z) = R(0.2) psi(z) / psi(0.2), with psi the Madau-Dickinson shape and the mass model (Power Law +
+  Peak or Multi Peak, recognized from the posterior's parameters) of each posterior draw of a spectral-siren run (`hubble_constant`), and R(0.2), where the catalog
   measures the rate best, from the `rates` mode. Beyond the farthest detected events (z_h) the fitted shape
   is the prior's: by default (`high_z="sfr"`) the rate follows the star-formation history there, joined
   continuously at z_h; `high_z="posterior"` keeps the fitted shape up to z = 10 (a sensitivity check: most
@@ -105,14 +105,76 @@ def sample_plp(rng, n: int, alpha, beta, mmin, mmax, delta_m, mu_g, sigma_g, lam
     p1 = ((1 - lambda_peak) * pl + lambda_peak * peak) * _smooth(g, mmin, delta_m)
     c1 = np.cumsum(p1); c1 /= c1[-1]
     m1 = np.interp(rng.uniform(size=n), c1, g)
-    u = rng.uniform(size=n)
-    m2 = np.empty(n)
+    return m1, _sample_m2(rng, m1, beta, mmin, delta_m)
+
+
+def _sample_m2(rng, m1, beta, mmin, delta_m) -> np.ndarray:
+    """m2 | m1 ∝ m2^β S(m2) on [mmin, m1] (icarogw's m1m2_conditioned_lowpass, for both mass models)."""
+    u = rng.uniform(size=len(m1))
+    m2 = np.empty(len(m1))
     for i, a in enumerate(m1):
         x = np.linspace(mmin, a, 200)
         w = x ** beta * _smooth(x, mmin, delta_m)
         cw = np.cumsum(w)
         m2[i] = np.interp(u[i], cw / cw[-1], x) if cw[-1] > 0 else a
-    return m1, m2
+    return m2
+
+
+def _truncated_gaussian(g, mu, sigma, lo, hi):
+    """Gaussian density truncated to [lo, hi] and normalized there (icarogw's TruncatedGaussian)."""
+    from scipy.special import erf
+
+    norm = 0.5 * (erf((hi - mu) / (np.sqrt(2) * sigma)) - erf((lo - mu) / (np.sqrt(2) * sigma)))
+    p = np.exp(-0.5 * ((g - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
+    return np.where((g >= lo) & (g <= hi), p / max(norm, 1e-300), 0.0)
+
+
+def sample_mltp(rng, n: int, alpha, beta, mmin, mmax, delta_m, mu_g_low, sigma_g_low, lambda_g_low,
+                mu_g_high, sigma_g_high, lambda_g) -> tuple[np.ndarray, np.ndarray]:
+    """(m1, m2) source-frame samples of the Multi Peak model (icarogw's massprior_MultiPeak, i.e.
+    PowerLawTwoGaussians, with the m1m2_conditioned_lowpass smoothing, as in the spectral siren):
+
+    p(m1) ∝ [(1 - λ) PL(m1; -α, mmin, mmax) + λ λ_low N_low(m1) + λ (1 - λ_low) N_high(m1)] S(m1),
+    each Gaussian truncated to [mmin, μ + 5σ]; p(m2 | m1) ∝ m2^β S(m2) on [mmin, m1].
+    """
+    top = max(mmax, mu_g_low + 5 * sigma_g_low, mu_g_high + 5 * sigma_g_high)
+    g = np.linspace(mmin, top, 6000)
+    pl = np.where(g <= mmax, g ** (-alpha), 0.0)
+    pl /= _trapz(pl, g)
+    low = _truncated_gaussian(g, mu_g_low, sigma_g_low, mmin, mu_g_low + 5 * sigma_g_low)
+    high = _truncated_gaussian(g, mu_g_high, sigma_g_high, mmin, mu_g_high + 5 * sigma_g_high)
+    p1 = ((1 - lambda_g) * pl + lambda_g * lambda_g_low * low + lambda_g * (1 - lambda_g_low) * high) \
+        * _smooth(g, mmin, delta_m)
+    c1 = np.cumsum(p1); c1 /= c1[-1]
+    m1 = np.interp(rng.uniform(size=n), c1, g)
+    return m1, _sample_m2(rng, m1, beta, mmin, delta_m)
+
+
+# the BBH mass models: the posterior columns each one needs, its name, and its sampler
+_COMMON = ("alpha", "beta", "mmin", "mmax", "delta_m", "gamma", "kappa", "zp")
+MASS_MODELS = {
+    "plp": dict(name="Power Law + Peak", params=("mu_g", "sigma_g", "lambda_peak")),
+    "mltp": dict(name="Multi Peak", params=("mu_g_low", "sigma_g_low", "lambda_g_low", "mu_g_high", "sigma_g_high",
+                                             "lambda_g")),
+}
+
+
+def mass_model_of(post: pd.DataFrame) -> str:
+    """The BBH mass model of a spectral-siren posterior, from its parameters (plp or mltp)."""
+    cols = set(post.columns)
+    for key, m in MASS_MODELS.items():
+        if set(_COMMON) | set(m["params"]) <= cols:
+            return key
+    raise ValueError("the posterior has the parameters of neither the Power Law + Peak nor the Multi Peak model "
+                     f"(columns: {sorted(cols)}): a hubble_constant run with --mass-model plp or mltp is needed")
+
+
+def sample_masses(rng, n: int, row, model: str) -> tuple[np.ndarray, np.ndarray]:
+    base = (row["alpha"], row["beta"], row["mmin"], row["mmax"], row["delta_m"])
+    if model == "mltp":
+        return sample_mltp(rng, n, *base, row["mu_g_low"], row["sigma_g_low"], row["lambda_g_low"],
+                           row["mu_g_high"], row["sigma_g_high"], row["lambda_g"])
+    return sample_plp(rng, n, *base, row["mu_g"], row["sigma_g"], row["lambda_peak"])
 
 
 def _smooth(m, mmin, delta):
@@ -209,14 +271,14 @@ def predict(spectral_post: pd.DataFrame, rates: dict, f: np.ndarray, n_draws: in
     from .rate_evolution import MD14, md_shape
 
     rng = np.random.default_rng(seed)
+    model = mass_model_of(spectral_post)
     d = spectral_post.sample(min(n_draws, len(spectral_post)), random_state=seed).reset_index(drop=True)
     n = len(d)
     zr = rates["BBH_z_ref"]
     r_bbh = _lognormal_draws(rng, rates["BBH"], n)
     out = {"BBH": np.empty((n, len(f)))}
     for i, row in d.iterrows():
-        m1, m2 = sample_plp(rng, n_masses, row["alpha"], row["beta"], row["mmin"], row["mmax"], row["delta_m"],
-                            row["mu_g"], row["sigma_g"], row["lambda_peak"])
+        m1, m2 = sample_masses(rng, n_masses, row, model)
         spec = mean_spectrum(m1, m2, dE_df_imr)
         g, k, p = row["gamma"], row["kappa"], row["zp"]
         out["BBH"][i] = omega_gw(f, lambda z: bbh_rate(z, g, k, p, r_bbh[i], zr, high_z, z_h), spec)
@@ -324,14 +386,12 @@ def run_stochastic(
         if path is None:
             raise ValueError(f"no posterior_reweighted.tsv or posterior.tsv in {spectral_posterior}")
     post = pd.read_csv(path, sep="\t")
-    need = {"alpha", "beta", "mmin", "mmax", "delta_m", "mu_g", "sigma_g", "lambda_peak", "gamma", "kappa", "zp"}
-    if not need <= set(post.columns):
-        raise ValueError(f"{path} lacks {sorted(need - set(post.columns))}: a Power Law + Peak spectral-siren "
-                         "posterior (hubble_constant --mass-model plp) is needed")
+    model = mass_model_of(post)
     z_h = z_horizon or (horizon_redshift(src) if src.is_dir() else None) or Z_HORIZON
     rates = read_rates(rates_tsv)
     f = np.geomspace(fmin, fmax, 120)
-    _log(f"{n_draws} posterior draws of {path.name}; rates from {Path(rates_tsv).name}; z_h = {z_h:.2f}, "
+    _log(f"{n_draws} posterior draws of {path.name} ({MASS_MODELS[model]['name']}); rates from "
+         f"{Path(rates_tsv).name}; z_h = {z_h:.2f}, "
          f"high_z = {high_z}")
     om = predict(post, rates, f, n_draws=n_draws, seed=seed, high_z=high_z, z_h=z_h)
     other = "posterior" if high_z == "sfr" else "sfr"
@@ -363,8 +423,8 @@ def run_stochastic(
             f"{1 / tot['fraction_of_limit']:.1f} below it. The LVK prediction from GWTC-5.0 is {lv['median']:.1e} "
             f"(+{lv['plus']:.1e} / −{lv['minus']:.1e}).",
             "Ω<sub>GW</sub>(f) = f / (ρ<sub>c</sub>c²) ∫ dz R(z) ⟨dE/df<sub>s</sub>⟩(f(1+z)) / [(1+z) H(z)], Planck15. "
-            f"BBH: for each of {len(om['BBH'])} draws of the spectral-siren posterior ({path.name}), the Power Law + "
-            "Peak masses and the Madau–Dickinson rate shape, normalized to the BBH rate at "
+            f"BBH: for each of {len(om['BBH'])} draws of the spectral-siren posterior ({path.name}), the "
+            f"{MASS_MODELS[model]['name']} masses and the Madau–Dickinson rate shape, normalized to the BBH rate at "
             f"z = {rates['BBH_z_ref']:g} of the rates mode ({rates['BBH'][1]:.1f} Gpc⁻³ yr⁻¹, 90%: {rates['BBH'][0]:.1f}–"
             f"{rates['BBH'][2]:.1f}); {hz}. Non-spinning inspiral–merger–ringdown spectrum of Ajith et al. 2008.",
             f"<b>Systematics.</b> The high-redshift rate matters most: with high_z = {other}, Ω<sub>BBH</sub>(25 Hz) = "
