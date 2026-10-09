@@ -147,7 +147,7 @@ waveform behind each result is the label it reads:
 | [parameters_estimation](../modes/parameters-estimation.md) | `Mixed` for the posteriors; the strain overlay is synthesized with the waveform engine of the label | `--pe-label`, `--waveform-engine`; the report compares the multipole and precession SNRs of all the labels |
 | [search_skymaps](../modes/search-skymaps.md) | the `Mixed` skymap, else IMRPhenomXPHM-SpinTaylor (GWTC-5.0 has no `Mixed` maps) | `--skymap-label` |
 | [hubble_constant](../modes/hubble-constant.md), [spin_population](../modes/spin-population.md) | one model per event, as the LVK cosmology analyses: IMRPhenomXPHM-SpinTaylor (O4), IMRPhenomXPHM (O1–O3) | — |
-| [bright_siren](../modes/bright-siren.md), [neutron_star_eos](../modes/neutron-star-eos.md) | IMRPhenomPv2_NRTidal, low-spin prior (high spin also reported) | `--pe-label` (bright_siren), `--spin-prior` (neutron_star_eos) |
+| [hubble_constant --method bright](../modes/hubble-constant-bright.md), [counterpart](../modes/counterpart.md), [neutron_star_eos](../modes/neutron-star-eos.md) | IMRPhenomPv2_NRTidal, low-spin prior (high spin also reported) | `--pe-label` (bright, counterpart), `--spin-prior` (neutron_star_eos) |
 | [area_law](../modes/area-law.md) | NRSur7dq4, on the full signal and on data truncated before the peak | — |
 
 Using a single model per event, rather than a mixture, avoids combining samples drawn with different priors (for

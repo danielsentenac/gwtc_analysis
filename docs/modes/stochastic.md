@@ -5,7 +5,7 @@ the upper limits of the stochastic searches.
 
 ```bash
 gwtc_analysis rates --out-rates merger_rates.tsv
-gwtc_analysis stochastic --spectral-posterior hubble_constant_run --rates merger_rates.tsv
+gwtc_analysis stochastic --spectral-posterior hubble_constant_spectral --rates merger_rates.tsv
 ```
 
 ## Inputs and options

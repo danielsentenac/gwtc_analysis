@@ -45,10 +45,11 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
+| `--method` | `spectral` | spectral (mass spectrum), dark (mass spectrum + galaxy catalog), bright (identified host) or joint (product of independent results). |
 | `--stages` | `['prepare', 'sample', 'combine', 'reweight', 'report']` | Stages to run (default: all). |
-| `--workdir` | `hubble_constant_run` | Work directory (inputs, runs, posterior). |
-| `--out-report` | `hubble_constant.html` | Output HTML report path. |
-| `--out-summary` | `hubble_constant.tsv` | Output TSV of the posterior quantiles. |
+| `--workdir` | `` | Work directory (inputs, runs, posterior); default hubble_constant_<method>. |
+| `--out-report` | `` | Output HTML report path; default hubble_constant_<method>.html. |
+| `--out-summary` | `` | Output TSV of the posterior summary; default hubble_constant_<method>.tsv. |
 | `--sensitivity-release` | `gwtc4` | LVK search-sensitivity release (and matching catalogs and runs): gwtc4 = GWTC-4.0 cumulative, semi-analytic O1+O2 + real O3+O4a injections; gwtc5 = GWTC-5.0 cumulative, semi-analytic O1+O2 + real O3+O4a+O4b injections. |
 | `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5, or ALL): events and injections are restricted to their observing runs. Default: all the runs of --sensitivity-release (gwtc4: O1-O4a; gwtc5: O1-O4b; gwtc4: the published analysis). |
 | `--sensitivity-file` | `` | Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's. |
@@ -78,7 +79,19 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--neff-pe` | `` | Effective PE samples each event needs at a likelihood point, else the point is rejected (default 10; recorded in <workdir>/likelihood.json and used by every stage). |
 | `--neff-inj` | `` | Effective injections needed at a likelihood point (default: 4 x the number of events). |
 | `--reweight-jobs` | `` | With --executor slurm: array tasks of the reweighting (default 16). |
-| `--galaxy-catalog` | `` | icarogw galaxy catalog made by the galaxy_catalog mode: dark siren with a galaxy catalog instead of the spectral siren (the prepare stage then keeps the sky positions). |
+| `--galaxy-catalog` | `` | [dark] icarogw galaxy catalog made by the galaxy_catalog mode (the prepare stage then keeps the sky positions of the PE samples). |
+| `--event` | `GW170817` | [bright] Event with an identified host galaxy. |
+| `--pe-label` | `` | [bright] PE label(s) to use (default: those of the counterpart, or all the labels of the PE file, LowSpin first). |
+| `--pe-file` | `` | [bright] PE file to read instead of the event's. |
+| `--cache-dir` | `.cache_gwosc` | [bright] Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe). |
+| `--v-recession` | `` | [bright] Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
+| `--v-peculiar` | `` | [bright] Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
+| `--redshift` | `` | [bright] Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
+| `--sky-radius` | `3.0` | [bright] For samples not fixed to the counterpart's position: keep those within this angle (deg). |
+| `--viewing-angle` | `` | [bright] Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
+| `--selection` | `auto` | [bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05). |
+| `--h0-range` | `[10.0, 200.0]` | [bright] Flat H0 prior range, km/s/Mpc (that of the spectral siren, needed by joint). |
+| `--inputs` | `` | [joint] Independent results to combine: hubble_constant work directories (spectral, dark or bright) or posterior TSV files (H0 samples, or an H0 grid with a p column). |
 
 ## `galaxy_catalog`
 
@@ -120,30 +133,27 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--icarogw-python` | `` | Python interpreter of the icarogw environment. |
 | `--out-report` | `galaxy_catalog.html` | Output HTML report path. |
 
-## `bright_siren`
+## `counterpart`
 
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--src-name` | `GW170817` | Event with an identified host galaxy. |
-| `--pe-label` | `` | PE label(s) to use (default: all the labels of the PE file, LowSpin first). |
-| `--pe-file` | `` | PE file to read instead of the event's bundle. |
-| `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle (as in build_unofficial_pe). |
+| `--event` | `GW170817` | Event with a registered counterpart. |
+| `--ra` | `` | Right ascension of another position to test (deg). |
+| `--dec` | `` | Declination of another position to test (deg). |
+| `--pe-label` | `` | PE label(s) to use (default: those of the counterpart, or all the labels of the PE file, LowSpin first). |
+| `--pe-file` | `` | PE file to read instead of the event's. |
+| `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe). |
 | `--v-recession` | `` | Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
 | `--v-peculiar` | `` | Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
 | `--redshift` | `` | Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
-| `--selection` | `auto` | Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05). |
-| `--sensitivity-release` | `` | Injections of the selection term (default: gwtc4). |
-| `--sensitivity-file` | `` | Local sensitivity file instead of the release. |
-| `--far-threshold` | `0.25` | Found injections: FAR below this, per year. |
-| `--snr-threshold` | `10.0` | Found semi-analytic O1+O2 injections: network SNR above this. |
-| `--pe-cache` | `` | PE cache of the events read from Zenodo (default: that of hubble_constant). |
 | `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
-| `--spectral-posterior` | `` | Spectral- or dark-siren H0 posterior to combine with: a hubble_constant work directory (spectral, or dark with --galaxy-catalog) or a posterior TSV with an H0 column. |
-| `--h0-range` | `[10.0, 200.0]` | Flat H0 prior range, km/s/Mpc (that of the spectral siren by default). |
-| `--out-report` | `bright_siren.html` | Output HTML report path. |
-| `--out-summary` | `bright_siren.tsv` | Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv). |
-| `--plots-dir` | `bright_siren_plots` | Directory for the plots. |
+| `--viewing-angle` | `` | Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
+| `--sky-map` | `` | FITS sky map for the searched probability of the position (default: the event's LVK map when its PE file comes from Zenodo; 'none': a kernel estimate on the PE samples). |
+| `--pe-cache` | `` | PE cache of the events read from Zenodo (default: that of hubble_constant). |
+| `--out-report` | `counterpart.html` | Output HTML report path. |
+| `--out-summary` | `counterpart.tsv` | Output TSV of the summary, one row per PE label. |
+| `--plots-dir` | `counterpart_plots` | Directory for the plots. |
 
 ## `area_law`
 

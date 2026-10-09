@@ -7,7 +7,9 @@ from typing import List, Optional
 from .catalogs import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES, run_catalog_statistics, run_merger_rates
 from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFAULT_RELEASE, H0_SENSITIVITY_RELEASES,
                               MASS_MODELS as H0_MASS_MODELS, STAGES as H0_STAGES, run_hubble_constant)
-from .bright_siren import COUNTERPARTS as BRIGHT_SIREN_COUNTERPARTS, run_bright_siren
+from .counterpart import COUNTERPARTS, run_counterpart
+from .h0_bright import run_h0_bright
+from .h0_joint import run_h0_joint
 from .area_law import run_area_law
 from .stochastic import run_stochastic
 from .ns_eos import EVENTS as NS_EOS_EVENTS, run_ns_eos
@@ -114,6 +116,32 @@ def _none_if_empty(x):
     return x
 
 
+H0_METHODS = ("spectral", "dark", "bright", "joint")
+
+
+def _add_counterpart_options(p: argparse.ArgumentParser, tag: str) -> None:
+    """Options shared by hubble_constant --method bright and counterpart: PE samples, host redshift, viewing angle."""
+    p.add_argument("--pe-label", nargs="+", default=None,
+                   help=tag + "PE label(s) to use (default: those of the counterpart, or all the labels of the PE "
+                              "file, LowSpin first).")
+    p.add_argument("--pe-file", default=None, help=tag + "PE file to read instead of the event's.")
+    p.add_argument("--cache-dir", default=".cache_gwosc",
+                   help=tag + "Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe).")
+    p.add_argument("--v-recession", nargs=2, type=float, metavar=("V", "SIGMA"), default=None,
+                   help=tag + "Recession velocity of the host and its uncertainty, km/s (default for GW170817: "
+                              "3327 72, the NGC 4993 group in the CMB frame).")
+    p.add_argument("--v-peculiar", nargs=2, type=float, metavar=("V", "SIGMA"), default=None,
+                   help=tag + "Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150).")
+    p.add_argument("--redshift", nargs=2, type=float, metavar=("Z", "SIGMA"), default=None,
+                   help=tag + "Hubble-flow redshift of the host and its uncertainty, instead of the velocities "
+                              "(default for GW190521: 0.438 0.0015).")
+    p.add_argument("--sky-radius", type=float, default=3.0,
+                   help=tag + "For samples not fixed to the counterpart's position: keep those within this angle (deg).")
+    p.add_argument("--viewing-angle", nargs=2, type=float, metavar=("MEAN", "SIGMA"), default=None,
+                   help=tag + "Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; "
+                              "weights the PE samples.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     fmt = argparse.ArgumentDefaultsHelpFormatter
 
@@ -125,7 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis catalog_statistics -h\n"
             "  gwtc_analysis rates -h\n"
             "  gwtc_analysis hubble_constant -h\n"
-            "  gwtc_analysis bright_siren -h\n"
+            "  gwtc_analysis counterpart -h\n"
             "  gwtc_analysis area_law -h\n"
             "  gwtc_analysis stochastic -h\n"
             "  gwtc_analysis neutron_star_eos -h\n"
@@ -241,13 +269,20 @@ def build_parser() -> argparse.ArgumentParser:
     # ---------------------------------------------------------------------
     p_h0 = sub.add_parser(
         "hubble_constant",
-        help="Estimate the Hubble constant from the BBH mass spectrum (spectral siren, icarogw).",
+        help="Estimate the Hubble constant: spectral, dark or bright siren, or their joint posterior.",
         description=(
-            "Spectral-siren H0: the BBH mass distribution (--mass-model: Power Law + Peak or Multi Peak) and\n"
-            "the Madau-Dickinson rate evolution fitted together with H0 (flat LCDM, Om0 = 0.3065), with icarogw\n"
-            "and bilby/dynesty. The default setup reproduces the GWTC-4.0 cosmology paper (arXiv:2509.04348, v3):\n"
-            "H0 = 105.5 (+46.4 / -35.8) km/s/Mpc (plp), 72.3 (+42.5 / -25.6) km/s/Mpc (mltp).\n\n"
-            "Stages (--stages, default all, in this order):\n"
+            "Hubble constant by --method:\n"
+            "  spectral: the BBH mass spectrum (--mass-model: Power Law + Peak or Multi Peak) and the Madau-Dickinson\n"
+            "            rate evolution fitted together with H0 (flat LCDM, Om0 = 0.3065), with icarogw and\n"
+            "            bilby/dynesty. The default setup reproduces the GWTC-4.0 cosmology paper\n"
+            "            (arXiv:2509.04348, v3): H0 = 105.5 (+46.4 / -35.8) km/s/Mpc (plp), 72.3 (+42.5 / -25.6) (mltp).\n"
+            "  dark    : the spectral siren with a galaxy catalog (--galaxy-catalog, made by the galaxy_catalog mode):\n"
+            "            the redshift prior of each event along its line of sight follows the galaxies.\n"
+            "  bright  : an event with an identified host (--event): its GW distance at the position of the\n"
+            "            counterpart against the host redshift; seconds. Default GW170817 and NGC 4993, after\n"
+            "            LVK 2017 (arXiv:1710.05835): H0 = 70.0 (+12.0 / -8.0) km/s/Mpc (maximum a posteriori, 68%).\n"
+            "  joint   : the product of independent results (--inputs: work directories of the other methods).\n\n"
+            "Stages of spectral and dark (--stages, default all, in this order):\n"
             "  prepare : select the events, download their PE samples from Zenodo (tens of GB, cached in\n"
             "            --pe-cache; only the extracted samples are kept unless --keep-pe-files), prepare\n"
             "            the found injections of --sensitivity-release -> <workdir>/inputs.h5\n"
@@ -259,14 +294,22 @@ def build_parser() -> argparse.ArgumentParser:
             "icarogw needs its own environment: pass its interpreter with --icarogw-python. The sampler\n"
             "gwtc_analysis/h0_icarogw.py is standalone, so runs can also be started by hand on other\n"
             "machines sharing <workdir>:  python h0_icarogw.py run --workdir DIR --seed N\n"
+            "Options marked [bright] or [joint] are for that method only; the others not marked are for\n"
+            "spectral and dark, except --workdir, --out-report, --out-summary and --settings (all methods) and\n"
+            "--sensitivity-release, --sensitivity-file, --far-threshold, --snr-threshold, --pe-cache (also bright).\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+    p_h0.add_argument("--method", choices=H0_METHODS, default="spectral",
+                      help="spectral (mass spectrum), dark (mass spectrum + galaxy catalog), bright (identified host) "
+                           "or joint (product of independent results).")
     p_h0.add_argument("--stages", nargs="+", choices=list(H0_STAGES), default=list(H0_STAGES),
                       help="Stages to run (default: all).")
-    p_h0.add_argument("--workdir", default="hubble_constant_run", help="Work directory (inputs, runs, posterior).")
-    p_h0.add_argument("--out-report", default="hubble_constant.html", help="Output HTML report path.")
-    p_h0.add_argument("--out-summary", default="hubble_constant.tsv", help="Output TSV of the posterior quantiles.")
+    p_h0.add_argument("--workdir", default=None,
+                      help="Work directory (inputs, runs, posterior); default hubble_constant_<method>.")
+    p_h0.add_argument("--out-report", default=None, help="Output HTML report path; default hubble_constant_<method>.html.")
+    p_h0.add_argument("--out-summary", default=None,
+                      help="Output TSV of the posterior summary; default hubble_constant_<method>.tsv.")
     p_h0.add_argument(
         "--sensitivity-release",
         choices=list(H0_SENSITIVITY_RELEASES),
@@ -335,8 +378,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_h0.add_argument("--reweight-jobs", type=int, default=None,
                       help="With --executor slurm: array tasks of the reweighting (default 16).")
     p_h0.add_argument("--galaxy-catalog", default=None,
-                      help="icarogw galaxy catalog made by the galaxy_catalog mode: dark siren with a galaxy catalog "
-                           "instead of the spectral siren (the prepare stage then keeps the sky positions).")
+                      help="[dark] icarogw galaxy catalog made by the galaxy_catalog mode (the prepare stage then keeps "
+                           "the sky positions of the PE samples).")
+    p_h0.add_argument("--event", default="GW170817", choices=list(COUNTERPARTS),
+                      help="[bright] Event with an identified host galaxy.")
+    _add_counterpart_options(p_h0, "[bright] ")
+    p_h0.add_argument("--selection", choices=("auto", "euclidean", "injections"), default="auto",
+                      help="[bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections "
+                           "(LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05).")
+    p_h0.add_argument("--h0-range", nargs=2, type=float, metavar=("MIN", "MAX"), default=[10.0, 200.0],
+                      help="[bright] Flat H0 prior range, km/s/Mpc (that of the spectral siren, needed by joint).")
+    p_h0.add_argument("--inputs", nargs="+", default=None, metavar="DIR",
+                      help="[joint] Independent results to combine: hubble_constant work directories (spectral, dark "
+                           "or bright) or posterior TSV files (H0 samples, or an H0 grid with a p column).")
 
     # ---------------------------------------------------------------------
     # galaxy_catalog
@@ -421,59 +475,34 @@ def build_parser() -> argparse.ArgumentParser:
     p_gc.add_argument("--out-report", default="galaxy_catalog.html", help="Output HTML report path.")
 
     # ---------------------------------------------------------------------
-    # bright_siren
+    # counterpart
     # ---------------------------------------------------------------------
-    p_bs = sub.add_parser(
-        "bright_siren",
-        help="Estimate the Hubble constant from an event with an identified host galaxy (bright siren).",
+    p_cp = sub.add_parser(
+        "counterpart",
+        help="Where an electromagnetic counterpart sits in the GW posterior: sky, distance, viewing angle.",
         description=(
-            "Bright-siren H0: the luminosity distance of the GW signal, at the sky position of the\n"
-            "counterpart, against the Hubble-flow velocity of the host galaxy (v_H = v_r - <v_p>).\n"
-            "Flat H0 prior; for sources uniform in volume and a GW-limited detection, the selection term\n"
-            "cancels the volume prior on the distance. The default setup follows LVK 2017\n"
-            "(arXiv:1710.05835): H0 = 70.0 (+12.0 / -8.0) km/s/Mpc (maximum a posteriori, 68%).\n\n"
-            "GW170817 uses the bundle built from public GWTC-1 products (build_unofficial_pe).\n"
-            "--spectral-posterior combines the result with a spectral-siren posterior (hubble_constant).\n"
+            "Counterpart of a GW event (GW170817 and AT2017gfo, or the candidate GW190521 flare):\n"
+            "  - the searched probability of its position in the sky posterior of the PE samples;\n"
+            "  - the distance along its line of sight against the distance of the host redshift (Planck, SH0ES H0);\n"
+            "  - the viewing angle and the distance-inclination degeneracy;\n"
+            "  - with --viewing-angle, an independent constraint on it (e.g. from the jet) applied to the samples.\n"
+            "The H0 of the event: hubble_constant --method bright.\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_bs.add_argument("--src-name", default="GW170817", choices=list(BRIGHT_SIREN_COUNTERPARTS),
-                      help="Event with an identified host galaxy.")
-    p_bs.add_argument("--pe-label", nargs="+", default=None,
-                      help="PE label(s) to use (default: all the labels of the PE file, LowSpin first).")
-    p_bs.add_argument("--pe-file", default=None, help="PE file to read instead of the event's bundle.")
-    p_bs.add_argument("--cache-dir", default=".cache_gwosc",
-                      help="Cache root of the unofficial PE bundle (as in build_unofficial_pe).")
-    p_bs.add_argument("--v-recession", nargs=2, type=float, metavar=("V", "SIGMA"), default=None,
-                      help="Recession velocity of the host and its uncertainty, km/s (default for GW170817: "
-                           "3327 72, the NGC 4993 group in the CMB frame).")
-    p_bs.add_argument("--v-peculiar", nargs=2, type=float, metavar=("V", "SIGMA"), default=None,
-                      help="Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150).")
-    p_bs.add_argument("--redshift", nargs=2, type=float, metavar=("Z", "SIGMA"), default=None,
-                      help="Hubble-flow redshift of the host and its uncertainty, instead of the velocities "
-                           "(default for GW190521: 0.438 0.0015).")
-    p_bs.add_argument("--selection", choices=("auto", "euclidean", "injections"), default="auto",
-                      help="Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK "
-                           "sensitivity injections of the event's run), auto (euclidean below z = 0.05).")
-    p_bs.add_argument("--sensitivity-release", choices=list(H0_SENSITIVITY_RELEASES), default=None,
-                      help=f"Injections of the selection term (default: {DEFAULT_H0_RELEASE}).")
-    p_bs.add_argument("--sensitivity-file", default=None, help="Local sensitivity file instead of the release.")
-    p_bs.add_argument("--far-threshold", type=float, default=0.25, help="Found injections: FAR below this, per year.")
-    p_bs.add_argument("--snr-threshold", type=float, default=10.0,
-                      help="Found semi-analytic O1+O2 injections: network SNR above this.")
-    p_bs.add_argument("--pe-cache", default=None,
+    p_cp.add_argument("--event", default="GW170817", choices=list(COUNTERPARTS),
+                      help="Event with a registered counterpart.")
+    p_cp.add_argument("--ra", type=float, default=None, help="Right ascension of another position to test (deg).")
+    p_cp.add_argument("--dec", type=float, default=None, help="Declination of another position to test (deg).")
+    _add_counterpart_options(p_cp, "")
+    p_cp.add_argument("--sky-map", default=None,
+                      help="FITS sky map for the searched probability of the position (default: the event's LVK map "
+                           "when its PE file comes from Zenodo; 'none': a kernel estimate on the PE samples).")
+    p_cp.add_argument("--pe-cache", default=None,
                       help="PE cache of the events read from Zenodo (default: that of hubble_constant).")
-    p_bs.add_argument("--sky-radius", type=float, default=3.0,
-                      help="For samples not fixed to the counterpart's position: keep those within this angle (deg).")
-    p_bs.add_argument("--spectral-posterior", default=None,
-                      help="Spectral- or dark-siren H0 posterior to combine with: a hubble_constant work directory "
-                           "(spectral, or dark with --galaxy-catalog) or a posterior TSV with an H0 column.")
-    p_bs.add_argument("--h0-range", nargs=2, type=float, metavar=("MIN", "MAX"), default=[10.0, 200.0],
-                      help="Flat H0 prior range, km/s/Mpc (that of the spectral siren by default).")
-    p_bs.add_argument("--out-report", default="bright_siren.html", help="Output HTML report path.")
-    p_bs.add_argument("--out-summary", default="bright_siren.tsv",
-                      help="Output TSV of the H0 summary (the posterior grid goes to <name>.posterior.tsv).")
-    p_bs.add_argument("--plots-dir", default="bright_siren_plots", help="Directory for the plots.")
+    p_cp.add_argument("--out-report", default="counterpart.html", help="Output HTML report path.")
+    p_cp.add_argument("--out-summary", default="counterpart.tsv", help="Output TSV of the summary, one row per PE label.")
+    p_cp.add_argument("--plots-dir", default="counterpart_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
     # area_law
@@ -824,6 +853,49 @@ def _apply_settings_file(p: argparse.ArgumentParser, argv) -> argparse.Namespace
     return p.parse_args(argv)
 
 
+H0_ALL_METHODS_OPTS = ("workdir", "out_report", "out_summary", "settings")
+H0_BRIGHT_OPTS = ("event", "pe_label", "pe_file", "cache_dir", "v_recession", "v_peculiar", "redshift", "sky_radius",
+                  "viewing_angle", "selection", "h0_range")
+H0_BRIGHT_SHARED_OPTS = ("sensitivity_release", "sensitivity_file", "far_threshold", "snr_threshold", "pe_cache")
+
+
+def _resolve_h0_method(args: argparse.Namespace, sp: argparse.ArgumentParser) -> None:
+    """Refuse the options of another hubble_constant method (set away from their default), check what the method
+    needs, and name the default work directory and outputs after the method."""
+    m = args.method
+    if m == "bright":
+        allowed = set(H0_ALL_METHODS_OPTS + H0_BRIGHT_OPTS + H0_BRIGHT_SHARED_OPTS)
+    elif m == "joint":
+        allowed = set(H0_ALL_METHODS_OPTS + ("inputs",))
+    else:
+        allowed = {a.dest for a in sp._actions} - set(H0_BRIGHT_OPTS) - {"inputs"}
+    bad = [a.option_strings[-1] for a in sp._actions if a.option_strings and a.dest not in allowed | {"help", "method"}
+           and getattr(args, a.dest) != sp.get_default(a.dest)]
+    if bad:
+        raise ValueError(f"{', '.join(bad)}: not an option of hubble_constant --method {m}")
+    if m == "joint" and not args.inputs:
+        raise ValueError("--method joint needs --inputs DIR DIR ...")
+    args.workdir = args.workdir or f"hubble_constant_{m}"
+    if m in ("spectral", "dark"):
+        if m == "spectral" and args.galaxy_catalog:
+            raise ValueError("--galaxy-catalog makes the dark siren: use --method dark")
+        sel = Path(args.workdir).expanduser() / "selection.json"
+        recorded = None
+        if sel.exists():
+            recorded = "dark" if json.loads(sel.read_text()).get("galaxy_catalog") else "spectral"
+        if "prepare" in args.stages:
+            if m == "dark" and not args.galaxy_catalog:
+                raise ValueError("--method dark needs --galaxy-catalog for the prepare stage "
+                                 "(made by the galaxy_catalog mode)")
+        elif recorded and recorded != m:
+            raise ValueError(f"{args.workdir} is a {recorded}-siren work directory: use --method {recorded}")
+        elif m == "dark" and not recorded and not args.galaxy_catalog:
+            raise ValueError(f"{args.workdir} has not been prepared as a dark siren: run the prepare stage with "
+                             "--galaxy-catalog")
+    args.out_report = args.out_report or f"hubble_constant_{m}.html"
+    args.out_summary = args.out_summary or f"hubble_constant_{m}.tsv"
+
+
 def _record_options(args: argparse.Namespace, workdir: str | Path) -> None:
     """The resolved options of the run (command line and --settings file), in <workdir>/options_<mode>.json."""
     d = Path(workdir).expanduser()
@@ -835,6 +907,8 @@ def main(argv=None) -> int:
     try:
         p = build_parser()
         args = _apply_settings_file(p, argv)
+        if args.mode == "hubble_constant":
+            _resolve_h0_method(args, p._mode_parsers["hubble_constant"])
         if args.mode in SETTINGS_MODES:
             _record_options(args, args.workdir)
 
@@ -878,11 +952,32 @@ def main(argv=None) -> int:
             )
             return 0
 
+        if args.mode == "hubble_constant" and args.method == "bright":
+            run_h0_bright(
+                event=args.event, workdir=args.workdir, out_report_html=args.out_report,
+                out_summary_tsv=args.out_summary, pe_labels=args.pe_label, pe_file=args.pe_file,
+                cache_dir=args.cache_dir, pe_cache=args.pe_cache,
+                v_recession=tuple(args.v_recession) if args.v_recession else None,
+                v_peculiar=tuple(args.v_peculiar) if args.v_peculiar else None,
+                redshift=tuple(args.redshift) if args.redshift else None, sky_radius_deg=args.sky_radius,
+                viewing_angle_constraint=tuple(args.viewing_angle) if args.viewing_angle else None,
+                selection=args.selection, sensitivity_release=args.sensitivity_release,
+                sensitivity_file=args.sensitivity_file, far_threshold=args.far_threshold,
+                snr_threshold=args.snr_threshold, h0_range=tuple(args.h0_range),
+            )
+            return 0
+
+        if args.mode == "hubble_constant" and args.method == "joint":
+            run_h0_joint(args.inputs, workdir=args.workdir, out_report_html=args.out_report,
+                         out_summary_tsv=args.out_summary)
+            return 0
+
         if args.mode == "hubble_constant":
             if args.far_threshold <= 0 or args.pe_samples < 10 or args.parallel < 1 or not 0 < args.min_ess_fraction <= 1:
                 raise ValueError("--far-threshold must be > 0, --pe-samples >= 10, --parallel >= 1 and "
                                  "--min-ess-fraction in (0, 1]")
             run_hubble_constant(
+                method=args.method,
                 stages=args.stages,
                 workdir=args.workdir,
                 out_report_html=args.out_report,
@@ -943,29 +1038,16 @@ def main(argv=None) -> int:
             )
             return 0
 
-        if args.mode == "bright_siren":
-            if args.h0_range[0] <= 0 or args.h0_range[1] <= args.h0_range[0] or args.sky_radius <= 0:
-                raise ValueError("--h0-range must be 0 < MIN < MAX and --sky-radius > 0")
-            run_bright_siren(
-                src_name=args.src_name,
-                pe_labels=args.pe_label,
-                pe_file=args.pe_file,
-                cache_dir=args.cache_dir,
+        if args.mode == "counterpart":
+            run_counterpart(
+                event=args.event, ra_deg=args.ra, dec_deg=args.dec, pe_labels=args.pe_label, pe_file=args.pe_file,
+                cache_dir=args.cache_dir, pe_cache=args.pe_cache,
                 v_recession=tuple(args.v_recession) if args.v_recession else None,
                 v_peculiar=tuple(args.v_peculiar) if args.v_peculiar else None,
-                redshift=tuple(args.redshift) if args.redshift else None,
-                selection=args.selection,
-                sensitivity_release=args.sensitivity_release,
-                sensitivity_file=args.sensitivity_file,
-                far_threshold=args.far_threshold,
-                snr_threshold=args.snr_threshold,
-                pe_cache=args.pe_cache,
-                sky_radius_deg=args.sky_radius,
-                spectral_posterior=args.spectral_posterior,
-                h0_range=tuple(args.h0_range),
-                out_report_html=args.out_report,
-                out_summary_tsv=args.out_summary,
-                plots_dir=args.plots_dir,
+                redshift=tuple(args.redshift) if args.redshift else None, sky_radius_deg=args.sky_radius,
+                viewing_angle_constraint=tuple(args.viewing_angle) if args.viewing_angle else None,
+                sky_map=args.sky_map,
+                out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir,
             )
             return 0
 

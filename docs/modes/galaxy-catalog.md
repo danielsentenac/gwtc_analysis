@@ -1,7 +1,7 @@
 # galaxy_catalog
 
 The **galaxy catalog of a dark siren**: galaxies turned into the line-of-sight redshift prior that
-[`hubble_constant --galaxy-catalog`](hubble-constant.md#dark-sirens-with-a-galaxy-catalog) uses, with the
+[`hubble_constant --method dark`](hubble-constant.md#dark-sirens-with-a-galaxy-catalog) uses, with the
 pixelated catalog pipeline of [icarogw](https://github.com/icarogw-developers/icarogw)
 [\[57\]](../references.md#ref-57) (the functions reviewed for the LVK analyses).
 
@@ -10,7 +10,7 @@ A dark siren adds the galaxies to a spectral siren: run the spectral siren of th
 
 ```
 1. galaxy_catalog   galaxies → catalog_<band>_nside<N>_eps<ε>.hdf5      (once per catalog, any machine or cluster)
-2. hubble_constant  --galaxy-catalog <that file>: prepare, sample, ...  (once per event set and mass model)
+2. hubble_constant  --method dark --galaxy-catalog <that file>: prepare, sample, ...  (once per event set and mass model)
 ```
 
 The catalog does not depend on the events or on the mass model: one catalog serves every `hubble_constant` work
@@ -25,9 +25,9 @@ which reproduces the published dark siren
 ```bash
 gwtc_analysis galaxy_catalog --workdir glade_k --jobs 4 --icarogw-python ~/.conda/envs/icarogw/bin/python
 # then the dark siren
-gwtc_analysis hubble_constant --workdir h0_dark_plp --stages prepare \
+gwtc_analysis hubble_constant --method dark --workdir h0_dark_plp --stages prepare \
     --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5
-gwtc_analysis hubble_constant --workdir h0_dark_plp --stages sample combine reweight report \
+gwtc_analysis hubble_constant --method dark --workdir h0_dark_plp --stages sample combine reweight report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --npool 4
 ```
 
@@ -218,7 +218,7 @@ own band definition, which is not in this version.
 
 ## Outputs
 
-- `<workdir>/catalog_<band>_nside<N>_eps<ε>.hdf5`: the catalog for `hubble_constant --galaxy-catalog`;
+- `<workdir>/catalog_<band>_nside<N>_eps<ε>.hdf5`: the catalog for `hubble_constant --method dark --galaxy-catalog`;
 - `<workdir>/summary.json`, `plots/mthr_map.png`, `plots/completeness.png` and `--out-report` (HTML);
 - `<workdir>/catalog_settings.json`, `options_galaxy_catalog.json`: the settings of the catalog and of the run;
 - `<workdir>/pixels/`: the per-pixel files (several GB for deep catalogs; they can be removed once the catalog

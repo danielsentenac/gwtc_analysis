@@ -60,7 +60,7 @@ completeness correction: the galaxies the catalog misses, uniform in comoving vo
 incomplete, the prior is nearly uniform and the event carries almost no redshift information from it. Since GWTC-3
 the LVK fits the mass distribution at the same time, so a "dark siren" result combines the galaxy catalog with the
 spectral siren below. In `gwtc_analysis`, the [galaxy_catalog](../modes/galaxy-catalog.md) mode builds the catalog
-and `hubble_constant --galaxy-catalog` uses it; with GLADE+ the GWTC-4.0 result is reproduced
+and `hubble_constant --method dark` uses it; with GLADE+ the GWTC-4.0 result is reproduced
 ([validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)), and the catalog narrows
 the interval by only a few percent, because GLADE+ is nearly empty at the gigaparsec distances of the black holes.
 

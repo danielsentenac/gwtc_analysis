@@ -1,15 +1,26 @@
 # hubble_constant
 
-The Hubble constant from the binary black holes (BBHs) of the catalogs, with
-[icarogw](https://github.com/icarogw-developers/icarogw) [\[57\]](../references.md#ref-57) and
-bilby [\[58\]](../references.md#ref-58)/dynesty [\[60\]](../references.md#ref-60). The method and its validation
-are explained in [Hubble constant (spectral siren)](../science/spectral-siren.md); this page is about running it.
+The Hubble constant from gravitational-wave events, by four methods (`--method`):
 
-A run is defined by three choices:
+| Method | Redshift information | Events | Runtime | Page |
+|---|---|---|---|---|
+| `spectral` (default) | the BBH mass spectrum: features of the source-frame masses fix the redshift of the detector-frame masses | the BBHs of the catalogs | hours (icarogw, sampling) | this page |
+| `dark` | the mass spectrum and the galaxies along each line of sight, from a catalog built by [galaxy_catalog](galaxy-catalog.md) | the same | hours | [below](#dark-sirens-with-a-galaxy-catalog) |
+| `bright` | the redshift of the identified host of one event | GW170817, the candidate GW190521 | seconds | [bright siren](hubble-constant-bright.md) |
+| `joint` | the product of independent results of the other methods | | seconds | [below](#joint-posterior) |
+
+The dark siren is the spectral siren plus the galaxies: it is never combined with the spectral siren of the same
+events. The LVK's headline results are bright × dark ([joint posterior](#joint-posterior)).
+
+The spectral and dark sirens use [icarogw](https://github.com/icarogw-developers/icarogw)
+[\[57\]](../references.md#ref-57) and bilby [\[58\]](../references.md#ref-58)/dynesty [\[60\]](../references.md#ref-60).
+Their method and validation are explained in [Hubble constant (spectral siren)](../science/spectral-siren.md); the
+rest of this page is about running them, then about the joint posterior. A spectral or dark run is defined by
+three choices:
 
 | Choice | Options | Default |
 |---|---|---|
-| **Where the redshift comes from** | none: the mass spectrum alone (**spectral siren**); `--galaxy-catalog FILE`: the mass spectrum and the galaxies along each line of sight (**dark siren**), with a catalog built by the [galaxy_catalog](galaxy-catalog.md) mode | spectral siren |
+| **Where the redshift comes from** | `--method spectral`: the mass spectrum alone; `--method dark --galaxy-catalog FILE`: the mass spectrum and the galaxies, with a catalog built by the [galaxy_catalog](galaxy-catalog.md) mode | spectral siren |
 | **Which events and injections** | `--sensitivity-release`, `--catalogs`, thresholds ([below](#which-events-and-injections)) | the GWTC-4.0 analysis: 137 BBHs of O1–O4a |
 | **The mass model** | `--mass-model plp` (Power Law + Peak) or `mltp` (Multi Peak) | `plp` |
 
@@ -41,16 +52,16 @@ gwtc_analysis hubble_constant --workdir h0_plp --stages sample combine reweight 
 **Step 2: add the dark siren with GLADE+.** It needs a galaxy catalog file, which `hubble_constant` does not make:
 it is built by another mode, [**galaxy_catalog**](galaxy-catalog.md), once (about an hour on 4 CPUs; its defaults
 are the GLADE+ K-band catalog of the GWTC-4.0 analysis). Then run the same analysis as step 1 in a new work
-directory, with `--galaxy-catalog` pointing to that file; keep the selection options, `--mass-model` and the
+directory, with `--method dark` and `--galaxy-catalog` pointing to that file; keep the selection options, `--mass-model` and the
 sampling settings of step 1 so that the two results compare ([details](#dark-sirens-with-a-galaxy-catalog)):
 
 ```bash
 # 2a. the galaxy catalog, with the galaxy_catalog mode → glade_k/catalog_K-glade+_nside64_eps1.hdf5
 gwtc_analysis galaxy_catalog --workdir glade_k --jobs 4 --icarogw-python ~/.conda/envs/icarogw/bin/python
 # 2b. the dark siren with hubble_constant, reading that catalog
-gwtc_analysis hubble_constant --workdir h0_dark_plp --stages prepare \
+gwtc_analysis hubble_constant --method dark --workdir h0_dark_plp --stages prepare \
     --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5
-gwtc_analysis hubble_constant --workdir h0_dark_plp --stages sample combine reweight report \
+gwtc_analysis hubble_constant --method dark --workdir h0_dark_plp --stages sample combine reweight report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 
@@ -58,11 +69,19 @@ gwtc_analysis hubble_constant --workdir h0_dark_plp --stages sample combine rewe
 sampling stages as a chain of batch jobs ([details](#on-a-slurm-cluster)):
 
 ```bash
-gwtc_analysis hubble_constant --workdir /sps/.../h0_dark_plp --stages sample combine reweight \
+gwtc_analysis hubble_constant --method dark --workdir /sps/.../h0_dark_plp --stages sample combine reweight \
     --seeds 1 2 3 4 5 6 7 8 --npool 8 --icarogw-python /sps/.../venv/bin/python --executor slurm \
     --slurm-option=--partition=htc --slurm-option=--mem=16G --slurm-option=--time=3-00:00:00 \
     --slurm-option=--licenses=sps --submit
-gwtc_analysis hubble_constant --workdir /sps/.../h0_dark_plp --stages report      # when the jobs have finished
+gwtc_analysis hubble_constant --method dark --workdir /sps/.../h0_dark_plp --stages report   # when the jobs have finished
+```
+
+**Step 3, optional: the bright siren and the joint posterior**, in seconds ([bright siren](hubble-constant-bright.md),
+[joint posterior](#joint-posterior)):
+
+```bash
+gwtc_analysis hubble_constant --method bright                          # GW170817 → hubble_constant_bright/
+gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright h0_dark_plp
 ```
 
 ## Stages
@@ -81,7 +100,8 @@ The stages (`--stages`, all by default) share one work directory (`--workdir`) a
 them, and a later run with other values is refused rather than mixed in:
 
 - `prepare` fixes the events, the injections and the redshift source (the [selection options](#which-events-and-injections)
-  and `--galaxy-catalog`); to change them, use another work directory;
+  and `--galaxy-catalog`, hence the method); to change them, use another work directory. The later stages take
+  the method from the work directory: `--method dark` without `--galaxy-catalog`;
 - the first run fixes `--mass-model`, `--nlive`, `--pe-samples` and `--inj-fraction`, and
   `--neff-pe`/`--neff-inj` ([below](#precision-and-speed)).
 
@@ -123,7 +143,8 @@ gwtc_analysis hubble_constant --workdir h0_gwtc5 --stages prepare --sensitivity-
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--galaxy-catalog` | none (spectral siren) | the catalog file made by [galaxy_catalog](galaxy-catalog.md): dark siren ([below](#dark-sirens-with-a-galaxy-catalog)). Given to `prepare`, which records it in `inputs.h5`; the other stages then use it |
+| `--method` | `spectral` | `spectral` or `dark` here; `bright` and `joint` have their own options ([bright siren](hubble-constant-bright.md#options), [joint](#joint-posterior)), and the options of another method are refused |
+| `--galaxy-catalog` | none | with `--method dark`: the catalog file made by [galaxy_catalog](galaxy-catalog.md) ([below](#dark-sirens-with-a-galaxy-catalog)). Given to `prepare`, which records it in `inputs.h5`; the other stages then use it |
 | `--mass-model` | `plp` | BBH primary-mass model: `plp` (Power Law + Peak, Table 3 of [\[29\]](../references.md#ref-29)) or `mltp` (Multi Peak: power law and two Gaussian peaks, Table 4). One work directory per model; `prepare` can be copied (`inputs.h5`) |
 
 The priors are those of the paper (Tables 3, 4 and 6); the merger-rate evolution is the Madau–Dickinson shape
@@ -159,9 +180,9 @@ fitted with H₀ ([below](#merger-rate-evolution)).
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--workdir` | `hubble_constant_run` | the work directory of the analysis |
+| `--workdir` | `hubble_constant_<method>` | the work directory of the analysis |
 | `--stages` | all | stages to run |
-| `--out-report`, `--out-summary` | `hubble_constant.html`, `hubble_constant.tsv` | the report and the quantiles |
+| `--out-report`, `--out-summary` | `hubble_constant_<method>.html`, `.tsv` | the report and the quantiles |
 | `--settings` | none | a file of option values ([below](#settings-file)) |
 
 ### Settings file
@@ -185,13 +206,13 @@ All options with their help text: [CLI reference](../cli-reference.md#hubble_con
 A dark siren adds to the mass spectrum the galaxies along the line of sight of each event: every galaxy is a
 possible host, weighted by its luminosity, and the galaxies the catalog misses (fainter than its threshold) are
 added as a uniform completeness term (icarogw's `CBC_catalog_vanilla_rate` [\[57\]](../references.md#ref-57)
-[\[29\]](../references.md#ref-29)). `--galaxy-catalog` adds the galaxies to the mass spectrum; it does not replace
+[\[29\]](../references.md#ref-29)). `--method dark` adds the galaxies to the mass spectrum; it does not replace
 it: the mass model is still fitted with H₀, and the result is the combination, as the LVK dark sirens since GWTC-3
 (the catalog's own contribution is the difference with the spectral siren of the same events). It takes two modes:
 
 ```
-galaxy_catalog                         hubble_constant --galaxy-catalog FILE
-──────────────                         ─────────────────────────────────────
+galaxy_catalog                         hubble_constant --method dark --galaxy-catalog FILE
+──────────────                         ───────────────────────────────────────────────────
 galaxies (GLADE+, or any catalog)      prepare: events with the sky position of their PE samples
 → threshold map, line-of-sight         sample, combine, reweight: the likelihood reads the catalog
   redshift prior per sky pixel           at the pixel and redshift of every PE sample
@@ -203,12 +224,12 @@ galaxies (GLADE+, or any catalog)      prepare: events with the sky position of 
 1. **Build the catalog** with [galaxy_catalog](galaxy-catalog.md): its defaults are the GLADE+ K-band setup of the
    GWTC-4.0 analysis. The catalog does not depend on the events or the mass model: one catalog serves every
    `hubble_constant` work directory.
-2. **Prepare** with `--galaxy-catalog FILE`. `prepare` keeps the sky position of every PE sample (extracts made
+2. **Prepare** with `--method dark --galaxy-catalog FILE`. `prepare` keeps the sky position of every PE sample (extracts made
    before are made again from the cached PE files) and records the catalog, its settings and its path in `inputs.h5`.
    The injections enter the selection effect through the sky-averaged galaxy density, for which their position
    does not matter; since the LVK injection files carry none, they are given isotropic positions.
 3. **Sample, combine, reweight, report** as for the spectral siren; the stages find the catalog in `inputs.h5`
-   (`--galaxy-catalog` is not needed again). If the work directory moved to another machine, they use the file of
+   (`--method dark`, without `--galaxy-catalog`). If the work directory moved to another machine, they use the file of
    the same name next to `inputs.h5`: copy it there.
 
 Practical points:
@@ -272,6 +293,48 @@ points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injection
   likelihood evaluation with 10% of the injections (1.1 s with all); the reweighting 5–7 min per chunk.
 - One run (seed 1) entered a slow tail (160 s per iteration after 17 h, `dlogz` 0.65) and was cancelled; the chain
   continued with the 7 other runs ([how](#on-a-slurm-cluster)).
+
+## Joint posterior
+
+`--method joint --inputs A B ...` multiplies independent H₀ posteriors: work directories of the other methods
+(spectral or dark: their `posterior_reweighted.tsv`, else `posterior.tsv`; bright: `posterior_grid.tsv`) or
+posterior TSV files (an `H0` column of samples, or an `H0` grid with a `p` column). They share the flat prior of
+10–200 km/s/Mpc, so the joint posterior is their normalized product; samples become a density by a Gaussian
+kernel estimate reflected at the prior bounds.
+
+```bash
+gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright h0_dark_plp
+```
+
+The inputs must be independent, and this is checked:
+
+- at most one spectral or dark siren: the dark siren already contains the spectral siren of its events;
+- no event in two inputs (from the work directories' `events.tsv` and `bright.json`): GW190521 as a bright siren
+  needs a spectral or dark siren run with `--exclude GW190521_030229`.
+
+The report has the table of each input and of the joint result (maximum a posteriori, 68% interval, median, 90%
+interval) and their posteriors:
+
+![Joint H0: GW170817 bright siren and the PLP dark siren](../img/modes/h0_joint_bright_dark.png)
+
+| Input | Maximum a posteriori, 68% | Median, 90% |
+|---|---|---|
+| GW170817 bright siren (LowSpin) | 69.8 (+23.6 / −8.2) | 79.9, 63.0–135.5 |
+| Dark siren, Power Law + Peak, GLADE+ K band (5000 PE samples) | 91.7 (+58.6 / −17.6) | 114.5, 62.2–180.9 |
+| **Joint** | **73.2** (+24.2 / −8.4) | 84.8, 65.3–131.7 |
+| GW170817 with the Power Law + Peak spectral siren instead | 71.7 (+22.3 / −8.0) | |
+| GW170817 with the jet viewing angle (20 ± 3°) × the dark siren | 69.2 (+4.6 / −4.4) | 69.4, 62.2–77.1 |
+
+**Which measurement dominates.** Independent posteriors multiply, so the narrower one sets the result and the
+broader one tilts it. With the GWTC-4.0 Power Law + Peak sirens, GW170817 dominates: its 68% interval is about
+32 km/s/Mpc wide (61.6–93.4), the dark siren's about 75 (81–156), so the dark siren only pushes the result up
+(maximum 69.8 → 73.2). In the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) it is the other way round: with
+235 events, the FullPop-4.0 mass model and the DES-Y6 galaxies, the dark sirens, 68.8 (+14.2 / −13.2), are narrower
+than the LVK's GW170817 bright siren, 79.1 (+27.6 / −12.4), and drive the combination, 71.7 (+9.4 / −7.5). That
+setup (FullPop-4.0, DES-Y6) is not in this version of `gwtc_analysis`.
+
+Outputs: `--out-report` (`hubble_constant_joint.html`), `--out-summary` (the table), `<workdir>/posterior_joint.tsv`
+(the joint and input densities on the H₀ grid), `<workdir>/joint.json` (the inputs) and `<workdir>/plots/h0_joint.png`.
 
 ## The report
 

@@ -134,7 +134,7 @@ def load_event(name: str, spin_prior: str, cache_dir, pe_cache) -> dict:
         if path is None:
             raise ValueError(f"could not build the PE bundle of {name}")
     else:
-        from .bright_siren import _event_pe_file
+        from .counterpart import _event_pe_file
 
         path = _event_pe_file(cfg["pe_event"], Path(pe_cache).expanduser() if pe_cache else hc.default_pe_cache())
     label = cfg["labels"][spin_prior]

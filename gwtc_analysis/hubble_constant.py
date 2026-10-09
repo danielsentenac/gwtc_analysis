@@ -835,9 +835,9 @@ def set_likelihood_settings(workdir: Path, neff_pe: Optional[float] = None, neff
 
 def run_hubble_constant(
     stages: Iterable[str] = STAGES,
-    workdir: str | Path = "hubble_constant_run",
-    out_report_html: Optional[str | Path] = "hubble_constant.html",
-    out_summary_tsv: Optional[str | Path] = "hubble_constant.tsv",
+    workdir: Optional[str | Path] = None,
+    out_report_html: Optional[str | Path] = "",
+    out_summary_tsv: Optional[str | Path] = "",
     sensitivity_release: str = H0_DEFAULT_RELEASE,
     sensitivity_file: Optional[str | Path] = None,
     catalogs: Optional[Iterable[str]] = None,
@@ -867,9 +867,20 @@ def run_hubble_constant(
     reweight_jobs: Optional[int] = None,
     neff_pe: Optional[float] = None,
     neff_inj: Optional[int] = None,
+    method: Optional[str] = None,
 ) -> Optional[pd.DataFrame]:
     """Spectral-siren H0 with the `mass_model` BBH mass distribution, or dark siren with `galaxy_catalog`; see the
-    module docstring for the stages."""
+    module docstring for the stages. `method` (spectral or dark, default from `galaxy_catalog`) names the default
+    work directory and outputs, hubble_constant_<method>; the bright siren and the joint posterior are in
+    `h0_bright.run_h0_bright` and `h0_joint.run_h0_joint`."""
+    method = method or ("dark" if galaxy_catalog else "spectral")
+    if method not in ("spectral", "dark"):
+        raise ValueError(f"run_hubble_constant is the spectral and dark siren, not {method!r}")
+    if method == "spectral" and galaxy_catalog or method == "dark" and "prepare" in set(stages) and not galaxy_catalog:
+        raise ValueError("the dark siren is prepared with a galaxy catalog, the spectral siren without")
+    workdir = workdir or f"hubble_constant_{method}"
+    out_report_html = f"hubble_constant_{method}.html" if out_report_html == "" else out_report_html
+    out_summary_tsv = f"hubble_constant_{method}.tsv" if out_summary_tsv == "" else out_summary_tsv
     if mass_model not in MASS_MODELS:
         raise ValueError(f"Unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
     stages = [s for s in STAGES if s in set(stages)]
