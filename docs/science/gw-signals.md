@@ -28,6 +28,46 @@ h \propto \frac{(G\mathcal{M})^{5/3} (\pi f)^{2/3}}{c^4\, D_L} \times (\text{ori
   Holz & Hughes 2005 [\[18\]](../references.md#ref-18)). The inclination of the orbit is
   partly degenerate with the distance, which is why distances are often uncertain by tens of percent.
 
+## Spins: small going in, fast coming out
+
+The black holes of the catalog spin little before they merge, but the black hole a merger leaves behind spins
+fast. The spin is measured as the dimensionless \(\chi = cJ/(GM^2)\), from 0 (not rotating) to 1 (the maximum
+for a [Kerr black hole](glossary.md)).
+
+- **Going in.** The effective spin \(\chi_\text{eff}\), the mass-weighted spin along the orbit, clusters near
+  zero: the [spin_population](../modes/spin-population.md) mode finds a mean of about 0.04 for equal masses and
+  0.1–0.3 for unequal ones, with a narrow spread (σ ≈ 0.08). Individual spin magnitudes are mostly below about 0.5.
+- **Coming out.** Merger remnants have \(\chi_f \approx 0.6\)–0.8; GW150914 left a 63 M☉ black hole with
+  \(\chi_f = 0.69\) (+0.05 / −0.04) (GWTC-1 [\[1\]](../references.md#ref-1)).
+
+**The remnant's spin comes from the orbit.** Just before the merger the two black holes orbit each other at
+about half the speed of light. Part of that orbital angular momentum is radiated in the gravitational waves; the
+rest cannot disappear and becomes the spin of the remnant. For two equal, non-spinning black holes, numerical
+relativity gives \(\chi_f \approx 0.69\), set by the geometry of the last orbit (final-spin fits: Rezzolla et
+al. 2008 [\[76\]](../references.md#ref-76), used by `catalog_statistics`). Unequal masses give less (the light
+companion brings little angular momentum, and \(\chi_f \to 0\) as the mass ratio goes to 0); spins aligned with
+the orbit give more, up to 0.9 and above, and spins against it less.
+
+**In everyday terms**, a 60 M☉ remnant with \(\chi = 0.7\) has a horizon of about 150 km radius, which turns
+about 110 times per second; in a naive picture its equator moves at about a third of the speed of light.
+
+**Where this enters `gwtc_analysis`:**
+
+- **Hierarchical mergers.** A black hole that is itself the remnant of an earlier merger carries
+  \(\chi \approx 0.7\) into its next merger, far above the small spins of the population. Spins near 0.7, with
+  masses above the pair-instability gap, are the signature looked for in dense clusters and AGN disks, where
+  remnants can merge again. In the [spin_population](../modes/spin-population.md) mode they would appear as a
+  tail of large \(|\chi_\text{eff}|\), as many negative as positive when the spins are isotropic; the
+  Gaussian χ_eff model does not describe such a subpopulation, and GW231123, the most massive and one of the
+  fastest-spinning binaries, is left out of its default event selection.
+- **The area law.** The horizon area \(A = 8\pi (GM/c^2)^2 (1 + \sqrt{1-\chi^2})\) shrinks with the spin at
+  given mass, so the fast remnant spin works against the area increase, and so does the mass radiated (about
+  5% of the total). Area still grows because it scales as the mass squared: one black hole of mass close to
+  \(m_1 + m_2\) has more area than two of masses \(m_1\) and \(m_2\). The [area_law](../modes/area-law.md)
+  mode measures both sides for GW250114.
+- **The remnant of each event.** [parameters_estimation](../modes/parameters-estimation.md) summarizes, for
+  every PE label, the remnant mass and spin stored in the samples.
+
 ## Redshift and the detector frame
 
 The expansion of the Universe stretches the signal on its way: every time scale is multiplied by
