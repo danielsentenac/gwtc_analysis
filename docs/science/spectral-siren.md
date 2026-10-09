@@ -365,6 +365,7 @@ features the mass spectrum has, the better it pins the redshift (spectral sirens
 | GWTC-4.0, PLP (reproduced here) [\[29\]](../references.md#ref-29) | 105.5 (+46.4 / −35.8) |
 | GWTC-4.0 data release, PLP dark siren with GLADE+ K band (reproduced: 114.6 (+41.5 / −33.8) with 5000 PE samples, [validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8) |
 | GWTC-4.0, MLTP (power law with two peaks) [\[29\]](../references.md#ref-29) | 72.3 (+42.5 / −25.6) |
+| GWTC-4.0 data release, MLTP dark siren with GLADE+ K band (reproduced: 86.8 (+39.8 / −26.1) with 5000 PE samples, [validation](../modes/hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)) | 86.3 (+41.3 / −26.3) |
 | GWTC-4.0, FullPop-4.0 (BNS, NSBH and BBH in one mass distribution) [\[29\]](../references.md#ref-29) | 72.9 (+21.9 / −18.8) |
 | GWTC-4.0, FullPop-4.0 + GW170817 [\[29\]](../references.md#ref-29) | 73.4 (+12.8 / −8.6) |
 | GWTC-5.0, spectral sirens + GW170817 + DES-Y6 galaxies (LVK 2026 [\[30\]](../references.md#ref-30)) | 71.7 (+9.4 / −7.5) |
