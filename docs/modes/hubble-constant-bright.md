@@ -65,6 +65,11 @@ the sky fixed to AT2017gfo and are used as they are. Other samples are restricte
 
 ## Registered events
 
+The bright siren uses the built-in list of known counterparts (the `COUNTERPARTS` dictionary of
+`gwtc_analysis/counterpart.py`, described on the [counterpart](counterpart.md#the-list-of-known-counterparts)
+page): for each event, the counterpart's position, the host redshift, the observing run, the PE file and the PE
+labels used by default. In the options below, "from the list" refers to it.
+
 | Event | Host | z | Status | Selection (auto) |
 |---|---|---|---|---|
 | GW170817 | NGC 4993, AT2017gfo | 3017 ± 166 km/s (\(v_r\) 3327 ± 72, \(\langle v_p \rangle\) 310 ± 150) [\[27\]](../references.md#ref-27) | confirmed (kilonova) | euclidean |
@@ -159,13 +164,13 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--event` | `GW170817` | registered event (`GW170817`, `GW190521`) |
-| `--pe-label` | the registry's, else all the labels (LowSpin first) | PE labels; the first one is the result, the one `--method joint` uses |
+| `--event` | `GW170817` | which event of the [list of known counterparts](counterpart.md#the-list-of-known-counterparts): `GW170817` or `GW190521` |
+| `--pe-label` | the labels from the list, else all the labels of the file | which analyses of the PE file to use ([PE labels](counterpart.md#pe-labels)): one H₀ per label; the first one is the result, the one `--method joint` uses |
 | `--pe-file` | the event's bundle or Zenodo file | another PE file (PESummary layout) |
 | `--cache-dir` | `.cache_gwosc` | cache of the unofficial GW170817 bundle |
 | `--pe-cache` | that of the spectral siren | where Zenodo PE files are downloaded |
-| `--v-recession V SIGMA`, `--v-peculiar V SIGMA` | the registry's | velocities of a nearby host, km/s |
-| `--redshift Z SIGMA` | the registry's | Hubble-flow redshift of the host, instead of the velocities |
+| `--v-recession V SIGMA`, `--v-peculiar V SIGMA` | from the list (GW170817) | velocities of a nearby host, km/s: measured recession velocity, and the peculiar velocity subtracted from it |
+| `--redshift Z SIGMA` | from the list (GW190521) | Hubble-flow redshift of the host, instead of the velocities |
 | `--viewing-angle MEAN SIGMA` | none | independent Gaussian constraint on the viewing angle, degrees |
 | `--selection` | `auto` | `euclidean`, `injections` or `auto` |
 | `--sensitivity-release`, `--sensitivity-file` | `gwtc4` | injections of the selection term |
@@ -175,7 +180,7 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 | `--workdir` | `hubble_constant_bright` | the work directory |
 | `--out-report`, `--out-summary` | `hubble_constant_bright.html`, `.tsv` | the report and the summary |
 
-The published comparison is shown only with the registry's velocities or redshift and no viewing-angle constraint.
+The published comparison is shown only with the velocities or redshift from the list and no viewing-angle constraint.
 
 ## Outputs
 

@@ -12,10 +12,50 @@ gwtc_analysis counterpart --event GW190521                  # candidate flare ZT
 gwtc_analysis counterpart --event GW190521 --ra 190 --dec 30   # another position, same host redshift
 ```
 
+## Two notions used by the options
+
+### The list of known counterparts
+
+`gwtc_analysis` has a small built-in list of events with an electromagnetic counterpart (in the code, the
+`COUNTERPARTS` dictionary of `gwtc_analysis/counterpart.py`). `--event` picks one of them, and the list supplies
+everything about the counterpart that the GW data do not give, so that no option is needed for it:
+
+| Event | Counterpart (transient) and its position | Host galaxy and its redshift | PE file read | PE labels used by default |
+|---|---|---|---|---|
+| GW170817 | AT2017gfo, the kilonova: RA 197.4504°, Dec −23.3815° | NGC 4993: recession velocity 3327 ± 72 km/s, peculiar velocity 310 ± 150 km/s, so a Hubble-flow velocity of 3017 ± 166 km/s (z ≈ 0.0101) | the GWTC-1 samples, rebuilt by [build_unofficial_pe](unofficial-pe.md) | both: LowSpin, then HighSpin |
+| GW190521 | ZTF19abanrhr, a flare in an active galactic nucleus (**candidate**): RA 192.4263°, Dec +34.8247° | AGN J124942.3+344929: z = 0.438 ± 0.0015 | the GWTC-2.1 file of GW190521_030229, from Zenodo | `C01:IMRPhenomXPHM` |
+
+The same list serves [`hubble_constant --method bright`](hubble-constant-bright.md#registered-events). In the
+options below, "from the list" means the value of this table. `--ra`/`--dec`, `--redshift`, `--v-recession` and
+`--v-peculiar` override it for one run; a new event needs a new entry in `COUNTERPARTS`.
+
+### PE labels
+
+The PE file of an event does not hold one posterior but several: the LVK analysed each event with several
+waveform models and priors, and each analysis is stored under a **label** (see
+[Waveform models](../science/waveforms.md)). The labels of the two events:
+
+| Event | Labels in its PE file | Difference |
+|---|---|---|
+| GW170817 | `C02:IMRPhenomPv2_NRTidal-LowSpin`, `C02:IMRPhenomPv2_NRTidal-HighSpin` | the same waveform model with two spin priors: dimensionless spins up to 0.05 (as observed in Galactic neutron stars) or up to 0.89 |
+| GW190521 | `C01:IMRPhenomXPHM`, `C01:SEOBNRv4PHM`, `C01:Mixed` | two waveform models, and their samples mixed |
+
+Each label gives its own sky position, distance and inclination, so the results differ slightly from one label to
+the other. `counterpart` analyses every label it is given and writes **one row per label** in the summary; the
+plots and the viewing-angle paragraph use the **first** label. `--pe-label` chooses the labels and their order:
+
+```bash
+gwtc_analysis counterpart --pe-label C02:IMRPhenomPv2_NRTidal-HighSpin   # the high-spin analysis only
+gwtc_analysis counterpart --event GW190521 --pe-label C01:SEOBNRv4PHM    # another waveform model
+```
+
+Without `--pe-label`, the labels of the list above are used; for an event without default labels, all the labels
+of the file, the low-spin ones first. For GW190521 the default is IMRPhenomXPHM because it is the only model with
+enough samples near the flare.
+
 ## What it computes
 
-For each PE label of the event (the counterparts are those of the bright siren:
-[registered events](hubble-constant-bright.md#registered-events)):
+For each PE label:
 
 | Quantity | How |
 |---|---|
@@ -83,18 +123,20 @@ association, whose odds are 1 to 12 depending on the waveform model (Ashton et a
 
 ## Options
 
-| Option | Default | Meaning |
+| Option | Default | What it is for |
 |---|---|---|
-| `--event` | `GW170817` | registered event (`GW170817`, `GW190521`) |
-| `--ra`, `--dec` | the counterpart's | another position to test (degrees), with the same host redshift |
-| `--pe-label` | the registry's, else all the labels (LowSpin first) | PE labels; the plots use the first one |
-| `--pe-file` | the event's bundle or Zenodo file | another PE file (PESummary layout) |
-| `--cache-dir`, `--pe-cache` | `.cache_gwosc`, that of `hubble_constant` | caches of the GW170817 bundle and of the Zenodo PE files |
-| `--v-recession V SIGMA`, `--v-peculiar V SIGMA`, `--redshift Z SIGMA` | the registry's | the host redshift |
-| `--sky-radius` | 3° | line of sight: samples within this angle of the position |
-| `--sky-map` | the event's LVK map | FITS sky map for the searched probability; `none`: from the PE samples |
-| `--viewing-angle MEAN SIGMA` | none | independent Gaussian constraint on the viewing angle, degrees |
-| `--out-report`, `--out-summary`, `--plots-dir` | `counterpart.html`, `counterpart.tsv`, `counterpart_plots` | outputs |
+| `--event` | `GW170817` | which event of the [list of known counterparts](#the-list-of-known-counterparts): `GW170817` or `GW190521`. It sets the counterpart's position, the host redshift and the PE file |
+| `--ra`, `--dec` | the position from the list | test another position on the sky (degrees), for instance another candidate transient; the host redshift stays that of the list unless `--redshift` is given too |
+| `--pe-label` | the labels from the list, else all the labels of the file | which analyses of the PE file to use, and in which order ([PE labels](#pe-labels)); one row per label, plots from the first |
+| `--pe-file` | the event's file (see the list) | read another PE file (PESummary layout, e.g. a newer release or your own run) instead |
+| `--cache-dir` | `.cache_gwosc` | where the rebuilt GW170817 file is kept (as in [build_unofficial_pe](unofficial-pe.md)) |
+| `--pe-cache` | that of `hubble_constant` | where the PE files downloaded from Zenodo are kept (GW190521) |
+| `--redshift Z SIGMA` | from the list (GW190521) | the Hubble-flow redshift of the host and its uncertainty |
+| `--v-recession V SIGMA`, `--v-peculiar V SIGMA` | from the list (GW170817) | for a nearby host, the redshift as velocities (km/s): measured recession velocity, and the peculiar velocity to subtract from it |
+| `--sky-radius` | 3° | when the PE samples are spread over the sky: the samples kept as "along the line of sight", those within this angle of the position. Not used for GW170817, whose samples are all at AT2017gfo |
+| `--sky-map` | the event's LVK sky map | FITS sky map for the searched probability; `none` computes it from the PE samples instead |
+| `--viewing-angle MEAN SIGMA` | none | an independent measurement of the viewing angle (degrees, Gaussian), e.g. from the radio jet of GW170817, to see how it narrows the distance |
+| `--out-report`, `--out-summary`, `--plots-dir` | `counterpart.html`, `counterpart.tsv`, `counterpart_plots` | the HTML report, the summary table (one row per PE label) and the plots |
 
 ## Outputs
 
