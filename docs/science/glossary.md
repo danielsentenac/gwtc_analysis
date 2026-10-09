@@ -17,7 +17,14 @@
 | **FAR** | False-alarm rate: how often noise alone produces a candidate at least this significant (per year) |
 | **p_astro** | Probability that a candidate is astrophysical |
 | **SNR** | Signal-to-noise ratio; the matched-filter SNR compares the data with a template |
-| **Chirp mass** | \(\mathcal{M} = (m_1 m_2)^{3/5}/(m_1+m_2)^{1/5}\), the mass combination that sets the inspiral |
+| **Primary / secondary mass** | The masses of the heavier (\(m_1\)) and the lighter (\(m_2 \le m_1\)) object of a binary; the labels follow the mass, not the history. Population mass models describe the distribution of \(m_1\) and the secondary through the mass ratio ([Masses](gw-signals.md#masses-primary-secondary-and-what-the-signal-measures)) |
+| **Total mass** | \(M = m_1 + m_2\); for heavy binaries, whose merger and ringdown dominate the signal, better measured than the components |
+| **Mass ratio** | \(q = m_2 / m_1\), from 0 to 1 (1 for equal masses); some PE files also give \(1/q\). Measured from higher-order effects, partly degenerate with the aligned spins |
+| **Chirp mass** | \(\mathcal{M} = (m_1 m_2)^{3/5}/(m_1+m_2)^{1/5}\), the mass combination that sets the inspiral, and the best-measured mass (0.1% for GW170817) |
+| **Remnant (final) mass** | Mass of the black hole left by the merger, \(M_f = m_1 + m_2 - E_\text{rad}/c^2\): about 5% less than the total mass (GW150914: 66 → 63.1 M☉) |
+| **Primordial black hole (PBH)** | A black hole formed in the first fraction of a second after the Big Bang from the collapse of a dense region, not from a star; any mass is possible, set by the formation time. A dark-matter candidate, because it forms before the light elements and is not counted as baryons; \(f_\text{PBH}\) is the fraction of the dark matter it would make up ([Primordial black holes](gw-signals.md#primordial-black-holes-and-sub-solar-masses)) |
+| **Sub-solar mass (SSM)** | A compact object below ~1 M☉, which stars do not leave behind as neutron stars or black holes: the cleanest signature of a PBH merger. LVK alerts carry HasSSM, the probability that a component is below 1 M☉ |
+| **Mass gaps** | Lower mass gap, about 3–5 M☉, between the heaviest neutron stars and the lightest black holes; pair-instability gap, above about 50 M☉, where stars should leave no black hole |
 | **z** | Redshift: the stretch of wavelengths and time scales by cosmic expansion |
 | **D_L** | Luminosity distance, measured by the GW amplitude |
 | **Source / detector frame** | Physical masses / redshifted masses \(m_\text{det} = (1+z)\, m_\text{src}\) seen by the detector |
