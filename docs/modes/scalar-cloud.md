@@ -129,8 +129,20 @@ about a day each), 151 jobs of about an hour for the event and the background.
 
 The gain does not accumulate over the inspiral, as a dephasing growing towards low frequencies would: it sits in a
 few bins between 29.8 and 31.9 Hz, mostly in L1, and the cloud fit is slightly worse than vacuum above 35 Hz. The
-noise spectra have no line there. Whether the data around 30 Hz hold a noise fluctuation or the signal is the open
-question; the background says that noise rarely gives as much near this mode.
+noise spectra have no line there. A concentration at low frequency is what this cloud would give: with 38 rad of
+dephasing at 20 Hz, the cloud and vacuum fits are nearly orthogonal below 35 Hz, where the signal has only about 10
+of its ≈ 200 units of SNR², and that is where they differ most. Half their squared distance, \(\frac12\lVert h_\text{cloud}
+- h_\text{vacuum}\rVert^2\), the gain expected from noise-free data holding the cloud signal, is per band:
+
+| | 20–30 Hz | 30–35 Hz | 35–60 Hz | > 60 Hz | total |
+|---|---|---|---|---|---|
+| H1 | 0.89 | 1.33 | 0.50 | 1.69 | 4.42 |
+| L1 | 3.95 | 4.03 | 1.07 | 1.74 | 10.79 |
+| V1 | 0.06 | 0.08 | 0.62 | 2.02 | 2.77 |
+
+The observed gain follows it in L1 between 30 and 35 Hz only, not below 30 Hz nor in H1. Whether the data around
+30 Hz hold a noise fluctuation or the signal is the open question; the background says that noise rarely gives as
+much near this mode.
 
 ![Background of Λ](../img/modes/scalar_cloud_background_GW190728.png)
 
