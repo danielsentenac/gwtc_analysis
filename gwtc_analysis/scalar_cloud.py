@@ -673,6 +673,9 @@ def main(argv=None) -> int:
         sp = sub.add_parser(name)
         sp.add_argument("--workdir", required=True)
         sp.add_argument("--task", type=int, default=0)
+    sub.choices["seeded"].add_argument("--inject", choices=("vacuum", "cloud"), default="vacuum",
+                                       help="signal of the injections: the vacuum best fit (background) or the "
+                                            "event's cloud best fit (sensitivity), output in seeded_cloud/")
     sp = sub.add_parser("seeds", help="cloud-mode starting points from a sampling result of the event")
     sp.add_argument("--workdir", required=True)
     sp.add_argument("--result", required=True)
@@ -729,12 +732,14 @@ def main(argv=None) -> int:
             starts = json.loads((wd / "offsource" / "starts.json").read_text())
             an = Analysis(wd, segment=f"{args.task:03d}")
             inj = dict(vac["params"], rho_phi=0.0)
+            if args.inject == "cloud":
+                inj = json.loads((wd / "seeded" / "event.json").read_text())["params"]
             shift = starts[args.task] - an.s["segment_start"]
             an.inject(inj, shift)
             st = dict(inj, geocent_time=inj["geocent_time"] + shift)
         res = seeded_statistic(an, st, seeds, shift)
-        res.update(segment=name, time_shift=shift)
-        _dump(wd / "seeded" / f"{name}.json", res)
+        res.update(segment=name, time_shift=shift, injection_model=args.inject)
+        _dump(wd / ("seeded" if args.inject == "vacuum" else "seeded_cloud") / f"{name}.json", res)
         _log(f"seeded {name}: Lambda = {res['Lambda']:.2f}")
     elif args.cmd == "background":
         k = f"{args.task:03d}"
