@@ -359,6 +359,30 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-summary` | `area_law.tsv` | Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and <name>.ringdown.tsv). |
 | `--plots-dir` | `area_law_plots` | Directory for the plots. |
 
+### `scalar_cloud`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--event` | `GW190728_064510` | Event name (as in the GWTC PE releases). |
+| `--pe-file` | `` | PE file to read instead of the event's Zenodo file. |
+| `--pe-label` | `C01:IMRPhenomXPHM` | Analysis of the PE file: settings, noise spectra, starting points of the fits. |
+| `--workdir` | `scalar_cloud` | Work directory. |
+| `--stages` | `['prepare', 'fit', 'report']` | Stages to run. |
+| `--sampling-frequency` | `2048.0` | Sampling frequency of the fits (Hz). |
+| `--n-background` | `150` | Off-source injections of the background. |
+| `--jobs` | `1` | Local parallel processes (fit, background, seeded) or sampler pool (sample). |
+| `--sample-models` | `['vacuum', 'agnostic', 'superradiance']` | Models of the sample stage. |
+| `--tau-d` | `1000000.0` | Superradiance prior: years between black-hole formation and merger. |
+| `--npool` | `32` | With --executor slurm: CPUs of each sampling job. |
+| `--executor` | `local` | slurm: the fit, background, sample and seeded stages as sbatch scripts in <workdir>/slurm, <workdir>/slurm_sample and <workdir>/slurm_seeded; run the report stage afterwards. |
+| `--python` | `` | With --executor slurm: Python of the jobs (default: this one). |
+| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc). |
+| `--slurm-env-setup` | `` | Shell lines run first in each Slurm job. |
+| `--submit` | `False` | With --executor slurm: submit the scripts. |
+| `--out-report` | `scalar_cloud.html` | Output HTML report path. |
+| `--out-summary` | `scalar_cloud.tsv` | Output TSV of the fits. |
+
 ### `stochastic`
 
 | Option | Default | Description |

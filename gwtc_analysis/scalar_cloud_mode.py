@@ -242,6 +242,35 @@ def lnl_by_frequency(an, p: dict) -> tuple[np.ndarray, np.ndarray]:
     return f, np.cumsum(contrib)
 
 
+LNL_BANDS = (20.0, 30.0, 35.0, 60.0, None)
+
+
+def lnl_gain_by_band(an, p_cloud: dict, p_vac: dict, edges=LNL_BANDS):
+    """ln L_cloud - ln L_vacuum per detector and frequency band (a table: where the improvement comes from)."""
+    import pandas as pd
+
+    f = an.ifos[0].frequency_array
+    gain = {ifo.name: np.zeros_like(f) for ifo in an.ifos}
+    for sign, p in ((1.0, p_cloud), (-1.0, p_vac)):
+        pol = an.waveform_generator.frequency_domain_strain(p)
+        for ifo in an.ifos:
+            h = ifo.get_detector_response(pol, p)
+            psd = ifo.power_spectral_density_array
+            ok = ifo.frequency_mask & np.isfinite(psd) & (psd > 0)
+            w = np.zeros_like(f)
+            w[ok] = 4.0 / an.s["duration"] / psd[ok]
+            gain[ifo.name] += sign * w * (np.real(np.conj(ifo.frequency_domain_strain) * h) - 0.5 * np.abs(h) ** 2)
+    hi = [e if e is not None else np.inf for e in edges[1:]]
+    cols = [f"{lo:g}–{h:g} Hz" if np.isfinite(h) else f"> {lo:g} Hz" for lo, h in zip(edges[:-1], hi)]
+    rows = []
+    for det, g in gain.items():
+        rows.append(dict(detector=det, **{c: g[(f >= lo) & (f < h)].sum() for c, lo, h in zip(cols, edges[:-1], hi)},
+                         total=g.sum()))
+    tab = pd.DataFrame(rows)
+    tab.loc[len(tab)] = dict(detector="all", **{c: tab[c].sum() for c in cols + ["total"]})
+    return tab
+
+
 def plot_lnl_by_frequency(an, p_cloud: dict, p_vac: dict, out_png: Path) -> Path:
     """Cumulative ln L_cloud - ln L_vacuum against frequency: which part of the signal prefers the cloud."""
     import matplotlib
@@ -268,7 +297,7 @@ def plot_lnl_by_frequency(an, p_cloud: dict, p_vac: dict, out_png: Path) -> Path
 # ---------------------------------------------------------------------------
 # the mode
 # ---------------------------------------------------------------------------
-STAGES = ("prepare", "fit", "background", "sample", "report")
+STAGES = ("prepare", "fit", "background", "sample", "seeded", "report")
 SAMPLE_MODELS = ("vacuum", "agnostic", "superradiance")
 
 
@@ -334,7 +363,25 @@ def write_slurm_chains(workdir: Path, python: str, stages: list[str], n_backgrou
                     pre=pre + ["MODELS=(" + " ".join(models) + ")"])
         out.append(write_chain(workdir / "slurm_sample", python, runner, [step], logs=workdir / "logs",
                                prefix="sc_sample", options=slurm_options, env_setup=env_setup, env=env))
+    if "seeded" in stages:
+        steps = [Step("seeds", ["seeds", "--workdir", wd, "--result", str(_seed_result(workdir, tau_d))],
+                      options=["--cpus-per-task=1", "--mem=4G", "--time=06:00:00"], pre=pre),
+                 Step("seeded", ["seeded", "--workdir", wd, "--task", "$((SLURM_ARRAY_TASK_ID-1))"],
+                      array=n_background + 1, options=["--cpus-per-task=1", "--mem=3G", "--time=1-00:00:00"],
+                      pre=pre)]
+        out.append(write_chain(workdir / "slurm_seeded", python, runner, steps, logs=workdir / "logs",
+                               prefix="sc_seeded", options=slurm_options, env_setup=env_setup, env=env))
     return out
+
+
+def _seed_result(workdir: Path, tau_d: float) -> Path:
+    """The sampling result whose best samples seed the cloud fits: the superradiance prior's."""
+    return Path(workdir) / "sampling" / f"{_sample_label('superradiance', tau_d)}_result.hdf5"
+
+
+def _seeded_worker(args):
+    wd, k = args
+    sc.main(["seeded", "--workdir", wd, "--task", str(k)])
 
 
 def run_scalar_cloud(event: str = "GW190728_064510", workdir: str | Path = "scalar_cloud",
@@ -363,7 +410,7 @@ def run_scalar_cloud(event: str = "GW190728_064510", workdir: str | Path = "scal
         s["event"] = event
         (wd / "event.json").write_text(json.dumps(s, indent=1))
         sc.fetch_strain(wd, n_offsource=n_background, sampling_frequency=sampling_frequency)
-    heavy = [s for s in stages if s in ("fit", "background", "sample")]
+    heavy = [s for s in stages if s in ("fit", "background", "sample", "seeded")]
     if heavy and executor == "slurm":
         scripts = write_slurm_chains(wd, python or sys.executable, heavy, n_background, sample_models, tau_d, npool,
                                      slurm_options, slurm_env_setup)
@@ -386,6 +433,10 @@ def run_scalar_cloud(event: str = "GW190728_064510", workdir: str | Path = "scal
     if "sample" in heavy:
         for m in sample_models:
             sc.sample(wd, m, tau_d if m == "superradiance" else None, npool=max(1, jobs))
+    if "seeded" in heavy:
+        sc.main(["seeds", "--workdir", str(wd), "--result", str(_seed_result(wd, tau_d))])
+        starts = json.loads((wd / "offsource" / "starts.json").read_text())
+        _pool_map(_seeded_worker, [(str(wd), k) for k in range(-1, min(n_background, len(starts)))], jobs)
     result = {}
     if "report" in stages:
         result = write_report(wd, out_report_html, out_summary_tsv, tau_d=tau_d)
@@ -405,7 +456,8 @@ def _sampling_results(wd: Path, tau_d: float) -> dict:
 
             r = bilby.core.result.read_in_result(str(f))
             out[m] = dict(log_evidence=float(r.log_evidence), log_evidence_err=float(r.log_evidence_err),
-                          posterior=r.posterior, log_bayes_factor=float(r.log_bayes_factor))
+                          posterior=r.posterior, log_bayes_factor=float(r.log_bayes_factor),
+                          nlive=(r.sampler_kwargs or {}).get("nlive"))
     return out
 
 
@@ -447,7 +499,7 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
     an = sc.Analysis(wd)
     cat = dict(an.catalog_starts()[0], rho_phi=0.0, alpha_phi=0.1)
     rows = [dict(fit="catalog maximum-likelihood sample (IMRPhenomXPHM)", log_likelihood_ratio=an.lnl(cat))]
-    paras, images, result = [], [], {}
+    paras, images, result, bands = [], [], {}, None
     paras.append(
         f"<b>{event}</b> with the IMRPhenomXPHM_Scalar waveform of Roy et al. (arXiv:2510.17967): IMRPhenomXPHM "
         "plus the angular momentum the binary loses to a scalar cloud of mean density ρ̄ and α = M m<sub>φ</sub> "
@@ -460,6 +512,15 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
                      "phases agree; the difference comes from the noise-spectrum, window and calibration handling, "
                      "and cancels in the comparison of the two models, which use the same likelihood).")
     vac_f, sc_f = wd / "vacuum.json", wd / "scalar.json"
+    seeded_f = wd / "seeded" / "event.json"
+    if seeded_f.exists():
+        # the statistic with the cloud fits started in the cloud mode of the event's nested sampling (it reaches the
+        # mode that fits started from vacuum miss)
+        prof = json.loads(sc_f.read_text())["profile"] if sc_f.exists() else []
+        sc_f = seeded_f
+        bkg_dir = wd / "seeded"
+    else:
+        prof, bkg_dir = None, wd / "background"
     if vac_f.exists():
         vac = json.loads(vac_f.read_text())
         rows.append(dict(fit="vacuum best fit (IMRPhenomXPHM)", log_likelihood_ratio=vac["log_likelihood_ratio"]))
@@ -482,12 +543,21 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
                                          ("catalog max-likelihood sample", cat, COLORS["catalog"]),
                                          ("cloud best fit", p, COLORS["cloud"])], plots / "whitened.png"))
         images.append(plot_lnl_by_frequency(an, p, vac["params"], plots / "lnl_by_frequency.png"))
+        bands = lnl_gain_by_band(an, p, res.get("vacuum", vac)["params"])
         images.append(plot_dephasing(an, p, vac["params"], plots / "dephasing.png"))
-        points = res["profile"]
+        points = res["profile"] if prof is None else prof
         extra = [json.loads(f.read_text()) for f in sorted((wd / "profile_extra").glob("*.json"))] \
             if (wd / "profile_extra").is_dir() else []
-        images.append(plot_profile(points + extra, vac["log_likelihood_ratio"], plots / "profile.png"))
-    bkg = sorted((wd / "background").glob("inj_*.json")) if (wd / "background").is_dir() else []
+        if points:
+            images.append(plot_profile(points + extra, vac["log_likelihood_ratio"], plots / "profile.png"))
+        if seeded_f.exists():
+            paras.append(f"The cloud fits start from the {len(res['fits'])} best samples (at fixed merger time) of "
+                         "the nested sampling of the event with the superradiance prior: fits started from the vacuum "
+                         "best fit stay in its mode, a few ln L units below the cloud mode at a lower chirp mass. The "
+                         "same starting points, moved to the time of each injection, are used on the background, which "
+                         "therefore does not include the event's search of the parameter space: its p-value is "
+                         "optimistic.")
+    bkg = sorted(bkg_dir.glob("inj_*.json")) if bkg_dir.is_dir() else []
     if bkg and "Lambda" in result:
         lams = np.array([json.loads(f.read_text())["Lambda"] for f in bkg])
         pv, k = background_p_value(lams, result["Lambda"])
@@ -507,8 +577,9 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
                 result[f"ln_B_{m}"] = row["ln_B_cloud_vs_vacuum"]
             tab.append(row)
         rows_s = pd.DataFrame(tab)
-        paras.append("<b>Nested sampling</b> (bilby, dynesty, 1000 live points, as the paper): " + "; ".join(
-            f"{r['model']}: ln Z = {r['log_evidence']:.2f} ± {r['log_evidence_err']:.2f}"
+        paras.append("<b>Nested sampling</b> (bilby, dynesty, acceptance-walk; the paper uses 1000 live points): "
+            + "; ".join(
+            f"{r['model']} ({samp[r['model']]['nlive']} live points): ln Z = {r['log_evidence']:.2f} ± {r['log_evidence_err']:.2f}"
             + (f", ln B = {r['ln_B_cloud_vs_vacuum']:.2f}" if "ln_B_cloud_vs_vacuum" in r and
                np.isfinite(r["ln_B_cloud_vs_vacuum"]) else "") for r in tab)
             + f". The paper finds ln B ≈ 0.4 (agnostic) and 3.5 (superradiance, τ_d = 10⁶ yr).")
@@ -528,6 +599,9 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
                                  images=[str(i) for i in images],
                                  tables=[("Fits", table.to_html(index=False, float_format=lambda x: f"{x:.4g}",
                                                                na_rep=""))]
+                                 + ([("ln L cloud − ln L vacuum by detector and frequency band",
+                                      bands.to_html(index=False, float_format=lambda x: f"{x:+.2f}"))]
+                                    if bands is not None else [])
                                  + ([("Evidences", rows_s.to_html(index=False, float_format=lambda x: f"{x:.3f}",
                                                                    na_rep=""))] if samp else []))
         _log(f"report written to {out_report_html}")

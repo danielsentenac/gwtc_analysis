@@ -93,9 +93,9 @@ def test_slurm_chains(tmp_path):
     """fit then background in one chain, the sampling models as one array job in another."""
     from gwtc_analysis.scalar_cloud_mode import write_slurm_chains
 
-    scripts = write_slurm_chains(tmp_path, "/opt/env/bin/python", ["fit", "background", "sample"], 20,
+    scripts = write_slurm_chains(tmp_path, "/opt/env/bin/python", ["fit", "background", "sample", "seeded"], 20,
                                  ["vacuum", "agnostic"], 1e6, 16, ["--partition=htc"])
-    assert [s.parent.name for s in scripts] == ["slurm", "slurm_sample"]
+    assert [s.parent.name for s in scripts] == ["slurm", "slurm_sample", "slurm_seeded"]
     names = sorted(p.name for p in (tmp_path / "slurm").glob("0*.sh"))
     assert names == ["00_vacuum.sh", "01_profile.sh", "02_polish.sh", "03_background.sh"]
     prof = (tmp_path / "slurm" / "01_profile.sh").read_text()
@@ -103,3 +103,6 @@ def test_slurm_chains(tmp_path):
     assert "--array=0-19" in (tmp_path / "slurm" / "03_background.sh").read_text()
     samp = (tmp_path / "slurm_sample" / "00_sample.sh").read_text()
     assert "--array=0-1" in samp and "MODELS=(vacuum agnostic)" in samp and "--cpus-per-task=16" in samp
+    seeded = (tmp_path / "slurm_seeded" / "01_seeded.sh").read_text()
+    assert "--array=0-20" in seeded and "--task $((SLURM_ARRAY_TASK_ID-1))" in seeded
+    assert "superradiance_tau1e06_result.hdf5" in (tmp_path / "slurm_seeded" / "00_seeds.sh").read_text()
