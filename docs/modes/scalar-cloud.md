@@ -111,8 +111,19 @@ about a day each), 151 jobs of about an hour for the event and the background.
 | Λ | **8.98** | |
 | background | 2 of 151 at Λ ≥ 8.98 (the event and one segment with a loud transient, Λ = 112), p = 0.013; 0.007 without that segment; 147 of 150 below 4.1 | |
 | ln B, superradiance prior (τ_d = 10⁶ yr) | **1.34 ± 0.30** | 3.5 |
-| ln B, agnostic prior | (running) | 0.4 |
-| \(\bar\rho_\phi\) (superradiance) | (0.18 ± 0.08) × 10⁸ g/cm³ | ≈ 0.7 × 10⁸ |
+| ln B, agnostic prior (\(\bar\rho_\phi \le 10^9\) g/cm³) | **−0.82 ± 0.31** | 0.4 (upper end of the prior not given) |
+| \(\bar\rho_\phi\), agnostic (90%) | 3.2 (0.9–5.9) × 10⁷ g/cm³ | ≈ 0.7 × 10⁸ |
+| \(\bar\rho_\phi\), superradiance | (0.18 ± 0.08) × 10⁸ g/cm³ | |
+
+The agnostic Bayes factor depends on the upper end of the uniform prior on \(\bar\rho_\phi\), which the paper does not
+give. The posterior lies below \(6 \times 10^7\) g/cm³; lowering the upper end (the prior fraction drawn from the
+prior itself, the cloud-mass cap barely acts there):
+
+| upper end of \(\bar\rho_\phi\) (g/cm³) | 10⁹ | 5 × 10⁸ | 3 × 10⁸ | 2 × 10⁸ | 10⁸ | 5 × 10⁷ |
+|---|---|---|---|---|---|---|
+| ln B, agnostic | −0.82 | −0.16 | 0.34 | 0.73 | 1.40 | 1.90 |
+
+The paper's 0.4 corresponds to an upper end near \(3 \times 10^8\) g/cm³.
 
 ![Whitened strain of GW190728 with the catalog, vacuum and cloud fits](../img/modes/scalar_cloud_whitened_GW190728.png)
 
@@ -149,8 +160,9 @@ much near this mode.
 ![Posteriors of the density and of the scalar mass](../img/modes/scalar_cloud_cloud_posteriors_GW190728.png)
 
 **Against the paper.** Same mode (a lower chirp mass compensated by the dephasing, a density of 10⁷ g/cm³, α of a
-few 0.1), a likelihood gain of 4.5 against their 4–5, but a smaller Bayes factor with the superradiance prior (1.3
-against 3.5) and a density about 4 times lower. Differences that can contribute: the frame of the correction (J
+few 0.1), a likelihood gain of 4.5 against their 4–5, an agnostic Bayes factor that matches theirs for a prior up
+to about \(3 \times 10^8\) g/cm³, but a smaller Bayes factor with the superradiance prior (1.3 against 3.5) and a
+density 2 to 4 times lower. Differences that can contribute: the frame of the correction (J
 frame here, co-precessing there), the PSDs and the likelihood (ln L 7 below the PE file's), 500 live points instead
 of 1000, and the normalisation of the torque, which sets the density for a given dephasing.
 
