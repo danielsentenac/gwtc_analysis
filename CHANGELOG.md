@@ -36,7 +36,8 @@ the vacuum IMRPhenomXPHM of the catalog, on GWTC PE settings and GWOSC strain. S
 `background`, `sample` (nested sampling with the paper's agnostic and superradiance priors: the Bayes factor),
 `seeded` (the best-fit statistic Λ with the cloud fits started in the cloud mode found by the sampling, on the event
 and on off-source injections: its p-value), `report`; `--executor slurm` for the cluster stages. For GW190728:
-Λ = 8.98, p ≈ 0.01 against 150 injections, ln B = 1.34 with the superradiance prior (the paper finds 3.5); the
+Λ = 8.98, p ≈ 0.01 against 150 injections, ln B = 1.34 with the superradiance prior (the paper finds 3.5), −0.82 with the agnostic prior up to 10⁹ g/cm³
+(0.34 up to 3 × 10⁸, the paper finds 0.4); the
 improvement is concentrated near 30 Hz, mostly in L1.
 
 ### Removed: `bright_siren`
