@@ -98,7 +98,8 @@ The binary priors are those of the GWTC-2.1 analysis. The merger time is margina
 ## GW190728_064510
 
 CC-IN2P3 (`--executor slurm`): the vacuum sampling with 1000 live points, the two cloud samplings with 500 (64 CPUs,
-about a day each), 151 jobs of about an hour for the event and the background.
+about a day each), 151 jobs of about an hour for the event and the background, 150 for the injections of the cloud
+best fit (`scalar_cloud.py seeded --inject cloud`).
 
 | | ln L ratio | Note |
 |---|---|---|
@@ -110,6 +111,7 @@ about a day each), 151 jobs of about an hour for the event and the background.
 |---|---|---|
 | Λ | **8.98** | |
 | background | 2 of 151 at Λ ≥ 8.98 (the event and one segment with a loud transient, Λ = 112), p = 0.013; 0.007 without that segment; 147 of 150 below 4.1 | |
+| injections of the cloud best fit (sensitivity) | Λ = 25 (5–95%: 9.9–44); 4.7% at or below the event's 8.98 | |
 | ln B, superradiance prior (τ_d = 10⁶ yr) | **1.34 ± 0.30** | 3.5 |
 | ln B, agnostic prior (\(\bar\rho_\phi \le 10^9\) g/cm³) | **−0.82 ± 0.31** | 0.4 (upper end of the prior not given) |
 | \(\bar\rho_\phi\), agnostic (90%) | 3.2 (0.9–5.9) × 10⁷ g/cm³ | ≈ 0.7 × 10⁸ |
@@ -155,7 +157,13 @@ The observed gain follows it in L1 between 30 and 35 Hz only, not below 30 Hz no
 30 Hz hold a noise fluctuation or the signal is the open question; the background says that noise rarely gives as
 much near this mode.
 
-![Background of Λ](../img/modes/scalar_cloud_background_GW190728.png)
+![Background of Λ and injections of the cloud best fit](../img/modes/scalar_cloud_background_GW190728.png)
+
+**Between two distributions.** The same procedure on the event's cloud best fit injected into the 150 off-source
+segments gives Λ around 25, the density and α recovered without bias (median 8.4 × 10⁶ g/cm³ and 0.16 for 5.8 × 10⁶
+and 0.19 injected): 4.7% of these injections give Λ ≤ 8.98. The event is above what noise gives around vacuum
+(p ≈ 0.01) and below what this cloud would give (≈ 5%): a weaker effect, or a noise fluctuation at 30 Hz on a
+vacuum signal, fits both better than the best-fit cloud.
 
 ![Posteriors of the density and of the scalar mass](../img/modes/scalar_cloud_cloud_posteriors_GW190728.png)
 
