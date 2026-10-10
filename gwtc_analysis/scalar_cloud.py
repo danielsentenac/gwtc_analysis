@@ -443,6 +443,7 @@ class Analysis:
 # the fixed procedure that defines the statistic, identical on the event and on the background
 ALPHAS = (0.02, 0.04, 0.07, 0.1, 0.15, 0.2, 0.3)
 DEPHASING_TARGETS = (0.5, 2.0, 8.0, 30.0)          # |Delta Psi_22(f_low)| in rad: the densities of the profile
+CHIRP_MASS_SHIFTS = (0.0, -0.02, -0.04, -0.06)    # starts of the profile fits, relative to the vacuum best fit
 VACUUM_MAXFEV, PROFILE_MAXFEV, POLISH_MAXFEV, N_POLISH = 2500, 1200, 3000, 2
 
 
@@ -463,8 +464,20 @@ def profile_point(an: Analysis, vacuum: dict, i: int, alpha: float | None = None
     alpha = ALPHAS[i // len(DEPHASING_TARGETS)] if alpha is None else alpha
     target = DEPHASING_TARGETS[i % len(DEPHASING_TARGETS)] if target is None else target
     rho = an.density_for_dephasing(vacuum["params"], alpha, target)
-    p, l = an.fit(vacuum["params"], rho=rho, alpha=alpha, maxfev=PROFILE_MAXFEV)
-    return dict(index=i, alpha=alpha, target_dephasing=target, rho=rho, params=p, log_likelihood_ratio=l)
+    best = None
+    # a strong dephasing at low frequency is partly compensated by a lower chirp mass (Roy et al., Fig. 8): the
+    # binary is re-fitted from the vacuum best fit and from starts with the chirp mass lowered and the spins
+    # in the orbital plane
+    for shift in CHIRP_MASS_SHIFTS:
+        start = dict(vacuum["params"])
+        if shift:
+            start["chirp_mass"] *= 1 + shift
+            start["tilt_1"] = start["tilt_2"] = pi / 2
+        p, l = an.fit(start, rho=rho, alpha=alpha, maxfev=PROFILE_MAXFEV, step=0.5 if shift else 0.3)
+        if best is None or l > best[1]:
+            best = (p, l, shift)
+    return dict(index=i, alpha=alpha, target_dephasing=target, rho=rho, params=best[0],
+                log_likelihood_ratio=best[1], chirp_mass_shift_of_start=best[2])
 
 
 def polish(an: Analysis, points: list[dict], vacuum: dict) -> dict:
