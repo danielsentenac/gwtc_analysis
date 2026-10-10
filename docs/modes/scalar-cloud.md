@@ -8,8 +8,9 @@ tentative evidence for a scalar environment.
 
 ```bash
 gwtc_analysis scalar_cloud                                     # GW190728: prepare, best fit, report (laptop, ~2 h)
-gwtc_analysis scalar_cloud --stages fit background sample --executor slurm --submit \
+gwtc_analysis scalar_cloud --stages sample --executor slurm --submit \
     --python /path/to/env/bin/python --slurm-option=--partition=htc --slurm-option=--licenses=sps
+gwtc_analysis scalar_cloud --stages seeded --executor slurm --submit ...   # once the superradiance sampling is done
 gwtc_analysis scalar_cloud --stages report                     # once the jobs are done
 ```
 
@@ -61,8 +62,10 @@ dephase the (2, 2) mode by about 1.6 rad at 20 Hz and 0.13 rad at 30 Hz.
 
 **Best fit.** The vacuum model is fitted from the catalog's best samples (Nelder–Mead in coordinates whitened by
 the covariance of the 2000 highest-likelihood samples: the likelihood is too narrow for a plain optimizer). The cloud
-model is then profiled on a grid of α and of the dephasing at the lowest frequency (0.5, 2, 8 and 30 rad, which sets
-\(\bar\rho_\phi\)), re-fitting the binary at each point, and the best points are refined with the cloud free. The
+model has a separate mode at a lower chirp mass (the paper's Fig. 8), which fits started from the vacuum best fit do
+not reach: they stay within a few tenths of ln L of vacuum. The cloud fits therefore start from the 4 best samples of
+the nested sampling of the event with the superradiance prior (the merger time of each set by a scan of the
+fixed-time likelihood, the sampling marginalizes it), and are run twice with the binary and the cloud free. The
 statistic is
 
 \[
@@ -71,9 +74,15 @@ statistic is
 
 The cloud model contains vacuum, so Λ is positive even without a cloud, and its distribution is not the textbook
 χ² with two degrees of freedom: the density sits at the edge of its range, and α does nothing when it vanishes.
+A first version profiled the cloud on a grid of α and of the dephasing at 20 Hz from the vacuum best fit (still in
+the code, the `profile` and `polish` stages): Λ = 0.96 for GW190728, the cloud mode missed.
 
 **Background.** The vacuum best fit is injected into off-source GWOSC noise, within an hour of the event, and the
-same procedure is run on each segment. The fraction of the background with Λ at least the event's is its p-value.
+same procedure is run on each segment, from the same starting points moved to the time of the injection. The
+fraction of the background with Λ at least the event's is its p-value. The starting points come from the event's
+own posterior: the background measures how often noise produces, in that region of the parameter space, an
+improvement as large as the event's, not how often it does so anywhere (the event's sampling searched the whole
+prior). The p-value is in that sense optimistic.
 
 **Bayes factor.** Nested sampling (bilby, dynesty, acceptance-walk, naccept 60, dlogz 0.1) of the vacuum model
 and of the cloud model with two priors on the field:
@@ -85,6 +94,53 @@ and of the cloud model with two priors on the field:
 
 The binary priors are those of the GWTC-2.1 analysis. The merger time is marginalized; the distance is sampled
 (the correction depends on the redshift, so the waveform is not simply proportional to \(1/d_L\)).
+
+## GW190728_064510
+
+CC-IN2P3 (`--executor slurm`): the vacuum sampling with 1000 live points, the two cloud samplings with 500 (64 CPUs,
+about a day each), 151 jobs of about an hour for the event and the background.
+
+| | ln L ratio | Note |
+|---|---|---|
+| catalog maximum-likelihood sample | 89.60 | 96.8 in the PE file (see Limits) |
+| vacuum best fit | 91.81 | Mc = 10.07 M☉, q = 0.55 (detector frame) |
+| cloud best fit | **96.30** | Mc = 10.11 M☉, q = 0.58, \(\bar\rho_\phi\) = 5.8 × 10⁶ g/cm³, α = 0.19 (\(m_\phi\) = 1.1 × 10⁻¹² eV), cloud mass 10⁻⁴ M, 38 rad of dephasing at 20 Hz |
+
+| Result | Here | Roy et al. |
+|---|---|---|
+| Λ | **8.98** | |
+| background | 2 of 151 at Λ ≥ 8.98 (the event and one segment with a loud transient, Λ = 112), p = 0.013; 0.007 without that segment; 147 of 150 below 4.1 | |
+| ln B, superradiance prior (τ_d = 10⁶ yr) | **1.34 ± 0.30** | 3.5 |
+| ln B, agnostic prior | (running) | 0.4 |
+| \(\bar\rho_\phi\) (superradiance) | (0.18 ± 0.08) × 10⁸ g/cm³ | ≈ 0.7 × 10⁸ |
+
+![Whitened strain of GW190728 with the catalog, vacuum and cloud fits](../img/modes/scalar_cloud_whitened_GW190728.png)
+
+![Cumulative ln L of the cloud best fit over vacuum against frequency](../img/modes/scalar_cloud_lnl_by_frequency_GW190728.png)
+
+**Where the improvement comes from.** ln L cloud − ln L vacuum by detector and band:
+
+| | 20–30 Hz | 30–35 Hz | 35–60 Hz | > 60 Hz | total |
+|---|---|---|---|---|---|
+| H1 | +2.15 | +0.31 | −0.59 | −0.91 | +0.96 |
+| L1 | −0.55 | **+4.69** | −0.40 | −0.77 | +2.96 |
+| V1 | −0.15 | +0.17 | +0.42 | +0.12 | +0.57 |
+| all | +1.45 | **+5.17** | −0.57 | −1.56 | +4.49 |
+
+The gain does not accumulate over the inspiral, as a dephasing growing towards low frequencies would: it sits in a
+few bins between 29.8 and 31.9 Hz, mostly in L1, and the cloud fit is slightly worse than vacuum above 35 Hz. The
+noise spectra have no line there. Whether the data around 30 Hz hold a noise fluctuation or the signal is the open
+question; the background says that noise rarely gives as much near this mode.
+
+![Background of Λ](../img/modes/scalar_cloud_background_GW190728.png)
+
+![Posteriors of the density and of the scalar mass](../img/modes/scalar_cloud_cloud_posteriors_GW190728.png)
+
+**Against the paper.** Same mode (a lower chirp mass compensated by the dephasing, a density of 10⁷ g/cm³, α of a
+few 0.1), a likelihood gain of 4.5 against their 4–5, but a smaller Bayes factor with the superradiance prior (1.3
+against 3.5) and a density about 4 times lower. Differences that can contribute: the frame of the correction (J
+frame here, co-precessing there), the PSDs and the likelihood (ln L 7 below the PE file's), 500 live points instead
+of 1000, and the normalisation of the torque, which sets the density for a given dephasing.
 
 ## Limits
 
@@ -104,16 +160,16 @@ The binary priors are those of the GWTC-2.1 analysis. The merger time is margina
 | `--event` | `GW190728_064510` | the event (name of the GWTC PE releases) |
 | `--pe-file`, `--pe-label` | the event's Zenodo file, `C01:IMRPhenomXPHM` | settings, noise spectra and starting points |
 | `--workdir` | `scalar_cloud` | work directory |
-| `--stages` | `prepare fit report` | among `prepare fit background sample report` |
+| `--stages` | `prepare fit report` | among `prepare fit background sample seeded report` (`seeded`: the event and the background with the cloud fits started from the superradiance sampling, which it needs) |
 | `--sampling-frequency` | 2048 | Hz |
 | `--n-background` | 150 | off-source injections |
-| `--jobs` | 1 | local parallel processes (fit, background), sampler pool (sample) |
+| `--jobs` | 1 | local parallel processes (fit, background, seeded), sampler pool (sample) |
 | `--sample-models` | `vacuum agnostic superradiance` | models of the sample stage |
 | `--tau-d` | 10⁶ | superradiance prior: years between black-hole formation and merger |
-| `--executor` | `local` | `slurm`: the heavy stages as sbatch scripts in `<workdir>/slurm` and `<workdir>/slurm_sample` |
+| `--executor` | `local` | `slurm`: the heavy stages as sbatch scripts in `<workdir>/slurm`, `<workdir>/slurm_sample` and `<workdir>/slurm_seeded` |
 | `--python`, `--slurm-option`, `--slurm-env-setup`, `--submit`, `--npool` | | Slurm: the jobs' interpreter, extra #SBATCH options, setup lines, submission, CPUs of each sampling job |
 | `--out-report`, `--out-summary` | `scalar_cloud.html`, `scalar_cloud.tsv` | report and table of the fits |
 
 Cost for GW190728 (16 s at 2048 Hz): a vacuum likelihood 0.035 s, a cloud likelihood 0.2 s (the modes of LAL). The
-best fit takes about 2 CPU-hours, each background injection about 2, the nested sampling of the cloud models days of
-CPU (a cluster job).
+best fit takes about 2 CPU-hours, each background injection about 2 (1 with `seeded`), the nested sampling of the
+cloud models about a day on 64 CPUs with 500 live points (a cluster job).

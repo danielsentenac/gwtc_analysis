@@ -503,6 +503,49 @@ def statistic(an: Analysis, starts: list[dict]) -> dict:
     return res
 
 
+N_SEEDS, SEEDED_MAXFEV, SEEDED_STEPS = 4, 2000, (0.1, 0.05)
+
+
+def cloud_seeds(an: Analysis, posterior, n_top: int = 25, n_seeds: int = N_SEEDS) -> list[dict]:
+    """Starting points in the cloud mode: the highest-likelihood samples of a nested-sampling posterior of the
+    event (time marginalized: the merger time of each is set by a scan of the fixed-time likelihood), the n_seeds
+    best at fixed time."""
+    keys = FIT_KEYS + SKY_KEYS + ["rho_phi", "alpha_phi"]
+    t0 = float(an.catalog["geocent_time"][0])
+    out = []
+    for _, row in posterior.sort_values("log_likelihood", ascending=False).head(n_top).iterrows():
+        p = {k: float(row[k]) for k in keys if k in row}
+        best = (-np.inf, t0)
+        for grid in (lambda c: c + np.arange(-0.02, 0.02, 2.5e-4), lambda c: c + np.arange(-3e-4, 3e-4, 1e-5)):
+            for tc in grid(best[1]):
+                l = an.lnl(dict(p, geocent_time=tc))
+                if l > best[0]:
+                    best = (l, tc)
+        p["geocent_time"] = best[1]
+        out.append(dict(params=p, log_likelihood_ratio=best[0]))
+    return sorted(out, key=lambda d: -d["log_likelihood_ratio"])[:n_seeds]
+
+
+def seeded_statistic(an: Analysis, vacuum_start: dict, seeds: list[dict], time_shift: float = 0.0) -> dict:
+    """The statistic with the cloud fits started in the cloud mode: vacuum fit from vacuum_start, then free fits
+    (binary and cloud, Nelder-Mead twice) from each seed moved by time_shift s. Identical on the event
+    (time_shift 0) and on the injections."""
+    vac = fit_vacuum(an, [vacuum_start])
+    best = (dict(vac["params"]), vac["log_likelihood_ratio"])
+    fits = []
+    for s in seeds:
+        p = dict(s["params"], geocent_time=s["params"]["geocent_time"] + time_shift)
+        l = an.lnl(p)
+        for step in SEEDED_STEPS:
+            p, l = an.fit(p, rho=p["rho_phi"], alpha=p["alpha_phi"], free_cloud=True, maxfev=SEEDED_MAXFEV, step=step)
+        _log(f"cloud fit from seed: ln L = {l:.2f} (rho {p['rho_phi']:.3g}, alpha {p['alpha_phi']:.3f})")
+        fits.append(dict(params=p, log_likelihood_ratio=l))
+        if l > best[1]:
+            best = (p, l)
+    return dict(params=best[0], log_likelihood_ratio=best[1], Lambda=2 * (best[1] - vac["log_likelihood_ratio"]),
+                vacuum_log_likelihood_ratio=vac["log_likelihood_ratio"], vacuum=vac, fits=fits)
+
+
 # ---------------------------------------------------------------------------
 # nested sampling: the evidences of vacuum and of a cloud (the paper's Bayes factor)
 # ---------------------------------------------------------------------------
@@ -626,10 +669,13 @@ def main(argv=None) -> int:
 
     ap = argparse.ArgumentParser(prog="scalar_cloud.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("vacuum", "profile", "polish", "background"):
+    for name in ("vacuum", "profile", "polish", "background", "seeded"):
         sp = sub.add_parser(name)
         sp.add_argument("--workdir", required=True)
         sp.add_argument("--task", type=int, default=0)
+    sp = sub.add_parser("seeds", help="cloud-mode starting points from a sampling result of the event")
+    sp.add_argument("--workdir", required=True)
+    sp.add_argument("--result", required=True)
     sp = sub.add_parser("extra", help="profile points beyond the grid of the statistic (for the figures)")
     sp.add_argument("--workdir", required=True)
     sp.add_argument("--alpha", type=float, required=True)
@@ -667,6 +713,29 @@ def main(argv=None) -> int:
     elif args.cmd == "sample":
         sample(wd, args.model, args.tau_d if args.model == "superradiance" else None, npool=args.npool,
                nlive=args.nlive)
+    elif args.cmd == "seeds":
+        import bilby
+
+        an = Analysis(wd)
+        post = bilby.core.result.read_in_result(args.result).posterior
+        _dump(wd / "cloud_seeds.json", cloud_seeds(an, post))
+    elif args.cmd == "seeded":                     # task -1: the event; k >= 0: off-source injection k
+        seeds = json.loads((wd / "cloud_seeds.json").read_text())
+        vac = json.loads((wd / "vacuum.json").read_text())
+        if args.task < 0:
+            an, shift, st, name = Analysis(wd), 0.0, vac["params"], "event"
+        else:
+            name = f"inj_{args.task:03d}"
+            starts = json.loads((wd / "offsource" / "starts.json").read_text())
+            an = Analysis(wd, segment=f"{args.task:03d}")
+            inj = dict(vac["params"], rho_phi=0.0)
+            shift = starts[args.task] - an.s["segment_start"]
+            an.inject(inj, shift)
+            st = dict(inj, geocent_time=inj["geocent_time"] + shift)
+        res = seeded_statistic(an, st, seeds, shift)
+        res.update(segment=name, time_shift=shift)
+        _dump(wd / "seeded" / f"{name}.json", res)
+        _log(f"seeded {name}: Lambda = {res['Lambda']:.2f}")
     elif args.cmd == "background":
         k = f"{args.task:03d}"
         starts = json.loads((wd / "offsource" / "starts.json").read_text())

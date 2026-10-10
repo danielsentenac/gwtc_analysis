@@ -561,6 +561,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  background: the same procedure on the vacuum best fit injected into the off-source segments (p-value);\n"
             "  sample    : nested sampling (bilby, dynesty, the paper's settings) of vacuum, agnostic and superradiance\n"
             "              priors, hence the Bayes factor (a cluster job);\n"
+            "  seeded    : Lambda with the cloud fits started from the best samples of the superradiance sampling\n"
+            "              (the cloud mode, missed from vacuum), on the event and on the background (after sample);\n"
             "  report    : HTML report with the whitened strain, the fits, the background and the evidences.\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
@@ -571,19 +573,20 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Analysis of the PE file: settings, noise spectra, starting points of the fits.")
     p_sc.add_argument("--workdir", default="scalar_cloud", help="Work directory.")
     p_sc.add_argument("--stages", nargs="+", default=["prepare", "fit", "report"],
-                      choices=["prepare", "fit", "background", "sample", "report"], help="Stages to run.")
+                      choices=["prepare", "fit", "background", "sample", "seeded", "report"], help="Stages to run.")
     p_sc.add_argument("--sampling-frequency", type=float, default=2048.0, help="Sampling frequency of the fits (Hz).")
     p_sc.add_argument("--n-background", type=int, default=150, help="Off-source injections of the background.")
     p_sc.add_argument("--jobs", type=int, default=1,
-                      help="Local parallel processes (fit, background) or sampler pool (sample).")
+                      help="Local parallel processes (fit, background, seeded) or sampler pool (sample).")
     p_sc.add_argument("--sample-models", nargs="+", default=["vacuum", "agnostic", "superradiance"],
                       choices=["vacuum", "agnostic", "superradiance"], help="Models of the sample stage.")
     p_sc.add_argument("--tau-d", type=float, default=1e6,
                       help="Superradiance prior: years between black-hole formation and merger.")
     p_sc.add_argument("--npool", type=int, default=32, help="With --executor slurm: CPUs of each sampling job.")
     p_sc.add_argument("--executor", choices=("local", "slurm"), default="local",
-                      help="slurm: the fit, background and sample stages as sbatch scripts in <workdir>/slurm and "
-                           "<workdir>/slurm_sample; run the report stage afterwards.")
+                      help="slurm: the fit, background, sample and seeded stages as sbatch scripts in "
+                           "<workdir>/slurm, <workdir>/slurm_sample and <workdir>/slurm_seeded; run the report stage "
+                           "afterwards.")
     p_sc.add_argument("--python", default=None, help="With --executor slurm: Python of the jobs (default: this one).")
     p_sc.add_argument("--slurm-option", action="append", default=[], metavar="OPT",
                       help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc).")
