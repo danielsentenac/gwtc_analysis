@@ -200,15 +200,26 @@ def plot_profile(points: list[dict], ln_vac: float, out_png: Path) -> Path:
     return out_png
 
 
-def plot_background(lams: np.ndarray, lam_event: float, out_png: Path) -> Path:
+def plot_background(lams: np.ndarray, lam_event: float, out_png: Path,
+                    lams_cloud: Optional[np.ndarray] = None) -> Path:
+    """The background (vacuum injections) and, when given, the cloud injections, against the event; the x axis stops
+    at 1.15 times the 99th percentile (or the event): the values beyond (a noise transient) are counted in the legend."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    every = np.concatenate([lams] + ([lams_cloud] if lams_cloud is not None else []))
+    top = max(np.percentile(every, 99), lam_event) * 1.15 + 1e-9
+    bins = np.linspace(0, top, 40)
     fig, ax = plt.subplots(figsize=(7.5, 3.4))
-    bins = np.linspace(0, max(lams.max(), lam_event) * 1.1 + 1e-9, 30)
-    ax.hist(lams, bins=bins, color=COLORS["vacuum"], alpha=0.75, label=f"background: {len(lams)} vacuum injections")
+    off = (lams > top).sum()
+    ax.hist(np.minimum(lams, top), bins=bins, color=COLORS["vacuum"], alpha=0.75,
+            label=f"background: {len(lams)} vacuum injections" + (f" ({off} off scale)" if off else ""))
+    if lams_cloud is not None:
+        off = (lams_cloud > top).sum()
+        ax.hist(np.minimum(lams_cloud, top), bins=bins, color=COLORS["catalog"], alpha=0.55,
+                label=f"{len(lams_cloud)} injections of the cloud best fit" + (f" ({off} off scale)" if off else ""))
     ax.axvline(lam_event, color=COLORS["cloud"], lw=2, label=f"GW event: Λ = {lam_event:.2f}")
     _style(ax)
     ax.set_xlabel("Λ = 2 (ln L_cloud − ln L_vacuum)", color=INK2, fontsize=9)
@@ -562,7 +573,17 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
         lams = np.array([json.loads(f.read_text())["Lambda"] for f in bkg])
         pv, k = background_p_value(lams, result["Lambda"])
         result.update(background_n=len(lams), p_value=pv)
-        images.append(plot_background(lams, result["Lambda"], plots / "background.png"))
+        cloud_inj = sorted((wd / "seeded_cloud").glob("inj_*.json")) if bkg_dir.name == "seeded" else []
+        lams_c = np.array([json.loads(f.read_text())["Lambda"] for f in cloud_inj]) if cloud_inj else None
+        images.append(plot_background(lams, result["Lambda"], plots / "background.png", lams_c))
+        if lams_c is not None:
+            frac = float((lams_c <= result["Lambda"]).mean())
+            result.update(cloud_injections_n=len(lams_c), cloud_injections_fraction_below_event=frac)
+            q5, q50, q95 = np.percentile(lams_c, [5, 50, 95])
+            paras.append(f"<b>Sensitivity.</b> {len(lams_c)} injections of the cloud best fit into the same segments, "
+                         f"same procedure: Λ = {q50:.1f} (5–95%: {q5:.1f}–{q95:.1f}); {frac:.1%} of them at or below "
+                         f"the event's Λ. The event lies between the two distributions: above what noise gives "
+                         "around vacuum, below what this cloud would give.")
         paras.append(f"<b>Background.</b> {len(lams)} injections of the vacuum best fit into off-source GWOSC noise "
                      f"within an hour of the event, analysed with the same procedure: Λ ≥ {result['Lambda']:.2f} in "
                      f"{k} of them, p = {pv:.3f}. Median background Λ = {np.median(lams):.2f}, 90th percentile "
