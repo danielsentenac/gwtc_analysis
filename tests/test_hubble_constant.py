@@ -49,7 +49,10 @@ def test_choose_label_prefers_the_cosmology_paper_waveforms():
     assert hc._choose_label(["C00:Mixed", "C00:IMRPhenomXPHM-SpinTaylor", "C00:SEOBNRv5PHM"]) == "C00:IMRPhenomXPHM-SpinTaylor"
     assert hc._choose_label(["C01:Mixed", "C01:IMRPhenomXPHM", "C01:SEOBNRv4PHM"]) == "C01:IMRPhenomXPHM"
     assert hc._choose_label(["C01:IMRPhenomXPHM:HighSpin", "C01:Mixed"]) == "C01:IMRPhenomXPHM:HighSpin"
-    assert hc._choose_label(["C01:IMRPhenomPv2_NRTidal:HighSpin"]) is None
+    # GW190425 has tidal analyses only: the high-spin one, as the paper (only FullPop-4.0 takes it, by its masses)
+    assert hc._choose_label(["C01:IMRPhenomPv2_NRTidal:HighSpin", "C01:IMRPhenomPv2_NRTidal:LowSpin"]) == \
+        "C01:IMRPhenomPv2_NRTidal:HighSpin"
+    assert hc._choose_label(["C01:IMRPhenomPv2_NRTidal:LowSpin"]) is None
 
 
 FAKE_LISTS = {
@@ -196,7 +199,9 @@ def test_cli_hubble_constant_arguments():
     a = build_parser().parse_args(["hubble_constant"])
     assert a.mode == "hubble_constant" and a.stages == list(hc.STAGES)
     assert a.sensitivity_release == "gwtc4" and a.far_threshold == 0.25 and a.snr_threshold == 10.0
-    assert a.min_mass == 3.0 and a.exclude == list(hc.H0_DEFAULT_EXCLUDE)
+    assert a.min_mass is None and a.exclude == list(hc.H0_DEFAULT_EXCLUDE)     # None: by mass model
+    assert hc.MODEL_MIN_MASS == {"plp": 3.0, "mltp": 3.0, "fullpop4": 0.0}
+    assert build_parser().parse_args(["hubble_constant", "--mass-model", "fullpop4"]).mass_model == "fullpop4"
     a = build_parser().parse_args(["hubble_constant", "--stages", "combine", "report", "--seeds", "1", "2", "3",
                                    "--icarogw-python", "/env/bin/python"])
     assert a.stages == ["combine", "report"] and a.seeds == [1, 2, 3] and a.icarogw_python == "/env/bin/python"
@@ -265,6 +270,13 @@ def test_mass_model_priors_match_the_paper():
     P5 = runner.priors("mltp", "gwtc5")                  # GWTC-5.0 cosmology, Table 5: wider peaks
     assert P5["sigma_g_low"].maximum == 10 and P5["sigma_g_high"].maximum == 15
     assert runner.priors("plp", "gwtc5")["sigma_g"].maximum == 10
+    P = runner.priors("fullpop4")                        # GWTC-4.0 cosmology, Table 5
+    assert len(runner.MASS_MODELS["fullpop4"]["params"]) == 23 and runner.MASS_MODELS["fullpop4"].get("joint")
+    assert (P["mmin"].minimum, P["mmin"].maximum) == (0.4, 1.4) and (P["mu_g_high"].maximum, P["deep"].maximum) == (150, 1)
+    assert type(P["bottomsmooth"]).__name__ == "LogUniform" and (P["topsmooth"].minimum, P["topsmooth"].maximum) == (1e-3, 10)
+    assert (P["leftdip"].minimum, P["leftdip"].maximum, P["rightdip"].minimum, P["rightdip"].maximum) == (1.5, 3, 5, 9)
+    with pytest.raises(SystemExit, match="GWTC-4.0 priors only"):
+        runner.priors("fullpop4", "gwtc5")
 
 
 def test_report_compares_with_the_published_value_of_its_model(tmp_path):

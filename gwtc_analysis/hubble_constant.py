@@ -28,7 +28,9 @@ chosen (`choose_injection_fraction`): sample with a subset and reweight, or samp
 
 The default setup reproduces the spectral-siren measurements of the GWTC-4.0 cosmology paper
 (arXiv:2509.04348, published version v3): H0 = 105.5 (+46.4 / -35.8) km/s/Mpc with the Power Law + Peak
-mass model (`plp`), 72.3 (+42.5 / -25.6) with the Multi Peak model (`mltp`).
+mass model (`plp`), 72.3 (+42.5 / -25.6) with the Multi Peak model (`mltp`), 72.9 (+21.9 / -18.8) with FullPop-4.0
+(`fullpop4`), the mass distribution of all compact binaries: its events include the possible neutron-star binaries
+(no minimum mass) except GW170817, which enters as the bright siren.
 """
 from __future__ import annotations
 
@@ -70,7 +72,11 @@ _LNPDRAW = "lnpdraw_mass1_source_mass2_source_redshift_spin1x_spin1y_spin1z_spin
 _YEAR_S = 3.15576e7
 STAGES = ("prepare", "sample", "combine", "reweight", "report")
 PROBE_FRACTIONS = (0.1, 0.2, 0.5)
-MASS_MODELS = {"plp": "Power Law + Peak", "mltp": "Multi Peak"}
+MASS_MODELS = {"plp": "Power Law + Peak", "mltp": "Multi Peak", "fullpop4": "FullPop-4.0"}
+# minimum source-frame mass of both components (potential neutron stars out of the BBH-only models), and events left
+# out on top of --exclude, per mass model: FullPop-4.0 takes every compact binary but GW170817, the bright siren
+MODEL_MIN_MASS = {"plp": 3.0, "mltp": 3.0, "fullpop4": 0.0}
+MODEL_EXCLUDE = {"fullpop4": ("GW170817_124104",)}
 H0_DEFAULT_MASS_MODEL = "plp"
 
 
@@ -262,6 +268,10 @@ def _choose_label(labels: Iterable[str]) -> Optional[str]:
         if want in labels:
             return want
     alt = [l for l in labels if "IMRPhenomXPHM" in l and "Mixed" not in l]
+    if not alt:
+        # binaries with a neutron star analysed with tidal waveforms only (GW190425): the high-spin prior, as the
+        # GWTC-4.0 cosmology paper
+        alt = [l for l in labels if "HighSpin" in l and "Mixed" not in l]
     return sorted(alt)[0] if alt else None
 
 
@@ -404,7 +414,7 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
                               extra_lists=_reg.gwosc_lists(updates) if updates else ())
     if events.empty:
         raise ValueError("No event passes the selection")
-    _log(f"{len(events)} BBH events: " + ", ".join(f"{r} {n}" for r, n in events["run"].value_counts().sort_index().items()))
+    _log(f"{len(events)} events: " + ", ".join(f"{r} {n}" for r, n in events["run"].value_counts().sort_index().items()))
     catalog = galaxy_catalog_info(galaxy_catalog) if galaxy_catalog else None
     extracts = fetch_pe_samples(events, pe_cache if not updates else pe_cache / "_".join(updates),
                                 keep_files=keep_pe_files, prefer_catalogs=updates, need_sky=catalog is not None)
@@ -449,6 +459,7 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
     events.to_csv(workdir / "events.tsv", sep="\t", index=False)
     (workdir / "selection.json").write_text(json.dumps(dict(release=release, runs=list(runs), updates=list(updates),
                                                             default_runs=runs == tuple(release_runs) and not updates,
+                                                            min_mass=min_mass, exclude=sorted(set(exclude)),
                                                             galaxy_catalog=catalog["settings"] if catalog else None)))
     _log(f"{len(inj['prior'])} found injections of {inj['n_recorded']} recorded ({inj_path.name}); "
          f"inputs written to {workdir / 'inputs.h5'}")
@@ -851,7 +862,7 @@ def run_hubble_constant(
     catalogs: Optional[Iterable[str]] = None,
     far_threshold: float = 0.25,
     snr_threshold: float = 10.0,
-    min_mass: float = 3.0,
+    min_mass: Optional[float] = None,
     exclude: Iterable[str] = H0_DEFAULT_EXCLUDE,
     pe_cache: Optional[str | Path] = None,
     keep_pe_files: bool = False,
@@ -891,6 +902,13 @@ def run_hubble_constant(
     out_summary_tsv = f"hubble_constant_{method}.tsv" if out_summary_tsv == "" else out_summary_tsv
     if mass_model not in MASS_MODELS:
         raise ValueError(f"Unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
+    min_mass = MODEL_MIN_MASS[mass_model] if min_mass is None else min_mass
+    exclude = tuple(exclude) + tuple(e for e in MODEL_EXCLUDE.get(mass_model, ()) if e not in set(exclude))
+    if "prepare" not in set(stages) and (Path(workdir).expanduser() / "selection.json").exists():
+        sel = json.loads((Path(workdir).expanduser() / "selection.json").read_text())
+        if "min_mass" in sel and float(sel["min_mass"]) != min_mass:
+            raise ValueError(f"{workdir} was prepared with a minimum mass of {sel['min_mass']} M_sun, the "
+                             f"{MASS_MODELS[mass_model]} model takes {min_mass}: prepare a work directory for it")
     stages = [s for s in STAGES if s in set(stages)]
     workdir = Path(workdir).expanduser().resolve()
     python = icarogw_python or sys.executable

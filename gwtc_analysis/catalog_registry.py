@@ -140,6 +140,9 @@ SENSITIVITY_RELEASES: dict[str, SensitivityRelease] = {s.key: s for s in (
                         lo90=50.5, hi90=176.1),
             "mltp": dict(ref="GWTC-4.0 cosmology, arXiv:2509.04348 (MLTP)", median=72.3, plus=42.5, minus=25.6,
                          lo90=34.2, hi90=154.1),
+            # Appendix D, 141 events (BNS, NSBH and BBH, GW170817 out): 90% +39.0 / -28.9
+            "fullpop4": dict(ref="GWTC-4.0 cosmology, arXiv:2509.04348 (FullPop-4.0)", median=72.9, plus=21.9,
+                             minus=18.8, lo90=44.0, hi90=111.9),
             # dark sirens with GLADE+ K band, luminosity weighting: the icarogw posteriors of the data release
             # (Zenodo 22284039, label_result_icarogw_PROD_dark_LCDM_{PLP,MLTP}_eps1.json); the icarogw spectral
             # sirens of the same release, for the gain from the catalog: PLP 110.3 (+44.8 / -35.6), MLTP 76.5
