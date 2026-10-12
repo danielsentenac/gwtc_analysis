@@ -33,14 +33,15 @@ viewing-angle constraint. `--ra`/`--dec` test another position.
 The upper limits of the LVK continuous-wave data releases (LIGO DCC): the 45 known pulsars of O4a against their
 spin-down limits, the all-sky O4a sensitivity, and the O3 boson-cloud exclusions, with the GW190728 boson mass of
 `scalar_cloud` (0.70–1.17 × 10⁻¹² eV) at its continuous-wave frequency (340–570 Hz). The `scalar_cloud` report gives
-that band.
+that band. The narrowband upper limits of O4a (16 pulsars) are on the pulsar plot.
 
 ### Multi-messenger coincidences
 
 `search_skymaps --counterparts grb neutrino`: the gamma-ray bursts (Fermi-GBM, Swift) and neutrinos (IceCube alert
 tracks from June 2019, point-source events of O1 and O2) within a time window of each GW merger, scored by their
 overlap with the GW map, their chance probability and RAVEN's coincidence FAR; `--skymap FILE` for given maps (a
-GraceDB alert). Over the 280 catalog maps and GW170817, the only coincidence is GRB 170817A.
+GraceDB alert). Over the 280 catalog maps and GW170817, the only coincidence is GRB 170817A; for a gamma-ray burst, the speed of gravity it implies (the distance along its line of sight from the 3D
+sky map): −2.8 × 10⁻¹⁵ to +7.2 × 10⁻¹⁶ for GW170817, as published.
 `hubble_constant --method bright` and `counterpart` take any event of the GWTC PE releases with its counterpart
 given on the command line (`--ra`, `--dec`, `--redshift`, `--host`, `--counterpart-class`), e.g. the afterglow
 and host of a coincident GRB.

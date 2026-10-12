@@ -85,3 +85,18 @@ def test_custom_bright_counterpart():
     cp = get_counterpart("GW190425_081805", 251.2, -24.2, redshift=(0.035, 0.003), host="H", population="BNS")
     assert (cp.run, cp.population, cp.z, cp.host, cp.pe_event) == ("O3a", "BNS", 0.035, "H", "GW190425_081805")
     assert get_counterpart("GW170817").host == "NGC 4993"     # the registered ones are unchanged
+
+
+def test_speed_of_gravity_bound():
+    """GW170817-like: 1.74 s from 26 Mpc (5% of the line-of-sight distance), emission 0-10 s after the merger:
+    -3e-15 <= dv/c <= +7e-16 (ApJL 848, L13)."""
+    gw = _blob(150.0, -30.0, 3.0)
+    gw.distmu = np.full(len(gw.prob), 40.0)
+    gw.distsigma = np.full(len(gw.prob), 1e-6)            # a sharp distance: every quantile at 40 Mpc
+    q = gw.distance_quantiles(150.0, -30.0)
+    assert q == pytest.approx([40.0, 40.0, 40.0], rel=1e-3)
+    b = co.speed_of_gravity(gw, 150.0, -30.0, 1.74)
+    k = co.C_KM_S / (40.0 * co.MPC_KM)
+    assert b["gw_speed_dv_over_c_max"] == pytest.approx(1.74 * k) and b["gw_speed_dv_over_c_min"] == pytest.approx(-8.26 * k)
+    assert 26.0 / 40.0 * b["gw_speed_dv_over_c_max"] == pytest.approx(6.7e-16, rel=0.02)    # the paper's +7e-16 at 26 Mpc
+    assert co.speed_of_gravity(co.GWMap(gw.prob, 1e9), 150.0, -30.0, 1.74) == {}           # no distance layers

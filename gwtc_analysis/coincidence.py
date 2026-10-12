@@ -229,6 +229,8 @@ def catalog_rate(d: pd.DataFrame) -> float:
 class GWMap:
     prob: np.ndarray                       # RING, NSIDE, sums to 1
     gps: Optional[float]
+    distmu: Optional[np.ndarray] = None    # RING: the line-of-sight distance ansatz of the map, Mpc
+    distsigma: Optional[np.ndarray] = None
     credible: np.ndarray = field(init=False)
     _cache: dict = field(init=False, default_factory=dict)
 
@@ -247,6 +249,19 @@ class GWMap:
 
     def credible_percent(self, ra: float, dec: float) -> float:
         return 100.0 * float(self.credible[hp.ang2pix(self.nside, np.radians(90 - dec), np.radians(ra))])
+
+    def distance_quantiles(self, ra: float, dec: float, q=(0.05, 0.5, 0.95)) -> Optional[np.ndarray]:
+        """Quantiles (Mpc) of the distance along the line of sight of (ra, dec): p(r) ∝ r² N(r; μ, σ), r > 0, the
+        ansatz of the 3D sky maps; None without distance layers."""
+        if self.distmu is None:
+            return None
+        i = hp.ang2pix(self.nside, np.radians(90 - dec), np.radians(ra))
+        mu, sig = float(self.distmu[i]), float(self.distsigma[i])
+        if not (np.isfinite(mu) and np.isfinite(sig)) or sig <= 0:
+            return None
+        r = np.linspace(1e-3, max(mu, 0) + 8 * sig, 20000)
+        cdf = np.cumsum(r ** 2 * np.exp(-0.5 * ((r - mu) / sig) ** 2))
+        return np.interp(q, cdf / cdf[-1], r)
 
     def _smoothed(self, sigma_deg: float) -> np.ndarray:
         """The map convolved with a Gaussian of width σ: its value at a position, times Npix, is the overlap of a
@@ -289,14 +304,22 @@ def read_gw_map(path, nside: int = NSIDE) -> GWMap:
             from ligo.skymap.bayestar import rasterize
 
             s = read_sky_map(str(path), moc=True)
-            r = rasterize(s[["UNIQ", "PROBDENSITY"]], order=int(np.log2(nside)))   # NESTED, probability per pixel
+            cols = [c for c in ("UNIQ", "PROBDENSITY", "DISTMU", "DISTSIGMA", "DISTNORM") if c in s.colnames]
+            r = rasterize(s[cols], order=int(np.log2(nside)))          # NESTED, probability per pixel
             p = hp.reorder(np.asarray(r["PROB"], float), n2r=True)
+            dist = [hp.reorder(np.asarray(r[c], float), n2r=True) for c in ("DISTMU", "DISTSIGMA")] \
+                if "DISTMU" in r.colnames else [None, None]
             meta = s.meta
         else:
-            m, meta = read_sky_map(str(path), moc=False, nest=False)
+            try:
+                (m, mu, sig, _), meta = read_sky_map(str(path), moc=False, nest=False, distances=True)
+                dist = [hp.ud_grade(np.where(np.isfinite(x), x, np.nan), nside) for x in (mu, sig)]
+            except (KeyError, ValueError):                             # a map without distance layers
+                m, meta = read_sky_map(str(path), moc=False, nest=False)
+                dist = [None, None]
             p = hp.ud_grade(np.asarray(m, float), nside, power=-2)
     p = np.clip(p, 0, None)
-    return GWMap(p / p.sum(), meta.get("gps_time"))
+    return GWMap(p / p.sum(), meta.get("gps_time"), dist[0], dist[1])
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +357,21 @@ class Catalogs:
 
 
 MESSENGER = {s: m for m, ss in SOURCES.items() for s in ss}
+C_KM_S, MPC_KM = 299792.458, 3.0856775814913673e19
+EMISSION_LAG_S = (0.0, 10.0)           # gamma rays emitted 0-10 s after the merger (the GW170817 paper's assumption)
+
+
+def speed_of_gravity(gw: GWMap, ra: float, dec: float, dt_s: float, lag_s=EMISSION_LAG_S) -> dict:
+    """Bounds on (v_GW - c)/c from a GRB arriving dt_s after the merger, if they are the same source: the gamma
+    rays left between lag_s[0] and lag_s[1] s after the merger and travelled D, the 5% quantile of the GW distance
+    along their line of sight (conservative), so (v_GW - c)/c lies in [c (dt - lag_max) / D, c (dt - lag_min) / D]
+    (LVK, Fermi-GBM and INTEGRAL, ApJL 848, L13: -3e-15 to +7e-16 for GW170817, 1.74 s, D = 26 Mpc)."""
+    qd = gw.distance_quantiles(ra, dec)
+    if qd is None or qd[0] <= 0:
+        return {}
+    k = C_KM_S / (qd[0] * MPC_KM)          # per second of delay
+    return dict(distance_los_mpc_5=float(qd[0]), distance_los_mpc_50=float(qd[1]),
+                gw_speed_dv_over_c_min=float(k * (dt_s - lag_s[1])), gw_speed_dv_over_c_max=float(k * (dt_s - lag_s[0])))
 
 
 def search_event(gw: GWMap, event: str, catalogs: Catalogs, windows: dict, far_gw: Optional[float] = None) -> tuple[list[dict], list[dict]]:
@@ -357,6 +395,8 @@ def search_event(gw: GWMap, event: str, catalogs: Catalogs, windows: dict, far_g
                        credible_percent=gw.credible_percent(float(c["ra"]), float(c["dec"])), overlap=ov, q=q,
                        p_chance=float(-np.expm1(-rate * dt * q)),
                        raven_far_per_yr=(far_gw * rate * dt / ov) if far_gw and ov > 0 else np.nan)
+            if messenger == "grb":
+                row.update(speed_of_gravity(gw, row["ra"], row["dec"], row["dt_s"]))
             for k in ("redshift", "host_galaxy", "energy_tev", "energy_gev", "signalness", "kind", "t90_s"):
                 if k in c and pd.notna(c[k]):
                     row[k] = c[k]
@@ -534,6 +574,20 @@ def run_coincidences(*, catalogs: list[str] = (), skymaps: list[str] = (), messe
                          f"window, {n_inside} of them inside the {100 * prob:g}% credible region; {n_sig} with a chance "
                          f"probability below {P_NOTABLE:g} ({len(e) * P_NOTABLE:.2f} expected by chance)"
                          + (f"; smallest {p_min:.2g}, {p_global:.2g} after the {len(e)} trials." if len(p) else "."))
+    if not cand.empty and "gw_speed_dv_over_c_min" in cand:
+        grb = cand[(cand["messenger"] == "grb") & (cand["credible_percent"] <= 100 * prob)
+                   & cand["gw_speed_dv_over_c_min"].notna()]
+        for r in grb.itertuples():
+            result.setdefault("speed_of_gravity", []).append(dict(event=r.event, counterpart=r.counterpart,
+                                                                  dv_over_c=(r.gw_speed_dv_over_c_min,
+                                                                             r.gw_speed_dv_over_c_max)))
+            paras.append(f"<b>Speed of gravity</b>, if {r.counterpart} and {r.event} are the same source: the burst "
+                         f"arrived {r.dt_s:.2f} s after the merger (catalog trigger time) from at least "
+                         f"{r.distance_los_mpc_5:.0f} Mpc (5% of the GW distance along its line of sight); with the "
+                         f"gamma rays emitted {EMISSION_LAG_S[0]:g}–{EMISSION_LAG_S[1]:g} s after the merger, "
+                         f"{r.gw_speed_dv_over_c_min:.1e} ≤ (v<sub>GW</sub> − c)/c ≤ {r.gw_speed_dv_over_c_max:.1e} "
+                         "(GW170817 paper: −3 × 10⁻¹⁵ to +7 × 10⁻¹⁶ with 1.74 s, the delay to the burst onset, "
+                         "and 26 Mpc).")
     if out_report:
         top = cand.sort_values("p_chance").head(30) if not cand.empty else cand
         cols = [c for c in ("event", "source", "counterpart", "dt_s", "credible_percent", "overlap", "p_chance",

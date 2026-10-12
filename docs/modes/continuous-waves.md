@@ -15,7 +15,7 @@ gwtc_analysis continuous_waves --boson-mass 2e-13 3e-13 4e-13 --boson-label "my 
 
 | Search | Paper | Data release (LIGO DCC, public) | What the mode reads |
 |---|---|---|---|
-| 45 known pulsars, O4a | [\[105\]](../references.md#ref-105) | [LIGO-G2402400](https://dcc.ligo.org/LIGO-G2402400/public) | the 95% upper limits on h₀ (Bayesian pipeline); the spin-down limits, distances and ellipticity limits from the paper's table (its arXiv LaTeX source) |
+| 45 known pulsars, O4a | [\[105\]](../references.md#ref-105) | [LIGO-G2402400](https://dcc.ligo.org/LIGO-G2402400/public) | the 95% upper limits on h₀ (Bayesian pipeline); the spin-down limits, distances and ellipticity limits from the paper's table (its arXiv LaTeX source); the narrowband upper limits of 16 of them (and 2 post-glitch analyses) |
 | all-sky, isolated neutron stars, O4a | [\[106\]](../references.md#ref-106) | [LIGO-P2500416](https://dcc.ligo.org/LIGO-P2500416/public) | h₀ upper limits against frequency, 20–2000 Hz: FrequencyHough, PowerFlux (population average), SOAP |
 | all-sky, boson clouds, O3 | [\[107\]](../references.md#ref-107) | [LIGO-P2100343](https://dcc.ligo.org/LIGO-P2100343/public) | h₀ upper limits per 1 Hz band (20–610 Hz); the excluded black-hole and boson masses (a distance of 1 or 15 kpc, an initial spin of 0.5 or 0.9, an age of the cloud); the largest excluded distance against the boson mass |
 
@@ -24,6 +24,7 @@ gwtc_analysis continuous_waves --boson-mass 2e-13 3e-13 4e-13 --boson-label "my 
 | Result | Value | Published |
 |---|---|---|
 | known pulsars with h₀ below the spin-down limit | 26 with the Bayesian pipeline; 29 with any of the three | 29 |
+| narrowband search (the frequency allowed to wander around twice the rotation frequency) below the spin-down limit | 12 of 16; the Crab at 3% of it | the same (Crab 0.03) |
 | lowest h₀ upper limit | 6.4 × 10⁻²⁷, J0537−6910 (LMC, 62 Hz rotation) | the same |
 | lowest ellipticity upper limit | 8.8 × 10⁻⁹, J0437−4715 (millisecond pulsar at 160 pc) | the same |
 | all-sky O4a, lowest population-averaged h₀ | 9.5 × 10⁻²⁶ at 401 Hz (single 1/16 Hz band); 9.8 × 10⁻²⁶ near 298 Hz | 9.7 × 10⁻²⁶ near 290 Hz: the curve is flat within a few per cent from about 250 to 400 Hz |
@@ -31,7 +32,10 @@ gwtc_analysis continuous_waves --boson-mass 2e-13 3e-13 4e-13 --boson-label "my 
 ![Known pulsars and the all-sky sensitivity](../img/modes/cw_known_pulsars.png)
 
 *Each known pulsar's 95% upper limit (blue) against its spin-down limit (grey triangle: the strain if all the
-rotational energy it loses went into gravitational waves); the stars beat it, the Crab by a factor of 130. The
+rotational energy it loses went into gravitational waves); the stars beat it, the Crab by a factor of 130. The open diamonds are the narrowband search, less sensitive than the
+targeted one but robust to a mismatch between the GW and the radio or X-ray timing (the Crab at 3% of its spin-down
+limit, about 0.1% of the spin-down energy in gravitational waves; the later O4 narrowband search of 34 pulsars brings
+it to 2%, ApJ 1005, 221 (2026)). The
 curves are the all-sky O4a sensitivity to unknown neutron stars, which must search every direction and spin-down.*
 
 ## Boson clouds and GW190728
@@ -75,4 +79,4 @@ search for their clouds.
 | `--boson-mass LOW MID HIGH` | GW190728, superradiance prior: 0.70e-12 0.89e-12 1.17e-12 | the band drawn on the boson plots, eV |
 | `--boson-label` | `GW190728 (scalar_cloud)` | its label |
 | `--refresh` | off | download the data releases again (they are cached in `~/.cache_gwtc_analysis/continuous_waves`, or `$GWTC_CW_CACHE`) |
-| `--out-report`, `--out-summary`, `--plots-dir` | `continuous_waves.html`, `continuous_waves.tsv`, `continuous_waves_plots` | outputs; the summary has two companions, `<name>.pulsars.tsv` (the 45 pulsars) and `<name>.boson_reach.tsv` (the largest excluded distance in the band) |
+| `--out-report`, `--out-summary`, `--plots-dir` | `continuous_waves.html`, `continuous_waves.tsv`, `continuous_waves_plots` | outputs; the summary has three companions, `<name>.pulsars.tsv` (the 45 pulsars), `<name>.narrowband.tsv` and `<name>.boson_reach.tsv` (the largest excluded distance in the band) |
