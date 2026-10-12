@@ -472,6 +472,16 @@ def _sampling_results(wd: Path, tau_d: float) -> dict:
     return out
 
 
+def boson_mass_quantiles(posterior, q=(5, 50, 95)) -> np.ndarray:
+    """Quantiles of the scalar mass m_phi (eV) of a cloud posterior, each sample with its own source-frame mass."""
+    from bilby.gw.conversion import chirp_mass_and_mass_ratio_to_total_mass
+
+    m_det = chirp_mass_and_mass_ratio_to_total_mass(np.asarray(posterior["chirp_mass"], float),
+                                                    np.asarray(posterior["mass_ratio"], float))
+    m_src = np.array([sc._source_frame_total_mass(a, b) for a, b in zip(m_det, posterior["luminosity_distance"])])
+    return np.percentile([sc.scalar_mass_ev(a, b) for a, b in zip(posterior["alpha_phi"], m_src)], q)
+
+
 def plot_cloud_posteriors(samp: dict, out_png: Path, m_src_ref: float) -> Path:
     import matplotlib
 
@@ -607,6 +617,20 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
         if vac_f.exists():
             m_ref = _masses(json.loads(vac_f.read_text())["params"])[1]
             images.append(plot_cloud_posteriors(samp, plots / "cloud_posteriors.png", m_src_ref=m_ref))
+        from .continuous_waves import EV_TO_HZ
+
+        cw = []
+        for m in ("superradiance", "agnostic"):
+            if m in samp:
+                lo, mid, hi = boson_mass_quantiles(samp[m]["posterior"])
+                result[f"m_phi_{m}_eV"] = (lo, mid, hi)
+                cw.append(f"{m}: m<sub>φ</sub> = {mid:.2g} eV (90%: {lo:.2g}–{hi:.2g}), continuous waves at "
+                          f"{lo * EV_TO_HZ:.0f}–{hi * EV_TO_HZ:.0f} Hz")
+        if cw:
+            paras.append("<b>The same boson in continuous waves.</b> A cloud around an isolated spinning black hole "
+                         "annihilates into a continuous wave at 2 m<sub>φ</sub> c²/h. " + "; ".join(cw) + ". The LVK "
+                         "all-sky search for boson clouds (O3, 20–610 Hz) covers this band; the "
+                         "<code>continuous_waves</code> mode draws its exclusions with this mass.")
     table = pd.DataFrame(rows)
     if out_summary_tsv:
         table.to_csv(out_summary_tsv, sep="\t", index=False, float_format="%.6g")

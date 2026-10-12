@@ -28,6 +28,13 @@ Where an electromagnetic counterpart sits in the GW posterior of an event: the s
 redshift for Planck and SH0ES H₀, the viewing angle and the distance–inclination degeneracy, and an optional
 viewing-angle constraint. `--ra`/`--dec` test another position.
 
+### New mode: `continuous_waves`
+
+The upper limits of the LVK continuous-wave data releases (LIGO DCC): the 45 known pulsars of O4a against their
+spin-down limits, the all-sky O4a sensitivity, and the O3 boson-cloud exclusions, with the GW190728 boson mass of
+`scalar_cloud` (0.70–1.17 × 10⁻¹² eV) at its continuous-wave frequency (340–570 Hz). The `scalar_cloud` report gives
+that band.
+
 ### Multi-messenger coincidences
 
 `search_skymaps --counterparts grb neutrino`: the gamma-ray bursts (Fermi-GBM, Swift) and neutrinos (IceCube alert

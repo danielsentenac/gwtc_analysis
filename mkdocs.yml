@@ -69,6 +69,7 @@ nav:
       - counterpart: modes/counterpart.md
       - area_law (GW250114): modes/area-law.md
       - scalar_cloud (GW190728): modes/scalar-cloud.md
+      - continuous_waves: modes/continuous-waves.md
       - stochastic: modes/stochastic.md
       - neutron_star_eos: modes/neutron-star-eos.md
       - spin_population: modes/spin-population.md
