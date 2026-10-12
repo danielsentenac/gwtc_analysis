@@ -541,7 +541,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_al.add_argument("--src-name", default="GW250114", choices=["GW250114"], help="Event (only GW250114).")
     p_al.add_argument("--cache-dir", default=None, help="Where the release is extracted (default: the Zenodo cache).")
     p_al.add_argument("--with-imr", action="store_true",
-                      help="Also show the area change of the full-signal PE (NR fits: a consistency check, not a test).")
+                      help="Also show the area change of the full-signal PE, made with an IMR (inspiral-merger-ringdown) "
+                           "waveform: its remnant comes from numerical-relativity fits, which obey the law by "
+                           "construction, so it is a consistency check, not a test (27 MB more).")
     p_al.add_argument("--out-report", default="area_law.html", help="Output HTML report path.")
     p_al.add_argument("--out-summary", default="area_law.tsv",
                       help="Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and "
