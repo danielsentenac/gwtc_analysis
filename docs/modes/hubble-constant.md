@@ -4,7 +4,7 @@ The Hubble constant from gravitational-wave events, by four methods (`--method`)
 
 | Method | Redshift information | Events | Runtime | Page |
 |---|---|---|---|---|
-| `spectral` (default) | the BBH mass spectrum: features of the source-frame masses fix the redshift of the detector-frame masses | the BBHs of the catalogs | hours (icarogw, sampling) | this page |
+| `spectral` (default) | the mass spectrum: features of the source-frame masses fix the redshift of the detector-frame masses | the BBHs of the catalogs (all compact binaries with FullPop-4.0) | hours (icarogw, sampling) | this page |
 | `dark` | the mass spectrum and the galaxies along each line of sight, from a catalog built by [galaxy_catalog](galaxy-catalog.md) | the same | hours | [below](#dark-sirens-with-a-galaxy-catalog) |
 | `bright` | the redshift of the identified host of one event | GW170817, the candidate GW190521 | seconds | [bright siren](hubble-constant-bright.md) |
 | `joint` | the product of independent results of the other methods | | seconds | [below](#joint-posterior) |
@@ -22,12 +22,14 @@ three choices:
 |---|---|---|
 | **Where the redshift comes from** | `--method spectral`: the mass spectrum alone; `--method dark --galaxy-catalog FILE`: the mass spectrum and the galaxies, with a catalog built by the [galaxy_catalog](galaxy-catalog.md) mode | spectral siren |
 | **Which events and injections** | `--sensitivity-release`, `--catalogs`, thresholds ([below](#which-events-and-injections)) | the GWTC-4.0 analysis: 137 BBHs of O1–O4a |
-| **The mass model** | `--mass-model plp` (Power Law + Peak) or `mltp` (Multi Peak) | `plp` |
+| **The mass model** | `--mass-model plp` (Power Law + Peak), `mltp` (Multi Peak) or `fullpop4` (FullPop-4.0, all compact binaries) ([mass models](#mass-models)) | `plp` |
 
 The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29): spectral siren
 105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8) for PLP; dark siren with GLADE+
 114.6 (+41.5 / −33.8) against 115.4 (+40.1 / −33.8), with 5000 PE samples per event ([validation](#validation-gwtc-40-power-law-peak-glade-k-band));
 with Multi Peak, 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3) ([validation](#validation-gwtc-40-multi-peak-glade-k-band)).
+FullPop-4.0, the paper's fiducial model, is implemented; its validation against the published spectral siren,
+72.9 (+21.9 / −18.8), is running.
 
 ## Quick start
 
@@ -123,8 +125,8 @@ runs and with the same thresholds; these options are read by `prepare` only.
 | `--catalogs` | all the runs of the release | keep only the runs of these catalogs, for both events and injections: `GWTC-1` (O1–O2), `GWTC-2.1` (O3a), `GWTC-3` (O3b), `GWTC-4` (O4a), `GWTC-5` (O4b), `GWTC-4.1` (the update of GWTC-4.0), or `ALL`. The runs must be in the release: `--catalogs GWTC-5` needs `--sensitivity-release gwtc5` | to analyse a subset (e.g. O4a alone) |
 | `--far-threshold` | 0.25 per year | events with a published FAR ≤ threshold; real injections found with FAR < threshold | to test the sensitivity to the event selection |
 | `--snr-threshold` | 10 | O1–O2 injections are semi-analytic: found when their network SNR is above this | with `--far-threshold`, to keep the two consistent |
-| `--min-mass` | 3 M☉ | both source-frame masses above it (possible neutron stars left out) | rarely: the BBH mass models start at a few M☉ |
-| `--exclude` | GW231123_135430, GW200105_162426 | events left out, as in the paper (the most massive BBH, and an NSBH) | to test the influence of one event |
+| `--min-mass` | by mass model: 3 M☉ for `plp` and `mltp` (possible neutron stars left out), none for `fullpop4` | both source-frame masses above it | rarely: the BBH mass models start at a few M☉ |
+| `--exclude` | GW231123_135430, GW200105_162426 | events left out, as in the paper (the most massive BBH, and an NSBH); with `fullpop4`, GW170817 too, which enters the [joint posterior](#joint-posterior) as the bright siren | to test the influence of one event |
 | `--sensitivity-file` | the release's file (downloaded) | a local injection file instead | offline, or with your own injections |
 | `--pe-cache`, `--keep-pe-files` | `~/.cache_gwtc_analysis/pe_catalog`, no | where the PE samples are cached; keep the full PE files after extraction | to share the cache between machines |
 
@@ -146,9 +148,9 @@ gwtc_analysis hubble_constant --workdir h0_gwtc5 --stages prepare --sensitivity-
 |---|---|---|
 | `--method` | `spectral` | `spectral` or `dark` here; `bright` and `joint` have their own options ([bright siren](hubble-constant-bright.md#options), [joint](#joint-posterior)), and the options of another method are refused |
 | `--galaxy-catalog` | none | with `--method dark`: the catalog file made by [galaxy_catalog](galaxy-catalog.md) ([below](#dark-sirens-with-a-galaxy-catalog)). Given to `prepare`, which records it in `inputs.h5`; the other stages then use it |
-| `--mass-model` | `plp` | BBH primary-mass model: `plp` (Power Law + Peak, Table 3 of [\[29\]](../references.md#ref-29)) or `mltp` (Multi Peak: power law and two Gaussian peaks, Table 4). One work directory per model; `prepare` can be copied (`inputs.h5`) |
+| `--mass-model` | `plp` | `plp` (Power Law + Peak, Table 3 of [\[29\]](../references.md#ref-29)) or `mltp` (Multi Peak, Table 4): the BBH primary mass; `fullpop4` (FullPop-4.0, Table 5): the masses of all compact binaries ([mass models](#mass-models)). One work directory per model; `prepare` can be copied (`inputs.h5`) between `plp` and `mltp`, `fullpop4` needs its own (other events) |
 
-The priors are those of the paper (Tables 3, 4 and 6); the merger-rate evolution is the Madau–Dickinson shape
+The priors are those of the paper (Tables 3 to 6); the merger-rate evolution is the Madau–Dickinson shape
 fitted with H₀ ([below](#merger-rate-evolution)).
 
 ### Precision and speed
@@ -201,6 +203,56 @@ gwtc_analysis hubble_constant --workdir h0_plp --stages sample combine reweight 
 ```
 
 All options with their help text: [CLI reference](../cli-reference.md#hubble_constant).
+
+## Mass models
+
+A spectral siren gets the redshift from the mass spectrum: the detector measures \(m(1+z)\), and the fit puts each
+feature of the spectrum back at a fixed source-frame mass. **Each sharp feature is a ruler**; the mass model decides
+which features the fit can use, and on which events. The three models of the GWTC-4.0 cosmology paper
+[\[29\]](../references.md#ref-29) (its Appendix C):
+
+| | Power Law + Peak (`plp`) | Multi Peak (`mltp`) | FullPop-4.0 (`fullpop4`) |
+|---|---|---|---|
+| Binaries | BBH only | BBH only | BNS, NSBH and BBH in one distribution |
+| Events (GWTC-4.0) | 137: possible neutron stars removed before the analysis (`--min-mass 3`) | 137 | 141: the 137 BBHs and GW190425, GW190814, GW200115, GW230529 (GW170817 is the bright siren); no candidate needs a class |
+| Primary mass | a power law and one Gaussian peak, smoothed at \(m_\text{min}\) | a power law and two Gaussian peaks, smoothed at \(m_\text{min}\) | a broken power law (one segment for neutron stars, one for black holes, joined at the middle of the gap between them) and the same two peaks, smoothed at both ends |
+| Gap between neutron stars and black holes | none | none | a dip whose edges, smoothings and depth are fitted: the data decide whether the gap is empty, shallow or absent |
+| Secondary mass | a power law in \(q = m_2/m_1\), conditioned on \(m_1\) | the same | the same one-dimensional density as \(m_1\), times a pairing function \(q^\beta\), with one slope when \(m_2\) is below the break and another above (neutron-star companions can pair differently from black-hole ones) |
+| Mass parameters | 8 | 11 | 19 |
+| Features found [\[29\]](../references.md#ref-29) | one peak, at 28 M☉ | peaks at 8.9 and 26.6 M☉ | the same peaks, and a shallow dip between 2.3 and 7.2 M☉ |
+| icarogw | `massprior_PowerLawPeak` + `m1m2_conditioned_lowpass` | `massprior_MultiPeak` + `m1m2_conditioned_lowpass` | `m1m2_paired_massratio_bplmulti_dip` |
+
+All three share the Madau–Dickinson merger-rate evolution, the H₀ prior and the treatment of the PE samples and
+injections; with FullPop-4.0, neutron-star and black-hole mergers evolve alike with redshift (the paper checked that
+letting them differ changes nothing significant).
+
+**Why it matters for H₀.** PLP has one ruler and cannot represent the BBH peak near 9 M☉, the strongest feature of
+the spectrum: its power law steepens to absorb the low-mass excess, which pulls H₀ up. MLTP adds that peak, a narrow
+ruler populated by many light BBHs ([why Multi Peak is tighter](../science/spectral-siren.md#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)).
+FullPop-4.0 adds further scales at known masses, the neutron-star range and the edges of the gap: with only four
+more events, its 68% interval is about 40–50% narrower than MLTP's, with a similar median.
+
+| GWTC-4.0, H₀ (km/s/Mpc, median and 68%) [\[29\]](../references.md#ref-29) | PLP | MLTP | FullPop-4.0 |
+|---|---|---|---|
+| Spectral siren | 105.5 (+46.4 / −35.8) | 72.3 (+42.5 / −25.6) | 72.9 (+21.9 / −18.8) |
+| Dark siren, GLADE+ K band (Table 1) | 110.6 (+42.5 / −34.7) | 81.6 (+41.2 / −27.6) | 79.6 (+20.8 / −16.3) |
+| Spectral siren + GW170817 | 80.6 (+21.8 / −13.2) | 73.6 (+15.5 / −9.2) | 73.4 (+12.8 / −8.6) |
+| Dark siren + GW170817 | 82.5 (+22.6 / −14.2) | 75.4 (+16.6 / −10.0) | **75.4 (+12.8 / −9.1)**, the paper's headline |
+| gwtc_analysis, spectral siren | 105.8 (+44.7 / −33.2) | 78.6 (+38.0 / −26.5) | (validation running) |
+
+The dark-siren rows of the paper combine icarogw and gwcosmo; the data-release values reproduced above
+([validation](#validation-gwtc-40-power-law-peak-glade-k-band)) are icarogw's alone.
+
+**Caveats.** The models use different events, so no Bayes factor compares FullPop-4.0 with the BBH-only models
+(between those two, MLTP is mildly preferred, log₁₀ B = 0.46). FullPop-4.0's extra precision rests on a handful of
+nearby events with a possible neutron star, and on how well they fix the low-mass end, including the PE analysis of
+each: GW190425 has tidal-waveform runs only, and its high-spin one is used, as in the paper.
+
+```bash
+# FullPop-4.0: its own work directory (other events), GWTC-4.0 priors
+gwtc_analysis hubble_constant --mass-model fullpop4 --workdir h0_fullpop4 --stages prepare
+gwtc_analysis hubble_constant --mass-model fullpop4 --workdir h0_fullpop4 --stages sample combine reweight report
+```
 
 ## Dark sirens with a galaxy catalog
 
