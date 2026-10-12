@@ -164,6 +164,18 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-summary` | `counterpart.tsv` | Output TSV of the summary, one row per PE label. |
 | `--plots-dir` | `counterpart_plots` | Directory for the plots. |
 
+## `continuous_waves`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--boson-mass` | `` | Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%%: 0.70e-12 0.89e-12 1.17e-12). |
+| `--boson-label` | `` | Label of the band (default: GW190728 (scalar_cloud)). |
+| `--refresh` | `False` | Download the data releases again. |
+| `--out-report` | `continuous_waves.html` | Output HTML report path. |
+| `--out-summary` | `continuous_waves.tsv` | Output TSV of the summary (pulsars in <name>.pulsars.tsv, boson reach in <name>.boson_reach.tsv). |
+| `--plots-dir` | `continuous_waves_plots` | Directory for the plots. |
+
 ## `area_law`
 
 | Option | Default | Description |

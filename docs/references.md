@@ -341,6 +341,23 @@ was checked against the arXiv API.
 **[104]** B. Carr and F. Kühnel, *Primordial Black Holes as Dark Matter: Recent Developments*. Ann. Rev. Nucl. Part. Sci. 70, 355 (2020). [arXiv:2006.02838](https://arxiv.org/abs/2006.02838)
 {: #ref-104 }
 
+## Continuous waves
+
+**[105]** LVK, *Search for continuous gravitational waves from known pulsars in the first part of the fourth
+LIGO-Virgo-KAGRA observing run*. ApJ 983, 99 (2025). Data: [LIGO-G2402400](https://dcc.ligo.org/LIGO-G2402400/public).
+[arXiv:2501.01495](https://arxiv.org/abs/2501.01495)
+{: #ref-105 }
+
+**[106]** LVK, *All-sky Searches for Continuous Gravitational Waves from Isolated Neutron Stars in the Data from the
+First Part of the Fourth LIGO-Virgo-KAGRA Observing Run*. Data: [LIGO-P2500416](https://dcc.ligo.org/LIGO-P2500416/public).
+[arXiv:2603.14168](https://arxiv.org/abs/2603.14168)
+{: #ref-106 }
+
+**[107]** LVK, *All-sky search for gravitational wave emission from scalar boson clouds around spinning black holes in
+LIGO O3 data*. Phys. Rev. D 105, 102001 (2022). Data: [LIGO-P2100343](https://dcc.ligo.org/LIGO-P2100343/public).
+[arXiv:2111.15507](https://arxiv.org/abs/2111.15507)
+{: #ref-107 }
+
 ## Galaxy catalogs
 
 **[91]** G. Dálya et al., *GLADE+: an extended galaxy catalogue for multimessenger searches with advanced gravitational-wave detectors*. Queried from VizieR VII/291. [arXiv:2110.06184](https://arxiv.org/abs/2110.06184)

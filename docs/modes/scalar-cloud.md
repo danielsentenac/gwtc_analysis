@@ -174,6 +174,16 @@ density 2 to 4 times lower. Differences that can contribute: the frame of the co
 frame here, co-precessing there), the PSDs and the likelihood (ln L 7 below the PE file's), 500 live points instead
 of 1000, and the normalisation of the torque, which sets the density for a given dephasing.
 
+### The same boson in continuous waves
+
+Per sample (each with its own source-frame mass), the scalar mass is \(m_\phi = 0.89\) (90%: 0.70–1.17) × 10⁻¹² eV
+with the superradiance prior and 0.73 (0.56–1.14) × 10⁻¹² eV with the agnostic one. A cloud of such bosons around
+an isolated spinning black hole would annihilate into a continuous wave at \(2 m_\phi c^2/h\) = **340–570 Hz**,
+inside the band of the LVK all-sky search for boson clouds in O3 (20–610 Hz). That search excludes, at these masses,
+young clouds around light black holes (8–28 M☉) out to some kpc, but says nothing of a cloud carried by a binary,
+and its limits constrain the boson only together with a model of the Galactic black holes. The
+[continuous_waves](continuous-waves.md#boson-clouds-and-gw190728) mode draws its exclusions with this band.
+
 ## Limits
 
 - The torque is Newtonian and valid for \(\beta \ll 1\); close to the merger the model is extrapolated, and the

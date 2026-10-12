@@ -166,6 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis hubble_constant -h\n"
             "  gwtc_analysis counterpart -h\n"
             "  gwtc_analysis area_law -h\n"
+            "  gwtc_analysis continuous_waves -h\n"
             "  gwtc_analysis scalar_cloud -h\n"
             "  gwtc_analysis stochastic -h\n"
             "  gwtc_analysis neutron_star_eos -h\n"
@@ -532,6 +533,34 @@ def build_parser() -> argparse.ArgumentParser:
     p_cp.add_argument("--out-report", default="counterpart.html", help="Output HTML report path.")
     p_cp.add_argument("--out-summary", default="counterpart.tsv", help="Output TSV of the summary, one row per PE label.")
     p_cp.add_argument("--plots-dir", default="counterpart_plots", help="Directory for the plots.")
+
+    # ---------------------------------------------------------------------
+    # continuous_waves
+    # ---------------------------------------------------------------------
+    p_cw = sub.add_parser(
+        "continuous_waves",
+        help="Continuous waves: the LVK upper limits (known pulsars, all-sky, boson clouds) and a boson-mass band.",
+        description=(
+            "No continuous wave has been detected: the upper limits of the LVK data releases (LIGO DCC, public),\n"
+            "plotted as in the papers:\n"
+            "  - known pulsars, O4a (45 pulsars): h0 upper limits against the spin-down limits;\n"
+            "  - all-sky, O4a: the sensitivity to unknown isolated neutron stars, 20-2000 Hz;\n"
+            "  - boson clouds around spinning black holes, O3: the excluded black-hole and boson masses and the\n"
+            "    largest excluded distance, with a boson-mass band (default: GW190728 from scalar_cloud) at its\n"
+            "    continuous-wave frequency 2 m c^2 / h.\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_cw.add_argument("--boson-mass", nargs=3, type=float, metavar=("LOW", "MID", "HIGH"), default=None,
+                      help="Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%%: "
+                           "0.70e-12 0.89e-12 1.17e-12).")
+    p_cw.add_argument("--boson-label", default=None, help="Label of the band (default: GW190728 (scalar_cloud)).")
+    p_cw.add_argument("--refresh", action="store_true", help="Download the data releases again.")
+    p_cw.add_argument("--out-report", default="continuous_waves.html", help="Output HTML report path.")
+    p_cw.add_argument("--out-summary", default="continuous_waves.tsv",
+                      help="Output TSV of the summary (pulsars in <name>.pulsars.tsv, boson reach in "
+                           "<name>.boson_reach.tsv).")
+    p_cw.add_argument("--plots-dir", default="continuous_waves_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
     # area_law
@@ -1162,6 +1191,16 @@ def main(argv=None) -> int:
                 pe_distance_prior=args.pe_distance_prior, sky_map=args.sky_map, host=args.host,
                 counterpart_class=args.counterpart_class, out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir,
             )
+            return 0
+
+        if args.mode == "continuous_waves":
+            from .continuous_waves import GW190728_BOSON_MASS_EV, run_continuous_waves
+
+            custom = args.boson_mass is not None
+            run_continuous_waves(boson_mass_ev=tuple(args.boson_mass) if custom else GW190728_BOSON_MASS_EV,
+                                 boson_label=args.boson_label or ("given band" if custom else "GW190728 (scalar_cloud)"),
+                                 out_report_html=args.out_report, out_summary_tsv=args.out_summary,
+                                 plots_dir=args.plots_dir, refresh=args.refresh)
             return 0
 
         if args.mode == "area_law":
