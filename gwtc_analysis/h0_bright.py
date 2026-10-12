@@ -425,6 +425,10 @@ def run_h0_bright(
     h0_range: tuple[float, float] = H0_PRIOR,
     population: str = "volume",
     pe_distance_prior: Optional[str] = None,
+    ra_deg: Optional[float] = None,
+    dec_deg: Optional[float] = None,
+    host: Optional[str] = None,
+    counterpart_class: Optional[str] = None,
 ) -> pd.DataFrame:
     """Bright-siren H0 of `event` for each of its PE labels, in `workdir` (the posterior grid, ``bright.json``, plots).
     The first label is the result; `hubble_constant --method joint` combines it with other methods."""
@@ -441,10 +445,10 @@ def run_h0_bright(
         raise ValueError("the viewing-angle constraint is MEAN SIGMA in degrees, 0 <= MEAN <= 90, SIGMA > 0")
     from . import hubble_constant as hc
 
-    cp = get_counterpart(event)
+    cp = get_counterpart(event, ra_deg, dec_deg, redshift=redshift, host=host, population=counterpart_class)
     z_obs, sigma_z, z_desc = hubble_flow_redshift(cp, v_recession, v_peculiar, redshift)
     defaults = (v_recession is None and v_peculiar is None and redshift is None and viewing_angle_constraint is None
-                and pop is None and pe_distance_prior is None)
+                and pop is None and pe_distance_prior is None and ra_deg is None)
     _log(f"bright siren {event}, {cp.host}: {z_desc.replace('<sub>', '').replace('</sub>', '')}")
     if cp.candidate:
         _log(f"WARN: {cp.transient} is a candidate counterpart; the association is not established")

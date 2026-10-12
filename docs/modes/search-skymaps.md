@@ -2,7 +2,9 @@
 
 Which events could come from a given direction? For each event of the chosen catalogs, the mode
 reads its sky localization (HEALPix FITS skymap) and tests whether the position (`--ra-deg`,
-`--dec-deg`) lies inside the credible region `--prob` (0.9 for the 90% region).
+`--dec-deg`) lies inside the credible region `--prob` (0.9 for the 90% region). With `--counterparts`, it
+searches instead for gamma-ray bursts and neutrinos coincident with each event
+([multi-messenger coincidences](#multi-messenger-coincidences)).
 
 ```bash
 gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --prob 0.9
@@ -51,5 +53,74 @@ gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --
 *GW230529_181500, seen by L1 alone: its 90% region covers 25 400 deg², more than half of the sky, and
 contains the position (star) at the 16% credible level. The same position is inside the 90% region of
 13 of the 86 GWTC-4.0 skymaps.*
+
+## Multi-messenger coincidences
+
+```bash
+gwtc_analysis search_skymaps --counterparts grb neutrino --catalogs ALL          # every catalog event
+gwtc_analysis search_skymaps --counterparts grb --skymap bayestar.multiorder.fits  # a GraceDB alert map
+```
+
+An offline version of what the LVK's RAVEN does within minutes for each public alert: for every GW sky map, the
+gamma-ray bursts and neutrinos recorded within a time window of the merger, scored by how well their position
+overlaps the GW localization. The external catalogs are public and downloaded once a week:
+
+| `--sources` | Messenger | Catalog | Covers | Localization | Window |
+|---|---|---|---|---|---|
+| `gbm` | GRB | Fermi-GBM burst catalog (HEASARC `fermigbrst`) | July 2008 onwards, about 240 bursts per year | statistical 1σ and a 3.7° systematic in quadrature | −1 to +5 s, RAVEN's |
+| `swift` | GRB | Swift bursts of the burst advocates (HEASARC `swiftgrbba`) | December 2004 onwards, about 90 per year | the best of UVOT, XRT and BAT (90% radii), with the redshift and host galaxy when measured | −1 to +5 s |
+| `icecube-alerts` | neutrino | IceCube Gold and Bronze alert tracks (GCN) | from the start of the stream, 17 June 2019, about 27 per year | 90% statistical radius | ±500 s |
+| `icecube-events` | neutrino | IceCube point-source event list (HEASARC `icecubepsc`) | 2008 to July 2018: O1 and O2 | 1σ | ±500 s |
+
+`--grb-window` and `--neutrino-window` change the windows; `--skymap FILE` searches given maps (a GraceDB
+alert during a run, or GW170817's GWTC-1 map, which no PE release holds) instead of, or besides, `--catalogs`.
+
+**Statistic.** For a counterpart at (ra, dec) with localization σ:
+
+- the credible level of the GW map at its position;
+- the overlap \(I_\Omega = N_\text{pix} \sum p_\text{GW}\, p_\text{ext}\): the GW probability its localization
+  covers, relative to a uniform sky (1 for an unrelated direction, \(N_\text{pix}\, p_\text{GW}\) for a point),
+  computed by smoothing the GW map with a Gaussian of width σ;
+- \(q\), the fraction of isotropic positions (same σ) with a larger overlap, from the same smoothed map;
+- the chance probability \(p = 1 - e^{-R\,\Delta t\, q}\): that the catalog, at its rate R, puts a counterpart this
+  well placed in the window Δt by chance; for the best counterpart of a map, the map's chance probability;
+- RAVEN's coincidence false-alarm rate \(\text{FAR}_\text{GW}\, R\, \Delta t / I_\Omega\), when the GW FAR is in the
+  GWOSC lists.
+
+The report counts the maps with \(p < 1\%\) against the number expected by chance, and corrects the smallest
+\(p\) for the number of maps searched.
+
+**Result for GWTC-2.1 to GWTC-5.0 and GW170817** (281 maps):
+
+| Source | Maps covered | With a counterpart in the window | Result |
+|---|---|---|---|
+| Fermi-GBM | 281 | 1 | GRB 170817A, 2.0 s after GW170817, at its 36% credible level: overlap 3.7 × 10³, \(p = 4 \times 10^{-9}\), RAVEN FAR 1.2 × 10⁻¹⁵ per year |
+| Swift | 281 | 0 | |
+| IceCube alerts | 252 (from June 2019) | 0 | no alert track within ±500 s of any merger |
+| IceCube events | 11 (O1, O2) | 11 | 2 to 7 events per window, the background rate; none inside a 90% region, the best at the 97% level of GW170104 (\(p = 0.12\)) |
+
+GW170817 remains the only multi-messenger event, as published; the absence of neutrinos agrees with IceCube's
+searches (with their internal data, which are deeper than the public lists).
+
+![GW170817 and GRB 170817A](../img/modes/coincidence_GW170817.png)
+
+*GW170817 (GWTC-1 map, 16 deg² at 90%) and the position of GRB 170817A in the Fermi-GBM catalog.*
+
+**Caveats.**
+
+- The Fermi-GBM catalog replaces the GBM position by the counterpart's when one was localized: GRB 170817A
+  carries the position of AT2017gfo, error 0. Its overlap is therefore that of the kilonova, not of the
+  GBM localization: with GBM's own region (about 1100 deg² at 90%, σ ≈ 9°) the overlap would be about 80 and
+  \(p \approx 3 \times 10^{-8}\), still a clear coincidence.
+- The public neutrino lists are the alert tracks (O3, O4) and the point-source events (O1, O2); IceCube's own
+  coincidence searches use deeper samples, so a null here is weaker than theirs.
+- The windows suit prompt emission (GRBs, −1 to +5 s) and the neutrinos of the jets (±500 s); longer delays
+  (choked jets, flares of an AGN disk) need wider windows.
+
+**From a coincidence to a bright siren.** A Swift burst with an afterglow, inside the GW map, gives a position to
+arcseconds and, when measured, the redshift of its host (columns `redshift` and `host_galaxy`). The event can then
+be run as a bright siren with that counterpart, and the jet seen nearly on-axis as a viewing-angle constraint:
+`hubble_constant --method bright --event <name> --ra ... --dec ... --redshift Z SIGMA --viewing-angle 10 5`
+([bright siren](hubble-constant-bright.md#registered-events)).
 
 All options: [CLI reference](../cli-reference.md#search_skymaps).

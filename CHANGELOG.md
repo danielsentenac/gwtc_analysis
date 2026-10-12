@@ -28,6 +28,16 @@ Where an electromagnetic counterpart sits in the GW posterior of an event: the s
 redshift for Planck and SH0ES H₀, the viewing angle and the distance–inclination degeneracy, and an optional
 viewing-angle constraint. `--ra`/`--dec` test another position.
 
+### Multi-messenger coincidences
+
+`search_skymaps --counterparts grb neutrino`: the gamma-ray bursts (Fermi-GBM, Swift) and neutrinos (IceCube alert
+tracks from June 2019, point-source events of O1 and O2) within a time window of each GW merger, scored by their
+overlap with the GW map, their chance probability and RAVEN's coincidence FAR; `--skymap FILE` for given maps (a
+GraceDB alert). Over the 280 catalog maps and GW170817, the only coincidence is GRB 170817A.
+`hubble_constant --method bright` and `counterpart` take any event of the GWTC PE releases with its counterpart
+given on the command line (`--ra`, `--dec`, `--redshift`, `--host`, `--counterpart-class`), e.g. the afterglow
+and host of a coincident GRB.
+
 ### New mode: `scalar_cloud`
 
 Is a binary black hole better fitted with an ultralight scalar cloud around it? The IMRPhenomXPHM_Scalar waveform of

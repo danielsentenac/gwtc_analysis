@@ -27,7 +27,10 @@ everything about the counterpart that the GW data do not give, so that no option
 
 The same list serves [`hubble_constant --method bright`](hubble-constant-bright.md#registered-events). In the
 options below, "from the list" means the value of this table. `--ra`/`--dec`, `--redshift`, `--v-recession` and
-`--v-peculiar` override it for one run; a new event needs a new entry in `COUNTERPARTS`.
+`--v-peculiar` override it for one run. Any other event of the GWTC PE releases (full name, e.g. `GW190425_081805`)
+is analysed by giving its counterpart: `--ra`, `--dec` and `--redshift` (and `--host`, `--counterpart-class`); its
+observing run comes from its name, its PE file from Zenodo. A permanent entry of `COUNTERPARTS` remains the way
+to fix a published result.
 
 ### PE labels
 
@@ -125,8 +128,9 @@ association, whose odds are 1 to 12 depending on the waveform model (Ashton et a
 
 | Option | Default | What it is for |
 |---|---|---|
-| `--event` | `GW170817` | which event of the [list of known counterparts](#the-list-of-known-counterparts): `GW170817` or `GW190521`. It sets the counterpart's position, the host redshift and the PE file |
-| `--ra`, `--dec` | the position from the list | test another position on the sky (degrees), for instance another candidate transient; the host redshift stays that of the list unless `--redshift` is given too |
+| `--event` | `GW170817` | an event of the [list of known counterparts](#the-list-of-known-counterparts) (`GW170817`, `GW190521`), which sets the counterpart's position, the host redshift and the PE file; or any event of the GWTC PE releases (full name) with `--ra`, `--dec` and `--redshift` |
+| `--ra`, `--dec` | the position from the list | the counterpart's position (degrees), required for an event outside the list; for a listed event, another position to test, for instance another candidate transient (the host redshift stays that of the list unless `--redshift` is given too) |
+| `--host`, `--counterpart-class` | from the list | name of the host galaxy; `BNS` or `BBH` (for an event outside the list, from the catalog masses) |
 | `--pe-label` | the labels from the list, else all the labels of the file | which analyses of the PE file to use, and in which order ([PE labels](#pe-labels)); one row per label, plots from the first |
 | `--pe-file` | the event's file (see the list) | read another PE file (PESummary layout, e.g. a newer release or your own run) instead |
 | `--cache-dir` | `.cache_gwosc` | where the rebuilt GW170817 file is kept (as in [build_unofficial_pe](unofficial-pe.md)) |

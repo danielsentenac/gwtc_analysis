@@ -91,9 +91,21 @@ waveform model (Ashton et al. 2021 [\[75\]](../references.md#ref-75)). Its resul
 the counterpart, and the report says so. The [counterpart](counterpart.md) mode shows where the flare sits
 in the GW posterior.
 
-A new event needs one entry in `COUNTERPARTS` (`gwtc_analysis/counterpart.py`): the host, the
-counterpart's position, the redshift or the velocities, the observing run, the population class, and
-the PE file (`pe_event`, read from Zenodo).
+**Any other event** of the GWTC PE releases is run by giving its counterpart on the command line, for example the
+afterglow of a coincident gamma-ray burst and the redshift of its host (found with
+[search_skymaps --counterparts](search-skymaps.md#multi-messenger-coincidences)):
+
+```bash
+gwtc_analysis hubble_constant --method bright --event GW190425_081805 --ra 251.2 --dec -24.2 \
+    --redshift 0.035 0.003 --host "host name" --viewing-angle 10 5      # a GRB: a jet seen nearly on-axis
+```
+
+The event takes its full name (that of its PE release, whose file is read from Zenodo); the observing run comes
+from the name, and the class of the binary (BNS or BBH, the mass model of the selection) from the catalog masses,
+or `--counterpart-class`. A detected GRB means a jet pointed within its opening angle of the line of sight:
+`--viewing-angle` turns that into a constraint, which narrows the distance as the radio jet does for GW170817
+([below](#viewing-angle-constraint)). The example is a pipeline check: GW190425 had no counterpart. A permanent
+entry of the list (`COUNTERPARTS` in `gwtc_analysis/counterpart.py`) remains the way to fix a published result.
 
 ## Results
 
@@ -195,7 +207,10 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--event` | `GW170817` | which event of the [list of known counterparts](counterpart.md#the-list-of-known-counterparts): `GW170817` or `GW190521` |
+| `--event` | `GW170817` | an event of the [list of known counterparts](counterpart.md#the-list-of-known-counterparts) (`GW170817`, `GW190521`), or any event of the GWTC PE releases (full name) with `--ra`, `--dec` and `--redshift` |
+| `--ra`, `--dec` | the position from the list | position of the counterpart, degrees (required for an event outside the list) |
+| `--host` | from the list | name of the host galaxy, for the report |
+| `--counterpart-class` | from the list, else from the catalog masses | `BNS` or `BBH`: the mass model of the selection (an NSBH takes the BBH one) |
 | `--pe-label` | the labels from the list, else all the labels of the file | which analyses of the PE file to use ([PE labels](counterpart.md#pe-labels)): one H₀ per label; the first one is the result, the one `--method joint` uses |
 | `--pe-file` | the event's bundle or Zenodo file | another PE file (PESummary layout) |
 | `--cache-dir` | `.cache_gwosc` | cache of the unofficial GW170817 bundle |
