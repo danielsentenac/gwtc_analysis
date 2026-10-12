@@ -244,11 +244,11 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--sensitivity-file` | `` | Local LVK injection mixture file (semi-analytic O1+O2 + real) instead of the release's. |
 | `--far-threshold` | `0.25` | FAR threshold [1/yr] for the events and the real injections. |
 | `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections. |
-| `--min-mass` | `3.0` | Minimum source-frame mass [Msun] of both components (potential neutron stars excluded). |
+| `--min-mass` | `` | Minimum source-frame mass [Msun] of both components: by default 3 for the BBH models plp and mltp (potential neutron stars excluded), 0 for fullpop4. |
 | `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
 | `--pe-cache` | `` | PE cache directory (files/, samples/, index/); default ~/.cache_gwtc_analysis/pe_catalog or $GWTC_PE_CACHE. |
 | `--keep-pe-files` | `False` | Keep the full PE files after extraction. |
-| `--mass-model` | `plp` | BBH primary-mass model: plp = Power Law + Peak; mltp = Multi Peak. Use one work directory per model. |
+| `--mass-model` | `plp` | Mass model: plp = Power Law + Peak; mltp = Multi Peak; fullpop4 = FullPop-4.0. plp and mltp model BBH only; fullpop4 all compact binaries (its events: no minimum mass, GW170817 left out, the bright siren). Use one work directory per model (fullpop4 needs its own prepare). |
 | `--seeds` | `[1]` | One sampler run per seed. |
 | `--parallel` | `1` | Seeds run at the same time on this machine (each with --npool processes; logs in <workdir>/logs). |
 | `--nlive` | `100` | dynesty live points per run. |

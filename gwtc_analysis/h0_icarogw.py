@@ -1,11 +1,12 @@
-"""icarogw sampler of the `hubble_constant` mode (spectral siren; Power Law + Peak or Multi Peak BBH mass model).
+"""icarogw sampler of the `hubble_constant` mode (spectral siren; Power Law + Peak or Multi Peak BBH mass model, or
+FullPop-4.0, the mass distribution of all compact binaries).
 
 This file is self-contained on purpose: icarogw needs its own Python environment (Python >= 3.12,
 CPU mode through a `config.py` holding CUPY=False), which usually does not have gwtc_analysis
 installed. It only needs numpy, h5py, icarogw and bilby, and reads the `inputs.h5` written by the
 `prepare` stage of `gwtc_analysis hubble_constant`.
 
-    python h0_icarogw.py run --workdir DIR --seed 1 [--mass-model plp|mltp --nlive 100 --npool 4 --naccept 60
+    python h0_icarogw.py run --workdir DIR --seed 1 [--mass-model plp|mltp|fullpop4 --nlive 100 --npool 4 --naccept 60
                                                     --pe-samples 1500 --inj-fraction 0.1]
     python h0_icarogw.py combine --workdir DIR
     python h0_icarogw.py probe --workdir DIR [--mass-model plp --pe-samples 1500 --fractions 0.1 0.2 0.5]
@@ -39,8 +40,10 @@ from pathlib import Path
 
 import numpy as np
 
-# BBH primary-mass models of the GWTC-4.0 cosmology paper (arXiv:2509.04348): the icarogw mass prior and
-# the population parameters, in the order of the posterior tables
+# mass models of the GWTC-4.0 cosmology paper (arXiv:2509.04348): the icarogw mass prior and the population
+# parameters, in the order of the posterior tables. plp and mltp model the BBH primary mass (the secondary a power law
+# in q, through m1m2_conditioned_lowpass); fullpop4 (FullPop-4.0, Appendix C) is a joint density of (m1, m2) for
+# BNS, NSBH and BBH: the same one-dimensional density for both masses and a pairing function in q ("joint")
 MASS_MODELS = {
     "plp": dict(name="Power Law + Peak", prior="massprior_PowerLawPeak",
                 params=("H0", "alpha", "beta", "mmin", "mmax", "delta_m", "mu_g", "sigma_g", "lambda_peak",
@@ -48,6 +51,11 @@ MASS_MODELS = {
     "mltp": dict(name="Multi Peak", prior="massprior_MultiPeak",
                  params=("H0", "alpha", "beta", "mmin", "mmax", "delta_m", "mu_g_low", "sigma_g_low", "mu_g_high",
                          "sigma_g_high", "lambda_g", "lambda_g_low", "gamma", "kappa", "zp")),
+    "fullpop4": dict(name="FullPop-4.0", prior="m1m2_paired_massratio_bplmulti_dip", joint=True,
+                     params=("H0", "alpha_1", "alpha_2", "beta_bottom", "beta_top", "mmin", "mmax", "bottomsmooth",
+                             "topsmooth", "mu_g_low", "sigma_g_low", "mu_g_high", "sigma_g_high", "lambda_g",
+                             "lambda_g_low", "leftdip", "rightdip", "leftdipsmooth", "rightdipsmooth", "deep",
+                             "gamma", "kappa", "zp")),
 }
 OM0 = 0.3065
 NEFF_PE = 10
@@ -152,9 +160,10 @@ def build_likelihood(pe_samples: int, inj_fraction: float, mass_model: str = "pl
           f"(fraction {keep.mean():.3f})" + ("; dark siren with a galaxy catalog" if galcat is not None else ""),
           flush=True)
     cat = icarogw.posterior_samples.posterior_samples_catalog(pes)
-    wraps = (icarogw.wrappers.FlatLambdaCDM_wrap(zmax=20.0),
-             icarogw.wrappers.m1m2_conditioned_lowpass(getattr(icarogw.wrappers, MASS_MODELS[mass_model]["prior"])()),
-             icarogw.wrappers.rateevolution_Madau())
+    mass = getattr(icarogw.wrappers, MASS_MODELS[mass_model]["prior"])()
+    if not MASS_MODELS[mass_model].get("joint"):
+        mass = icarogw.wrappers.m1m2_conditioned_lowpass(mass)
+    wraps = (icarogw.wrappers.FlatLambdaCDM_wrap(zmax=20.0), mass, icarogw.wrappers.rateevolution_Madau())
     if galcat is not None:
         rate = icarogw.rates.CBC_catalog_vanilla_rate(galcat, *wraps, scale_free=True)
     else:
@@ -169,16 +178,33 @@ PRIOR_SETS = ("gwtc4", "gwtc5")
 
 
 def priors(mass_model: str = "plp", prior_set: str = "gwtc4"):
-    """Priors of the LVK cosmology papers: GWTC-4.0 (arXiv:2509.04348, Tables 3, 4 and 6) or GWTC-5.0
-    (arXiv:2605.27227, Tables 5 and 8), which widens the MLTP peak widths."""
+    """Priors of the LVK cosmology papers: GWTC-4.0 (arXiv:2509.04348, Tables 3 to 6) or GWTC-5.0
+    (arXiv:2605.27227, Tables 5 and 8), which widens the MLTP peak widths. FullPop-4.0: Table 5 of GWTC-4.0 (icarogw
+    names: bottomsmooth and topsmooth are the smoothings at mmin and mmax, leftdip, rightdip, leftdipsmooth,
+    rightdipsmooth and deep the dip)."""
     if prior_set not in PRIOR_SETS:
         raise SystemExit(f"[h0] unknown prior set {prior_set!r}; choose from {', '.join(PRIOR_SETS)}")
     import bilby
 
-    U = bilby.core.prior.Uniform
+    U, LU = bilby.core.prior.Uniform, bilby.core.prior.LogUniform
     P = bilby.core.prior.PriorDict()
     P["H0"] = U(10, 200, "H0")
     P["Om0"] = OM0
+    if mass_model == "fullpop4":
+        if prior_set != "gwtc4":
+            raise SystemExit("[h0] FullPop-4.0 has the GWTC-4.0 priors only (--prior-set gwtc4)")
+        for k in ("alpha_1", "alpha_2", "beta_bottom", "beta_top"):
+            P[k] = U(-4, 12, k)
+        P["mmin"], P["mmax"] = U(0.4, 1.4, "mmin"), U(50, 200, "mmax")
+        P["bottomsmooth"], P["topsmooth"] = LU(1e-2, 1, "bottomsmooth"), LU(1e-3, 10, "topsmooth")
+        P["mu_g_low"], P["sigma_g_low"] = U(5, 150, "mu_g_low"), U(0.4, 5, "sigma_g_low")
+        P["mu_g_high"], P["sigma_g_high"] = U(5, 150, "mu_g_high"), U(0.4, 10, "sigma_g_high")
+        P["lambda_g"], P["lambda_g_low"] = U(0, 1, "lambda_g"), U(0, 1, "lambda_g_low")
+        P["leftdip"], P["rightdip"] = U(1.5, 3, "leftdip"), U(5, 9, "rightdip")
+        P["leftdipsmooth"], P["rightdipsmooth"] = LU(0.01, 2, "leftdipsmooth"), LU(0.01, 2, "rightdipsmooth")
+        P["deep"] = U(0, 1, "deep")
+        P["gamma"], P["kappa"], P["zp"] = U(0, 12, "gamma"), U(0, 6, "kappa"), U(0, 4, "zp")
+        return P
     P["alpha"], P["beta"] = U(1.5, 12, "alpha"), U(-4, 12, "beta")
     P["mmin"], P["mmax"], P["delta_m"] = U(2, 10, "mmin"), U(50, 200, "mmax"), U(1e-3, 10, "delta_m")
     if mass_model == "plp":

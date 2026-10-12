@@ -280,7 +280,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Estimate the Hubble constant: spectral, dark or bright siren, or their joint posterior.",
         description=(
             "Hubble constant by --method:\n"
-            "  spectral: the BBH mass spectrum (--mass-model: Power Law + Peak or Multi Peak) and the Madau-Dickinson\n"
+            "  spectral: the mass spectrum (--mass-model: Power Law + Peak, Multi Peak or FullPop-4.0) and the Madau-Dickinson\n"
             "            rate evolution fitted together with H0 (flat LCDM, Om0 = 0.3065), with icarogw and\n"
             "            bilby/dynesty. The default setup reproduces the GWTC-4.0 cosmology paper\n"
             "            (arXiv:2509.04348, v3): H0 = 105.5 (+46.4 / -35.8) km/s/Mpc (plp), 72.3 (+42.5 / -25.6) (mltp).\n"
@@ -335,16 +335,19 @@ def build_parser() -> argparse.ArgumentParser:
                       help="FAR threshold [1/yr] for the events and the real injections.")
     p_h0.add_argument("--snr-threshold", type=float, default=10.0,
                       help="Network SNR threshold for the semi-analytic O1+O2 injections.")
-    p_h0.add_argument("--min-mass", type=float, default=3.0,
-                      help="Minimum source-frame mass [Msun] of both components (potential neutron stars excluded).")
+    p_h0.add_argument("--min-mass", type=float, default=None,
+                      help="Minimum source-frame mass [Msun] of both components: by default 3 for the BBH models plp "
+                           "and mltp (potential neutron stars excluded), 0 for fullpop4.")
     p_h0.add_argument("--exclude", nargs="*", default=list(H0_DEFAULT_EXCLUDE), help="Events left out.")
     p_h0.add_argument("--pe-cache", default=None,
                       help="PE cache directory (files/, samples/, index/); default ~/.cache_gwtc_analysis/pe_catalog "
                            "or $GWTC_PE_CACHE.")
     p_h0.add_argument("--keep-pe-files", action="store_true", help="Keep the full PE files after extraction.")
     p_h0.add_argument("--mass-model", choices=list(H0_MASS_MODELS), default=H0_DEFAULT_MASS_MODEL,
-                      help="BBH primary-mass model: " + "; ".join(f"{k} = {v}" for k, v in H0_MASS_MODELS.items())
-                      + ". Use one work directory per model.")
+                      help="Mass model: " + "; ".join(f"{k} = {v}" for k, v in H0_MASS_MODELS.items())
+                      + ". plp and mltp model BBH only; fullpop4 all compact binaries (its events: no minimum mass, "
+                        "GW170817 left out, the bright siren). Use one work directory per model (fullpop4 needs its "
+                        "own prepare).")
     p_h0.add_argument("--seeds", nargs="+", type=int, default=[1], help="One sampler run per seed.")
     p_h0.add_argument("--parallel", type=int, default=1,
                       help="Seeds run at the same time on this machine (each with --npool processes; "
