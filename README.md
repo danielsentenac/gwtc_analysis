@@ -354,7 +354,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `-h, --help` | `` | show this help message and exit |
 | `--src-name` | `GW250114` | Event (only GW250114). |
 | `--cache-dir` | `` | Where the release is extracted (default: the Zenodo cache). |
-| `--with-imr` | `False` | Also show the area change of the full-signal PE (NR fits: a consistency check, not a test). |
+| `--with-imr` | `False` | Also show the area change of the full-signal PE, made with an IMR (inspiral-merger-ringdown) waveform: its remnant comes from numerical-relativity fits, which obey the law by construction, so it is a consistency check, not a test (27 MB more). |
 | `--out-report` | `area_law.html` | Output HTML report path. |
 | `--out-summary` | `area_law.tsv` | Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and <name>.ringdown.tsv). |
 | `--plots-dir` | `area_law_plots` | Directory for the plots. |

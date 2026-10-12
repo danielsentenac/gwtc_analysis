@@ -70,6 +70,36 @@ enough SNR in both parts. Of the earlier results:
   frequency cut instead of a time cut GW150914 gives 74% instead of 97%, and the weak events need quality
   cuts (an uninformative inspiral or ringdown can mimic a violation). Not implemented.
 
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--src-name` | `GW250114` | the event; only GW250114 has a public release of inspiral-only and ringdown-only analyses ([why](#why-only-gw250114)) |
+| `--with-imr` | off | also show the area change of the full-signal analysis, made with an **IMR** waveform (see below): a consistency check, not a test; downloads 27 MB more |
+| `--cache-dir` | the Zenodo cache | where the release is extracted |
+| `--out-report`, `--out-summary`, `--plots-dir` | `area_law.html`, `area_law.tsv`, `area_law_plots` | outputs ([below](#outputs)) |
+
+**IMR** stands for *inspiral–merger–ringdown*, the three phases of a compact-binary coalescence:
+
+1. **inspiral:** the two bodies orbit and draw closer as they radiate; frequency and amplitude rise (the chirp);
+2. **merger:** the horizons touch and fuse, the peak of the signal, described accurately only by numerical
+   relativity;
+3. **ringdown:** the distorted remnant settles into a Kerr black hole, emitting damped quasinormal modes whose
+   frequencies and damping times depend only on its mass and spin.
+
+The term is used in two ways:
+
+- an **IMR waveform** models all three phases in one template (the IMR of IMRPhenomXPHM; NRSur7dq4 and SEOBNRv5PHM
+  are IMR models too), and the standard catalog analysis fits one to the whole signal;
+- the **IMR consistency test** of general relativity estimates the masses and spins separately from the
+  low-frequency part (mostly inspiral) and the high-frequency part (merger and ringdown), and checks that they
+  predict the same remnant.
+
+For the area law, the full-signal (IMR) analysis cannot be the test: its remnant mass and spin come from fits to
+numerical-relativity simulations, which obey the law by construction. The test compares the inspiral-only and
+ringdown-only analyses; `--with-imr` only shows that the full-signal remnant agrees with them. See also the
+[glossary](../science/glossary.md) and [waveforms](../science/waveforms.md).
+
 ## Outputs
 
 - `--out-report` (HTML): the result, the comparison with the paper, the scans, the plots;
