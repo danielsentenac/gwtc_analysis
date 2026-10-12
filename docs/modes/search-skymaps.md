@@ -85,7 +85,11 @@ alert during a run, or GW170817's GWTC-1 map, which no PE release holds) instead
 - the chance probability \(p = 1 - e^{-R\,\Delta t\, q}\): that the catalog, at its rate R, puts a counterpart this
   well placed in the window Δt by chance; for the best counterpart of a map, the map's chance probability;
 - RAVEN's coincidence false-alarm rate \(\text{FAR}_\text{GW}\, R\, \Delta t / I_\Omega\), when the GW FAR is in the
-  GWOSC lists.
+  GWOSC lists;
+- for a gamma-ray burst, the **speed of gravity** it implies if it is the same source: the gamma rays left 0 to 10 s
+  after the merger and travelled at least \(D\), the 5% quantile of the GW distance along their line of sight (the
+  distance layers of the 3D sky map), so \(c(\Delta t - 10\,\text{s})/D \le (v_\text{GW} - c)/c \le c\,\Delta t / D\),
+  the method of the GW170817 paper (ApJL 848, L13).
 
 The report counts the maps with \(p < 1\%\) against the number expected by chance, and corrects the smallest
 \(p\) for the number of maps searched.
@@ -99,8 +103,15 @@ The report counts the maps with \(p < 1\%\) against the number expected by chanc
 | IceCube alerts | 252 (from June 2019) | 0 | no alert track within ±500 s of any merger |
 | IceCube events | 11 (O1, O2) | 11 | 2 to 7 events per window, the background rate; none inside a 90% region, the best at the 97% level of GW170104 (\(p = 0.12\)) |
 
-GW170817 remains the only multi-messenger event, as published; the absence of neutrinos agrees with IceCube's
-searches (with their internal data, which are deeper than the public lists).
+GW170817 remains the only multi-messenger event, as published. The absence of neutrinos agrees with IceCube's own
+searches, made with its internal data, which are deeper than the public lists: none for GW170817 (its jet seen
+off-axis), none for the O3 candidates (joint IceCube–LVK LLAMA search, ApJ 1003, 41 (2026)), none for the 1030 O4a
+alerts (IceCube, arXiv:2606.13762).
+
+**Speed of gravity from GW170817.** The burst arrived 2.05 s after the merger in the catalog (the GBM trigger time;
+the GW170817 paper's 1.74 s is the delay to the onset of the burst), from at least 28 Mpc along its line of sight:
+\(-2.8 \times 10^{-15} \le (v_\text{GW} - c)/c \le +7.2 \times 10^{-16}\), against \(-3 \times 10^{-15}\) to
+\(+7 \times 10^{-16}\) published (1.74 s and 26 Mpc; with 1.74 s, the mode gives \(+6.1 \times 10^{-16}\)).
 
 ![GW170817 and GRB 170817A](../img/modes/coincidence_GW170817.png)
 
@@ -114,6 +125,12 @@ searches (with their internal data, which are deeper than the public lists).
   \(p \approx 3 \times 10^{-8}\), still a clear coincidence.
 - The public neutrino lists are the alert tracks (O3, O4) and the point-source events (O1, O2); IceCube's own
   coincidence searches use deeper samples, so a null here is weaker than theirs.
+- **Sub-threshold triggers are not in the catalogs.** RAVEN, in low latency, also uses the sub-threshold triggers of
+  Swift-BAT and Fermi-GBM, which no public burst catalog lists. S241125n (GW241125_010116 in GWTC-5.0), a binary
+  black hole candidate with a sub-threshold Swift trigger and a RAVEN joint FAR of about 1 per 1000 yr (1 per 6 yr
+  with the rate of binary black holes folded in; GCN 38315, 38356; arXiv:2505.10395), is found here with no
+  burst, as it should be: such candidates come only from the alert stream.
+- The catalog trigger time is not the onset of the burst: for GRB 170817A, 2.05 s against 1.74 s.
 - The windows suit prompt emission (GRBs, −1 to +5 s) and the neutrinos of the jets (±500 s); longer delays
   (choked jets, flares of an AGN disk) need wider windows.
 

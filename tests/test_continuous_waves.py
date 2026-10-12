@@ -56,3 +56,14 @@ def test_boson_limits_in_band():
     assert r.loc[0, "d_max_kpc_in_band"] == 30 and r.loc[0, "d_max_kpc_min_in_band"] == 20
     e = cw.mass_exclusion_in_band(boson, 7e-13, 1.2e-12)
     assert (e.loc[0, "m_bh_min"], e.loc[0, "m_bh_max"]) == (8, 15)
+
+
+def test_narrowband(tmp_path, monkeypatch):
+    """Post-glitch analyses flagged; ratio to the spin-down limit from the targeted table."""
+    p = tmp_path / "nb.txt"
+    p.write_text("J0534+2200 59.14 4.16e-26\nJ0537-6910 123.78 3.52e-26\nJ0537-6910pg 123.78 3.75e-26\n")
+    monkeypatch.setattr(cw, "fetch", lambda name, refresh=False: p)
+    kp = pd.DataFrame(dict(pulsar=["J0534+2200", "J0537-6910"], h0_spindown=[1.43e-24, 2.91e-26]))
+    d = cw.narrowband(kp)
+    assert list(d["post_glitch"]) == [False, False, True] and list(d["pulsar"]) == ["J0534+2200", "J0537-6910", "J0537-6910"]
+    assert d.loc[0, "ratio_to_spindown"] == pytest.approx(0.0291, rel=1e-2) and d.loc[1, "ratio_to_spindown"] == pytest.approx(1.21, rel=1e-2)

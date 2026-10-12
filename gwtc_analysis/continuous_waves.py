@@ -5,7 +5,9 @@ and shows them as the papers do:
 
 - **known pulsars, O4a** (LVK 2025, ApJ 983, 99, arXiv:2501.01495; data LIGO-G2402400): the 95% upper limits on
   the strain amplitude h0 of 45 pulsars (Bayesian pipeline), against their spin-down limits; the spin-down limits,
-  distances and ellipticity limits come from the paper's table (its LaTeX source);
+  distances and ellipticity limits come from the paper's table (its LaTeX source). The narrowband search of 16 of
+  them (and 2 post-glitch analyses), which lets the frequency wander around twice the rotation frequency, from the
+  same release: less sensitive than the targeted one, robust to a mismatch between the GW and EM timings;
 - **all-sky, O4a** (LVK 2026, arXiv:2603.14168; data LIGO-P2500416): the sensitivity to unknown isolated neutron
   stars, h0 against frequency, for FrequencyHough, PowerFlux (population average) and SOAP;
 - **boson clouds, O3** (LVK 2022, PRD 105, 102001, arXiv:2111.15507; data LIGO-P2100343): the strain upper limits
@@ -129,6 +131,18 @@ def known_pulsars(refresh: bool = False) -> pd.DataFrame:
     return d
 
 
+def narrowband(kp: Optional[pd.DataFrame] = None, refresh: bool = False) -> pd.DataFrame:
+    """The narrowband upper limits of O4a: pulsar, post-glitch analysis or not, GW frequency, h0, and the ratio to
+    the spin-down limit when `kp` (known_pulsars) has it."""
+    d = pd.read_csv(fetch("narrowband", refresh), sep=r"\s+", header=None, names=["label", "f_gw_hz", "h0_ul"])
+    d["post_glitch"] = d["label"].str.endswith("pg")
+    d["pulsar"] = d["label"].str.replace(r"pg$", "", regex=True)
+    if kp is not None and "h0_spindown" in kp:
+        d = d.merge(kp[["pulsar", "h0_spindown"]], on="pulsar", how="left")
+        d["ratio_to_spindown"] = d["h0_ul"] / d["h0_spindown"]
+    return d.drop(columns=["label"])
+
+
 # ---------------------------------------------------------------------------
 # all-sky and boson clouds
 # ---------------------------------------------------------------------------
@@ -206,7 +220,7 @@ def _style(ax):
     ax.tick_params(colors=INK2, labelsize=8)
 
 
-def plot_known_pulsars(kp: pd.DataFrame, allsky: dict, out_png: Path) -> Path:
+def plot_known_pulsars(kp: pd.DataFrame, allsky: dict, out_png: Path, nb: Optional[pd.DataFrame] = None) -> Path:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -224,6 +238,9 @@ def plot_known_pulsars(kp: pd.DataFrame, allsky: dict, out_png: Path) -> Path:
         ax.scatter(sd.loc[below, "f_gw_hz"], sd.loc[below, "h0_ul"], marker="*", s=70, color=ORANGE, zorder=4,
                    label=f"upper limit below the spin-down limit ({int(below.sum())})")
     ax.scatter(kp["f_gw_hz"], kp["h0_ul"], s=14, color=BLUE, zorder=3, label="95% upper limit, known pulsar (O4a)")
+    if nb is not None and len(nb):
+        ax.scatter(nb["f_gw_hz"], nb["h0_ul"], s=26, marker="D", facecolors="none", edgecolors="#7c3aed", lw=0.9,
+                   zorder=3, label=f"narrowband search ({nb['pulsar'].nunique()} pulsars)")
     for name in ("J0534+2200", "J0835-4510", "J0537-6910", "J0437-4715"):
         r = kp[kp["pulsar"] == name]
         if len(r):
@@ -340,6 +357,7 @@ def run_continuous_waves(boson_mass_ev=GW190728_BOSON_MASS_EV, boson_label: str 
     plots = Path(plots_dir)
     plots.mkdir(parents=True, exist_ok=True)
     kp, sky, bos = known_pulsars(refresh), allsky_o4a(refresh), boson_o3(refresh)
+    nb = narrowband(kp, refresh)
     reach = distance_reach(bos, lo, hi)
     excl = mass_exclusion_in_band(bos, lo, hi)
     f_lo, f_hi = boson_frequency_hz([lo, hi])
@@ -354,6 +372,13 @@ def run_continuous_waves(boson_mass_ev=GW190728_BOSON_MASS_EV, boson_label: str 
     if "ellipticity_ul" in kp and kp["ellipticity_ul"].notna().any():
         be = kp.loc[kp["ellipticity_ul"].idxmin()]
         res.update(best_ellipticity=float(be["ellipticity_ul"]), best_ellipticity_pulsar=be["pulsar"])
+    nb_main = nb[~nb["post_glitch"]]
+    res["n_narrowband"] = int(nb_main["pulsar"].nunique())
+    if "ratio_to_spindown" in nb:
+        res["n_narrowband_below_spindown"] = int((nb_main["ratio_to_spindown"] < 1).sum())
+        crab = nb_main[nb_main["pulsar"] == "J0534+2200"]
+        if len(crab):
+            res["crab_narrowband_ratio"] = float(crab["ratio_to_spindown"].iloc[0])
     allmin = {k: (float(v["h0_ul"].min()), float(v.loc[v["h0_ul"].idxmin(), "f_hz"])) for k, v in sky.items()}
     res.update(boson_mass_band_ev=(lo, hi), cw_band_hz=(float(f_lo), float(f_hi)),
                boson_ul_in_band=(float(ul_band["h0_ul_max"].min()), float(ul_band["h0_ul_max"].max()))
@@ -369,6 +394,11 @@ def run_continuous_waves(boson_mass_ev=GW190728_BOSON_MASS_EV, boson_label: str 
         rows.append(dict(item="lowest ellipticity upper limit",
                          value=f"{res['best_ellipticity']:.2g} ({res['best_ellipticity_pulsar']})",
                          ref=REFS["known_pulsars"]))
+    if "n_narrowband_below_spindown" in res:
+        rows.append(dict(item="narrowband search: pulsars below the spin-down limit",
+                         value=f"{res['n_narrowband_below_spindown']} of {res['n_narrowband']}"
+                               + (f" (Crab at {100 * res['crab_narrowband_ratio']:.0f}% of it)"
+                                  if "crab_narrowband_ratio" in res else ""), ref=REFS["known_pulsars"]))
     for k, (h, f) in allmin.items():
         rows.append(dict(item=f"all-sky O4a {k}, lowest upper limit", value=f"{h:.2g} at {f:.0f} Hz", ref=REFS["allsky"]))
     rows.append(dict(item=f"boson mass band ({boson_label})", value=f"{lo:.3g}–{hi:.3g} eV, CW at {f_lo:.0f}–{f_hi:.0f} Hz",
@@ -380,13 +410,14 @@ def run_continuous_waves(boson_mass_ev=GW190728_BOSON_MASS_EV, boson_label: str 
     if out_summary_tsv:
         table.to_csv(out_summary_tsv, sep="\t", index=False)
         kp.to_csv(Path(out_summary_tsv).with_suffix(".pulsars.tsv"), sep="\t", index=False, float_format="%.4g")
+        nb.to_csv(Path(out_summary_tsv).with_suffix(".narrowband.tsv"), sep="\t", index=False, float_format="%.4g")
         reach.to_csv(Path(out_summary_tsv).with_suffix(".boson_reach.tsv"), sep="\t", index=False, float_format="%.4g")
     if out_report_html:
         import matplotlib
 
         matplotlib.use("Agg")
         with matplotlib.rc_context(matplotlib.rcParamsDefault):   # other modes (ligo.skymap) change the style
-            images = [plot_known_pulsars(kp, sky, plots / "cw_known_pulsars.png"),
+            images = [plot_known_pulsars(kp, sky, plots / "cw_known_pulsars.png", nb),
                       plot_boson_exclusion(bos, band, boson_label, plots / "cw_boson_exclusion.png"),
                       plot_boson_distance(bos, band, boson_label, plots / "cw_boson_distance.png")]
         far = reach[reach["age_yr"] <= 1e5]
