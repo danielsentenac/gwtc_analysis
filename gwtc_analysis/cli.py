@@ -137,6 +137,10 @@ def _add_counterpart_options(p: argparse.ArgumentParser, tag: str) -> None:
     p.add_argument("--redshift", nargs=2, type=float, metavar=("Z", "SIGMA"), default=None,
                    help=tag + "Hubble-flow redshift of the host and its uncertainty, instead of the velocities "
                               "(default for GW190521: 0.438 0.0015).")
+    p.add_argument("--host", default=None, help=tag + "Name of the host galaxy (for an event outside the list).")
+    p.add_argument("--counterpart-class", choices=("BNS", "BBH"), default=None,
+                   help=tag + "Class of the binary, the mass model of the selection (default: the event's, or for an "
+                              "event outside the list BNS when both catalog masses are below 3 M_sun, else BBH).")
     p.add_argument("--sky-radius", type=float, default=3.0,
                    help=tag + "For samples not fixed to the counterpart's position: keep those within this angle (deg).")
     p.add_argument("--viewing-angle", nargs=2, type=float, metavar=("MEAN", "SIGMA"), default=None,
@@ -391,9 +395,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_h0.add_argument("--galaxy-catalog", default=None,
                       help="[dark] icarogw galaxy catalog made by the galaxy_catalog mode (the prepare stage then keeps "
                            "the sky positions of the PE samples).")
-    p_h0.add_argument("--event", default="GW170817", choices=list(COUNTERPARTS),
-                      help="[bright] Event of the built-in list of known counterparts (COUNTERPARTS in "
-                           "counterpart.py), which gives its counterpart's position, host redshift and PE file.")
+    p_h0.add_argument("--event", default="GW170817",
+                      help="[bright] Event: one of the built-in list of known counterparts (" + ", ".join(COUNTERPARTS)
+                           + "), which gives its counterpart's position, host redshift and PE file; or any event of "
+                             "the GWTC PE releases (full name GWYYMMDD_HHMMSS) with --ra, --dec and --redshift, e.g. "
+                             "the afterglow of a coincident GRB and its host.")
+    p_h0.add_argument("--ra", type=float, default=None, help="[bright] Right ascension of the counterpart (deg).")
+    p_h0.add_argument("--dec", type=float, default=None, help="[bright] Declination of the counterpart (deg).")
     _add_counterpart_options(p_h0, "[bright] ")
     p_h0.add_argument("--selection", choices=("auto", "euclidean", "injections"), default="auto",
                       help="[bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections "
@@ -507,11 +515,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_cp.add_argument("--event", default="GW170817", choices=list(COUNTERPARTS),
-                      help="Event of the built-in list of known counterparts (COUNTERPARTS in counterpart.py), "
-                           "which gives its counterpart's position, host redshift and PE file.")
-    p_cp.add_argument("--ra", type=float, default=None, help="Right ascension of another position to test (deg).")
-    p_cp.add_argument("--dec", type=float, default=None, help="Declination of another position to test (deg).")
+    p_cp.add_argument("--event", default="GW170817",
+                      help="Event: one of the built-in list of known counterparts (" + ", ".join(COUNTERPARTS)
+                           + "), which gives its counterpart's position, host redshift and PE file; or any event of "
+                             "the GWTC PE releases (full name) with --ra, --dec and --redshift.")
+    p_cp.add_argument("--ra", type=float, default=None,
+                      help="Right ascension of the counterpart, or of another position to test (deg).")
+    p_cp.add_argument("--dec", type=float, default=None,
+                      help="Declination of the counterpart, or of another position to test (deg).")
     _add_counterpart_options(p_cp, "")
     p_cp.add_argument("--sky-map", default=None,
                       help="FITS sky map for the searched probability of the position (default: the event's LVK map "
@@ -731,18 +742,35 @@ def build_parser() -> argparse.ArgumentParser:
     # ---------------------------------------------------------------------
     p_sky = sub.add_parser(
         "search_skymaps",
-        help="Search GW sky localizations for a given sky position (RA/Dec).",
+        help="Search GW sky localizations for a given sky position (RA/Dec), or for GRB and neutrino coincidences.",
         description=(
             "Given a sky position (RA/Dec in degrees) and catalogs,\n"
             "report which events contain that position above the requested credible level.\n"
             "Plotting: Hit skymaps are produced.\n"
+            "With --counterparts grb neutrino: the multi-messenger coincidences of each GW map instead (an offline\n"
+            "RAVEN): Fermi-GBM and Swift bursts within -1/+5 s, IceCube alert tracks (from June 2019) and point-source\n"
+            "events (O1, O2) within +-500 s, scored by their overlap with the GW map and their chance probability.\n"
+            "--skymap FILE searches given maps (e.g. a GraceDB alert) instead of, or besides, the catalogs.\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    p_sky.add_argument("--catalogs", required=True, nargs="+", help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL takes them all except the updates "
+    p_sky.add_argument("--catalogs", nargs="+", default=[], help=f"Catalog keys, space-separated (e.g. {catalog_help()}). ALL takes them all except the updates "
              f"({update_help()}), which are used only when named.")
-    p_sky.add_argument("--ra-deg", type=float, required=True, help="Right ascension (deg).")
-    p_sky.add_argument("--dec-deg", type=float, required=True, help="Declination (deg).")
+    p_sky.add_argument("--ra-deg", type=float, default=None, help="Right ascension (deg); not with --counterparts.")
+    p_sky.add_argument("--dec-deg", type=float, default=None, help="Declination (deg); not with --counterparts.")
+    p_sky.add_argument("--counterparts", nargs="+", choices=["grb", "neutrino"], default=None,
+                       help="Search the GRB and/or neutrino coincidences of each GW map instead of a position.")
+    p_sky.add_argument("--sources", nargs="+", choices=["gbm", "swift", "icecube-alerts", "icecube-events"],
+                       default=None, help="With --counterparts: the external catalogs (default: all those of the "
+                                          "messengers).")
+    p_sky.add_argument("--grb-window", nargs=2, type=float, default=None, metavar=("START", "END"),
+                       help="With --counterparts: GRB time window around the merger, s (default -1 5, as RAVEN).")
+    p_sky.add_argument("--neutrino-window", nargs=2, type=float, default=None, metavar=("START", "END"),
+                       help="With --counterparts: neutrino time window around the merger, s (default -500 500).")
+    p_sky.add_argument("--skymap", nargs="+", default=[], metavar="FILE",
+                       help="With --counterparts: GW sky map files (FITS) to search, e.g. a GraceDB alert map.")
+    p_sky.add_argument("--refresh-catalogs", action="store_true",
+                       help="With --counterparts: download the external catalogs again (otherwise weekly).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
     p_sky.add_argument("--skymap-label", default="Mixed", help="Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed then "
                        "IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case). 'any': every map of every event.")
@@ -925,7 +953,8 @@ def _apply_settings_file(p: argparse.ArgumentParser, argv) -> argparse.Namespace
 
 H0_ALL_METHODS_OPTS = ("workdir", "out_report", "out_summary", "settings")
 H0_BRIGHT_OPTS = ("event", "pe_label", "pe_file", "cache_dir", "v_recession", "v_peculiar", "redshift", "sky_radius",
-                  "viewing_angle", "pe_distance_prior", "selection", "population", "h0_range")
+                  "viewing_angle", "pe_distance_prior", "selection", "population", "h0_range", "ra", "dec", "host",
+                  "counterpart_class")
 H0_BRIGHT_SHARED_OPTS = ("sensitivity_release", "sensitivity_file", "far_threshold", "snr_threshold", "pe_cache")
 
 
@@ -1034,7 +1063,8 @@ def main(argv=None) -> int:
                 selection=args.selection, sensitivity_release=args.sensitivity_release,
                 sensitivity_file=args.sensitivity_file, far_threshold=args.far_threshold,
                 snr_threshold=args.snr_threshold, h0_range=tuple(args.h0_range), population=args.population,
-                pe_distance_prior=args.pe_distance_prior,
+                pe_distance_prior=args.pe_distance_prior, ra_deg=args.ra, dec_deg=args.dec, host=args.host,
+                counterpart_class=args.counterpart_class,
             )
             return 0
 
@@ -1129,8 +1159,8 @@ def main(argv=None) -> int:
                 v_peculiar=tuple(args.v_peculiar) if args.v_peculiar else None,
                 redshift=tuple(args.redshift) if args.redshift else None, sky_radius_deg=args.sky_radius,
                 viewing_angle_constraint=tuple(args.viewing_angle) if args.viewing_angle else None,
-                pe_distance_prior=args.pe_distance_prior, sky_map=args.sky_map,
-                out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir,
+                pe_distance_prior=args.pe_distance_prior, sky_map=args.sky_map, host=args.host,
+                counterpart_class=args.counterpart_class, out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir,
             )
             return 0
 
@@ -1188,8 +1218,30 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "search_skymaps":
-            catalogs = _parse_catalogs(args.catalogs)
-            _validate_catalogs(catalogs)
+            catalogs = _parse_catalogs(args.catalogs) if args.catalogs else []
+            if catalogs:
+                _validate_catalogs(catalogs)
+            if args.counterparts:
+                from .coincidence import run_coincidences
+
+                if args.ra_deg is not None or args.dec_deg is not None:
+                    raise ValueError("--counterparts searches the GW maps for counterparts: no --ra-deg/--dec-deg")
+                if not catalogs and not args.skymap:
+                    raise ValueError("--counterparts needs --catalogs and/or --skymap")
+                if args.data_repo != "zenodo" and catalogs:
+                    raise ValueError("--counterparts reads the catalog skymaps from Zenodo (--data-repo zenodo)")
+                windows = {k: tuple(v) for k, v in (("grb", args.grb_window), ("neutrino", args.neutrino_window)) if v}
+                out_tsv = "coincidences.tsv" if args.out_events == "search_skymaps.tsv" else args.out_events
+                out_html = "coincidences.html" if args.out_report == "search_skymaps.html" else args.out_report
+                run_coincidences(catalogs=catalogs, skymaps=args.skymap, messengers=args.counterparts,
+                                 sources=args.sources, windows=windows, prob=args.prob, skymap_label=args.skymap_label,
+                                 zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
+                                 out_tsv=out_tsv, out_report=out_html,
+                                 plots_dir="coincidence_plots" if args.plots_dir == "sky_plots" else args.plots_dir,
+                                 refresh=args.refresh_catalogs)
+                return 0
+            if args.ra_deg is None or args.dec_deg is None or not catalogs:
+                raise ValueError("search_skymaps needs --catalogs, --ra-deg and --dec-deg (or --counterparts)")
             run_search_skymaps(
                 catalogs=catalogs,
                 out_events_tsv=args.out_events,

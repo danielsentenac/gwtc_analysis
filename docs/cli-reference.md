@@ -80,13 +80,17 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--neff-inj` | `` | Effective injections needed at a likelihood point (default: 4 x the number of events). |
 | `--reweight-jobs` | `` | With --executor slurm: array tasks of the reweighting (default 16). |
 | `--galaxy-catalog` | `` | [dark] icarogw galaxy catalog made by the galaxy_catalog mode (the prepare stage then keeps the sky positions of the PE samples). |
-| `--event` | `GW170817` | [bright] Event of the built-in list of known counterparts (COUNTERPARTS in counterpart.py), which gives its counterpart's position, host redshift and PE file. |
+| `--event` | `GW170817` | [bright] Event: one of the built-in list of known counterparts (GW170817, GW190521), which gives its counterpart's position, host redshift and PE file; or any event of the GWTC PE releases (full name GWYYMMDD_HHMMSS) with --ra, --dec and --redshift, e.g. the afterglow of a coincident GRB and its host. |
+| `--ra` | `` | [bright] Right ascension of the counterpart (deg). |
+| `--dec` | `` | [bright] Declination of the counterpart (deg). |
 | `--pe-label` | `` | [bright] Analyses of the PE file to use, by label (one waveform model and prior each, e.g. C02:IMRPhenomPv2_NRTidal-HighSpin): one result per label, plots from the first. Default: the labels set for the event (GW190521: C01:IMRPhenomXPHM), else all those of the file, LowSpin first. |
 | `--pe-file` | `` | [bright] PE file to read instead of the event's. |
 | `--cache-dir` | `.cache_gwosc` | [bright] Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe). |
 | `--v-recession` | `` | [bright] Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
 | `--v-peculiar` | `` | [bright] Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
 | `--redshift` | `` | [bright] Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
+| `--host` | `` | [bright] Name of the host galaxy (for an event outside the list). |
+| `--counterpart-class` | `` | [bright] Class of the binary, the mass model of the selection (default: the event's, or for an event outside the list BNS when both catalog masses are below 3 M_sun, else BBH). |
 | `--sky-radius` | `3.0` | [bright] For samples not fixed to the counterpart's position: keep those within this angle (deg). |
 | `--viewing-angle` | `` | [bright] Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
 | `--pe-distance-prior` | `` | [bright] Luminosity-distance prior of the PE samples, divided out of the distance posterior: dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE file, else D_L^2 up to O3 and source-frame from O4. |
@@ -140,15 +144,17 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--event` | `GW170817` | Event of the built-in list of known counterparts (COUNTERPARTS in counterpart.py), which gives its counterpart's position, host redshift and PE file. |
-| `--ra` | `` | Right ascension of another position to test (deg). |
-| `--dec` | `` | Declination of another position to test (deg). |
+| `--event` | `GW170817` | Event: one of the built-in list of known counterparts (GW170817, GW190521), which gives its counterpart's position, host redshift and PE file; or any event of the GWTC PE releases (full name) with --ra, --dec and --redshift. |
+| `--ra` | `` | Right ascension of the counterpart, or of another position to test (deg). |
+| `--dec` | `` | Declination of the counterpart, or of another position to test (deg). |
 | `--pe-label` | `` | Analyses of the PE file to use, by label (one waveform model and prior each, e.g. C02:IMRPhenomPv2_NRTidal-HighSpin): one result per label, plots from the first. Default: the labels set for the event (GW190521: C01:IMRPhenomXPHM), else all those of the file, LowSpin first. |
 | `--pe-file` | `` | PE file to read instead of the event's. |
 | `--cache-dir` | `.cache_gwosc` | Cache root of the unofficial PE bundle of GW170817 (as in build_unofficial_pe). |
 | `--v-recession` | `` | Recession velocity of the host and its uncertainty, km/s (default for GW170817: 3327 72, the NGC 4993 group in the CMB frame). |
 | `--v-peculiar` | `` | Peculiar velocity of the host and its uncertainty, km/s (default for GW170817: 310 150). |
 | `--redshift` | `` | Hubble-flow redshift of the host and its uncertainty, instead of the velocities (default for GW190521: 0.438 0.0015). |
+| `--host` | `` | Name of the host galaxy (for an event outside the list). |
+| `--counterpart-class` | `` | Class of the binary, the mass model of the selection (default: the event's, or for an event outside the list BNS when both catalog masses are below 3 M_sun, else BBH). |
 | `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
 | `--viewing-angle` | `` | Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
 | `--pe-distance-prior` | `` | Luminosity-distance prior of the PE samples, divided out of the distance posterior: dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE file, else D_L^2 up to O3 and source-frame from O4. |
@@ -269,9 +275,15 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--catalogs` | `` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5). ALL takes them all except the updates (GWTC-4.1, update of GWTC-4), which are used only when named. |
-| `--ra-deg` | `` | Right ascension (deg). |
-| `--dec-deg` | `` | Declination (deg). |
+| `--catalogs` | `[]` | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5). ALL takes them all except the updates (GWTC-4.1, update of GWTC-4), which are used only when named. |
+| `--ra-deg` | `` | Right ascension (deg); not with --counterparts. |
+| `--dec-deg` | `` | Declination (deg); not with --counterparts. |
+| `--counterparts` | `` | Search the GRB and/or neutrino coincidences of each GW map instead of a position. |
+| `--sources` | `` | With --counterparts: the external catalogs (default: all those of the messengers). |
+| `--grb-window` | `` | With --counterparts: GRB time window around the merger, s (default -1 5, as RAVEN). |
+| `--neutrino-window` | `` | With --counterparts: neutrino time window around the merger, s (default -500 500). |
+| `--skymap` | `[]` | With --counterparts: GW sky map files (FITS) to search, e.g. a GraceDB alert map. |
+| `--refresh-catalogs` | `False` | With --counterparts: download the external catalogs again (otherwise weekly). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
 | `--skymap-label` | `Mixed` | Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed then IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case). 'any': every map of every event. |
 | `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |

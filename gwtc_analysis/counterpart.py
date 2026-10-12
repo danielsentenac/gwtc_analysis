@@ -11,6 +11,8 @@ The registry of counterparts (`COUNTERPARTS`) is shared with the bright-siren H0
 """
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Iterable, Optional
@@ -176,16 +178,72 @@ def _read_pe_labels(pe_file: Path, labels: Optional[Iterable[str]]) -> dict[str,
     return out
 
 
-def get_counterpart(event: str, ra_deg: Optional[float] = None, dec_deg: Optional[float] = None) -> Counterpart:
-    """The registered counterpart of `event`, at another sky position when `ra_deg`, `dec_deg` are given."""
-    if event not in COUNTERPARTS:
-        raise ValueError(f"no counterpart registered for {event}; supported: {', '.join(COUNTERPARTS)}")
+def _event_class(event: str) -> str:
+    """BNS when both catalog source-frame masses are below 3 M☉, else BBH (an NSBH takes the BBH mass model of the
+    selection); BBH when the catalog lists do not have the event."""
+    from .catalog_registry import gwosc_lists
+    from .gw_stat import fetch_gwtc_events
+
+    for lst in gwosc_lists():
+        try:
+            evs = (fetch_gwtc_events(lst) or {}).get("events", {})
+        except Exception as e:                       # offline: the default
+            _log(f"WARN: {lst} unavailable ({type(e).__name__})")
+            continue
+        for name, v in evs.items():
+            if event in (name.split("-v")[0], v.get("commonName")):
+                m1, m2 = v.get("mass_1_source"), v.get("mass_2_source")
+                if m1 is not None and m2 is not None:
+                    return "BNS" if max(float(m1), float(m2)) < 3.0 else "BBH"
+    _log(f"WARN: no catalog masses for {event}; BBH selection model")
+    return "BBH"
+
+
+def _run_of_event(event: str) -> str:
+    """The observing run of an event, from the date and time in its name (GWYYMMDD_HHMMSS)."""
+    from astropy.time import Time
+
+    from .catalogs import OBSERVING_RUNS
+
+    m = re.match(r"GW(\d{2})(\d{2})(\d{2})(?:_(\d{2})(\d{2})(\d{2}))?", event)
+    if not m:
+        raise ValueError(f"{event}: an event name GWYYMMDD_HHMMSS is needed for a counterpart outside the list")
+    y, mo, d, hh, mm, ss = (m.group(i) or "00" for i in range(1, 7))
+    gps = Time(f"20{y}-{mo}-{d}T{hh}:{mm}:{ss}", scale="utc").gps
+    run = next((r for r, (a, b) in OBSERVING_RUNS.items() if a <= gps <= b), None)
+    if run is None:
+        raise ValueError(f"{event} is outside the observing runs")
+    return run
+
+
+def get_counterpart(event: str, ra_deg: Optional[float] = None, dec_deg: Optional[float] = None,
+                    redshift: Optional[tuple[float, float]] = None, host: Optional[str] = None,
+                    population: Optional[str] = None) -> Counterpart:
+    """The registered counterpart of `event`, at another sky position when `ra_deg`, `dec_deg` are given; for an
+    event outside the list, the counterpart given by its position and the redshift of its host (e.g. a GRB with an
+    afterglow and a host redshift), the run from the event's name, the PE file its Zenodo release and the class
+    (`population`, BNS or BBH: the mass model of the selection) from the catalog masses."""
     if (ra_deg is None) != (dec_deg is None):
         raise ValueError("give both the right ascension and the declination of the position")
+    if population is not None and population not in ("BNS", "BBH"):
+        raise ValueError(f"the class of the binary is BNS or BBH, not {population!r}")
+    if event not in COUNTERPARTS:
+        if ra_deg is None or redshift is None:
+            raise ValueError(f"no counterpart registered for {event} (registered: {', '.join(COUNTERPARTS)}); for "
+                             "another event give the counterpart's position and its host's redshift (--ra, --dec, "
+                             "--redshift)")
+        return Counterpart(host=host or "the host", transient=f"the counterpart at RA {ra_deg:g}°, Dec {dec_deg:+g}°",
+                           ra_deg=float(ra_deg), dec_deg=float(dec_deg), run=_run_of_event(event),
+                           population=population or _event_class(event), ref="given on the command line",
+                           z=float(redshift[0]), sigma_z=float(redshift[1]), pe_event=event)
     cp = COUNTERPARTS[event]
     if ra_deg is not None:
         cp = replace(cp, ra_deg=float(ra_deg), dec_deg=float(dec_deg),
                      transient=f"the position RA {ra_deg:g}°, Dec {dec_deg:+g}°", published=None)
+    if host:
+        cp = replace(cp, host=host)
+    if population:
+        cp = replace(cp, population=population)
     return cp
 
 
@@ -407,6 +465,8 @@ def run_counterpart(
     v_recession: Optional[tuple[float, float]] = None,
     v_peculiar: Optional[tuple[float, float]] = None,
     redshift: Optional[tuple[float, float]] = None,
+    host: Optional[str] = None,
+    counterpart_class: Optional[str] = None,
     sky_radius_deg: float = 3.0,
     viewing_angle_constraint: Optional[tuple[float, float]] = None,
     pe_distance_prior: Optional[str] = None,
@@ -422,7 +482,7 @@ def run_counterpart(
     from . import h0_bright as hb
     from .hubble_constant import pe_distance_prior as distance_prior
 
-    cp = get_counterpart(event, ra_deg, dec_deg)
+    cp = get_counterpart(event, ra_deg, dec_deg, redshift=redshift, host=host, population=counterpart_class)
     if sky_radius_deg <= 0:
         raise ValueError("the sky radius must be > 0")
     if viewing_angle_constraint is not None and not (0 <= viewing_angle_constraint[0] <= 90
