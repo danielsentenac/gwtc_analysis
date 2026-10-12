@@ -376,8 +376,8 @@ features the mass spectrum has, the better it pins the redshift (spectral sirens
 gwtc_analysis implements PLP and MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`):
 78.6 (+38.0 / −26.5) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
 peak at 9.9 (+19.7 / −1.1) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
-high-mass one at 29.8 (+4.6 / −6.5) M☉. FullPop-4.0 needs the neutron-star events and a more complex
-model.
+high-mass one at 29.8 (+4.6 / −6.5) M☉. FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events; the
+three models are compared in [mass models](../modes/hubble-constant.md#mass-models).
 
 ![H0 posterior, Multi Peak](../img/h0_posterior_mltp.png)
 
@@ -411,7 +411,8 @@ low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the 
    data mildly prefer MLTP over PLP.
 
 FullPop-4.0 goes further (72.9 (+21.9 / −18.8)): it adds the neutron-star events (141 events) and models
-the gap between neutron stars and black holes, whose edges are further sharp features at known masses.
+the gap between neutron stars and black holes, whose edges are further sharp features at known masses
+([mass models](../modes/hubble-constant.md#mass-models)).
 
 ## Limitations
 
