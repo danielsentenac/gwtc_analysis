@@ -77,4 +77,18 @@ width is half of Silverman's rule, the full width over-smoothing (98% coverage).
 - GW190425's PE file does not record its Λ prior; uniform on 0–5000 is assumed, as recorded for GW170817
   (`--lambda-max`).
 
-All options: [CLI reference](../cli-reference.md#neutron_star_eos).
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--events {GW170817,GW190425}` | `GW170817 GW190425` | Binary neutron stars to combine. |
+| `--spin-prior {low,high}` | `low` | PE analyses with the low-spin (\|chi\| <= 0.05) or high-spin (\|chi\| <= 0.89) prior. |
+| `--lambda-max` | `5000.0` | Upper bound of the uniform PE priors on Lambda_1, Lambda_2. |
+| `--cache-dir` | `.cache_gwosc` | Cache root of the GW170817 bundle. |
+| `--pe-cache` | — | PE cache of the Zenodo files (default: that of hubble_constant). |
+| `--out-report` | `neutron_star_eos.html` | Output HTML report path. |
+| `--out-summary` | `neutron_star_eos.tsv` | Output TSV of Lambda_1.4 and R_1.4 (the posteriors go to &lt;name&gt;.posterior.tsv). |
+| `--plots-dir` | `neutron_star_eos_plots` | Directory for the plots. |
+
+Every report ends with the options of its run, defaults included. The same table with the help text
+of all the modes: [CLI reference](../cli-reference.md#neutron_star_eos).

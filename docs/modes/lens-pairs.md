@@ -121,9 +121,16 @@ LVK results (superevent names mapped to the catalog events through their GraceDB
 | `--data-repo` | `zenodo` | `s3`: the MinIO mirror of the releases, much faster; it may hold an earlier version of a release than the latest on Zenodo. |
 | `--pe-samples` | 2000 | PE samples per event for the kernel densities. |
 | `--fpp-threshold` | 0.01 | Pairs flagged in the report. |
+| `--exclude` | — | Events left out (full or common names). |
+| `--pe-cache` | — | PE cache (default: that of hubble_constant). |
+| `--workers` | `4` | Parallel PE downloads. |
+| `--keep-pe-files` | off | Keep the downloaded PE files (only the extracted samples are kept by default). |
+| `--seed` | `1` | Random seed (sample subsets, lens population). |
+| `--out-report` | `lens_pairs.html` | Output HTML report path. |
+| `--out-summary` | `lens_pairs.tsv` | Output TSV of all the pairs, ranked (the events go to &lt;name&gt;.events.tsv). |
+| `--plots-dir` | `lens_pairs_plots` | Directory for the plots. |
 
-The other options (`--exclude`, `--pe-cache`, `--workers`, `--keep-pe-files`, `--seed`, the outputs) are in the
-[CLI reference](../cli-reference.md#lens_pairs).
+Every report ends with the options of its run, defaults included.
 
 ## Limits
 

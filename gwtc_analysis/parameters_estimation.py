@@ -36,6 +36,7 @@ import requests
 
 from .data_repo import resolve_zenodo_records, zenodo_catalogs
 from .pe_supplements import fill_missing_psds, fill_missing_skymaps
+from .report import options_html
 from .unofficial_pe import build_unofficial_pe_bundle
 
 
@@ -757,7 +758,7 @@ def _write_parameters_estimation_report(
 
     if not plots:
         lines.append("<p><b>No plots found</b> in the plots directory.</p>")
-        lines.append("</body></html>\n")
+        lines.append(options_html() + "</body></html>\n")
         out_path.write_text("\n".join(lines), encoding="utf-8")
         return
 
@@ -825,7 +826,7 @@ def _write_parameters_estimation_report(
             lines.append(f"<p><a href='{rp}'><code>{rp}</code></a></p>")
             lines.append(f"<p><a href='{rp}'><img src='{rp}' style='max-width:900px; height:auto;'/></a></p>")
 
-    lines.append("</body></html>\n")
+    lines.append(options_html() + "</body></html>\n")
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 

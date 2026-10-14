@@ -76,8 +76,8 @@ fetched from the Zenodo API (`/api/records/<id>/versions`) and cached for one da
 
 An older version is selected with `--zenodo-version CATALOG=VERSION`, versions being numbered from the
 oldest (`v1`); `latest` is also accepted. It is taken by `catalog_statistics`, `search_skymaps` and `parameters_estimation` (and
-`zenodo_releases` lists the versions); `lens_pairs` has `--data-repo` (`zenodo` or `s3`) but always reads the
-latest Zenodo version:
+`zenodo_releases` lists the versions); `lens_pairs` and `spin_population` have `--data-repo` (`zenodo` or `s3`)
+but always read the latest Zenodo version. `zenodo_releases` has one option, `--catalogs` (default `ALL`):
 
 ```bash
 gwtc_analysis zenodo_releases --catalogs GWTC-3 GWTC-4     # list the versions
@@ -133,6 +133,11 @@ instance the one of the O4c run):
     GWOSC v2 API) with their concept IDs and skymap tarball, and `update_of` when the list covers the runs
     of an existing catalog (a re-analysis, as GWTC-4.1 of GWTC-4.0). The draft is a starting point: check
     it against the release notes. On the current registry it reports nothing new.
+
+    | Option | Default | Meaning |
+    |---|---|---|
+    | `--out-json` | — | JSON file with the full report |
+    | `--sample-events` | `3` | events of each new list whose PE links are used to find its Zenodo records |
 
     | Option | Default | Description |
     |---|---|---|
