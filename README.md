@@ -534,10 +534,10 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
 | `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
-| `--start` | `0.2` | Default seconds before GPS time for overlay and q-transform windows. |
-| `--stop` | `0.1` | Default seconds after GPS time for overlay and q-transform windows. |
-| `--fmin` | `20.0` | Default low frequency bound (Hz) used for overlay filtering and q-transform range. |
-| `--fmax` | `300.0` | Default high frequency bound (Hz) used for overlay filtering and q-transform range. |
+| `--start` | `` | Seconds before GPS time for the overlay and q-transform windows (default 0.2; a BNS-like event without it gets the BNS profile). |
+| `--stop` | `` | Seconds after GPS time for the overlay and q-transform windows (default 0.1; a BNS-like event without it gets the BNS profile). |
+| `--fmin` | `` | Low frequency bound (Hz) of the overlay filtering and q-transform range (default 20; a BNS-like event without it gets the BNS profile). |
+| `--fmax` | `` | High frequency bound (Hz) of the overlay filtering and q-transform range (default 300; a BNS-like event without it gets the BNS profile). |
 | `--overlay-start` | `` | Override seconds before GPS time for the whitened overlay window. |
 | `--overlay-stop` | `` | Override seconds after GPS time for the whitened overlay window. |
 | `--overlay-fmin` | `` | Override low frequency bound (Hz) for overlay whitening/bandpass. |
@@ -606,7 +606,7 @@ gwtc_analysis rates --sensitivity-release gwtc4   # GWTC-4.0 injections (O3 + O4
 | `gwtc5` (O3–O4b, 2.59 yr) | 259 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] |
 | `gwtc4` (O3–O4a, 1.7 yr) | 155 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] |
 
-Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK population papers: [GWTC-5.0](https://arxiv.org/abs/2605.27226) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉), [GWTC-4.0](https://arxiv.org/abs/2508.18083) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and [GWTC-3](https://arxiv.org/abs/2111.03634).
+Rates in Gpc⁻³ yr⁻¹, median [90%]. The BNS and NSBH rates are consistent with the LVK population papers, and the BBH rate with the fixed GWTC-3 Power Law + Peak sits just below the GWTC-5.0 interval: [GWTC-5.0](https://arxiv.org/abs/2605.27226) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉), [GWTC-4.0](https://arxiv.org/abs/2508.18083) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and [GWTC-3](https://arxiv.org/abs/2111.03634).
 
 ### `hubble_constant`: Hubble Constant From The BBH Mass Spectrum
 
@@ -749,7 +749,7 @@ gwtc_analysis area_law               # downloads 114 MB once
 
 `stochastic` predicts the gravitational-wave background of the compact binaries too faint to be detected one by one, Ω_GW(f) = f/(ρ_c c²) ∫ dz R(z) ⟨dE/df_s⟩(f(1+z)) / [(1+z) H(z)], and compares it with the upper limits of the stochastic searches.
 
-- **BBH:** the Power Law + Peak masses and the Madau–Dickinson rate shape of each draw of a spectral-siren posterior (`hubble_constant`), normalized to the BBH rate at z = 0.2 of the `rates` mode, with the inspiral–merger–ringdown spectrum of Ajith et al. 2008. Beyond the farthest detected events (z ≈ 1) the rate follows the star-formation history (`--high-z sfr`, default) or the fitted shape, there the prior's (`--high-z posterior`).
+- **BBH:** the Power Law + Peak or Multi Peak masses and the Madau–Dickinson rate shape of each draw of a spectral-siren posterior (`hubble_constant`), normalized to the BBH rate at z = 0.2 of the `rates` mode, with the inspiral–merger–ringdown spectrum of Ajith et al. 2008. Beyond the farthest detected events (z ≈ 1) the rate follows the star-formation history (`--high-z sfr`, default) or the fitted shape, there the prior's (`--high-z posterior`).
 - **BNS, NSBH:** the local rates of `rates`, the star-formation history, the inspiral spectrum up to the ISCO.
 - **Result (GWTC-4.0 posterior, rates of the default `gwtc5` release):** Ω_GW(25 Hz) = 7.5 × 10⁻¹⁰ (90%: 5.5–11.7 × 10⁻¹⁰), BBH 6.0 × 10⁻¹⁰. The LVK prediction from GWTC-5.0 is 6.3 (+5.0 / −2.2) × 10⁻¹⁰, and the upper limit from the data through April 2025 is 2.0 × 10⁻⁹ ([arXiv:2608.23477](https://arxiv.org/abs/2608.23477)): a factor 2.7 below detection.
 
@@ -781,9 +781,9 @@ gwtc_analysis neutron_star_eos
 
 | Parameter (GWTC-4.0 setup) | Median (90%) |
 |---|---|
-| μ₀, mean χ_eff at q = 0.5 | 0.154 (0.081–0.215) |
-| σ | 0.081 (0.069–0.106) |
-| α, slope with q | −0.38 (−0.55 to −0.16), P(α < 0) = 0.993 |
+| μ₀, mean χ_eff at q = 0.5 | 0.154 (0.086–0.212) |
+| σ | 0.081 (0.069–0.104) |
+| α, slope with q | −0.38 (−0.54 to −0.17), P(α < 0) = 0.997 |
 | fraction with χ_eff < 0 | 0.42 (0.32–0.52) over the astrophysical mass ratios (Power Law + Peak); GWTC-4.0: 0.24–0.42 |
 
 Unequal-mass binaries have larger effective spins, as Callister et al. found; [GWTC-4.0](https://arxiv.org/abs/2508.18083) also finds evidence for a χ_eff–q correlation. A run takes about 30 minutes.
@@ -820,7 +820,7 @@ If an override is omitted, the corresponding shared default is used.
 When the posterior is BNS-like (median `chirp_mass` < 5 M☉), the workflow
 automatically switches the overlay and q-transform windows to a BNS profile
 (overlay 0.2 s on each side of the merger, 20–300 Hz; q-transform from 2 s before to 1 s after, 50–1000 Hz) for any parameter you did **not** set
-explicitly on the CLI. An explicit `--overlay-*` / `--q-*` value always wins.
+explicitly on the CLI (`--start`, `--stop`, `--fmin`, `--fmax`, or an `--overlay-*` / `--q-*` value).
 
 ### `parameters_estimation`: Higher multipoles and precession
 

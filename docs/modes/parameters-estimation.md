@@ -47,8 +47,8 @@ frequency bands have shared defaults and per-product overrides:
 | overlay only | `--overlay-start`, `--overlay-stop`, `--overlay-fmin`, `--overlay-fmax` |
 | q-transform only | `--q-start`, `--q-stop`, `--q-fmin`, `--q-fmax`, `--q-fscale {linear,log}` |
 
-When the posterior is BNS-like (median chirp mass below 5 M☉), the windows not set explicitly switch
-to a BNS profile: overlay 0.2 s on each side of the merger, 20–300 Hz; q-transform from 2 s before to 1 s after, 50–1000 Hz.
+When the posterior is BNS-like (median chirp mass below 5 M☉), the windows not set explicitly (by the shared
+`--start`/`--stop`/`--fmin`/`--fmax` or the `--overlay-*`/`--q-*` options) switch to a BNS profile: overlay 0.2 s on each side of the merger, 20–300 Hz; q-transform from 2 s before to 1 s after, 50–1000 Hz.
 
 The waveform is aligned to the data in time and phase with the matched filter below, so that the
 overlay stays coherent even when the stored maximum-likelihood extrinsic parameters are approximate.
@@ -246,10 +246,10 @@ at 90% with the two LIGO detectors.*
 | `--pe-vars` | — | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
 | `--pe-pairs` | — | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
-| `--start` | `0.2` | Default seconds before GPS time for overlay and q-transform windows. |
-| `--stop` | `0.1` | Default seconds after GPS time for overlay and q-transform windows. |
-| `--fmin` | `20.0` | Default low frequency bound (Hz) used for overlay filtering and q-transform range. |
-| `--fmax` | `300.0` | Default high frequency bound (Hz) used for overlay filtering and q-transform range. |
+| `--start` | — | Seconds before GPS time for the overlay and q-transform windows (default 0.2; a BNS-like event without it gets the BNS profile). |
+| `--stop` | — | Seconds after GPS time for the overlay and q-transform windows (default 0.1; a BNS-like event without it gets the BNS profile). |
+| `--fmin` | — | Low frequency bound (Hz) of the overlay filtering and q-transform range (default 20; a BNS-like event without it gets the BNS profile). |
+| `--fmax` | — | High frequency bound (Hz) of the overlay filtering and q-transform range (default 300; a BNS-like event without it gets the BNS profile). |
 | `--overlay-start` | — | Override seconds before GPS time for the whitened overlay window. |
 | `--overlay-stop` | — | Override seconds after GPS time for the whitened overlay window. |
 | `--overlay-fmin` | — | Override low frequency bound (Hz) for overlay whitening/bandpass. |

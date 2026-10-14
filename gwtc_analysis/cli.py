@@ -641,7 +641,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Predict the background of unresolved compact binaries, Omega_GW(f), against the upper limit.",
         description=(
             "Omega_GW(f) of the BBH, BNS and NSBH mergers that are not resolved individually. BBH: the masses and\n"
-            "the rate shape of a Power Law + Peak spectral-siren posterior (hubble_constant), normalized to the\n"
+            "the rate shape of a Power Law + Peak or Multi Peak spectral-siren posterior (hubble_constant), normalized to the\n"
             "BBH rate at z = 0.2 of a rates TSV; BNS, NSBH: their local rates and the star-formation history.\n"
             "Compared with the upper limit from the data through April 2025, Omega_GW(25 Hz) <= 2.0e-9\n"
             "(arXiv:2608.23477), and with the LVK prediction from GWTC-5.0.\n"
@@ -860,10 +860,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_pe.add_argument("--pe-vars", nargs="+", default=None, help=("Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance."))
     p_pe.add_argument("--pe-pairs", nargs="+", default=None, help=("Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p."))
     p_pe.add_argument("--plots-dir", default="pe_plots", help="Directory for output PE plots (default: pe_plots).")
-    p_pe.add_argument("--start", type=float, default=0.2, help="Default seconds before GPS time for overlay and q-transform windows.")
-    p_pe.add_argument("--stop", type=float, default=0.1, help="Default seconds after GPS time for overlay and q-transform windows.")
-    p_pe.add_argument("--fmin", type=float, default=20.0, help="Default low frequency bound (Hz) used for overlay filtering and q-transform range.")
-    p_pe.add_argument("--fmax", type=float, default=300.0, help="Default high frequency bound (Hz) used for overlay filtering and q-transform range.")
+    p_pe.add_argument("--start", type=float, default=None, help="Seconds before GPS time for the overlay and q-transform windows (default 0.2; a BNS-like event without it gets the BNS profile).")
+    p_pe.add_argument("--stop", type=float, default=None, help="Seconds after GPS time for the overlay and q-transform windows (default 0.1; a BNS-like event without it gets the BNS profile).")
+    p_pe.add_argument("--fmin", type=float, default=None, help="Low frequency bound (Hz) of the overlay filtering and q-transform range (default 20; a BNS-like event without it gets the BNS profile).")
+    p_pe.add_argument("--fmax", type=float, default=None, help="High frequency bound (Hz) of the overlay filtering and q-transform range (default 300; a BNS-like event without it gets the BNS profile).")
     p_pe.add_argument("--fs-low", dest="fmin", type=float, help=argparse.SUPPRESS)
     p_pe.add_argument("--fs-high", dest="fmax", type=float, help=argparse.SUPPRESS)
     p_pe.add_argument("--overlay-start", type=float, default=None, help="Override seconds before GPS time for the whitened overlay window.")
@@ -1009,6 +1009,7 @@ def _apply_settings_file(p: argparse.ArgumentParser, argv) -> argparse.Namespace
             raise ValueError(f"{args.settings}: {key} = {val!r} not among {list(a.choices)}")
         listy = isinstance(val, list) or a.nargs in ("+", "*") or isinstance(a, argparse._AppendAction)
         defaults[dest] = vals if listy else vals[0]
+    sp._true_defaults = {d: sp.get_default(d) for d in actions}    # before the file's values replace them
     sp.set_defaults(**defaults)
     return p.parse_args(argv)
 
@@ -1018,6 +1019,11 @@ H0_BRIGHT_OPTS = ("event", "pe_label", "pe_file", "cache_dir", "v_recession", "v
                   "viewing_angle", "pe_distance_prior", "selection", "population", "h0_range", "ra", "dec", "host",
                   "counterpart_class")
 H0_BRIGHT_SHARED_OPTS = ("sensitivity_release", "sensitivity_file", "far_threshold", "snr_threshold", "pe_cache")
+
+
+def _true_default(sp: argparse.ArgumentParser, dest: str):
+    """The parser's default of an option, not the value a --settings file put in its place."""
+    return getattr(sp, "_true_defaults", {}).get(dest, sp.get_default(dest))
 
 
 def _h0_method_dests(m: str, sp: argparse.ArgumentParser) -> set[str]:
@@ -1040,7 +1046,7 @@ def _set_report_options(args: argparse.Namespace, p: argparse.ArgumentParser, gi
     for a in sp._actions:
         if not a.option_strings or a.dest == "help" or a.help == argparse.SUPPRESS or (keep and a.dest not in keep):
             continue
-        v, d = getattr(args, a.dest, None), sp.get_default(a.dest)
+        v, d = getattr(args, a.dest, None), _true_default(sp, a.dest)
         set_ = given.get(a.dest) != d
         if isinstance(a, argparse._StoreFalseAction):       # --no-x: whether the flag was given
             v, d = not v, not d
@@ -1054,7 +1060,7 @@ def _resolve_h0_method(args: argparse.Namespace, sp: argparse.ArgumentParser) ->
     m = args.method
     allowed = _h0_method_dests(m, sp)
     bad = [a.option_strings[-1] for a in sp._actions if a.option_strings and a.dest not in allowed | {"help", "method"}
-           and getattr(args, a.dest) != sp.get_default(a.dest)]
+           and getattr(args, a.dest) != _true_default(sp, a.dest)]
     if bad:
         raise ValueError(f"{', '.join(bad)}: not an option of hubble_constant --method {m}")
     if m == "joint" and not args.inputs:
@@ -1234,6 +1240,8 @@ def main(argv=None) -> int:
         if args.mode == "scalar_cloud":
             from .scalar_cloud_mode import run_scalar_cloud
 
+            if args.npool < 1:
+                raise ValueError("--npool >= 1 is needed")
             run_scalar_cloud(
                 event=args.event, workdir=args.workdir, stages=args.stages, pe_file=args.pe_file,
                 pe_label=args.pe_label, sampling_frequency=args.sampling_frequency, n_background=args.n_background,
@@ -1245,6 +1253,9 @@ def main(argv=None) -> int:
 
         if args.mode == "counterpart":
             from .counterpart import run_counterpart
+            if args.pe_distance_prior:
+                raise ValueError("--pe-distance-prior is not used by counterpart (its distances are the PE posterior "
+                                 "as released); it is an option of hubble_constant --method bright")
             run_counterpart(
                 event=args.event, ra_deg=args.ra, dec_deg=args.dec, pe_labels=args.pe_label, pe_file=args.pe_file,
                 cache_dir=args.cache_dir, pe_cache=args.pe_cache,
@@ -1252,8 +1263,8 @@ def main(argv=None) -> int:
                 v_peculiar=tuple(args.v_peculiar) if args.v_peculiar else None,
                 redshift=tuple(args.redshift) if args.redshift else None, sky_radius_deg=args.sky_radius,
                 viewing_angle_constraint=tuple(args.viewing_angle) if args.viewing_angle else None,
-                pe_distance_prior=args.pe_distance_prior, sky_map=args.sky_map, host=args.host,
-                counterpart_class=args.counterpart_class, out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir,
+                sky_map=args.sky_map, host=args.host, counterpart_class=args.counterpart_class,
+                out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir,
             )
             return 0
 
