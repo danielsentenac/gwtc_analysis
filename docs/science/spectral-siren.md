@@ -338,7 +338,7 @@ reweighting the PLP posterior of the runs (136 events), sample by sample, to oth
 | **all the injections, 1500 PE** | **106.5 (+45.0 / −34.0)** | **54.3 – 176.9** | **28.6** | 2564 of 3582 |
 | 10% of the injections, 3000 PE | 125.1 (+44.9 / −38.0) | 65.4 – 188.0 | 27.2 | 3483 |
 | all the injections, 3000 PE | 111.4 (+44.9 / −36.2) | 55.4 – 179.4 | 28.1 | 2742 |
-| paper {C(27)} | 105.5 (+46.4 / −35.8) | 50.5 – 176.1 | 28.3 | – |
+| paper [\[29\]](../references.md#ref-29) | 105.5 (+46.4 / −35.8) | 50.5 – 176.1 | 28.3 | – |
 
 - The 10% subset alone shifts H₀ up by 13 km/s/Mpc, about 0.35σ; with all the injections the result
   matches the paper.
@@ -366,17 +366,19 @@ features the mass spectrum has, the better it pins the redshift (spectral sirens
 | GWTC-4.0 data release, PLP dark siren with GLADE+ K band (reproduced: 114.6 (+41.5 / −33.8) with 5000 PE samples, [validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8) |
 | GWTC-4.0, MLTP (power law with two peaks) [\[29\]](../references.md#ref-29) | 72.3 (+42.5 / −25.6) |
 | GWTC-4.0 data release, MLTP dark siren with GLADE+ K band (reproduced: 86.8 (+39.8 / −26.1) with 5000 PE samples, [validation](../modes/hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)) | 86.3 (+41.3 / −26.3) |
-| GWTC-4.0, FullPop-4.0 (BNS, NSBH and BBH in one mass distribution) [\[29\]](../references.md#ref-29) | 72.9 (+21.9 / −18.8) |
+| GWTC-4.0, FullPop-4.0 (BNS, NSBH and BBH in one mass distribution) [\[29\]](../references.md#ref-29) (reproduced: 74.4 (+25.4 / −18.9), [mass models](../modes/hubble-constant.md#mass-models)) | 72.9 (+21.9 / −18.8) |
 | GWTC-4.0, FullPop-4.0 + GW170817 [\[29\]](../references.md#ref-29) | 73.4 (+12.8 / −8.6) |
 | GWTC-5.0, spectral sirens + GW170817 + DES-Y6 galaxies (LVK 2026 [\[30\]](../references.md#ref-30)) | 71.7 (+9.4 / −7.5) |
 | GW170817 bright siren (LVK 2017 [\[27\]](../references.md#ref-27)) | 70 (+12 / −8) |
 | Planck 2018 (Planck 2020 [\[33\]](../references.md#ref-33)) | 67.4 ± 0.5 |
 | SH0ES (Riess et al. 2022 [\[34\]](../references.md#ref-34)) | 73.0 ± 1.0 |
 
-gwtc_analysis implements PLP and MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`):
+gwtc_analysis implements PLP, MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`) and FullPop-4.0:
 78.6 (+38.0 / −26.5) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
 peak at 9.9 (+19.7 / −1.1) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
-high-mass one at 29.8 (+4.6 / −6.5) M☉. FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events; the
+high-mass one at 29.8 (+4.6 / −6.5) M☉. FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events: 74.4
+(+25.4 / −18.9) km/s/Mpc against 72.9 (+21.9 / −18.8), the same lower end (90%: 44.4 against 44.0) and a longer
+upper tail (122.9 against 111.9). The
 three models are compared in [mass models](../modes/hubble-constant.md#mass-models).
 
 ![H0 posterior, Multi Peak](../img/h0_posterior_mltp.png)
@@ -410,7 +412,7 @@ low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the 
    The paper finds the same ("a single peak is unable to fit the complex low-mass structure"), and the
    data mildly prefer MLTP over PLP.
 
-FullPop-4.0 goes further (72.9 (+21.9 / −18.8)): it adds the neutron-star events (141 events) and models
+FullPop-4.0 goes further (72.9 (+21.9 / −18.8) in the paper, 74.4 (+25.4 / −18.9) reproduced): it adds the neutron-star events (141 events) and models
 the gap between neutron stars and black holes, whose edges are further sharp features at known masses
 ([mass models](../modes/hubble-constant.md#mass-models)).
 

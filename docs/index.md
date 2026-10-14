@@ -17,11 +17,11 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 |---|---|
 | [`catalog_statistics`](modes/catalog-statistics.md) | Catalog-wide tables and plots: masses, distances, SNR, detector networks, sky-localization areas, remnants (radiated energy, final spin) |
 | [`event_selection`](modes/event-selection.md) | Events selected by mass, distance and χ_eff ranges, or by class: neutron stars, lower mass gap, hierarchical-merger candidates |
-| [`search_skymaps`](modes/search-skymaps.md) | Events whose sky localization contains a given sky position |
+| [`search_skymaps`](modes/search-skymaps.md) | Events whose sky localization contains a given sky position; with `--counterparts`, gamma-ray bursts and neutrinos coincident with the events |
 | [`parameters_estimation`](modes/parameters-estimation.md) | Posterior plots of one event, whitened strain overlays, q-transforms, matched-filter SNR, 3D sky map and host-galaxy candidates |
 | [`build_unofficial_pe`](modes/unofficial-pe.md) | A PESummary-compatible bundle for GW170817, rebuilt from public GWTC-1 products |
 | [`rates`](modes/rates.md) | BNS, NSBH and BBH merger rates, R = N / ⟨VT⟩, from the catalogs and the LVK sensitivity injections |
-| [`hubble_constant`](modes/hubble-constant.md) | The Hubble constant by `--method`: the binary-black-hole mass spectrum (spectral siren) or with a galaxy catalog (dark siren), with icarogw; an event with an identified host ([bright siren](modes/hubble-constant-bright.md): GW170817, the candidate GW190521 flare); the joint posterior of independent results |
+| [`hubble_constant`](modes/hubble-constant.md) | The Hubble constant by `--method`: the compact-binary mass spectrum, BBH only or all binaries with FullPop-4.0 (spectral siren) or with a galaxy catalog (dark siren), with icarogw; an event with an identified host ([bright siren](modes/hubble-constant-bright.md): GW170817, the candidate GW190521 flare); the joint posterior of independent results |
 | [`galaxy_catalog`](modes/galaxy-catalog.md) | The galaxy catalog of the dark siren: GLADE+ K band, or any catalog read in chunks, turned into icarogw's line-of-sight redshift prior; local or Slurm (cluster) execution |
 | [`counterpart`](modes/counterpart.md) | Where an electromagnetic counterpart sits in the GW posterior: searched probability on the sky, distance along its line of sight against the host redshift, viewing angle and an independent constraint on it |
 | [`area_law`](modes/area-law.md) | Hawking's area law with GW250114: initial areas from the inspiral against the remnant area from the ringdown, reproducing the published 4.4σ |
@@ -39,8 +39,9 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 - **Hubble constant from black holes alone.** The `hubble_constant` mode reproduces the
   *Power Law + Peak* spectral-siren measurement of the GWTC-4.0 cosmology paper [\[29\]](references.md#ref-29):
   H₀ = 105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8), with the same
-  137 binary black holes, PE samples, injections and priors. See
-  [Hubble constant (spectral siren)](science/spectral-siren.md).
+  137 binary black holes, PE samples, injections and priors. With FullPop-4.0, the paper's fiducial population of
+  all 141 compact binaries, it gives 74.4 (+25.4 / −18.9) against the published 72.9 (+21.9 / −18.8). See
+  [Hubble constant (spectral siren)](science/spectral-siren.md) and the [mass models](modes/hubble-constant.md#mass-models).
 - **Dark sirens with a galaxy catalog.** The `galaxy_catalog` mode builds the GLADE+ K-band catalog of the
   GWTC-4.0 analysis (1.0 million galaxies, about 45 min on a cluster, as Slurm jobs on CC-IN2P3); with it,
   `hubble_constant --method dark` gives H₀ = 114.6 (+41.5 / −33.8) km/s/Mpc against the published
@@ -48,6 +49,9 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
   with 5000 PE samples per event. Deeper catalogs (DES, Rubin) go through the same pipeline. See
   [galaxy_catalog](modes/galaxy-catalog.md) and the
   [validation](modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band).
+- **Strongly lensed pairs.** `lens_pairs` repeats the first stage of the LVK lensing search on the 84 O4a binary
+  black holes (3486 pairs): the same top pair, and 28 of the LVK's 38 pairs flagged at FPP < 1 %, compared pair
+  by pair with their data release. See [lens_pairs](modes/lens-pairs.md).
 - **Merger rates** of the three source classes, corrected for selection effects with the LVK
   search-sensitivity injections. See [Merger rates](science/merger-rates.md).
 - **Robust access to the releases:** Zenodo versions resolved at run time, and missing PSDs of
