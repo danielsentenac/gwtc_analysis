@@ -781,10 +781,10 @@ gwtc_analysis neutron_star_eos
 
 | Parameter (GWTC-4.0 setup) | Median (90%) |
 |---|---|
-| μ₀, mean χ_eff at q = 0.5 | 0.18 (0.11–0.23) |
-| σ | 0.077 (0.067–0.097) |
-| α, slope with q | −0.44 (−0.58 to −0.24), P(α < 0) > 0.999 |
-| fraction with χ_eff < 0 | 0.35 (0.26–0.43) over the detected mass ratios (to be updated: the mode now averages over the astrophysical ones); GWTC-4.0: 0.24–0.42 |
+| μ₀, mean χ_eff at q = 0.5 | 0.154 (0.081–0.215) |
+| σ | 0.081 (0.069–0.106) |
+| α, slope with q | −0.38 (−0.55 to −0.16), P(α < 0) = 0.993 |
+| fraction with χ_eff < 0 | 0.42 (0.32–0.52) over the astrophysical mass ratios (Power Law + Peak); GWTC-4.0: 0.24–0.42 |
 
 Unequal-mass binaries have larger effective spins, as Callister et al. found; [GWTC-4.0](https://arxiv.org/abs/2508.18083) also finds evidence for a χ_eff–q correlation. A run takes about 30 minutes.
 

@@ -55,32 +55,33 @@ population spins isotropic, whatever the draw.
 
 | Parameter | Correlated model, median (90%) | Gaussian model (α = 0) |
 |---|---|---|
-| μ₀, mean χ_eff at q = 0.5 | 0.18 (0.11–0.23) | 0.036 (0.013–0.057) |
-| σ, width | 0.077 (0.067–0.097) | 0.096 (0.077–0.121) |
-| α, slope with q | **−0.44 (−0.58 to −0.24)** | — |
-| P(α < 0) | > 0.999 (all 16,000 samples) | — |
+| μ₀, mean χ_eff at q = 0.5 | 0.154 (0.081–0.215) | 0.036 (0.013–0.057) |
+| σ, width | 0.081 (0.069–0.106) | 0.096 (0.077–0.121) |
+| α, slope with q | **−0.38 (−0.55 to −0.16)** | — |
+| P(α < 0) | 0.993 (of 16,000 samples) | — |
 
-The mean effective spin falls with the mass ratio: 0.27 (0.16–0.34) at q = 0.3, 0.14 (0.09–0.17) at
-q = 0.6, −0.04 (−0.07 to 0.00) for equal masses. **Unequal-mass binaries have larger effective spins**,
+The mean effective spin falls with the mass ratio: 0.23 (0.11–0.32) at q = 0.3, 0.12 (0.06–0.16) at
+q = 0.6, −0.03 (−0.07 to 0.01) for equal masses. **Unequal-mass binaries have larger effective spins**,
 as Callister et al. found at 98.7% credibility with GWTC-2 [\[89\]](../references.md#ref-89); GWTC-4.0 also
 finds evidence for a χ_eff–q correlation [\[13\]](../references.md#ref-13). Most formation models predict the
 opposite trend.
 
-Averaged over the mass ratios of the *detected* binaries (median q = 0.84), a fraction **0.35 (0.26–0.43)**
-of them have χ_eff < 0, against 0.24–0.42 for the astrophysical population in GWTC-4.0
-[\[13\]](../references.md#ref-13): a substantial population consistent with dynamical assembly. Since October
-2026 the mode averages over the astrophysical mass ratios of the fixed Power Law + Peak (more unequal masses than
-the detected ones, so a different value: the number above, from the earlier version, is to be updated with a new
-run).
+Averaged over the astrophysical mass ratios of the fixed Power Law + Peak population (median q = 0.89, more equal
+than the detected binaries, median 0.84), a fraction **0.42 (0.32–0.52)** of the binaries have χ_eff < 0, against
+0.24–0.42 in GWTC-4.0 [\[13\]](../references.md#ref-13): a substantial population consistent with dynamical
+assembly. The fraction comes mostly from the near-equal-mass binaries, where the linear trend puts the mean just
+below zero; it depends on the assumed q distribution and on the linear form of the trend, which GWTC-4.0 does not
+assume. Until October 2026 the mode averaged over the detected mass ratios, with 0.35 (0.26–0.43) from an
+earlier run (before the spin-prior bound of 0.99 and the other fixes of that review).
 
 ![BBH chi_eff population](../img/modes/spin_population.png)
 
 *Left: the population χ_eff distribution at three mass ratios (median and 90%). Right: the posterior of the
-mean at q = 0.5 against the slope; every sample has α < 0.*
+mean at q = 0.5 against the slope; 99.3% of the samples have α < 0.*
 
-Diagnostics of the correlated run: at the posterior median 14,500 effective injections (threshold 548)
-and at least 16 effective PE samples per event (GW231028_153006, the one with χ_eff ≈ 0.5 at q ≈ 0.7);
-20 walkers × 1200 steps, acceptance 0.61, autocorrelation time 31 steps, about 500 independent samples.
+Diagnostics of the correlated run (14 October 2026, PE files from the S3 mirror): at the posterior median
+16,537 effective injections (threshold 548) and at least 17 effective PE samples per event (threshold 10);
+20 walkers × 1200 steps, acceptance 0.62, autocorrelation time 30 steps, about 530 independent samples.
 
 ## Validation
 
