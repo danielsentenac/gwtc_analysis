@@ -28,8 +28,8 @@ The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#re
 105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8) for PLP; dark siren with GLADE+
 114.6 (+41.5 / −33.8) against 115.4 (+40.1 / −33.8), with 5000 PE samples per event ([validation](#validation-gwtc-40-power-law-peak-glade-k-band));
 with Multi Peak, 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3) ([validation](#validation-gwtc-40-multi-peak-glade-k-band)).
-FullPop-4.0, the paper's fiducial model, is implemented; its validation against the published spectral siren,
-72.9 (+21.9 / −18.8), is running.
+With FullPop-4.0, the paper's fiducial model (141 events, every compact binary), the spectral siren gives 74.4 (+25.4 / −18.9) against the
+published 72.9 (+21.9 / −18.8) ([mass models](#mass-models)).
 
 ## Quick start
 
@@ -238,7 +238,13 @@ more events, its 68% interval is about 40–50% narrower than MLTP's, with a sim
 | Dark siren, GLADE+ K band (Table 1) | 110.6 (+42.5 / −34.7) | 81.6 (+41.2 / −27.6) | 79.6 (+20.8 / −16.3) |
 | Spectral siren + GW170817 | 80.6 (+21.8 / −13.2) | 73.6 (+15.5 / −9.2) | 73.4 (+12.8 / −8.6) |
 | Dark siren + GW170817 | 82.5 (+22.6 / −14.2) | 75.4 (+16.6 / −10.0) | **75.4 (+12.8 / −9.1)**, the paper's headline |
-| gwtc_analysis, spectral siren | 105.8 (+44.7 / −33.2) | 78.6 (+38.0 / −26.5) | (validation running) |
+| gwtc_analysis, spectral siren | 105.8 (+44.7 / −33.2) | 78.6 (+38.0 / −26.5) | 74.4 (+25.4 / −18.9) |
+
+FullPop-4.0 run (CC-IN2P3, October 2026): the 141 events of the paper (137 BBH, GW190425, GW190814, GW200115,
+GW230529; GW170817 kept for the bright siren), the priors of Table 5, nested sampling with 100 live points, 7 seeds
+combined (the eighth, on a slow node, was stopped: the seven agreed, medians 73.6–77.4), reweighted to all the
+injections and 1500 PE samples per event (effective sample size 88 %). The 90% interval is 44.4–122.9 against
+44.0–111.9: the median is 1.5 higher, the lower bound the same, the upper tail longer.
 
 The dark-siren rows of the paper combine icarogw and gwcosmo; the data-release values reproduced above
 ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)) are icarogw's alone.
