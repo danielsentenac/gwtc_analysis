@@ -68,6 +68,7 @@ NSBH rates are upper limits (90%: 113 and 40 Gpc⁻³ yr⁻¹).
 | BNS | both masses uniform in [1, 2.5] M☉ | isotropic, \|χ\| < 0.4 | constant rate |
 | NSBH | black hole ∝ m^−2.35 on [2.5, 40] M☉, neutron star uniform in [1, 2.5] M☉ | BH \|χ\| < 0.99, NS \|χ\| < 0.4 | constant rate |
 | BBH | GWTC-3 Power Law + Peak [\[12\]](../references.md#ref-12) | isotropic, \|χ\| < 0.99 | R ∝ (1+z)^κ, reported at z = 0.2 (`--bbh-kappa`, `--bbh-z-ref`), and constant |
+| all, `--mass-model fullpop4` | FullPop-4.0 [\[29\]](../references.md#ref-29): one distribution for BNS, NSBH and BBH, split at 2.5 M☉ ([below](#fullpop-40-all-compact-binaries-in-one-model)) | isotropic, \|χ\| < 0.4 below 2.5 M☉, < 0.99 above | Madau–Dickinson, reported at z = 0 (and z = 0.2 for BBH) |
 
 ## Results
 
@@ -118,6 +119,7 @@ read (or `posterior.tsv` if the run was not reweighted), or a TSV file directly.
 |---|---|---|
 | `plp` | `alpha beta mmin mmax delta_m mu_g sigma_g lambda_peak` | `gamma kappa zp` |
 | `mltp` | `alpha beta mmin mmax delta_m mu_g_low sigma_g_low mu_g_high sigma_g_high lambda_g lambda_g_low` | `gamma kappa zp` |
+| `fullpop4` | `alpha_1 alpha_2 beta_bottom beta_top mmin mmax bottomsmooth topsmooth mu_g_low sigma_g_low mu_g_high sigma_g_high lambda_g lambda_g_low leftdip rightdip leftdipsmooth rightdipsmooth deep` | `gamma kappa zp` |
 
 These are the names `hubble_constant` writes. Other columns, such as `H0`, are ignored. A missing
 column stops the run with its name.
@@ -132,6 +134,35 @@ column stops the run with its name.
 spectral-siren run on the GWTC-4.0 events, with H₀ free; a posterior of the same events, with the
 cosmology fixed, would be the self-consistent choice. With the population uncertainty the BBH rate
 agrees with the LVK intervals.*
+
+### FullPop-4.0: all compact binaries in one model
+
+FullPop-4.0, the fiducial population of the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29), describes
+neutron stars and black holes with one mass distribution (a broken power law with a dip between them, two
+peaks, and a pairing function in the mass ratio; the same density as the [bright siren](hubble-constant-bright.md)
+and the [spectral siren](hubble-constant.md#mass-models)). With `--mass-model fullpop4`, `rates` fits **one rate to
+the events of all classes**, with ⟨VT⟩ over the whole distribution, and splits it into the BNS (both masses below
+2.5 M☉, `--ns-max-mass`), NSBH and BBH regions by the fraction of the population in each. The fractions are
+exact integrals of the factorized density. The rate evolves as Madau–Dickinson; the classes are reported at z = 0
+and the BBH also at `--bbh-z-ref`. Without `--population-posterior`, the parameters are the GWTC-4.0
+spectral-siren medians; with a `hubble_constant --mass-model fullpop4` run, its posterior draws.
+
+```bash
+gwtc_analysis rates --mass-model fullpop4                                   # GWTC-4.0 medians, Poisson only
+gwtc_analysis rates --mass-model fullpop4 --population-posterior h0_fullpop4 --sensitivity-release gwtc4
+```
+
+| Rates (Gpc⁻³ yr⁻¹), median [90%] | BNS, z = 0 | NSBH, z = 0 | BBH, z = 0 | BBH, z = 0.2 |
+|---|---|---|---|---|
+| GWTC-4.0 medians, `gwtc5` injections (O3–O4b, 253 events) | 98 [88, 103] | 22 [20, 23] | 19 [17, 20] | 36.5 [33, 39] |
+| 200 draws of the FullPop-4.0 spectral-siren posterior, `gwtc4` injections (O3–O4a, 149 events) | 68 [7, 670] | 21 [6, 73] | 22 [12.5, 35] | 40 [27, 60] |
+| LVK, GWTC-4.0 (z = 0) / GWTC-5.0 (z = 0.2) | 7.6–250 | 9.1–84 | 14–26 | 27.5–49.4 |
+
+*With fixed parameters the intervals are Poisson only, from the 253 events of all classes: the BNS rate is the
+BBH-dominated total times the model's BNS fraction (70%), not a measurement of the one BNS. The posterior
+(the [FullPop-4.0 spectral siren](hubble-constant.md#mass-models), H₀ free, 141 events) carries the uncertainty
+of the shape, and the classes then agree with the LVK intervals. The neutron-star spins stop at 0.4, as the O3
+injections do.*
 
 ## Example
 
@@ -169,8 +200,8 @@ All options: [CLI reference](../cli-reference.md#rates).
 | `--far-threshold` | 1 per year | events and injections below this false-alarm rate |
 | `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR (with GWTC-1) |
 | `--ns-max-mass` | 2.5 M☉ | neutron stars below it, black holes above, for the classification and the BNS and NSBH models |
-| `--mass-model` | `plp` | BBH mass model: `plp` (Power Law + Peak, GWTC-3 values unless `--population-posterior`) or `mltp` (Multi Peak, two peaks near 10 and 35 M☉; needs `--population-posterior`) |
-| `--population-posterior` | none | samples of the BBH population (a `hubble_constant` run, or a TSV file): the BBH rate is then computed over them, see [The population posterior](#the-population-posterior) |
+| `--mass-model` | `plp` | `plp` (Power Law + Peak, GWTC-3 values unless `--population-posterior`), `mltp` (Multi Peak, two peaks near 10 and 35 M☉; needs `--population-posterior`) or `fullpop4` (FullPop-4.0, all compact binaries, split into BNS, NSBH and BBH; GWTC-4.0 medians unless `--population-posterior`) |
+| `--population-posterior` | none | samples of the population (a `hubble_constant` run, or a TSV file): the BBH rate (with `fullpop4`, all the rates) is then computed over them, see [The population posterior](#the-population-posterior) |
 | `--n-draws` | 200 | posterior draws with `--population-posterior` |
 | `--bbh-kappa` | 2.9 | BBH rate evolution R ∝ (1+z)^κ, for the fixed Power Law + Peak (not used with `--population-posterior`, whose evolution is fitted) |
 | `--bbh-z-ref` | 0.2 | redshift at which the evolving BBH rate is reported (also at z = 0) |
