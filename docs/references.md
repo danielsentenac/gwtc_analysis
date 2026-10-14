@@ -270,6 +270,15 @@ was checked against the arXiv API.
 **[75]** G. Ashton et al., *Current observations are insufficient to confidently associate the binary black hole merger GW190521 with AGN J124942.3+344929*. [arXiv:2009.12346](https://arxiv.org/abs/2009.12346)
 {: #ref-75 }
 
+**[112]** S. Mukherjee, A. Ghosh, M. J. Graham et al., *First measurement of the Hubble parameter from bright binary black hole GW190521*. H₀ = 50.4, 62.2 or 43.1 km/s/Mpc (median) for three waveform models. [arXiv:2009.14199](https://arxiv.org/abs/2009.14199)
+{: #ref-112 }
+
+**[113]** H.-Y. Chen, C.-J. Haster, S. Vitale, W. M. Farr and M. Isi, *A Standard Siren Cosmological Measurement from the Potential GW190521 Electromagnetic Counterpart ZTF19abanrhr*. H₀ = 48 (+23 / −10) km/s/Mpc. [arXiv:2009.14057](https://arxiv.org/abs/2009.14057)
+{: #ref-113 }
+
+**[114]** S. Morton, S. Rinaldi, A. Torres-Orjuela et al., *GW190521: a binary black hole merger inside an active galactic nucleus?* Phys. Rev. D 108, 123039 (2023). The association preferred (ln B = 8.6); H₀ = 102 (+27 / −25) km/s/Mpc. [arXiv:2310.16025](https://arxiv.org/abs/2310.16025)
+{: #ref-114 }
+
 ## Remnants
 
 **[76]** L. Rezzolla et al., *On the final spin from the coalescence of two black holes*. The final-spin fit of `catalog_statistics`. [arXiv:0712.3541](https://arxiv.org/abs/0712.3541)

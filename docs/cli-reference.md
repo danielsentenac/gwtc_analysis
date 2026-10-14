@@ -254,6 +254,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
 | `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
 | `--pe-samples` | `5000` | PE samples per event. |
+| `--data-repo` | `zenodo` | Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an earlier version of a release). |
 | `--max-injections` | `250000` | Random subset of the found injections (0: all). |
 | `--walkers` | `20` | emcee walkers. |
 | `--steps` | `1200` | emcee steps (the first third is burn-in). |

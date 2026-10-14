@@ -712,6 +712,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_spin.add_argument("--exclude", nargs="*", default=list(H0_DEFAULT_EXCLUDE), help="Events left out.")
     p_spin.add_argument("--pe-cache", default=None, help="PE cache (default: that of hubble_constant).")
     p_spin.add_argument("--pe-samples", type=int, default=5000, help="PE samples per event.")
+    p_spin.add_argument("--data-repo", choices=["zenodo", "s3"], default="zenodo",
+                        help="Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an "
+                             "earlier version of a release).")
     p_spin.add_argument("--max-injections", type=int, default=250000,
                         help="Random subset of the found injections (0: all).")
     p_spin.add_argument("--walkers", type=int, default=20, help="emcee walkers.")
@@ -1271,8 +1274,8 @@ def main(argv=None) -> int:
                                 min_mass=args.min_mass, exclude=args.exclude, pe_cache=args.pe_cache,
                                 pe_samples=args.pe_samples, max_injections=args.max_injections or None,
                                 correlated=not args.no_correlation, n_walkers=args.walkers, n_steps=args.steps,
-                                out_report_html=args.out_report, out_summary_tsv=args.out_summary,
-                                plots_dir=args.plots_dir)
+                                data_repo=args.data_repo, out_report_html=args.out_report,
+                                out_summary_tsv=args.out_summary, plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "lens_pairs":
