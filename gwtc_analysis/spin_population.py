@@ -153,8 +153,9 @@ def _pe_file(row, cache: Path) -> Path:
     return dest
 
 
-def _event_samples(row, cache: Path, n: int, rng) -> dict:
-    """mass_1, mass_2, luminosity_distance, chi_eff, mass_ratio and the PE distance-prior density of an event."""
+def _event_samples(row, cache: Path, n: int, rng, data_repo: str = "zenodo", s3_index: Optional[dict] = None) -> dict:
+    """mass_1, mass_2, luminosity_distance, chi_eff, mass_ratio and the PE distance-prior density of an event.
+    `data_repo` "s3": the PE file from the MinIO mirror of the releases (`s3_index`, as lens_pairs)."""
     import h5py
 
     from . import hubble_constant as hc
@@ -163,7 +164,12 @@ def _event_samples(row, cache: Path, n: int, rng) -> dict:
     out_dir = cache / "samples_spin"
     out = out_dir / f"{name}.h5"
     if not out.exists():
-        src = _pe_file(row, cache)
+        if data_repo == "s3":
+            from .lens_pairs import _download
+
+            src, downloaded = _download(row, cache, "s3", s3_index)
+        else:
+            src, downloaded = _pe_file(row, cache), False
         out_dir.mkdir(parents=True, exist_ok=True)
         with h5py.File(src, "r") as f:
             lab = hc._choose_label(f)
@@ -184,6 +190,8 @@ def _event_samples(row, cache: Path, n: int, rng) -> dict:
                 o.create_dataset(c, data=v, compression="gzip")
             o.attrs.update(label=lab, prior_desc=desc[:300], source=src.name)
         part.replace(out)
+        if downloaded:      # a file fetched here from S3 is only needed for this extraction (several GB in all)
+            src.unlink(missing_ok=True)
     with h5py.File(out, "r") as h:
         d = {c: h[c][:] for c in ("mass_1", "mass_2", "luminosity_distance", "chi_eff")}
         d["label"], d["prior_desc"] = str(h.attrs["label"]), str(h.attrs["prior_desc"])
@@ -196,16 +204,21 @@ def _event_samples(row, cache: Path, n: int, rng) -> dict:
 
 def prepare(release: str, far_threshold: float, snr_threshold: float, min_mass: float, exclude: Iterable[str],
             pe_cache: Path, pe_samples: int, sensitivity_file=None, seed: int = 1,
-            max_injections: Optional[int] = 250_000) -> dict:
+            max_injections: Optional[int] = 250_000, data_repo: str = "zenodo") -> dict:
     from . import hubble_constant as hc
 
     rng = np.random.default_rng(seed)
     events = hc.select_h0_events(release, far_threshold, min_mass, exclude)
     _log(f"{len(events)} BBH events (release {release}, FAR <= {far_threshold:g}/yr, masses >= {min_mass:g} M_sun)")
     iso = IsoTable()
+    s3_index = None
+    if data_repo == "s3" and not all((pe_cache / "samples_spin" / f"{e}.h5").exists() for e in events["event"]):
+        from .lens_pairs import _s3_index
+
+        s3_index = _s3_index(pe_cache)
     ev = []
     for _, r in events.iterrows():
-        d = _event_samples(r, pe_cache, pe_samples, rng)
+        d = _event_samples(r, pe_cache, pe_samples, rng, data_repo, s3_index)
         prior, _ = hc.pe_distance_prior(d["luminosity_distance"], d["prior_desc"], r["run"])
         w = mass_redshift_weight(d["mass_1"], d["mass_2"], d["luminosity_distance"], prior)
         # the PE spin prior is uniform in magnitude up to A_MAX_PE: its chi_eff density is the unit one rescaled
@@ -390,6 +403,7 @@ def run_spin_population(
     correlated: bool = True,
     n_walkers: int = 20,        # as the CLI
     n_steps: int = 1200,
+    data_repo: str = "zenodo",
     out_report_html: Optional[str | Path] = "spin_population.html",
     out_summary_tsv: Optional[str | Path] = "spin_population.tsv",
     plots_dir: str | Path = "spin_population_plots",
@@ -402,7 +416,7 @@ def run_spin_population(
         cache = Path(pe_cache).expanduser() if pe_cache else hc.default_pe_cache()
         data = prepare(release, far_threshold, snr_threshold, min_mass,
                        hc.H0_DEFAULT_EXCLUDE if exclude is None else exclude, cache, pe_samples, sensitivity_file,
-                       max_injections=max_injections)
+                       max_injections=max_injections, data_repo=data_repo)
     lik = Likelihood(data, correlated=correlated)
     _log(f"sampling ({'mu0, sigma, alpha' if correlated else 'mu0, sigma'}): {n_walkers} walkers x {n_steps} steps")
     post = sample(lik, n_walkers=n_walkers, n_steps=n_steps, burn=n_steps // 3)
