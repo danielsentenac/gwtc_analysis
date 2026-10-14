@@ -31,7 +31,7 @@ reference, in two versions:
 | Name | H₀ (km/s/Mpc) | Ω_m | Definition | Where it appears |
 |---|---|---|---|---|
 | `Planck15` (astropy) | 67.74 | 0.3075, including massive neutrinos (Σm_ν = 0.06 eV) | Paper XIII, Table 4, TT,TE,EE+lowP+lensing+ext; with radiation (T_CMB = 2.7255 K) | redshifts and source-frame quantities computed with astropy |
-| `Planck15_LAL` (LAL, bilby) | 67.90 | 0.3065 | Planck 2015 values as defined in LAL; no radiation (T_CMB = 0) | the PE distance prior of O4a (`UniformSourceFrame(cosmology='Planck15_LAL')`); the Ω_m fixed by the GWTC-4.0 cosmology analysis (LVK 2025 [\[29\]](../references.md#ref-29)) and by `hubble_constant` |
+| `Planck15_LAL` (LAL, bilby) | 67.90 | 0.3065 | Planck 2015 values as defined in LAL; no radiation (T_CMB = 0) | the PE distance prior of O4a (`UniformSourceFrame(cosmology='Planck15_LAL')`); the Ω_m fixed by the GWTC-4.0 cosmology analysis (LVK 2026 [\[29\]](../references.md#ref-29)) and by `hubble_constant` |
 
 The 2015 values became the convention of the LVK software during O1–O2 and were kept so that the
 catalogs stay consistent with one another. The newer Planck 2018 values
@@ -88,5 +88,7 @@ the sensitivity of the next generation of detectors.
 | Mode | Redshift |
 |---|---|
 | `rates` | approach 1: the redshifts of the injections and of the events are given in the Planck 2015 cosmology |
-| `hubble_constant` | approach 4: \(z\) is a function of the trial \(H_0\), never fixed |
+| `hubble_constant --method spectral` | approach 4: \(z\) is a function of the trial \(H_0\), never fixed |
+| `hubble_constant --method dark`, `galaxy_catalog` | approaches 3 and 4: the galaxies along each line of sight on top of the mass spectrum |
+| `hubble_constant --method bright`, `counterpart` | approach 2: the redshift of the identified host (NGC 4993 for GW170817) |
 | `event_selection`, `catalog_statistics` | approach 1: the catalog values, for the Planck 2015 cosmology |

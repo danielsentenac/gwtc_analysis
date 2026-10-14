@@ -61,7 +61,7 @@ files give them with the combinations below:
 - **Why population models are written for the primary.** The mass models of the catalogs (Power Law + Peak,
   Multi Peak, FullPop-4.0) describe the distribution of \(m_1\), and the secondary through the mass ratio,
   \(p(m_2 \mid m_1) \propto q^{\beta}\), or through a pairing function in FullPop-4.0. The primary is the better
-  measured component and the one that carries the features: the peaks of black-hole masses near 10 and 35 M☉,
+  measured component and the one that carries the features: the peaks of black-hole masses near 10 and 30–35 M☉,
   the upper end of the distribution. These source-frame features are what the [spectral siren](spectral-siren.md)
   uses as a ruler. The secondary is often lighter than the features, and its distribution is broad.
 - **Where the objects are.** Below about 2.5–3 M☉ an object is taken to be a neutron star (GW170817: both
@@ -154,7 +154,7 @@ fast. The spin is measured as the dimensionless \(\chi = cJ/(GM^2)\), from 0 (no
 for a [Kerr black hole](glossary.md)).
 
 - **Going in.** The effective spin \(\chi_\text{eff}\), the mass-weighted spin along the orbit, clusters near
-  zero: the [spin_population](../modes/spin-population.md) mode finds a mean of about 0.04 for equal masses and
+  zero: the [spin_population](../modes/spin-population.md) mode finds a mean of about −0.04 (−0.07 to 0.00) for equal masses and
   0.1–0.3 for unequal ones, with a narrow spread (σ ≈ 0.08). Individual spin magnitudes are mostly below about 0.5.
 - **Coming out.** Merger remnants have \(\chi_f \approx 0.6\)–0.8; GW150914 left a 63 M☉ black hole with
   \(\chi_f = 0.69\) (+0.05 / −0.04) (GWTC-1 [\[1\]](../references.md#ref-1)).
@@ -243,8 +243,8 @@ This is the redshift distribution used by the [rates](merger-rates.md) and
 ## The stochastic background of compact binaries
 
 The catalogs list the mergers loud enough to be detected one by one. Most mergers in the universe are too
-distant and too faint: summed over the whole universe, a binary black hole merges every few minutes and a binary
-neutron star every few tens of seconds, far more often than the detectors resolve. Their signals add up, with
+distant and too faint: summed over the whole universe, a binary black hole, a neutron-star–black-hole binary and a binary
+neutron star each merge every few minutes ([stochastic](../modes/stochastic.md)), far more often than the detectors resolve. Their signals add up, with
 random phases and from every direction, into a **stochastic background**: not a signal with a shape, but an extra,
 persistent noise-like strain common to all detectors. This background of mergers must exist, given the merger
 rates the catalogs measure, and it is the one this page and the [stochastic](../modes/stochastic.md) mode deal with.

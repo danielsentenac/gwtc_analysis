@@ -169,11 +169,11 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--boson-mass` | `` | Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%%: 0.70e-12 0.89e-12 1.17e-12). |
+| `--boson-mass` | `` | Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%: 0.70e-12 0.89e-12 1.17e-12). |
 | `--boson-label` | `` | Label of the band (default: GW190728 (scalar_cloud)). |
 | `--refresh` | `False` | Download the data releases again. |
 | `--out-report` | `continuous_waves.html` | Output HTML report path. |
-| `--out-summary` | `continuous_waves.tsv` | Output TSV of the summary (pulsars in <name>.pulsars.tsv, boson reach in <name>.boson_reach.tsv). |
+| `--out-summary` | `continuous_waves.tsv` | Output TSV of the summary (pulsars in <name>.pulsars.tsv, narrowband limits in <name>.narrowband.tsv, boson reach in <name>.boson_reach.tsv). |
 | `--plots-dir` | `continuous_waves_plots` | Directory for the plots. |
 
 ## `area_law`
@@ -296,7 +296,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--dl-max` | `` | Maximum luminosity distance (Mpc). |
 | `--chi-eff-min` | `` | Minimum effective spin chi_eff. |
 | `--chi-eff-max` | `` | Maximum effective spin chi_eff. |
-| `--preset` | `` | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%%: earlier-generation black holes). |
+| `--preset` | `` | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%: earlier-generation black holes). |
 | `--ns-max-mass` | `3.0` | Maximum neutron-star mass (M_sun). |
 | `--mass-gap` | `[3.0, 5.0]` | Lower mass gap between neutron stars and black holes (M_sun). |
 | `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |

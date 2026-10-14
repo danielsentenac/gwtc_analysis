@@ -41,7 +41,7 @@ def _parser_to_md_tables(parser: argparse.ArgumentParser) -> str:
             else:
                 default_s = str(default)
             help_ = (a.help or "").strip().replace("\n", " ")
-            help_ = help_.replace("|", "\\|")
+            help_ = help_.replace("|", "\\|").replace("%%", "%")    # argparse escapes % in help strings
             lines.append(f"| `{opt}` | `{default_s}` | {help_} |")
         lines.append("")
     return "\n".join(lines).strip() + "\n"

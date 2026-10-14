@@ -7,7 +7,7 @@ holes for that, as the first (tier-1) stage of the LVK lensing searches does.
 
 ```bash
 gwtc_analysis lens_pairs                                  # the O4a events (GWTC-4.0), as the LVK search
-gwtc_analysis lens_pairs --catalogs GWTC-2.1 GWTC-3 GWTC-4 # pairs across O1-O4a
+gwtc_analysis lens_pairs --catalogs GWTC-1 GWTC-2.1 GWTC-3 GWTC-4  # pairs across O1-O4a
 gwtc_analysis lens_pairs --catalogs ALL --data-repo s3     # every run, PE files from the faster S3 mirror
 ```
 
@@ -118,6 +118,9 @@ LVK results (superevent names mapped to the catalog events through their GraceDB
 | `--data-repo` | `zenodo` | `s3`: the MinIO mirror of the releases, much faster; it may hold an earlier version of a release than the latest on Zenodo. |
 | `--pe-samples` | 2000 | PE samples per event for the kernel densities. |
 | `--fpp-threshold` | 0.01 | Pairs flagged in the report. |
+
+The other options (`--exclude`, `--pe-cache`, `--workers`, `--keep-pe-files`, `--seed`, the outputs) are in the
+[CLI reference](../cli-reference.md#lens_pairs).
 
 ## Limits
 

@@ -16,8 +16,8 @@ event from the GWOSC v2 API; with `--include-area`, the sky-localization area at
 
 - `--out-events` (TSV): one row per event;
 - `--plots-dir`: the primary against secondary mass diagram colored by SNR, histograms of the main
-  parameters, the fraction of each source type (BBH, BNS, NSBH), the detector networks, and the
-  cumulative distribution of the sky-localization areas, and the remnants (below);
+  parameters, the fraction of each source type (BBH, BNS, NSBH), the detector networks, the cumulative
+  distribution of the sky-localization areas and the remnants (below);
 - `--out-report`: the HTML report with the tables and plots.
 
 ## Remnants and energetics
@@ -43,12 +43,13 @@ final spins cluster near 0.69, as expected for mergers of similar masses with sm
 
 | Event | Total mass (M☉) | Final mass (M☉) | E_rad (M☉c²) | E_rad (erg) | Final spin (estimate) |
 |---|---|---|---|---|---|
-| GW231123_135430 | 238 | 222 | 14.0 | 2.5 × 10⁵⁵ | 0.77 |
-| GW190426_190642 | 181.5 | 172.9 | 9.4 | 1.7 × 10⁵⁵ | 0.74 |
+| GW231123_135430 | 236 | 222 | 14.0 | 2.5 × 10⁵⁵ | 0.77 |
+| GW190426_190642 | 182.3 | 172.9 | 9.4 | 1.7 × 10⁵⁵ | 0.74 |
 | GW231028_153006 | 153 | 144 | 9.0 | 1.6 × 10⁵⁵ | 0.80 |
 | GW200220_061928 | 148 | 141 | 7.0 | 1.3 × 10⁵⁵ | 0.69 |
-| GW150914 (for reference) | 64.6 | 61.5 | 3.0 | 5.4 × 10⁵⁴ | 0.67 |
+| GW150914 (for reference) | 64.5 | 61.5 | 3.0 | 5.4 × 10⁵⁴ | 0.67 |
 
+The total mass is the GWOSC median of m₁ + m₂ (not the sum of the two medians), and E_rad = total − final.
 GW150914 matches its published values (3.0 +0.5 −0.4 M☉c², final spin 0.67–0.69).
 
 ## Example
