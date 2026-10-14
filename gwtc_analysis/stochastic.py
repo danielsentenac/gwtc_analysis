@@ -101,7 +101,7 @@ def sample_plp(rng, n: int, alpha, beta, mmin, mmax, delta_m, mu_g, sigma_g, lam
     g = np.linspace(mmin, max(mmax, mu_g + 6 * sigma_g), 4000)
     pl = np.where(g <= mmax, g ** (-alpha), 0.0)
     pl /= _trapz(pl, g)
-    peak = np.exp(-0.5 * ((g - mu_g) / sigma_g) ** 2) / (sigma_g * np.sqrt(2 * np.pi))
+    peak = _truncated_gaussian(g, mu_g, sigma_g, mmin, mu_g + 5 * sigma_g)     # as icarogw's PowerLawPeak
     p1 = ((1 - lambda_peak) * pl + lambda_peak * peak) * _smooth(g, mmin, delta_m)
     c1 = np.cumsum(p1); c1 /= c1[-1]
     m1 = np.interp(rng.uniform(size=n), c1, g)
@@ -387,8 +387,10 @@ def run_stochastic(
             raise ValueError(f"no posterior_reweighted.tsv or posterior.tsv in {spectral_posterior}")
     post = pd.read_csv(path, sep="\t")
     model = mass_model_of(post)
-    z_h = z_horizon or (horizon_redshift(src) if src.is_dir() else None) or Z_HORIZON
+    z_h = z_horizon if z_horizon is not None else ((horizon_redshift(src) if src.is_dir() else None) or Z_HORIZON)
     rates = read_rates(rates_tsv)
+    if z_h <= rates["BBH_z_ref"]:      # the BBH rate is normalized at z_ref on the fitted shape, below z_h
+        raise ValueError(f"--z-horizon {z_h:g} must exceed the redshift of the BBH rate, {rates['BBH_z_ref']:g}")
     f = np.geomspace(fmin, fmax, 120)
     _log(f"{n_draws} posterior draws of {path.name} ({MASS_MODELS[model]['name']}); rates from "
          f"{Path(rates_tsv).name}; z_h = {z_h:.2f}, "

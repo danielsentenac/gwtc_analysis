@@ -42,6 +42,8 @@ def write_chain(directory: Path, python: str, runner: Path, steps: list[Step], *
                 env: Optional[dict] = None) -> Path:
     """Write <directory>/NN_<step>.sh for each step and <directory>/submit.sh, which submits them in order, each
     after the previous one succeeded. Returns submit.sh."""
+    if any(c.isspace() for c in str(directory.resolve())):    # #SBATCH lines cannot quote a path
+        raise ValueError(f"Slurm work directories cannot contain spaces: {directory}")
     directory.mkdir(parents=True, exist_ok=True)
     logs.mkdir(parents=True, exist_ok=True)
     local_runner = directory / runner.name

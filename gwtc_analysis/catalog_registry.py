@@ -284,9 +284,11 @@ def skymap_catalogs() -> list[str]:
 
 
 def s3_prefix(key: str) -> str:
-    for c in CATALOGS.values():
-        if key.startswith(c.key) and c.s3_prefix:
-            return c.s3_prefix
+    """S3 folder of a catalog key's skymaps and PE files: its own, or that of the catalog holding its products
+    (GWTC-1 → GWTC-2.1). An exact key match: GWTC-4.1 must not fall into the GWTC-4 folder."""
+    c = CATALOGS.get(products_catalog(key))
+    if c and c.s3_prefix:
+        return c.s3_prefix
     return f"{key}/"
 
 

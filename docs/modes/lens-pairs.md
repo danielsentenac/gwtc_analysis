@@ -62,6 +62,9 @@ the spin magnitudes, the cosines of the spin tilts and the sky position.
   \(\mu_-^{3/2}\) on the fainter one). The delay of the two images is
   \(\Delta t = (1+z_l)\,\frac{D_l D_s}{c\,D_{ls}}\,2y\,\theta_E^2\), \(\theta_E = 4\pi(\sigma/c)^2 D_{ls}/D_s\).
   Typical delays are days to a few months; pairs a year or more apart are disfavoured.
+- The lensed delays are weighted by the observing window, W(Δt) = ∫ I(t) I(t+Δt) dt over the runs of the
+  selected events: a lens whose delay exceeds the runs gives no observed pair. The unlensed density, built from
+  the pairs themselves, includes the window already.
 - Both densities keep 1 % uniform in log Δt (1.4 minutes to 27 years): where both vanish, a ratio of kernel
   tails would be arbitrary; this bounds |log₁₀ R| to about 2.
 
@@ -93,11 +96,11 @@ LVK results (superevent names mapped to the catalog events through their GraceDB
   constant 1.1 (the normalization of the reference prior, the same for every pair), with a scatter of 0.2
   (robust standard deviation); Spearman rank correlation 0.89. Further down the tail the two differ more, where
   neither matters (pairs the LVK puts at −30 are at a median −3.5 here).
-- **Time-delay factor.** log₁₀ R against the LVK's: Spearman 0.998, Pearson 0.99, median offset −0.14: the
-  isothermal-lens model reproduces their galaxy-lens delay distribution.
+- **Time-delay factor.** log₁₀ R against the LVK's: Spearman 1.000, Pearson 0.996, median offset −0.29: the
+  isothermal-lens model, restricted to the observing window, reproduces their galaxy-lens delay distribution.
 - **Differences.** The FPP here is the rank among the pairs themselves, the LVK's comes from simulated unlensed
   events, which is why 34 pairs are flagged rather than 38. The largest single discrepancy, S231018by +
-  S231118an (LVK rank 6, rank 84 here), comes from the sky term (ln 𝓑_sky = −0.8): our sky densities are
+  S231118an (LVK rank 6, rank 78 here), comes from the sky term (ln 𝓑_sky = −0.8): our sky densities are
   smoothed histograms of 2000 samples of an earlier PE release version. The LVK passed 105 pairs (posterior
   overlap or Phazap) to tier 2; none survived tier 3.
 

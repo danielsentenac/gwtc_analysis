@@ -58,12 +58,12 @@ what is seen far away comes from the higher rate there, and the local rate is lo
 | `gwtc5` (O3–O4b, 2.59 yr) | 259 | 26 [3.9, 87] | 33 [13, 67] | 25.2 [22.7, 27.9] | 41.5 [37.3, 46.0] |
 
 Rates in Gpc⁻³ yr⁻¹, median [90%], from 1 BNS (GW190425), 4 NSBH and 248 BBH candidates with FAR
-below 1 per year. GW170817 is not counted: it is in O2, before the injection periods.
+below 1 per year (the other 6 of the 259 candidates have no published masses and are not classified). GW170817 is not counted: it is in O2, before the injection periods.
 
 The BNS and NSBH rates fall inside the intervals of the LVK population analyses
 (GWTC-3 [\[12\]](../references.md#ref-12), GWTC-4.0 [\[13\]](../references.md#ref-13),
-GWTC-5.0 [\[14\]](../references.md#ref-14)); the BBH rate with the fixed Power Law + Peak sits at the low edge
-of the GWTC-5.0 interval ([rates](../modes/rates.md#population-uncertainty-and-the-multi-peak-model)). The LVK intervals are wider because they fit the
+GWTC-5.0 [\[14\]](../references.md#ref-14)); the BBH rate with the fixed Power Law + Peak sits just below
+the GWTC-5.0 interval (25 against 27.5–49.4) ([rates](../modes/rates.md#population-uncertainty-and-the-multi-peak-model)). The LVK intervals are wider because they fit the
 population shape together with the rate: the BNS rate in particular rests on one or two events and
 depends strongly on the assumed mass distribution.
 

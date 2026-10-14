@@ -66,9 +66,12 @@ as Callister et al. found at 98.7% credibility with GWTC-2 [\[89\]](../reference
 finds evidence for a χ_eff–q correlation [\[13\]](../references.md#ref-13). Most formation models predict the
 opposite trend.
 
-Averaged over the population's mass ratios (median q = 0.84), a fraction **0.35 (0.26–0.43)** of the
-binaries have χ_eff < 0, against 0.24–0.42 in GWTC-4.0 [\[13\]](../references.md#ref-13): a substantial
-population consistent with dynamical assembly.
+Averaged over the mass ratios of the *detected* binaries (median q = 0.84), a fraction **0.35 (0.26–0.43)**
+of them have χ_eff < 0, against 0.24–0.42 for the astrophysical population in GWTC-4.0
+[\[13\]](../references.md#ref-13): a substantial population consistent with dynamical assembly. Since October
+2026 the mode averages over the astrophysical mass ratios of the fixed Power Law + Peak (more unequal masses than
+the detected ones, so a different value: the number above, from the earlier version, is to be updated with a new
+run).
 
 ![BBH chi_eff population](../img/modes/spin_population.png)
 

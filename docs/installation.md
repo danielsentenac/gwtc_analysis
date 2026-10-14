@@ -88,7 +88,7 @@ Downloads are cached so that each file is fetched once:
 | Directory | Content |
 |---|---|
 | `~/.cache_gwtc_analysis/zenodo` | Zenodo version listings (one day) and sensitivity-injection files |
-| `~/.cache_gwtc_analysis/pe_catalog` | PE samples extracted for `hubble_constant`, `spin_population`, `lens_pairs` and `neutron_star_eos` (`$GWTC_PE_CACHE` or `--pe-cache` to move it) |
+| `~/.cache_gwtc_analysis/pe_catalog` | PE files and samples of `hubble_constant` (all methods), `spin_population`, `lens_pairs`, `neutron_star_eos`, `counterpart` and `scalar_cloud` (`$GWTC_PE_CACHE` or `--pe-cache` to move it) |
 | `~/.cache_gwtc_analysis/galaxies` | Galaxy catalogs downloaded for `galaxy_catalog` (GLADE+; `$GWTC_GALAXY_CACHE`) |
 | `~/.cache_gwtc_analysis/skymaps` | 3D sky maps of `parameters_estimation` and `counterpart` (`$GWTC_SKYMAP_CACHE`) |
 | `~/.cache_gwtc_analysis/coincidence` | GRB and neutrino catalogs of `search_skymaps --counterparts` (`$GWTC_COINCIDENCE_CACHE`) |

@@ -570,7 +570,8 @@ def load_strain(
     start = float(t0) - float(window)
     end = float(t0) + float(window)
 
-    cache_name = f"{event}_{detector}_{int(start)}_{int(end)}_strain.hdf5"
+    # millisecond precision: two requests a fraction of a second apart must not share a cached segment
+    cache_name = f"{event}_{detector}_{start:.3f}_{end:.3f}_strain.hdf5"
     cache_file = cached_path(cache_name)
 
     if cache and file_already_exists(cache_name):
@@ -581,7 +582,9 @@ def load_strain(
     strain = GWpyTimeSeries.fetch_open_data(detector, start, end, cache=False)
 
     if cache:
-        strain.write(cache_file, format="hdf5")
+        tmp = str(cache_file) + ".part.hdf5"
+        strain.write(tmp, format="hdf5", overwrite=True)
+        os.replace(tmp, cache_file)                    # complete files only in the cache
         print(f"ℹ️ [INFO] Cached strain saved to {cache_file}")
 
     return strain
@@ -943,16 +946,11 @@ def _project_hp_hc_to_detector(
     # Combine
     ht = fp * hp + fc * hc
 
-    # Shift by dt (PyCBC TimeSeries has .cyclic_time_shift or .time_shift depending on type)
-    try:
+    # Shift by dt where the type supports a real time shift. A PyCBC TimeSeries has none: cyclic_time_shift rotates
+    # the samples without moving the epoch, which the caller then overrides anyway; the caller places the waveform at
+    # the detector's merger time instead.
+    if hasattr(ht, "time_shift"):
         ht = ht.time_shift(dt)
-    except Exception:
-        try:
-            ht = ht.cyclic_time_shift(dt)
-        except Exception:
-            # If ht is not a PyCBC type, you’ll need to convert it first.
-            raise RuntimeError("Projected waveform object does not support time shifting; convert to PyCBC TimeSeries.")
-
     return ht
     
 # ------------------------------------------------------------------
@@ -1236,12 +1234,14 @@ def generate_projected_waveform(
                         )
                         hp_proj = _project_hp_hc_to_detector(hp_src, hc_src, det, ra, dec, psi, tgps)
 
-                        # Place adapter waveform in absolute time by aligning its peak to crop center
+                        # Place the adapter waveform in absolute time: its peak at this detector's merger time (t0,
+                        # the maxL <det>_time), not at the geocentre time of the crop centre, which would drop the
+                        # 10-27 ms light travel time between detectors
                         hp_proj = _to_pycbc_timeseries(hp_proj, delta_t=1 / fs, epoch=0.0)
                         arr = np.asarray(hp_proj.numpy())
                         if arr.size > 0:
                             peak = int(np.argmax(np.abs(arr)))
-                            hp_start = t0_center - peak * (1 / fs)
+                            hp_start = _sec(t0) - peak * (1 / fs)
                             hp_proj._epoch = hp_start
 
                         hp = hp_proj

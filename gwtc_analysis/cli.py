@@ -1231,6 +1231,8 @@ def main(argv=None) -> int:
             from .continuous_waves import GW190728_BOSON_MASS_EV, run_continuous_waves
 
             custom = args.boson_mass is not None
+            if custom and not 0 < args.boson_mass[0] <= args.boson_mass[1] <= args.boson_mass[2]:
+                raise ValueError("--boson-mass LOW MID HIGH: positive and in increasing order")
             run_continuous_waves(boson_mass_ev=tuple(args.boson_mass) if custom else GW190728_BOSON_MASS_EV,
                                  boson_label=args.boson_label or ("given band" if custom else "GW190728 (scalar_cloud)"),
                                  out_report_html=args.out_report, out_summary_tsv=args.out_summary,
@@ -1261,8 +1263,9 @@ def main(argv=None) -> int:
 
         if args.mode == "spin_population":
             from .spin_population import run_spin_population
-            if args.pe_samples < 100 or args.walkers < 6 or args.steps < 100:
-                raise ValueError("--pe-samples >= 100, --walkers >= 6 and --steps >= 100 are needed")
+            if args.pe_samples < 100 or args.walkers < 6 or args.steps < 100 or args.max_injections < 0:
+                raise ValueError("--pe-samples >= 100, --walkers >= 6, --steps >= 100 and --max-injections >= 0 "
+                                 "are needed")
             run_spin_population(sensitivity_release=args.sensitivity_release, sensitivity_file=args.sensitivity_file,
                                 far_threshold=args.far_threshold, snr_threshold=args.snr_threshold,
                                 min_mass=args.min_mass, exclude=args.exclude, pe_cache=args.pe_cache,
@@ -1278,6 +1281,8 @@ def main(argv=None) -> int:
             _validate_catalogs(catalogs)
             if args.pe_samples < 200:
                 raise ValueError("--pe-samples >= 200 is needed for the kernel densities")
+            if args.workers < 1 or not 0 < args.fpp_threshold <= 1:
+                raise ValueError("--workers >= 1 and --fpp-threshold in (0, 1] are needed")
             run_lens_pairs(catalogs=catalogs, far_threshold=args.far_threshold, min_mass=args.min_mass,
                            exclude=args.exclude, pe_cache=args.pe_cache, pe_samples=args.pe_samples,
                            data_repo=args.data_repo, workers=args.workers, keep_pe_files=args.keep_pe_files,

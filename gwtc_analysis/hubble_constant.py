@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -65,6 +66,7 @@ _PE_SKY = ("ra", "dec")                    # kept when present, for the dark sir
 _LNPDRAW = "lnpdraw_mass1_source_mass2_source_redshift_spin1x_spin1y_spin1z_spin2x_spin2y_spin2z"
 _YEAR_S = 3.15576e7
 PROBE_FRACTIONS = (0.1, 0.2, 0.5)
+MAX_PE_SAMPLES = 5000             # PE samples per event stored in inputs.h5
 # minimum source-frame mass of both components (potential neutron stars out of the BBH-only models), and events left
 # out on top of --exclude, per mass model: FullPop-4.0 takes every compact binary but GW170817, the bright siren
 MODEL_MIN_MASS = {"plp": 3.0, "mltp": 3.0, "fullpop4": 0.0}
@@ -115,7 +117,8 @@ def select_h0_events(release: str, far_threshold: float, min_mass: float, exclud
             if run is None or min(float(m1), float(m2)) < min_mass:
                 continue
             name, common = _full_name(g), v.get("commonName") or ""
-            if name in exclude or common in exclude or any(e.split("_")[0] == common for e in exclude):
+            # a short name (GW190521) excludes its event; a full name only that event, not a namesake sharing the date
+            if name in exclude or common in exclude:
                 continue
             if name not in best or best[name]["far_per_yr"] > float(far):
                 best[name] = dict(event=name, common_name=common, catalog=cat, run=run, gps=float(g),
@@ -384,9 +387,34 @@ def galaxy_catalog_info(path: str | Path) -> dict:
 # stages
 # ---------------------------------------------------------------------------
 
+def _has_runs(workdir: Path) -> bool:
+    """Whether sampling has started in a work directory (finished or checkpointed runs)."""
+    res = workdir / "result"
+    return (workdir / "run_settings.json").exists() or (res.exists() and (
+        any(res.glob("*_result.json")) or any(res.glob("*_resume.pickle"))))
+
+
+def _check_reprepare(workdir: Path, new: dict) -> None:
+    """Refuse to prepare again, with another selection, a work directory whose runs used the earlier one: the runs
+    would resume on the new likelihood and be combined with the old ones."""
+    f = workdir / "selection.json"
+    if not f.exists():
+        return
+    old = json.loads(f.read_text())
+    old = dict(old, runs=sorted(old.get("runs", [])), exclude=sorted(old.get("exclude", [])),
+               galaxy_catalog=old.get("galaxy_catalog_path", old.get("galaxy_catalog") and "?"))
+    diff = [k for k, v in new.items() if k in old and old[k] != v and not (k == "galaxy_catalog" and old[k] == "?")]
+    if diff and _has_runs(workdir):
+        raise ValueError(f"{workdir} has runs made with another selection ({', '.join(diff)} differ): use another "
+                         "work directory, or delete its result/ and run_settings.json to start again")
+    if diff:                    # no run yet: the probe and plan of the old inputs no longer apply
+        for name in ("probe.json", "plan.json"):
+            (workdir / name).unlink(missing_ok=True)
+
+
 def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold: float, snr_threshold: float,
                    min_mass: float, exclude: Iterable[str], pe_cache: Path, keep_pe_files: bool,
-                   max_pe_samples: int = 5000, runs: Optional[Iterable[str]] = None,
+                   max_pe_samples: int = MAX_PE_SAMPLES, runs: Optional[Iterable[str]] = None,
                    updates: tuple[str, ...] = (), galaxy_catalog: Optional[Path] = None) -> pd.DataFrame:
     """Write <workdir>/inputs.h5 (events + injections), <workdir>/events.tsv and <workdir>/selection.json.
 
@@ -395,6 +423,10 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
 
     workdir.mkdir(parents=True, exist_ok=True)
     release_runs = H0_SENSITIVITY_RELEASES[release]["runs"]
+    _check_reprepare(workdir, dict(release=release, far_threshold=float(far_threshold),
+                                   snr_threshold=float(snr_threshold), min_mass=float(min_mass),
+                                   exclude=sorted(set(exclude)), runs=sorted(runs or release_runs),
+                                   updates=list(updates), galaxy_catalog=str(galaxy_catalog) if galaxy_catalog else None))
     missing = [r for r in (runs or ()) if r not in release_runs]
     if missing:             # checked before filtering: an uncovered run must not fall back to all the release's runs
         raise ValueError(f"The {release} sensitivity release does not cover {', '.join(missing)}: choose a "
@@ -451,7 +483,11 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
     (workdir / "selection.json").write_text(json.dumps(dict(release=release, runs=list(runs), updates=list(updates),
                                                             default_runs=runs == tuple(release_runs) and not updates,
                                                             min_mass=min_mass, exclude=sorted(set(exclude)),
-                                                            galaxy_catalog=catalog["settings"] if catalog else None)))
+                                                            galaxy_catalog=catalog["settings"] if catalog else None,
+                                                            far_threshold=float(far_threshold),
+                                                            snr_threshold=float(snr_threshold),
+                                                            galaxy_catalog_path=str(galaxy_catalog) if galaxy_catalog
+                                                            else None)))
     _log(f"{len(inj['prior'])} found injections of {inj['n_recorded']} recorded ({inj_path.name}); "
          f"inputs written to {workdir / 'inputs.h5'}")
     return events
@@ -800,7 +836,7 @@ def write_h0_slurm_chain(workdir: Path, python: str, stages: list[str], *, seeds
                           pre=["SEEDS=(" + " ".join(str(x) for x in seeds) + ")"]))
     if "combine" in stages:
         steps.append(Step("combine", ["combine", "--workdir", wd], options=["--cpus-per-task=1"],
-                          pre=[f"rm -rf {wd}/reweight    # chunks of an earlier reweighting"]))
+                          pre=[f"rm -rf {shlex.quote(wd + '/reweight')}    # chunks of an earlier reweighting"]))
     if "reweight" in stages:
         target_pe = str(int(reweight_pe_samples or settings.get("pe_samples", pe_samples)))
         steps.append(Step("reweight", ["reweight", "--workdir", wd, "--chunk", ARRAY_INDEX, "--nchunks",
@@ -834,8 +870,7 @@ def set_likelihood_settings(workdir: Path, neff_pe: Optional[float] = None, neff
         if neff_inj <= 0:
             raise ValueError("--neff-inj must be positive")
         new["neff_inj"] = int(neff_inj)
-    runs = list((workdir / "result").glob("*_result.json")) if (workdir / "result").exists() else []
-    if new != old and runs:
+    if new != old and _has_runs(workdir):
         raise ValueError(f"{workdir} has runs made with neff_pe={old['neff_pe']}, neff_inj={old['neff_inj']}; use "
                          "another work directory to change them")
     if new != old or not f.exists():
@@ -893,10 +928,16 @@ def run_hubble_constant(
     out_summary_tsv = f"hubble_constant_{method}.tsv" if out_summary_tsv == "" else out_summary_tsv
     if mass_model not in MASS_MODELS:
         raise ValueError(f"Unknown mass model {mass_model!r}; choose from {', '.join(MASS_MODELS)}")
+    if max(pe_samples, reweight_pe_samples or 0) > MAX_PE_SAMPLES:
+        raise ValueError(f"at most {MAX_PE_SAMPLES} PE samples per event are stored by prepare: --pe-samples and "
+                         f"--reweight-pe-samples cannot exceed it")
     min_mass = MODEL_MIN_MASS[mass_model] if min_mass is None else min_mass
     exclude = tuple(exclude) + tuple(e for e in MODEL_EXCLUDE.get(mass_model, ()) if e not in set(exclude))
     if "prepare" not in set(stages) and (Path(workdir).expanduser() / "selection.json").exists():
         sel = json.loads((Path(workdir).expanduser() / "selection.json").read_text())
+        if sel.get("release") and sel["release"] != sensitivity_release:
+            raise ValueError(f"{workdir} was prepared with --sensitivity-release {sel['release']}, which also sets the "
+                             f"priors: pass the same release (not {sensitivity_release})")
         if "min_mass" in sel and float(sel["min_mass"]) != min_mass:
             raise ValueError(f"{workdir} was prepared with a minimum mass of {sel['min_mass']} M_sun, the "
                              f"{MASS_MODELS[mass_model]} model takes {min_mass}: prepare a work directory for it")
