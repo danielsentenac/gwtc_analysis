@@ -86,7 +86,7 @@ LVK results (superevent names mapped to the catalog events through their GraceDB
 | Events, pairs | 84, 3486 | 84, 3486 (the same) |
 | Pairs without chirp-mass overlap (log₁₀ 𝓑 = −30) | 2270 | 1803 (1777 in common) |
 | Pairs flagged at FPP ≤ 1 % | 38 | 34, **28 of them among the LVK's 38** |
-| Highest-ranked pair | S231113bw + S231223bg (GW231113_200417 + GW231223_202619) | the same |
+| Highest-ranked pair | S231113bw + S231223bg (GW231113_200417 + GW231223_202619); their joint analysis (Hanabi): log₁₀ B = −3.3, not lensed | the same |
 | The LVK's 5 highest pairs | ranks 1–5 | ranks 1, 2, 4, 5, 6 |
 
 - **Overlap Bayes factor.** Over the 429 pairs with LVK log₁₀ 𝓑_overlap > 0, ours equals the LVK's plus a
