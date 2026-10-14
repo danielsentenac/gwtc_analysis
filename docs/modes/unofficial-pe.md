@@ -71,5 +71,4 @@ parameters.*
 | `--cache-dir` | `.cache_gwosc` | Cache root where unofficial_pe/&lt;bundle&gt;.h5 will be written. |
 | `--force` | off | Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date. |
 
-Every report ends with the options of its run, defaults included. The same table with the help text
-of all the modes: [CLI reference](../cli-reference.md#build_unofficial_pe).
+The same table with the help text of all the modes: [CLI reference](../cli-reference.md#build_unofficial_pe).

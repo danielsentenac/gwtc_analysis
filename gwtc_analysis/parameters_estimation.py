@@ -30,6 +30,7 @@ import html
 import os
 import json
 import re
+import threading
 import warnings
 
 import requests
@@ -343,7 +344,7 @@ def build_zenodo_pe_index(
             return cached["index"]
         return index
 
-    tmp = cache_path.with_name(f"{cache_path.name}.{os.getpid()}.part")     # atomic: readers never see half a file
+    tmp = cache_path.with_name(f"{cache_path.name}.{os.getpid()}.{threading.get_ident()}.part")     # atomic: readers never see half a file
     tmp.write_text(json.dumps({"record_ids": rids, "index": index}, indent=2), encoding="utf-8")
     tmp.replace(cache_path)
     return index
@@ -918,8 +919,8 @@ def run_parameters_estimation(
     *,
     src_name: str,
     plots_dir: str | None = None,
-    start: float = 0.5,
-    stop: float = 0.1,
+    start: float | None = None,           # 0.2 s, as the CLI
+    stop: float | None = None,            # 0.1 s
     fmin: float | None = None,
     fmax: float | None = None,
     fs_low: float | None = None,
@@ -988,18 +989,23 @@ def run_parameters_estimation(
 
     # Track which overlay / q-transform parameters the user explicitly
     # provided, so that _maybe_apply_bns_defaults can skip overriding them.
+    # The shared --start/--stop/--fmin/--fmax count as explicit for both products.
+    _shared_given = dict(start=start is not None, stop=stop is not None,
+                         fmin=fmin is not None or fs_low is not None, fmax=fmax is not None or fs_high is not None)
     _overlay_user_specified = dict(
-        start=overlay_start is not None,
-        stop=overlay_stop is not None,
-        fmin=overlay_fmin is not None,
-        fmax=overlay_fmax is not None,
+        start=overlay_start is not None or _shared_given["start"],
+        stop=overlay_stop is not None or _shared_given["stop"],
+        fmin=overlay_fmin is not None or _shared_given["fmin"],
+        fmax=overlay_fmax is not None or _shared_given["fmax"],
     )
     _q_user_specified = dict(
-        start=q_start is not None,
-        stop=q_stop is not None,
-        fmin=q_fmin is not None,
-        fmax=q_fmax is not None,
+        start=q_start is not None or _shared_given["start"],
+        stop=q_stop is not None or _shared_given["stop"],
+        fmin=q_fmin is not None or _shared_given["fmin"],
+        fmax=q_fmax is not None or _shared_given["fmax"],
     )
+    start = 0.2 if start is None else float(start)
+    stop = 0.1 if stop is None else float(stop)
 
     shared_fmin = _resolve_shared(fmin, fs_low, 20.0)
     shared_fmax = _resolve_shared(fmax, fs_high, 300.0)
@@ -1108,6 +1114,7 @@ def run_parameters_estimation(
     posterior_pairs_missing_by_label: dict[str, list[str]] = {}
 
     go_next_cell = True
+    strain_ok = True        # the strain products only: their failure keeps the PSD and skymap plots
 
     pe_log(
         "ℹ️ [INFO] Shared PE plotting defaults: "
@@ -1228,9 +1235,8 @@ def run_parameters_estimation(
                 cands = {exact[0]: cands[exact[0]]}
             if cands:
                 files = next(iter(cands.values()))
-                # the original distance prior first (nocosmo), as for Zenodo
-                remote_file = sorted(files, key=lambda f: (0 if "nocosmo" in f.lower() else
-                                                           1 if "combined" in f.lower() else 2, f))[0]
+                # the same rule as for Zenodo and Galaxy (mixed_cosmo first)
+                remote_file = choose_best_pe_file([{"filename": f} for f in sorted(files)])["filename"]
                 pe_log(f"ℹ️ [INFO] Found remote PE file: {remote_file}", event_logs)
 
             if remote_file is None:
@@ -1535,7 +1541,11 @@ def run_parameters_estimation(
                 try:
                     dets_available = list(data.psd[label_waveform].keys())
                 except Exception:
-                    dets_available = ["H1", "L1", "V1"]
+                    dets_available = []
+                if not dets_available:      # no PSD in the file (an empty group reads as an empty dict)
+                    cols = set(getattr(posterior_samples_wave, "parameters", []) or [])
+                    dets_available = [d for d in ("H1", "L1", "V1", "K1") if f"{d}_time" in cols
+                                      or f"{d}_optimal_snr" in cols] or ["H1", "L1", "V1"]
 
                 pe_log(f"ℹ️ [INFO] Detectors in PE file (label {label_waveform}): {dets_available}", event_logs)
 
@@ -1561,14 +1571,14 @@ def run_parameters_estimation(
 
                 if not strain_data:
                     pe_log("⚠️ [WARN] No strain data could be loaded for any detector.", event_logs)
-                    go_next_cell = False
+                    strain_ok = False
 
         except Exception as e:
             pe_log(f"❌ [ERROR] Failed loading strain data: {e}", event_logs)
-            go_next_cell = False
+            strain_ok = False
 
     # Generate projected waveforms / q-transforms
-    if go_next_cell and data is not None and label_waveform is not None:
+    if go_next_cell and strain_ok and data is not None and label_waveform is not None:
         _progress("Generate projected waveforms", 90, "step 5")
         try:
             overlay_start_before = float(overlay_start)
@@ -1728,7 +1738,6 @@ def run_parameters_estimation(
 
         except Exception as e:
             pe_log(f"❌ [ERROR] Failed creating projected waveforms / q-transforms: {e}", event_logs)
-            go_next_cell = False
 
     # ---------------------------------------------------------------------
     # PSD plot

@@ -232,12 +232,14 @@ def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False
     def one(name, entry):
         dest = cache / "files" / entry["filename"]
         tmp = dest.with_suffix(dest.suffix + ".part")
+        downloaded = False
         if not (dest.exists() and dest.stat().st_size > 0):
             pe._download_http_with_progress(entry["url"], tmp, desc=name)
             tmp.replace(dest)
+            downloaded = True
         target = cache / "samples" / f"{name}.h5"
         _extract_pe(dest, target)
-        if not keep_files:
+        if downloaded and not keep_files:   # a file already in the shared cache belongs to the mode that kept it
             dest.unlink(missing_ok=True)
         return name, target
 
@@ -337,8 +339,10 @@ def detector_frame_injections(path: Path, far_threshold: float, snr_threshold: f
 
     Found: semi-analytic network SNR above `snr_threshold` for the O1+O2 injections, lowest search FAR below
     `far_threshold` for the others; restricted to the observing `runs` if given.
-    The spin part of the draw is divided out (the population spins are then the injected, isotropic ones), the
-    density is carried to the detector frame by 1/[(1+z)^2 dD_L/dz], and the mixture weights enter as p/w.
+    `prior` is the draw density divided by the population spin density, isotropic with magnitudes uniform up to 1
+    (whatever the draw: O3 drew neutron-star spins up to 0.4 only, which leaves neutron stars with spins above
+    0.4 without injections there; with FullPop-4.0 they carry < 0.1% of the selection weight), carried to the
+    detector frame by 1/[(1+z)^2 dD_L/dz]; the mixture weights enter as p/w.
     """
     import h5py
 
@@ -401,8 +405,10 @@ def _check_reprepare(workdir: Path, new: dict) -> None:
     if not f.exists():
         return
     old = json.loads(f.read_text())
-    old = dict(old, runs=sorted(old.get("runs", [])), exclude=sorted(old.get("exclude", [])),
-               galaxy_catalog=old.get("galaxy_catalog_path", old.get("galaxy_catalog") and "?"))
+    gc = old.get("galaxy_catalog_path", old.get("galaxy_catalog") and "?")
+    if gc and gc != "?":        # recorded unresolved before October 2026
+        gc = str(Path(gc).expanduser().resolve())
+    old = dict(old, runs=sorted(old.get("runs", [])), exclude=sorted(old.get("exclude", [])), galaxy_catalog=gc)
     diff = [k for k, v in new.items() if k in old and old[k] != v and not (k == "galaxy_catalog" and old[k] == "?")]
     if diff and _has_runs(workdir):
         raise ValueError(f"{workdir} has runs made with another selection ({', '.join(diff)} differ): use another "
@@ -423,16 +429,18 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
 
     workdir.mkdir(parents=True, exist_ok=True)
     release_runs = H0_SENSITIVITY_RELEASES[release]["runs"]
-    _check_reprepare(workdir, dict(release=release, far_threshold=float(far_threshold),
-                                   snr_threshold=float(snr_threshold), min_mass=float(min_mass),
-                                   exclude=sorted(set(exclude)), runs=sorted(runs or release_runs),
-                                   updates=list(updates), galaxy_catalog=str(galaxy_catalog) if galaxy_catalog else None))
     missing = [r for r in (runs or ()) if r not in release_runs]
     if missing:             # checked before filtering: an uncovered run must not fall back to all the release's runs
         raise ValueError(f"The {release} sensitivity release does not cover {', '.join(missing)}: choose a "
                          "--sensitivity-release that does (gwtc5 for O4b)")
-    runs = tuple(release_runs if not runs else [r for r in release_runs if r in set(runs)])
+    galaxy_catalog = Path(galaxy_catalog).expanduser().resolve() if galaxy_catalog else None
     inj_path = h0_sensitivity_path(sensitivity_file, release)
+    _check_reprepare(workdir, dict(release=release, far_threshold=float(far_threshold),
+                                   snr_threshold=float(snr_threshold), min_mass=float(min_mass),
+                                   exclude=sorted(set(exclude)), runs=sorted(runs or release_runs),
+                                   updates=list(updates), galaxy_catalog=str(galaxy_catalog) if galaxy_catalog else None,
+                                   sensitivity_file=Path(inj_path).name))
+    runs = tuple(release_runs if not runs else [r for r in release_runs if r in set(runs)])
     events = select_h0_events(release, far_threshold, min_mass, exclude, runs,
                               extra_lists=_reg.gwosc_lists(updates) if updates else ())
     if events.empty:
@@ -487,7 +495,7 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
                                                             far_threshold=float(far_threshold),
                                                             snr_threshold=float(snr_threshold),
                                                             galaxy_catalog_path=str(galaxy_catalog) if galaxy_catalog
-                                                            else None)))
+                                                            else None, sensitivity_file=Path(inj_path).name)))
     _log(f"{len(inj['prior'])} found injections of {inj['n_recorded']} recorded ({inj_path.name}); "
          f"inputs written to {workdir / 'inputs.h5'}")
     return events

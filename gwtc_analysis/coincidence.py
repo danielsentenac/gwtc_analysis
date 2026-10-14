@@ -416,7 +416,7 @@ def search_event(gw: GWMap, event: str, catalogs: Catalogs, windows: dict, far_g
 # ---------------------------------------------------------------------------
 def _gw_fars(catalogs: Iterable[str]) -> list[tuple[float, float, str]]:
     """(GPS, FAR per year, name) of the GWOSC events of the catalogs, to attach the GW FAR to a map by its time."""
-    from .catalog_registry import gwosc_lists
+    from .catalog_registry import gwosc_lists, products_catalog
     from .gw_stat import fetch_gwtc_events
 
     cats = [c for c in catalogs if c != "ALL"]
@@ -454,7 +454,7 @@ def _iter_catalog_maps(catalogs: list[str], skymap_label: str, zenodo_versions: 
     tmp.mkdir(parents=True, exist_ok=True)
     for catalog in cats:
         tar_path = download_zenodo_skymaps_tarball(catalog, progress=True, verbose=False,
-                                                   version=(zenodo_versions or {}).get(catalog))
+                                                   version=(zenodo_versions or {}).get(products_catalog(catalog)))
         index = build_skymap_index_from_tar(tar_path, verbose=False)
         events = sorted({ev for ev, _ in index})
         if catalog in only:
