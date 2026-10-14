@@ -56,28 +56,19 @@ from .catalogs import CATALOG_RUNS, OBSERVING_RUNS, SEMI_ANALYTIC_RUNS, _in_runs
 # catalog since O1 can be used (catalog_registry)
 from . import catalog_registry as _reg  # noqa: E402
 
-H0_SENSITIVITY_RELEASES = {
-    k: dict(record=r.record, label=r.semi_label, file_re=r.semi_file_re, runs=r.runs,
-            catalogs=_reg.gwosc_lists(_reg.release_catalogs(k)), published=r.published or None)
-    for k, r in sorted(_reg.SENSITIVITY_RELEASES.items())
-}
-H0_DEFAULT_RELEASE = _reg.DEFAULT_H0_RELEASE
-# GWTC-4.0 cosmology: GW231123 (PE systematics) and GW200105 (NSBH) are not used
-H0_DEFAULT_EXCLUDE = ("GW231123_135430", "GW200105_162426")
+from .cli_defaults import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFAULT_RELEASE,  # noqa: E402,F401
+                           H0_SENSITIVITY_RELEASES, H0_MASS_MODELS as MASS_MODELS, H0_STAGES as STAGES)
 # PE labels, in order of preference (the GWTC-4.0 cosmology choice first)
 PE_LABELS = ("C00:IMRPhenomXPHM-SpinTaylor", "C01:IMRPhenomXPHM", "C00:IMRPhenomXPHM")
 _PE_COLUMNS = ("mass_1", "mass_2", "luminosity_distance")
 _PE_SKY = ("ra", "dec")                    # kept when present, for the dark siren with a galaxy catalog
 _LNPDRAW = "lnpdraw_mass1_source_mass2_source_redshift_spin1x_spin1y_spin1z_spin2x_spin2y_spin2z"
 _YEAR_S = 3.15576e7
-STAGES = ("prepare", "sample", "combine", "reweight", "report")
 PROBE_FRACTIONS = (0.1, 0.2, 0.5)
-MASS_MODELS = {"plp": "Power Law + Peak", "mltp": "Multi Peak", "fullpop4": "FullPop-4.0"}
 # minimum source-frame mass of both components (potential neutron stars out of the BBH-only models), and events left
 # out on top of --exclude, per mass model: FullPop-4.0 takes every compact binary but GW170817, the bright siren
 MODEL_MIN_MASS = {"plp": 3.0, "mltp": 3.0, "fullpop4": 0.0}
 MODEL_EXCLUDE = {"fullpop4": ("GW170817_124104",)}
-H0_DEFAULT_MASS_MODEL = "plp"
 
 
 def default_pe_cache() -> Path:
