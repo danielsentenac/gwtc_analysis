@@ -97,4 +97,26 @@ parameters are recovered inside their 90% intervals, with P(α < 0) > 0.9.
   the width varies [\[13\]](../references.md#ref-13).
 - χ_p (precession) is not modeled: the other spin components follow the isotropic distribution.
 
-All options: [CLI reference](../cli-reference.md#spin_population).
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--no-correlation` | off | Gaussian chi_eff model without the q slope. |
+| `--sensitivity-release {gwtc4,gwtc5}` | — | Injections and catalogs (default: gwtc4). |
+| `--sensitivity-file` | — | Local sensitivity file instead of the release. |
+| `--far-threshold` | `0.25` | Events and found injections: FAR below this. |
+| `--snr-threshold` | `10.0` | Found semi-analytic O1+O2 injections. |
+| `--min-mass` | `3.0` | Both source-frame masses above it. |
+| `--exclude` | `GW231123_135430 GW200105_162426` | Events left out. |
+| `--pe-cache` | — | PE cache (default: that of hubble_constant). |
+| `--pe-samples` | `5000` | PE samples per event. |
+| `--data-repo {zenodo,s3}` | `zenodo` | Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an earlier version of a release). |
+| `--max-injections` | `250000` | Random subset of the found injections (0: all). |
+| `--walkers` | `20` | emcee walkers. |
+| `--steps` | `1200` | emcee steps (the first third is burn-in). |
+| `--out-report` | `spin_population.html` | Output HTML report path. |
+| `--out-summary` | `spin_population.tsv` | Output TSV of the posterior quantiles (the samples go to &lt;name&gt;.posterior.tsv). |
+| `--plots-dir` | `spin_population_plots` | Directory for the plots. |
+
+Every report ends with the options of its run, defaults included. The same table with the help text
+of all the modes: [CLI reference](../cli-reference.md#spin_population).

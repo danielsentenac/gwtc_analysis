@@ -245,6 +245,8 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 | `--settings FILE` | none | JSON or YAML file of option values (keys: the long option names); the command line overrides it |
 | `--out-report`, `--out-summary` | `hubble_constant_bright.html`, `.tsv` | the report and the summary |
 
+The report ends with all these options, the values used and their defaults.
+
 The published comparison is shown only with the velocities or redshift from the list, no viewing-angle constraint,
 the default population and the file's distance prior.
 

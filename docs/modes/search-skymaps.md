@@ -140,4 +140,26 @@ be run as a bright siren with that counterpart, and the jet seen nearly on-axis 
 `hubble_constant --method bright --event <name> --ra ... --dec ... --redshift Z SIGMA --viewing-angle 10 5`
 ([bright siren](hubble-constant-bright.md#registered-events)).
 
-All options: [CLI reference](../cli-reference.md#search_skymaps).
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--catalogs` | — | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5). ALL takes them all except the updates (GWTC-4.1, update of GWTC-4), which are used only when named. |
+| `--ra-deg` | — | Right ascension (deg); not with --counterparts. |
+| `--dec-deg` | — | Declination (deg); not with --counterparts. |
+| `--counterparts {grb,neutrino}` | — | Search the GRB and/or neutrino coincidences of each GW map instead of a position. |
+| `--sources {gbm,swift,icecube-alerts,icecube-events}` | — | With --counterparts: the external catalogs (default: all those of the messengers). |
+| `--grb-window START END` | — | With --counterparts: GRB time window around the merger, s (default -1 5, as RAVEN). |
+| `--neutrino-window START END` | — | With --counterparts: neutrino time window around the merger, s (default -500 500). |
+| `--skymap FILE` | — | With --counterparts: GW sky map files (FITS) to search, e.g. a GraceDB alert map. |
+| `--refresh-catalogs` | off | With --counterparts: download the external catalogs again (otherwise weekly). |
+| `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
+| `--skymap-label` | `Mixed` | Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed then IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case). 'any': every map of every event. |
+| `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |
+| `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
+| `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
+| `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
+| `--zenodo-version CATALOG=VERSION` | — | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
+
+Every report ends with the options of its run, defaults included. The same table with the help text
+of all the modes: [CLI reference](../cli-reference.md#search_skymaps).
