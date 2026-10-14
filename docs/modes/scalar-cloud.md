@@ -198,6 +198,13 @@ and its limits constrain the boson only together with a model of the Galactic bl
   agree in every detector, the difference comes from the noise-spectrum, window and calibration handling. Both
   models use the same likelihood, so the comparison is not affected.
 
+## Outputs
+
+- `--out-report` (HTML): the fits, the background and the posteriors, with the plots;
+- `--out-summary` (TSV): the fits (vacuum and cloud), with Λ and its p-value;
+- `<workdir>/`: `event.json` (the event and its priors), the results of each stage, and `plots/` (`whitened.png`,
+  `lnl_by_frequency.png`, `dephasing.png`, `profile.png`, `background.png`, `cloud_posteriors.png`).
+
 ## Options
 
 | Option | Default | Meaning |

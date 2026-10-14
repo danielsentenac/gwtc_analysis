@@ -63,6 +63,87 @@ For each event, the dark siren needs the redshift prior along every line of sigh
 The likelihood evaluates both at every PE sample (sky pixel, redshift). This mode precomputes the in-catalog part
 as an interpolant in redshift for every HEALPix pixel, and the threshold map that sets the out-of-catalog part.
 
+## Stages
+
+Each stage is restartable: a finished stage or chunk leaves a marker in `<workdir>/done`.
+
+| Stage | Does | Parallel |
+|---|---|---|
+| `galaxies` | the standard galaxy file (`ra`, `dec` in rad, `z`, `sigmaz`, `m`) | — |
+| `shard` | one pass over the galaxies, spread by pixel range over `--nshards` files | — |
+| `pixels` | one file per pixel (icarogw's layout), NaNs marked | `--jobs` chunks |
+| `gather` | the list of filled pixels | — |
+| `prepare` | threshold (percentile of the magnitudes in the coarse pixel) and redshift grid of each pixel | `--jobs` chunks |
+| `init` | common redshift grid and threshold map, in the catalog file | — |
+| `interpolate` | in-catalog line-of-sight interpolant of each pixel | `--jobs` chunks |
+| `finish` | the catalog file read by the likelihood | — |
+| `summary` | threshold map and completeness | — |
+| `report` | HTML report | — |
+
+`galaxies` and `report` run in the gwtc_analysis environment; the others in the icarogw environment
+(`--icarogw-python`), through the self-contained `dark_catalog_icarogw.py`. Most of the time goes into `prepare`
+and `interpolate`.
+
+## GLADE+ K band
+
+The galaxies of GLADE+ with a Ks magnitude (2MASS, Vega), downloaded from VizieR VII/291 in declination bands
+(each cached, so an interrupted download resumes): 1,004,455 galaxies with a redshift and its uncertainty
+(median z = 0.082, median σ_z = 0.015, median Ks = 13.5).
+
+**The selection of the paper.** GLADE+ has 1,155,738 entries with a Ks magnitude, the "approximately 1.16 million
+sources" of the paper; 133,158 of them have no redshift (mostly faint, median Ks = 14.1) and 18,106 are quasars
+(median z = 0.76), which leaves the 1,004,455 galaxies. The threshold map shows the paper made the same choice:
+with the galaxies that have a redshift, 4.3% of the nside-32 pixels are empty, as the paper's "~5%"; with every Ks
+entry only 1.5% would be. The thresholds of 20, 40, 60 and 80% of the sky, 13.37, 13.47, 13.54 and 13.63, agree
+with the labels of its Figure 3 (13.3, 13.5, 13.6, 13.7) to their rounding.
+
+**Validated.** With this catalog, the GWTC-4.0 dark siren (Power Law + Peak, 137 BBH, 5000 PE samples per event)
+gives H₀ = 114.6 (+41.5 / −33.8) km/s/Mpc against 115.4 (+40.1 / −33.8) in the GWTC-4.0 release
+([hubble_constant](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)), and with Multi Peak
+86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3)
+([hubble_constant](hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)). Built on CC-IN2P3 in about
+45 min: 505,575 galaxies enter the in-catalog term, 94% of the sky has a threshold, median threshold Ks = 13.5;
+luminosity-weighted completeness 0.71 at z = 0.04, 0.25 at 0.08, 0.04 at 0.13.
+
+## Deeper catalogs and clusters
+
+The pipeline is built so that catalogs much larger than GLADE+ (DES Y6 Gold: 350 million galaxies after cuts;
+Rubin: billions) never need to fit in memory, and run on a cluster:
+
+- **Input in chunks.** `--input-catalog` reads Parquet (a file, or a directory such as a HATS/LSDB partition tree),
+  FITS, HDF5 or CSV in chunks, with the column mapping `--columns`, the cut `--where` applied to each chunk, and the
+  icarogw band of the magnitude (`--band`); the column names of the example above are those of one DES release:
+  use those of the catalog at hand.
+- **Pixelation in shards.** `shard` streams the galaxies once; the per-pixel work is then split by pixel.
+- **Batch jobs.** `--executor slurm` writes one sbatch script per stage in `<workdir>/slurm` (array jobs of `--jobs`
+  tasks for `pixels`, `prepare` and `interpolate`) and `submit.sh`, which chains them with `afterok`
+  dependencies; `--submit` runs it. The runner is copied next to the scripts, so the jobs only need the icarogw
+  environment. On CC-IN2P3, every job must give its time limit, CPU count and memory, and jobs reading or writing
+  `/sps` declare `--licenses=sps`.
+- **Redshift grid.** The default is one logarithmic grid (`--nintegration logspace:ZMIN:N`), icarogw's fixed-grid
+  path. icarogw's adaptive grid (an integer: points per galaxy) refines around every galaxy over ±`numsigma` σ: with
+  the spectroscopic redshifts of GLADE+ (σ_z down to 1.5 × 10⁻⁴), the merged grid grows to tens of thousands of
+  redshifts, and its serial merge (`init`) slowed to a few pixels per second on CC-IN2P3 before it was stopped. The
+  grid must resolve the narrowest galaxy redshift probabilities: N points from ZMIN to `--zcut` give a relative step
+  ln(zcut/ZMIN)/N (0.17% for the default).
+- **Memory of the result.** The catalog file holds the interpolants on (redshifts × sky pixels); the likelihood
+  loads them (in single precision). Its size is in the report; choose `--nside` and the redshift grid with it in
+  mind.
+
+The DES Y6 settings of the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) [\[93\]](../references.md#ref-93)
+are r band, nside 128 for the catalog and the threshold map, in-catalog part between z = 0.05 and 0.35
+(`--zmin 0.05 --zcut 0.35`), and a Schechter function M* = −20.9, α = −1.01, M from −24.29 to −16.33. icarogw's
+`r-upglade` band uses different Schechter parameters and expects per-galaxy K-corrections; a DES analysis needs its
+own band definition, which is not in this version.
+
+## Outputs
+
+- `<workdir>/catalog_<band>_nside<N>_eps<ε>.hdf5`: the catalog for `hubble_constant --method dark --galaxy-catalog`;
+- `<workdir>/summary.json`, `plots/mthr_map.png`, `plots/completeness.png` and `--out-report` (HTML);
+- `<workdir>/catalog_settings.json`, `options_galaxy_catalog.json`: the settings of the catalog and of the run;
+- `<workdir>/pixels/`: the per-pixel files (several GB for deep catalogs; they can be removed once the catalog
+  file is finished).
+
 ## Options
 
 Every option once, grouped by the question it answers. The column "GWTC-4.0" says where the default comes from:
@@ -113,7 +194,7 @@ marked **paper**; the **open** ones do not prevent it.
 | Option | Default | Meaning |
 |---|---|---|
 | `--workdir` | `galaxy_catalog_run` | the work directory (restartable: finished stages and chunks are skipped) |
-| `--stages` | all | stages to run ([below](#stages)) |
+| `--stages` | all | stages to run ([above](#stages)) |
 | `--jobs` | 4 | chunks of the parallel stages: processes on this machine, or array tasks on Slurm |
 | `--icarogw-python` | the current interpreter | Python of the icarogw environment, which runs the icarogw stages |
 | `--executor` | `local` | `local` or `slurm`: one batch script per stage, chained by dependencies |
@@ -144,84 +225,3 @@ gwtc_analysis galaxy_catalog --workdir glade_k_nocom --settings glade_nocom.json
 ```
 
 All options with their help text: [CLI reference](../cli-reference.md#galaxy_catalog).
-
-## GLADE+ K band
-
-The galaxies of GLADE+ with a Ks magnitude (2MASS, Vega), downloaded from VizieR VII/291 in declination bands
-(each cached, so an interrupted download resumes): 1,004,455 galaxies with a redshift and its uncertainty
-(median z = 0.082, median σ_z = 0.015, median Ks = 13.5).
-
-**The selection of the paper.** GLADE+ has 1,155,738 entries with a Ks magnitude, the "approximately 1.16 million
-sources" of the paper; 133,158 of them have no redshift (mostly faint, median Ks = 14.1) and 18,106 are quasars
-(median z = 0.76), which leaves the 1,004,455 galaxies. The threshold map shows the paper made the same choice:
-with the galaxies that have a redshift, 4.3% of the nside-32 pixels are empty, as the paper's "~5%"; with every Ks
-entry only 1.5% would be. The thresholds of 20, 40, 60 and 80% of the sky, 13.37, 13.47, 13.54 and 13.63, agree
-with the labels of its Figure 3 (13.3, 13.5, 13.6, 13.7) to their rounding.
-
-**Validated.** With this catalog, the GWTC-4.0 dark siren (Power Law + Peak, 137 BBH, 5000 PE samples per event)
-gives H₀ = 114.6 (+41.5 / −33.8) km/s/Mpc against 115.4 (+40.1 / −33.8) in the GWTC-4.0 release
-([hubble_constant](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)), and with Multi Peak
-86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3)
-([hubble_constant](hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)). Built on CC-IN2P3 in about
-45 min: 505,575 galaxies enter the in-catalog term, 94% of the sky has a threshold, median threshold Ks = 13.5;
-luminosity-weighted completeness 0.71 at z = 0.04, 0.25 at 0.08, 0.04 at 0.13.
-
-## Stages
-
-Each stage is restartable: a finished stage or chunk leaves a marker in `<workdir>/done`.
-
-| Stage | Does | Parallel |
-|---|---|---|
-| `galaxies` | the standard galaxy file (`ra`, `dec` in rad, `z`, `sigmaz`, `m`) | — |
-| `shard` | one pass over the galaxies, spread by pixel range over `--nshards` files | — |
-| `pixels` | one file per pixel (icarogw's layout), NaNs marked | `--jobs` chunks |
-| `gather` | the list of filled pixels | — |
-| `prepare` | threshold (percentile of the magnitudes in the coarse pixel) and redshift grid of each pixel | `--jobs` chunks |
-| `init` | common redshift grid and threshold map, in the catalog file | — |
-| `interpolate` | in-catalog line-of-sight interpolant of each pixel | `--jobs` chunks |
-| `finish` | the catalog file read by the likelihood | — |
-| `summary` | threshold map and completeness | — |
-| `report` | HTML report | — |
-
-`galaxies` and `report` run in the gwtc_analysis environment; the others in the icarogw environment
-(`--icarogw-python`), through the self-contained `dark_catalog_icarogw.py`. Most of the time goes into `prepare`
-and `interpolate`.
-
-## Deeper catalogs and clusters
-
-The pipeline is built so that catalogs much larger than GLADE+ (DES Y6 Gold: 350 million galaxies after cuts;
-Rubin: billions) never need to fit in memory, and run on a cluster:
-
-- **Input in chunks.** `--input-catalog` reads Parquet (a file, or a directory such as a HATS/LSDB partition tree),
-  FITS, HDF5 or CSV in chunks, with the column mapping `--columns`, the cut `--where` applied to each chunk, and the
-  icarogw band of the magnitude (`--band`); the column names of the example above are those of one DES release:
-  use those of the catalog at hand.
-- **Pixelation in shards.** `shard` streams the galaxies once; the per-pixel work is then split by pixel.
-- **Batch jobs.** `--executor slurm` writes one sbatch script per stage in `<workdir>/slurm` (array jobs of `--jobs`
-  tasks for `pixels`, `prepare` and `interpolate`) and `submit.sh`, which chains them with `afterok`
-  dependencies; `--submit` runs it. The runner is copied next to the scripts, so the jobs only need the icarogw
-  environment. On CC-IN2P3, every job must give its time limit, CPU count and memory, and jobs reading or writing
-  `/sps` declare `--licenses=sps`.
-- **Redshift grid.** The default is one logarithmic grid (`--nintegration logspace:ZMIN:N`), icarogw's fixed-grid
-  path. icarogw's adaptive grid (an integer: points per galaxy) refines around every galaxy over ±`numsigma` σ: with
-  the spectroscopic redshifts of GLADE+ (σ_z down to 1.5 × 10⁻⁴), the merged grid grows to tens of thousands of
-  redshifts, and its serial merge (`init`) slowed to a few pixels per second on CC-IN2P3 before it was stopped. The
-  grid must resolve the narrowest galaxy redshift probabilities: N points from ZMIN to `--zcut` give a relative step
-  ln(zcut/ZMIN)/N (0.17% for the default).
-- **Memory of the result.** The catalog file holds the interpolants on (redshifts × sky pixels); the likelihood
-  loads them (in single precision). Its size is in the report; choose `--nside` and the redshift grid with it in
-  mind.
-
-The DES Y6 settings of the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) [\[93\]](../references.md#ref-93)
-are r band, nside 128 for the catalog and the threshold map, in-catalog part between z = 0.05 and 0.35
-(`--zmin 0.05 --zcut 0.35`), and a Schechter function M* = −20.9, α = −1.01, M from −24.29 to −16.33. icarogw's
-`r-upglade` band uses different Schechter parameters and expects per-galaxy K-corrections; a DES analysis needs its
-own band definition, which is not in this version.
-
-## Outputs
-
-- `<workdir>/catalog_<band>_nside<N>_eps<ε>.hdf5`: the catalog for `hubble_constant --method dark --galaxy-catalog`;
-- `<workdir>/summary.json`, `plots/mthr_map.png`, `plots/completeness.png` and `--out-report` (HTML);
-- `<workdir>/catalog_settings.json`, `options_galaxy_catalog.json`: the settings of the catalog and of the run;
-- `<workdir>/pixels/`: the per-pixel files (several GB for deep catalogs; they can be removed once the catalog
-  file is finished).

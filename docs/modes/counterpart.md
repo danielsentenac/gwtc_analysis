@@ -124,6 +124,13 @@ falls on the lower of the two modes of the GW distance in that direction. Neithe
 association, with odds between 1 and 12 in its favour depending on the waveform model (Ashton et al. 2021
 [\[75\]](../references.md#ref-75)); the bimodal distance is why the bright-siren H₀ of GW190521 is bimodal.
 
+## Outputs
+
+- `--out-report` (HTML): the counterpart and host, the caveat of a candidate, the searched probability, the
+  distance along the line of sight against the host redshift, the degeneracy and the constraint;
+- `--out-summary` (TSV): one row per PE label with all the quantities above;
+- `--plots-dir`: `distance_<event>.png` and `distance_inclination_<event>.png`.
+
 ## Options
 
 | Option | Default | What it is for |
@@ -142,10 +149,3 @@ association, with odds between 1 and 12 in its favour depending on the waveform 
 | `--viewing-angle MEAN SIGMA` | none | an independent measurement of the viewing angle (degrees, Gaussian), e.g. from the radio jet of GW170817, to see how it narrows the distance |
 | `--pe-distance-prior` | — | refused here: the distances reported are the PE posterior as released (the option is shared with the [bright siren](hubble-constant-bright.md), which divides the prior out) |
 | `--out-report`, `--out-summary`, `--plots-dir` | `counterpart.html`, `counterpart.tsv`, `counterpart_plots` | the HTML report, the summary table (one row per PE label) and the plots |
-
-## Outputs
-
-- `--out-report` (HTML): the counterpart and host, the caveat of a candidate, the searched probability, the
-  distance along the line of sight against the host redshift, the degeneracy and the constraint;
-- `--out-summary` (TSV): one row per PE label with all the quantities above;
-- `--plots-dir`: `distance_<event>.png` and `distance_inclination_<event>.png`.

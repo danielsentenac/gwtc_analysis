@@ -37,12 +37,6 @@ The public samples carry no polarization angle, phase, coalescence time or likel
 All other samples keep their prior-drawn extrinsic values. If the strain fit fails (it needs network
 access to GWOSC), the bundle is still built and the log warns that the overlay will not be coherent.
 
-## Cache
-
-The bundle is cached with a fingerprint of its recipe (`<bundle>.recipe.json`) and rebuilt when the
-recipe or a source file changes. A missing source that cannot be downloaded stops the build, and the
-overlays of this special case are then not produced.
-
 ## Example
 
 ```bash
@@ -62,6 +56,15 @@ gwtc_analysis parameters_estimation --src-name GW170817 \
 *Matched-filter SNR with the maximum-likelihood IMRPhenomPv2_NRTidal waveform: 25.0 in L1 and 18.0 in
 H1 at the coalescence time, recovered from the public samples, PSDs and the fitted extrinsic
 parameters.*
+
+## Outputs
+
+- `<cache-dir>/unofficial_pe/<bundle>.h5`: the PESummary bundle, read by `parameters_estimation`, `counterpart`,
+  `hubble_constant --method bright` and `neutron_star_eos`.
+
+The bundle is cached with a fingerprint of its recipe (`<bundle>.recipe.json`) and rebuilt when the
+recipe or a source file changes. A missing source that cannot be downloaded stops the build, and the
+overlays of this special case are then not produced.
 
 ## Options
 

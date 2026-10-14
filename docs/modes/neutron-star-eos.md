@@ -42,7 +42,7 @@ events multiply, with a flat prior on \(\Lambda_{1.4}\); the mass population is 
 | GW170817 | `C02:IMRPhenomPv2_NRTidal-LowSpin` ([bundle](unofficial-pe.md)) | 1.47, 1.27 |
 | GW190425 | `C01:IMRPhenomPv2_NRTidal:LowSpin` (GWTC-2.1) | 1.75, 1.56 |
 
-## Result
+## Results
 
 | Analysis | Λ₁.₄, median (90%) | R₁.₄ (km) |
 |---|---|---|
@@ -76,6 +76,12 @@ width is half of Silverman's rule, the full width over-smoothing (98% coverage).
   gravitational-wave constraint alone.
 - GW190425's PE file does not record its Λ prior; uniform on 0–5000 is assumed, as recorded for GW170817
   (`--lambda-max`).
+
+## Outputs
+
+- `--out-report` (HTML): Λ₁.₄ and R₁.₄ of each event and jointly, against the published values, with the plot;
+- `--out-summary` (TSV): Λ₁.₄ and R₁.₄ (median and 90%); `<name>.posterior.tsv`: the Λ₁.₄ posteriors on a grid;
+- `--plots-dir`: `ns_eos.png`.
 
 ## Options
 
