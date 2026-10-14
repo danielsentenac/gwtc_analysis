@@ -73,6 +73,7 @@ nav:
       - stochastic: modes/stochastic.md
       - neutron_star_eos: modes/neutron-star-eos.md
       - spin_population: modes/spin-population.md
+      - lens_pairs: modes/lens-pairs.md
   - Science and methods:
       - What a GW signal measures: science/gw-signals.md
       - Waveform models: science/waveforms.md
