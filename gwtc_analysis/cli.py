@@ -14,6 +14,7 @@ from .area_law import run_area_law
 from .stochastic import run_stochastic
 from .ns_eos import EVENTS as NS_EOS_EVENTS, run_ns_eos
 from .spin_population import run_spin_population
+from .lens_pairs import DEFAULT_CATALOGS as LENS_DEFAULT_CATALOGS, run_lens_pairs
 from .event_selection import run_event_selection
 from .source_classes import (MASS_GAP as SC_MASS_GAP, NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN,
                              PRESETS as SOURCE_PRESETS)
@@ -171,6 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis stochastic -h\n"
             "  gwtc_analysis neutron_star_eos -h\n"
             "  gwtc_analysis spin_population -h\n"
+            "  gwtc_analysis lens_pairs -h\n"
             "  gwtc_analysis event_selection -h\n"
             "  gwtc_analysis search_skymaps -h\n"
             "  gwtc_analysis parameters_estimation -h\n"
@@ -731,6 +733,43 @@ def build_parser() -> argparse.ArgumentParser:
     p_spin.add_argument("--plots-dir", default="spin_population_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
+    # lens_pairs
+    # ---------------------------------------------------------------------
+    p_lens = sub.add_parser(
+        "lens_pairs",
+        help="Screen every pair of BBH events for strong lensing (posterior overlap and time delay).",
+        description=(
+            "A strongly lensed signal arrives as repeated events with the same detector-frame masses, spins and\n"
+            "sky position. Every pair of the selected BBH events is ranked by the posterior-overlap Bayes factor\n"
+            "(Haris et al. 2018) times the ratio of the time-delay densities of galaxy-lensed and unrelated pairs,\n"
+            "the tier-1 screen of the LVK lensing searches (GWTC-4.0: arXiv:2512.16347). The false-positive\n"
+            "probability of a pair is its rank among all the pairs of the selection. A flagged pair is a\n"
+            "candidate for joint parameter estimation, not a detection.\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_lens.add_argument("--catalogs", nargs="+", default=list(LENS_DEFAULT_CATALOGS),
+                        help="Catalogs whose events are paired: " + catalog_help() + ", or ALL (" + update_help()
+                             + "). Default: GWTC-4, the O4a events of the LVK GWTC-4.0 lensing search.")
+    p_lens.add_argument("--far-threshold", type=float, default=1.0, help="Events with a FAR at most this (per year).")
+    p_lens.add_argument("--min-mass", type=float, default=3.0, help="Both source-frame masses above it (BBH).")
+    p_lens.add_argument("--exclude", nargs="*", default=[], help="Events left out (full or common names).")
+    p_lens.add_argument("--pe-cache", default=None, help="PE cache (default: that of hubble_constant).")
+    p_lens.add_argument("--pe-samples", type=int, default=2000, help="PE samples per event.")
+    p_lens.add_argument("--data-repo", choices=["zenodo", "s3"], default="zenodo",
+                        help="Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an "
+                             "earlier version of a release).")
+    p_lens.add_argument("--workers", type=int, default=4, help="Parallel PE downloads.")
+    p_lens.add_argument("--keep-pe-files", action="store_true",
+                        help="Keep the downloaded PE files (only the extracted samples are kept by default).")
+    p_lens.add_argument("--fpp-threshold", type=float, default=0.01, help="Flag the pairs with an FPP at most this.")
+    p_lens.add_argument("--seed", type=int, default=1, help="Random seed (sample subsets, lens population).")
+    p_lens.add_argument("--out-report", default="lens_pairs.html", help="Output HTML report path.")
+    p_lens.add_argument("--out-summary", default="lens_pairs.tsv",
+                        help="Output TSV of all the pairs, ranked (the events go to <name>.events.tsv).")
+    p_lens.add_argument("--plots-dir", default="lens_pairs_plots", help="Directory for the plots.")
+
+    # ---------------------------------------------------------------------
     # event_selection
     # ---------------------------------------------------------------------
     p_sel = sub.add_parser(
@@ -1232,6 +1271,18 @@ def main(argv=None) -> int:
                                 correlated=not args.no_correlation, n_walkers=args.walkers, n_steps=args.steps,
                                 out_report_html=args.out_report, out_summary_tsv=args.out_summary,
                                 plots_dir=args.plots_dir)
+            return 0
+
+        if args.mode == "lens_pairs":
+            catalogs = _parse_catalogs(args.catalogs)
+            _validate_catalogs(catalogs)
+            if args.pe_samples < 200:
+                raise ValueError("--pe-samples >= 200 is needed for the kernel densities")
+            run_lens_pairs(catalogs=catalogs, far_threshold=args.far_threshold, min_mass=args.min_mass,
+                           exclude=args.exclude, pe_cache=args.pe_cache, pe_samples=args.pe_samples,
+                           data_repo=args.data_repo, workers=args.workers, keep_pe_files=args.keep_pe_files,
+                           fpp_threshold=args.fpp_threshold, seed=args.seed, out_report_html=args.out_report,
+                           out_summary_tsv=args.out_summary, plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "event_selection":

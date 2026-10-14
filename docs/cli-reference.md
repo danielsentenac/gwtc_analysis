@@ -261,6 +261,26 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--out-summary` | `spin_population.tsv` | Output TSV of the posterior quantiles (the samples go to <name>.posterior.tsv). |
 | `--plots-dir` | `spin_population_plots` | Directory for the plots. |
 
+## `lens_pairs`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--catalogs` | `['GWTC-4']` | Catalogs whose events are paired: GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5, or ALL (GWTC-4.1, update of GWTC-4). Default: GWTC-4, the O4a events of the LVK GWTC-4.0 lensing search. |
+| `--far-threshold` | `1.0` | Events with a FAR at most this (per year). |
+| `--min-mass` | `3.0` | Both source-frame masses above it (BBH). |
+| `--exclude` | `[]` | Events left out (full or common names). |
+| `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
+| `--pe-samples` | `2000` | PE samples per event. |
+| `--data-repo` | `zenodo` | Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an earlier version of a release). |
+| `--workers` | `4` | Parallel PE downloads. |
+| `--keep-pe-files` | `False` | Keep the downloaded PE files (only the extracted samples are kept by default). |
+| `--fpp-threshold` | `0.01` | Flag the pairs with an FPP at most this. |
+| `--seed` | `1` | Random seed (sample subsets, lens population). |
+| `--out-report` | `lens_pairs.html` | Output HTML report path. |
+| `--out-summary` | `lens_pairs.tsv` | Output TSV of all the pairs, ranked (the events go to <name>.events.tsv). |
+| `--plots-dir` | `lens_pairs_plots` | Directory for the plots. |
+
 ## `event_selection`
 
 | Option | Default | Description |

@@ -105,6 +105,7 @@ positional arguments:
     stochastic
     neutron_star_eos
     spin_population
+    lens_pairs
     event_selection
     search_skymaps
     parameters_estimation
@@ -450,6 +451,26 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-summary` | `spin_population.tsv` | Output TSV of the posterior quantiles (the samples go to <name>.posterior.tsv). |
 | `--plots-dir` | `spin_population_plots` | Directory for the plots. |
 
+### `lens_pairs`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--catalogs` | `['GWTC-4']` | Catalogs whose events are paired: GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5, or ALL (GWTC-4.1, update of GWTC-4). Default: GWTC-4, the O4a events of the LVK GWTC-4.0 lensing search. |
+| `--far-threshold` | `1.0` | Events with a FAR at most this (per year). |
+| `--min-mass` | `3.0` | Both source-frame masses above it (BBH). |
+| `--exclude` | `[]` | Events left out (full or common names). |
+| `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
+| `--pe-samples` | `2000` | PE samples per event. |
+| `--data-repo` | `zenodo` | Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an earlier version of a release). |
+| `--workers` | `4` | Parallel PE downloads. |
+| `--keep-pe-files` | `False` | Keep the downloaded PE files (only the extracted samples are kept by default). |
+| `--fpp-threshold` | `0.01` | Flag the pairs with an FPP at most this. |
+| `--seed` | `1` | Random seed (sample subsets, lens population). |
+| `--out-report` | `lens_pairs.html` | Output HTML report path. |
+| `--out-summary` | `lens_pairs.tsv` | Output TSV of all the pairs, ranked (the events go to <name>.events.tsv). |
+| `--plots-dir` | `lens_pairs_plots` | Directory for the plots. |
+
 ### `event_selection`
 
 | Option | Default | Description |
@@ -759,6 +780,17 @@ Unequal-mass binaries have larger effective spins, as Callister et al. found; [G
 
 ```bash
 gwtc_analysis spin_population
+```
+
+### `lens_pairs`: Strongly Lensed Pairs
+
+`lens_pairs` tests every pair of binary black holes for being two lensed images of one merger: the same detector-frame masses, spins and sky position, a delay typical of galaxy lenses. The statistic is the posterior-overlap Bayes factor ([Haris et al. 2018](https://arxiv.org/abs/1807.07062)) times the ratio of the delay densities of galaxy-lensed (isothermal lenses) and unrelated pairs, and the false-positive probability of a pair is its rank among all the pairs. It is the tier-1 screen of the LVK lensing searches: a flagged pair is a candidate for joint parameter estimation, not a detection.
+
+- **Validation (O4a):** the 84 binary black holes and 3486 pairs of the LVK GWTC-4.0 search ([arXiv:2512.16347](https://arxiv.org/abs/2512.16347)); the same top pair, the LVK's five highest pairs in the first six, 28 of their 38 pairs flagged at FPP < 1 %, and their time-delay factor reproduced (rank correlation 0.998).
+
+```bash
+gwtc_analysis lens_pairs                                   # O4a, as the LVK
+gwtc_analysis lens_pairs --catalogs ALL --data-repo s3     # every run
 ```
 
 ### `parameters_estimation`: Shared Defaults And Overrides
