@@ -78,16 +78,41 @@ NSBH rates are upper limits (90%: 113 and 40 Gpc⁻³ yr⁻¹).
 | `gwtc4` (O3–O4a, 1.7 yr) | 155 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] | 15 [13, 18] |
 
 Rates in Gpc⁻³ yr⁻¹, median [90%]; the candidates include a few without published masses, which are not
-classified. Compare with the LVK population papers:
-GWTC-5.0 [\[14\]](../references.md#ref-14) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉),
-GWTC-4.0 [\[13\]](../references.md#ref-13) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and
-GWTC-3 [\[12\]](../references.md#ref-12). The BNS and NSBH rates fall inside the LVK intervals. The
-BBH rate with the fixed GWTC-3 Power Law + Peak sits just below the GWTC-5.0 interval (25 against 27.5–49.4), with a
-much narrower interval, and its value at z = 0 sits at the low edge of the GWTC-4.0 interval (15 against
-14–26): see the next section. The BBH rate at z = 0 is the same evolving rate, R ∝ (1+z)^κ, taken at z = 0; it is given for
+classified. The BBH rate at z = 0 is the same evolving rate, R ∝ (1+z)^κ, taken at z = 0; it is given for
 comparison with local rates. The constant-rate row is a different assumption: without evolution, the
 rate is in effect averaged over the redshifts of the detected binaries (z ≈ 0.3–0.5), hence its
 higher value (41 [37, 46] with `gwtc5`).
+
+### Comparison with the LVK, model by model
+
+The headline LVK rates are the **union of the 90% intervals of two models**: FullPop-4.0 and a binned Gaussian
+process (BGP) in GWTC-4.0 [\[13\]](../references.md#ref-13) (BNS 7.6–250, NSBH 9.1–84, BBH 14–26 at z = 0), FullPop
+and PixelPop in GWTC-5.0 [\[14\]](../references.md#ref-14) (BBH 27.5–49.4 at z = 0.2, masses 2.5–200 M☉). A rate
+depends on the population model through ⟨VT⟩, so each result here is compared with the LVK model closest to it
+(Table 2 of both papers; GWTC-4.0 from arXiv:2508.18083v2, whose published version revises the merged intervals
+slightly):
+
+| This mode | Release | Here | LVK, closest model |
+|---|---|---|---|
+| BNS, masses uniform in [1, 2.5] M☉, spins < 0.4, constant rate | `gwtc4` | 43 [6, 143] | GWTC-4.0 *Simple Uniform BNS*, the same model: 13–170 |
+| | `gwtc5` | 26 [4, 87] | none in GWTC-5.0 (no new neutron star) |
+| NSBH, BH ∝ m^−2.35 on [2.5, 40] M☉ | `gwtc4` | 54 [21, 109] | no fixed NSBH model; the NSBH region of FullPop-4.0: 23 [10, 43], of BGP: 30 [9, 84] |
+| | `gwtc5` | 33 [13, 67] | the NSBH region of FullPop: 14 [7, 26], of PixelPop: 16 [7, 33] |
+| BBH at z = 0.2, GWTC-3 Power Law + Peak | `gwtc4` | 26 [23, 30] | GWTC-4.0 *Broken Power Law + 2 Peaks*, Power Law Redshift: 29 [22.5, 37.5] |
+| | `gwtc5` | 25 [23, 28] | GWTC-5.0 *Default BBH*: 30 [25, 37] |
+| FullPop-4.0 ([below](#fullpop-40-all-compact-binaries-in-one-model)), its posterior, z = 0: BNS, NSBH, BBH | `gwtc4` | 68 [7, 670], 21 [6, 73], 22 [12.5, 35] | GWTC-4.0 *FullPop-4.0*, the same model: 89 [22, 248], 23 [10, 43], 19 [14, 26] |
+| FullPop-4.0, GWTC-4.0 medians: BNS, NSBH (z = 0), BBH (z = 0.2) | `gwtc5` | 98 [88, 103], 22 [20, 23], 36.5 [33, 39] | GWTC-5.0 *FullPop*, refitted: 59 [15, 155], 14 [7, 26], 36 [27.5, 47] |
+
+- **The same model agrees**: the uniform BNS with *Simple Uniform BNS*, and FullPop-4.0 with the paper's
+  FullPop-4.0 in every class. Our FullPop-4.0 intervals are wider: the posterior is that of the spectral siren
+  (H₀ free, 141 events with FAR < 0.25/yr), not of a population fit at fixed cosmology.
+- **The fixed BBH model is close, not identical**: Power Law + Peak with the GWTC-3 values and R ∝ (1+z)^2.9
+  against the BBH-only models of each paper fitted to the same events. Its rate sits at their low edge and its
+  interval is much narrower (Poisson only); with the population uncertainty
+  ([next section](#population-uncertainty-and-the-multi-peak-model)) it agrees.
+- **The fixed NSBH model has no LVK counterpart**: its rate is about twice that of the NSBH region of the
+  population models. Its black holes follow m^−2.35 from 2.5 M☉, so most are light and hard to detect (a small
+  ⟨VT⟩, hence a high rate for the four events); the population models put them near the 9 M☉ peak.
 
 ## Population uncertainty and the Multi Peak model
 
@@ -128,7 +153,7 @@ column stops the run with its name.
 |---|---|---|---|
 | Power Law + Peak, GWTC-3 values, R ∝ (1+z)^2.9 | 16.7 | 25 [23, 28] | 15 [13, 17] |
 | Multi Peak, 200 posterior draws, Madau–Dickinson evolution | 14.4 | 31 [21, 51] | 17 [9, 28] |
-| LVK, GWTC-5.0 / GWTC-4.0 | | 27.5–49.4 | 14–26 |
+| LVK, GWTC-5.0 *Default BBH* (BBH-only) / GWTC-4.0 *FullPop-4.0* and *BGP* | | 30 [25, 37] | 19 [14, 26] |
 
 *GWTC-5.0 injections, O3 to O4b, 248 BBH candidates. The Multi Peak posterior is that of a
 spectral-siren run on the GWTC-4.0 events, with H₀ free; a posterior of the same events, with the
@@ -156,7 +181,8 @@ gwtc_analysis rates --mass-model fullpop4 --population-posterior h0_fullpop4 --s
 |---|---|---|---|---|
 | GWTC-4.0 medians, `gwtc5` injections (O3–O4b, 253 events) | 98 [88, 103] | 22 [20, 23] | 19 [17, 20] | 36.5 [33, 39] |
 | 200 draws of the FullPop-4.0 spectral-siren posterior, `gwtc4` injections (O3–O4a, 149 events) | 68 [7, 670] | 21 [6, 73] | 22 [12.5, 35] | 40 [27, 60] |
-| LVK, GWTC-4.0 (z = 0) / GWTC-5.0 (z = 0.2) | 7.6–250 | 9.1–84 | 14–26 | 27.5–49.4 |
+| LVK *FullPop-4.0*, GWTC-4.0 (z = 0) | 89 [22, 248] | 23 [10, 43] | 19 [14, 26] | — |
+| LVK *FullPop*, GWTC-5.0 (BNS, NSBH at z = 0; BBH at z = 0.2) | 59 [15, 155] | 14 [7, 26] | — | 36 [27.5, 47] |
 
 *With fixed parameters the intervals are Poisson only, from the 253 events of all classes: the BNS rate is the
 BBH-dominated total times the model's BNS fraction (70%), not a measurement of the one BNS. The posterior

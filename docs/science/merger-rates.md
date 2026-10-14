@@ -60,12 +60,14 @@ what is seen far away comes from the higher rate there, and the local rate is lo
 Rates in Gpc⁻³ yr⁻¹, median [90%], from 1 BNS (GW190425), 4 NSBH and 248 BBH candidates with FAR
 below 1 per year (the other 6 of the 259 candidates have no published masses and are not classified). GW170817 is not counted: it is in O2, before the injection periods.
 
-The BNS and NSBH rates fall inside the intervals of the LVK population analyses
-(GWTC-3 [\[12\]](../references.md#ref-12), GWTC-4.0 [\[13\]](../references.md#ref-13),
-GWTC-5.0 [\[14\]](../references.md#ref-14)); the BBH rate with the fixed Power Law + Peak sits just below
-the GWTC-5.0 interval (25 against 27.5–49.4) ([rates](../modes/rates.md#population-uncertainty-and-the-multi-peak-model)). The LVK intervals are wider because they fit the
-population shape together with the rate: the BNS rate in particular rests on one or two events and
-depends strongly on the assumed mass distribution.
+A rate depends on the population model through ⟨VT⟩, so it is compared with the LVK model closest to it
+([rates](../modes/rates.md#comparison-with-the-lvk-model-by-model)), not with the headline LVK intervals, which are
+the union of two models (GWTC-4.0 [\[13\]](../references.md#ref-13), GWTC-5.0 [\[14\]](../references.md#ref-14)).
+The uniform BNS model is that of the GWTC-4.0 *Simple Uniform BNS* (13–170, here 26–43 depending on the release),
+and FullPop-4.0 reproduces the paper's FullPop-4.0 rates in each class. The fixed Power Law + Peak BBH rate at
+z = 0.2 (25 [23, 28]) sits at the low edge of the GWTC-5.0 BBH-only *Default BBH* model (30 [25, 37]). The LVK
+intervals are wider because they fit the population shape together with the rate: the BNS rate in particular
+rests on one or two events and depends strongly on the assumed mass distribution.
 
 ## Selection-corrected mass distribution
 
