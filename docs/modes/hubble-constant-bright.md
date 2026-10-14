@@ -217,6 +217,17 @@ injection masses drawn from the population's own 20–40 M☉, β was wrong by u
 edges of the H₀ range, and H₀ was biased by 3σ. The LVK injections are drawn much more broadly than any
 population; the report gives the effective number of injections over the H₀ range.
 
+## Outputs
+
+- `--out-report` (HTML): the result, the caveat of a candidate counterpart, the inputs, the selection
+  term and the plot;
+- `--out-summary` (TSV): maximum a posteriori, 68.3% highest-density interval, median and 90%
+  interval of each PE label, with its distance;
+- `<workdir>/posterior_grid.tsv`: the posterior densities on an H₀ grid (`p`: the first label);
+- `<workdir>/bright.json`: the event, host, redshift, labels, selection, prior range and constraint, read by
+  `--method joint`;
+- `<workdir>/plots/h0_posterior.png`.
+
 ## Options
 
 Options of `--method bright` (the others of `hubble_constant` are refused):
@@ -249,14 +260,3 @@ The report ends with all these options, the values used and their defaults.
 
 The published comparison is shown only with the velocities or redshift from the list, no viewing-angle constraint,
 the default population and the file's distance prior.
-
-## Outputs
-
-- `--out-report` (HTML): the result, the caveat of a candidate counterpart, the inputs, the selection
-  term and the plot;
-- `--out-summary` (TSV): maximum a posteriori, 68.3% highest-density interval, median and 90%
-  interval of each PE label, with its distance;
-- `<workdir>/posterior_grid.tsv`: the posterior densities on an H₀ grid (`p`: the first label);
-- `<workdir>/bright.json`: the event, host, redshift, labels, selection, prior range and constraint, read by
-  `--method joint`;
-- `<workdir>/plots/h0_posterior.png`.

@@ -109,102 +109,6 @@ them, and a later run with other values is refused rather than mixed in:
 - the first run fixes `--mass-model`, `--nlive`, `--pe-samples` and `--inj-fraction`, and
   `--neff-pe`/`--neff-inj` ([below](#precision-and-speed)).
 
-## Options
-
-Every option once, grouped by the question it answers. All of them can also come from a settings file
-([below](#settings-file)).
-
-### Which events and injections
-
-The likelihood needs two consistent sets: the **events** (their PE samples) and the **injections** (simulated
-signals found by the same searches, which measure the selection effect). Both are taken from the same observing
-runs and with the same thresholds; these options are read by `prepare` only.
-
-| Option | Default | Meaning | When to change it |
-|---|---|---|---|
-| `--sensitivity-release` | `gwtc4` | the LVK injection release, which sets the runs that can be analysed: `gwtc4` = O1–O4a ([\[29\]](../references.md#ref-29), validated), `gwtc5` = O1–O4b (no validation run yet; the report compares Multi Peak with the GWTC-5.0 value, 71.0 (+21.0 / −17.5)); it also sets the priors: those of the GWTC-4.0 paper with `gwtc4`, of the GWTC-5.0 paper (wider Multi Peak widths) with `gwtc5` | to include O4b |
-| `--catalogs` | all the runs of the release | keep only the runs of these catalogs, for both events and injections: `GWTC-1` (O1–O2), `GWTC-2.1` (O3a), `GWTC-3` (O3b), `GWTC-4` (O4a), `GWTC-5` (O4b), `GWTC-4.1` (the update of GWTC-4.0), or `ALL`. The runs must be in the release: `--catalogs GWTC-5` needs `--sensitivity-release gwtc5` | to analyse a subset (e.g. O4a alone) |
-| `--far-threshold` | 0.25 per year | events with a published FAR ≤ threshold; real injections found with FAR < threshold | to test the sensitivity to the event selection |
-| `--snr-threshold` | 10 | O1–O2 injections are semi-analytic: found when their network SNR is above this | with `--far-threshold`, to keep the two consistent |
-| `--min-mass` | by mass model: 3 M☉ for `plp` and `mltp` (possible neutron stars left out), none for `fullpop4` | both source-frame masses above it | rarely: the BBH mass models start at a few M☉ |
-| `--exclude` | GW231123_135430, GW200105_162426 | events left out, as in the paper (the most massive BBH, and an NSBH); with `fullpop4`, GW170817 too, which enters the [joint posterior](#joint-posterior) as the bright siren | to test the influence of one event |
-| `--sensitivity-file` | the release's file (downloaded) | a local injection file instead | offline, or with your own injections |
-| `--pe-cache`, `--keep-pe-files` | `~/.cache_gwtc_analysis/pe_catalog`, no | where the PE samples are cached; keep the full PE files after extraction | to share the cache between machines |
-
-The published comparison in the report is shown only for the release's own selection (all its runs and the default
-thresholds).
-
-Examples:
-
-```bash
-# O4a events and injections alone
-gwtc_analysis hubble_constant --workdir h0_o4a --stages prepare --catalogs GWTC-4
-# all of O1–O4b, with the GWTC-5.0 injections
-gwtc_analysis hubble_constant --workdir h0_gwtc5 --stages prepare --sensitivity-release gwtc5
-```
-
-### Redshift source and population model
-
-| Option | Default | Meaning |
-|---|---|---|
-| `--method` | `spectral` | `spectral` or `dark` here; `bright` and `joint` have their own options ([bright siren](hubble-constant-bright.md#options), [joint](#joint-posterior)), and the options of another method are refused |
-| `--galaxy-catalog` | none | with `--method dark`: the catalog file made by [galaxy_catalog](galaxy-catalog.md) ([below](#dark-sirens-with-a-galaxy-catalog)). Given to `prepare`, which records it in `inputs.h5`; the other stages then use it |
-| `--mass-model` | `plp` | `plp` (Power Law + Peak, Table 3 of [\[29\]](../references.md#ref-29)) or `mltp` (Multi Peak, Table 4): the BBH primary mass; `fullpop4` (FullPop-4.0, Table 5): the masses of all compact binaries ([mass models](#mass-models)). One work directory per model; `prepare` can be copied (`inputs.h5`) between `plp` and `mltp`, `fullpop4` needs its own (other events). `fullpop4` has the GWTC-4.0 priors only, so it needs `--sensitivity-release gwtc4` |
-
-The priors are those of the paper (Tables 3 to 6); the merger-rate evolution is the Madau–Dickinson shape
-fitted with H₀ ([below](#merger-rate-evolution)).
-
-### Precision and speed
-
-| Option | Default | Meaning | When to change it |
-|---|---|---|---|
-| `--seeds` | 1 | one independent sampler run per seed, merged by `combine` | 2 to check, 4–5 for a result, ~10 to compare with a paper ([how many](#how-many-seeds)) |
-| `--nlive` | 100 | dynesty live points per run | instead of more seeds (fewer, longer runs) |
-| `--naccept` | 60 | accepted steps per random walk | rarely |
-| `--npool` | 4 | processes per run | to the CPUs available ([npool and parallel](#npool-and-parallel)) |
-| `--parallel` | 1 | runs at the same time on this machine | idem |
-| `--pe-samples` | 1500 | PE samples per event in the likelihood (up to 5000 are prepared) | 1500 is fast but leaves a Monte Carlo error of several km/s/Mpc on H₀; for a result to compare with a paper, 5000, or `--reweight-pe-samples 5000` ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)) |
-| `--inj-fraction` | `auto` | injections used by the runs: `auto` (a probe chooses a fast subset, `reweight` then corrects to all of them), or a fraction in (0, 1] (1 = all, as the paper) | `1` to sample the exact likelihood (slower, no reweighting) |
-| `--min-ess-fraction`, `--probe-points` | 0.5, 30 | with `auto`: the smallest predicted effective sample size of the reweighting, the points of the probe | rarely ([details](#injection-subsets-probe-and-reweighting)) |
-| `--reweight-pe-samples` | as the runs | PE samples per event of the reweighting target | 5000: the runs (1500, fast) corrected to the accurate likelihood |
-| `--neff-pe`, `--neff-inj` | 10, 4 × events | effective PE samples per event and effective injections a likelihood point needs, else it is rejected | to match another analysis ([likelihood thresholds](#likelihood-thresholds)) |
-
-### Where it runs
-
-| Option | Default | Meaning |
-|---|---|---|
-| `--icarogw-python` | the interpreter running gwtc_analysis | Python of the icarogw environment, used by `sample`, `combine` and `reweight` ([icarogw](#icarogw)) |
-| `--executor` | `local` | `local`: on this machine; `slurm`: `sample`, `combine` and `reweight` as a chain of batch jobs ([Slurm](#on-a-slurm-cluster)) |
-| `--slurm-option` | none | an `#SBATCH` option of every job, repeatable (e.g. `--slurm-option=--mem=16G`) |
-| `--slurm-env-setup` | none | shell lines run first in each job (e.g. activating an environment) |
-| `--submit` | no | submit the chain at once (else `<workdir>/slurm/submit.sh` does it) |
-| `--reweight-jobs` | 16 | array tasks of the reweighting on Slurm |
-
-### Files
-
-| Option | Default | Meaning |
-|---|---|---|
-| `--workdir` | `hubble_constant_<method>` | the work directory of the analysis |
-| `--stages` | all | stages to run |
-| `--out-report`, `--out-summary` | `hubble_constant_<method>.html`, `.tsv` | the report and the quantiles |
-| `--settings` | none | a file of option values ([below](#settings-file)) |
-
-### Settings file
-
-`--settings FILE` reads option values from a JSON file (or YAML, with PyYAML), the keys being the long option names;
-options given on the command line override it. The resolved options of each invocation are written to
-`<workdir>/options_hubble_constant.json`.
-
-```json
-{"seeds": [1, 2, 3, 4], "npool": 8, "pe-samples": 3000, "neff-pe": 20}
-```
-
-```bash
-gwtc_analysis hubble_constant --workdir h0_plp --stages sample combine reweight report --settings precise.json
-```
-
-Every report ends with the options of its run (of its method), defaults included. All options with their help text: [CLI reference](../cli-reference.md#hubble_constant).
-
 ## Mass models
 
 A spectral siren gets the redshift from the mass spectrum: the detector measures \(m(1+z)\), and the fit puts each
@@ -454,43 +358,6 @@ setup needs a DES-Y6 band definition, which is not in this version of `gwtc_anal
 Outputs: `--out-report` (`hubble_constant_joint.html`), `--out-summary` (the table), `<workdir>/posterior_joint.tsv`
 (the joint and input densities on the H₀ grid), `<workdir>/joint.json` (the inputs) and `<workdir>/plots/h0_joint.png`.
 
-## The report
-
-The report leads with the H₀ posterior, compared with the published value of the same mass model:
-
-![H0 posterior of the Power Law + Peak reproduction](../img/h0_posterior.png)
-
-*GWTC-4.0, Power Law + Peak: 10 runs with 10% of the injections, reweighted to all of them; the
-published result (orange line, 90% band) and the Planck and SH0ES values for comparison. Details in
-[Hubble constant (spectral siren)](../science/spectral-siren.md).*
-
-### Merger-rate evolution
-
-The Madau–Dickinson rate shape fitted together with H₀ [\[16\]](../references.md#ref-16),
-
-\[
-\frac{R(z)}{R(0)} = \left[1 + (1 + z_p)^{-\gamma-\kappa}\right]
-\frac{(1 + z)^{\gamma}}{1 + \left(\frac{1 + z}{1 + z_p}\right)^{\gamma+\kappa}},
-\]
-
-is plotted in the report with its prior and the cosmic star-formation history (γ = 2.7, κ = 2.9,
-z_p = 1.9). The likelihood is scale-free: R(0) itself is the `rates` mode's.
-
-![BBH merger-rate evolution](../img/modes/h0_rate_evolution.png)
-
-*GWTC-4.0, Power Law + Peak: γ = 3.3 (90%: 2.5–4.4), so the rate grows faster than star formation, R(1)/R(0)
-= 9.7 (5.4–19.5) against 5.8. The detected events reach z ≈ 1.0; beyond it κ and z_p, and the shape, are
-the prior's. The [stochastic](stochastic.md) mode uses this shape up to the farthest events.*
-
-### Diagnostics
-
-`combine` evaluates, over 200 posterior draws, the effective number of injections and the smallest
-per-event effective number of PE samples, against the [likelihood thresholds](#likelihood-thresholds), and names
-the events with the fewest. The report flags values below the thresholds; more `--pe-samples` or a larger
-`--inj-fraction` then make the Monte Carlo sums more reliable. On the reproduction, the effective
-number of injections stayed above 3 800 (threshold 544), while the smallest per-event value had a
-median of 27 and reached 8 at some draws (threshold 10), for the lightest BBHs such as GW190924.
-
 ## How it works
 
 ### icarogw
@@ -718,3 +585,146 @@ scancel <run array job>_<task>
 ```
 
 All options: [CLI reference](../cli-reference.md#hubble_constant).
+
+## Outputs
+
+- `--out-report` (HTML): the H₀ posterior against the published value, the merger-rate evolution, the diagnostics and
+  the corner plot of `<workdir>/corner.png`;
+- `--out-summary` (TSV): the quantiles of H₀ and of the population parameters;
+- `<workdir>/posterior.tsv` (combine) and `posterior_reweighted.tsv` (reweight): the posterior samples, read by
+  `--method joint`, `rates --population-posterior` and `stochastic`;
+- `<workdir>/inputs.h5`, `events.tsv`, `selection.json`: the prepared inputs; `result/`: the runs and their
+  checkpoints; `summary.json`, `corner.png`; `options_hubble_constant.json`: the options of each invocation.
+
+### The report
+
+The report leads with the H₀ posterior, compared with the published value of the same mass model:
+
+![H0 posterior of the Power Law + Peak reproduction](../img/h0_posterior.png)
+
+*GWTC-4.0, Power Law + Peak: 10 runs with 10% of the injections, reweighted to all of them; the
+published result (orange line, 90% band) and the Planck and SH0ES values for comparison. Details in
+[Hubble constant (spectral siren)](../science/spectral-siren.md).*
+
+### Merger-rate evolution
+
+The Madau–Dickinson rate shape fitted together with H₀ [\[16\]](../references.md#ref-16),
+
+\[
+\frac{R(z)}{R(0)} = \left[1 + (1 + z_p)^{-\gamma-\kappa}\right]
+\frac{(1 + z)^{\gamma}}{1 + \left(\frac{1 + z}{1 + z_p}\right)^{\gamma+\kappa}},
+\]
+
+is plotted in the report with its prior and the cosmic star-formation history (γ = 2.7, κ = 2.9,
+z_p = 1.9). The likelihood is scale-free: R(0) itself is the `rates` mode's.
+
+![BBH merger-rate evolution](../img/modes/h0_rate_evolution.png)
+
+*GWTC-4.0, Power Law + Peak: γ = 3.3 (90%: 2.5–4.4), so the rate grows faster than star formation, R(1)/R(0)
+= 9.7 (5.4–19.5) against 5.8. The detected events reach z ≈ 1.0; beyond it κ and z_p, and the shape, are
+the prior's. The [stochastic](stochastic.md) mode uses this shape up to the farthest events.*
+
+### Diagnostics
+
+`combine` evaluates, over 200 posterior draws, the effective number of injections and the smallest
+per-event effective number of PE samples, against the [likelihood thresholds](#likelihood-thresholds), and names
+the events with the fewest. The report flags values below the thresholds; more `--pe-samples` or a larger
+`--inj-fraction` then make the Monte Carlo sums more reliable. On the reproduction, the effective
+number of injections stayed above 3 800 (threshold 544), while the smallest per-event value had a
+median of 27 and reached 8 at some draws (threshold 10), for the lightest BBHs such as GW190924.
+
+## Options
+
+Every option once, grouped by the question it answers. All of them can also come from a settings file
+([below](#settings-file)).
+
+### Which events and injections
+
+The likelihood needs two consistent sets: the **events** (their PE samples) and the **injections** (simulated
+signals found by the same searches, which measure the selection effect). Both are taken from the same observing
+runs and with the same thresholds; these options are read by `prepare` only.
+
+| Option | Default | Meaning | When to change it |
+|---|---|---|---|
+| `--sensitivity-release` | `gwtc4` | the LVK injection release, which sets the runs that can be analysed: `gwtc4` = O1–O4a ([\[29\]](../references.md#ref-29), validated), `gwtc5` = O1–O4b (no validation run yet; the report compares Multi Peak with the GWTC-5.0 value, 71.0 (+21.0 / −17.5)); it also sets the priors: those of the GWTC-4.0 paper with `gwtc4`, of the GWTC-5.0 paper (wider Multi Peak widths) with `gwtc5` | to include O4b |
+| `--catalogs` | all the runs of the release | keep only the runs of these catalogs, for both events and injections: `GWTC-1` (O1–O2), `GWTC-2.1` (O3a), `GWTC-3` (O3b), `GWTC-4` (O4a), `GWTC-5` (O4b), `GWTC-4.1` (the update of GWTC-4.0), or `ALL`. The runs must be in the release: `--catalogs GWTC-5` needs `--sensitivity-release gwtc5` | to analyse a subset (e.g. O4a alone) |
+| `--far-threshold` | 0.25 per year | events with a published FAR ≤ threshold; real injections found with FAR < threshold | to test the sensitivity to the event selection |
+| `--snr-threshold` | 10 | O1–O2 injections are semi-analytic: found when their network SNR is above this | with `--far-threshold`, to keep the two consistent |
+| `--min-mass` | by mass model: 3 M☉ for `plp` and `mltp` (possible neutron stars left out), none for `fullpop4` | both source-frame masses above it | rarely: the BBH mass models start at a few M☉ |
+| `--exclude` | GW231123_135430, GW200105_162426 | events left out, as in the paper (the most massive BBH, and an NSBH); with `fullpop4`, GW170817 too, which enters the [joint posterior](#joint-posterior) as the bright siren | to test the influence of one event |
+| `--sensitivity-file` | the release's file (downloaded) | a local injection file instead | offline, or with your own injections |
+| `--pe-cache`, `--keep-pe-files` | `~/.cache_gwtc_analysis/pe_catalog`, no | where the PE samples are cached; keep the full PE files after extraction | to share the cache between machines |
+
+The published comparison in the report is shown only for the release's own selection (all its runs and the default
+thresholds).
+
+Examples:
+
+```bash
+# O4a events and injections alone
+gwtc_analysis hubble_constant --workdir h0_o4a --stages prepare --catalogs GWTC-4
+# all of O1–O4b, with the GWTC-5.0 injections
+gwtc_analysis hubble_constant --workdir h0_gwtc5 --stages prepare --sensitivity-release gwtc5
+```
+
+### Redshift source and population model
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--method` | `spectral` | `spectral` or `dark` here; `bright` and `joint` have their own options ([bright siren](hubble-constant-bright.md#options), [joint](#joint-posterior)), and the options of another method are refused |
+| `--galaxy-catalog` | none | with `--method dark`: the catalog file made by [galaxy_catalog](galaxy-catalog.md) ([above](#dark-sirens-with-a-galaxy-catalog)). Given to `prepare`, which records it in `inputs.h5`; the other stages then use it |
+| `--mass-model` | `plp` | `plp` (Power Law + Peak, Table 3 of [\[29\]](../references.md#ref-29)) or `mltp` (Multi Peak, Table 4): the BBH primary mass; `fullpop4` (FullPop-4.0, Table 5): the masses of all compact binaries ([mass models](#mass-models)). One work directory per model; `prepare` can be copied (`inputs.h5`) between `plp` and `mltp`, `fullpop4` needs its own (other events). `fullpop4` has the GWTC-4.0 priors only, so it needs `--sensitivity-release gwtc4` |
+
+The priors are those of the paper (Tables 3 to 6); the merger-rate evolution is the Madau–Dickinson shape
+fitted with H₀ ([above](#merger-rate-evolution)).
+
+### Precision and speed
+
+| Option | Default | Meaning | When to change it |
+|---|---|---|---|
+| `--seeds` | 1 | one independent sampler run per seed, merged by `combine` | 2 to check, 4–5 for a result, ~10 to compare with a paper ([how many](#how-many-seeds)) |
+| `--nlive` | 100 | dynesty live points per run | instead of more seeds (fewer, longer runs) |
+| `--naccept` | 60 | accepted steps per random walk | rarely |
+| `--npool` | 4 | processes per run | to the CPUs available ([npool and parallel](#npool-and-parallel)) |
+| `--parallel` | 1 | runs at the same time on this machine | idem |
+| `--pe-samples` | 1500 | PE samples per event in the likelihood (up to 5000 are prepared) | 1500 is fast but leaves a Monte Carlo error of several km/s/Mpc on H₀; for a result to compare with a paper, 5000, or `--reweight-pe-samples 5000` ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)) |
+| `--inj-fraction` | `auto` | injections used by the runs: `auto` (a probe chooses a fast subset, `reweight` then corrects to all of them), or a fraction in (0, 1] (1 = all, as the paper) | `1` to sample the exact likelihood (slower, no reweighting) |
+| `--min-ess-fraction`, `--probe-points` | 0.5, 30 | with `auto`: the smallest predicted effective sample size of the reweighting, the points of the probe | rarely ([details](#injection-subsets-probe-and-reweighting)) |
+| `--reweight-pe-samples` | as the runs | PE samples per event of the reweighting target | 5000: the runs (1500, fast) corrected to the accurate likelihood |
+| `--neff-pe`, `--neff-inj` | 10, 4 × events | effective PE samples per event and effective injections a likelihood point needs, else it is rejected | to match another analysis ([likelihood thresholds](#likelihood-thresholds)) |
+
+### Where it runs
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--icarogw-python` | the interpreter running gwtc_analysis | Python of the icarogw environment, used by `sample`, `combine` and `reweight` ([icarogw](#icarogw)) |
+| `--executor` | `local` | `local`: on this machine; `slurm`: `sample`, `combine` and `reweight` as a chain of batch jobs ([Slurm](#on-a-slurm-cluster)) |
+| `--slurm-option` | none | an `#SBATCH` option of every job, repeatable (e.g. `--slurm-option=--mem=16G`) |
+| `--slurm-env-setup` | none | shell lines run first in each job (e.g. activating an environment) |
+| `--submit` | no | submit the chain at once (else `<workdir>/slurm/submit.sh` does it) |
+| `--reweight-jobs` | 16 | array tasks of the reweighting on Slurm |
+
+### Files
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--workdir` | `hubble_constant_<method>` | the work directory of the analysis |
+| `--stages` | all | stages to run |
+| `--out-report`, `--out-summary` | `hubble_constant_<method>.html`, `.tsv` | the report and the quantiles |
+| `--settings` | none | a file of option values ([below](#settings-file)) |
+
+### Settings file
+
+`--settings FILE` reads option values from a JSON file (or YAML, with PyYAML), the keys being the long option names;
+options given on the command line override it. The resolved options of each invocation are written to
+`<workdir>/options_hubble_constant.json`.
+
+```json
+{"seeds": [1, 2, 3, 4], "npool": 8, "pe-samples": 3000, "neff-pe": 20}
+```
+
+```bash
+gwtc_analysis hubble_constant --workdir h0_plp --stages sample combine reweight report --settings precise.json
+```
+
+Every report ends with the options of its run (of its method), defaults included. All options with their help text: [CLI reference](../cli-reference.md#hubble_constant).

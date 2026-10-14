@@ -72,6 +72,13 @@ cloud carried by a binary, the continuous wave a cloud around an isolated black 
 found by microlensing (one so far, many more expected with Rubin) come with a mass and a distance, the inputs of a directed
 search for their clouds.
 
+## Outputs
+
+- `--out-report` (HTML): the summary, the known pulsars, the all-sky limits and the boson clouds, with the plots;
+- `--out-summary` (TSV): the summary; `<name>.pulsars.tsv`, `<name>.narrowband.tsv` and `<name>.boson_reach.tsv`:
+  the pulsar upper limits, the narrowband limits and the distance reach for boson clouds;
+- `--plots-dir`: `cw_known_pulsars.png`, `cw_boson_exclusion.png`, `cw_boson_distance.png`.
+
 ## Options
 
 | Option | Default | Meaning |

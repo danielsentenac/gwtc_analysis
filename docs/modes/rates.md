@@ -133,33 +133,6 @@ spectral-siren run on the GWTC-4.0 events, with H₀ free; a posterior of the sa
 cosmology fixed, would be the self-consistent choice. With the population uncertainty the BBH rate
 agrees with the LVK intervals.*
 
-## Options
-
-| Option | Default | Meaning |
-|---|---|---|
-| `--sensitivity-release` | `gwtc5` | LVK injections downloaded from Zenodo: `gwtc5` = O3 + O4a + O4b (~900 MB), `gwtc4` = O3 + O4a (~400 MB) |
-| `--sensitivity-file` | none | a local LVK search-sensitivity injection file (same format as the release files), read instead of downloading the `--sensitivity-release` file from Zenodo, which is then ignored; with `--catalogs GWTC-1` it must be the mixture that includes the semi-analytic O1+O2 injections |
-| `--catalogs` | the runs of the real-injection mixture (O3 onward) | catalog keys (GWTC-1 … GWTC-5, GWTC-4.1, or ALL): events and injections restricted to their observing runs (see [Selecting catalogs](#selecting-catalogs)) |
-| `--far-threshold` | 1 per year | events and injections below this false-alarm rate |
-| `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR (with GWTC-1) |
-| `--ns-max-mass` | 2.5 M☉ | neutron stars below it, black holes above, for the classification and the BNS and NSBH models |
-| `--mass-model` | `plp` | BBH mass model: `plp` (Power Law + Peak, GWTC-3 values unless `--population-posterior`) or `mltp` (Multi Peak, two peaks near 10 and 35 M☉; needs `--population-posterior`) |
-| `--population-posterior` | none | samples of the BBH population (a `hubble_constant` run, or a TSV file): the BBH rate is then computed over them, see [The population posterior](#the-population-posterior) |
-| `--n-draws` | 200 | posterior draws with `--population-posterior` |
-| `--bbh-kappa` | 2.9 | BBH rate evolution R ∝ (1+z)^κ, for the fixed Power Law + Peak (not used with `--population-posterior`, whose evolution is fitted) |
-| `--bbh-z-ref` | 0.2 | redshift at which the evolving BBH rate is reported (also at z = 0) |
-| `--out-rates`, `--out-events`, `--out-report` | `merger_rates.tsv`, `merger_rates_events.tsv`, `merger_rates.html` | output files (see below) |
-| `--plots-dir` | `rates_plots` | directory of the plots |
-
-## Outputs
-
-- `--out-rates` (TSV): one row per population model, with N, ⟨VT⟩, the effective number of
-  injections and the rate quantiles; the evolving BBH rate appears twice, at `--bbh-z-ref` and at
-  z = 0 (the `stochastic` mode uses the first, at `--bbh-z-ref`);
-- `--out-events` (TSV): the events counted, with their class;
-- `--out-report` (HTML): the tables, and the observed and selection-corrected primary-mass
-  distributions.
-
 ## Example
 
 ```bash
@@ -176,3 +149,30 @@ rate per logarithmic mass interval, the counts divided by the sensitive volume-t
 peaks near 10 and 35 M☉ stand out once the heavy binaries' larger detection volume is removed.*
 
 All options: [CLI reference](../cli-reference.md#rates).
+
+## Outputs
+
+- `--out-rates` (TSV): one row per population model, with N, ⟨VT⟩, the effective number of
+  injections and the rate quantiles; the evolving BBH rate appears twice, at `--bbh-z-ref` and at
+  z = 0 (the `stochastic` mode uses the first, at `--bbh-z-ref`);
+- `--out-events` (TSV): the events counted, with their class;
+- `--out-report` (HTML): the tables, and the observed and selection-corrected primary-mass
+  distributions.
+
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--sensitivity-release` | `gwtc5` | LVK injections downloaded from Zenodo: `gwtc5` = O3 + O4a + O4b (~900 MB), `gwtc4` = O3 + O4a (~400 MB) |
+| `--sensitivity-file` | none | a local LVK search-sensitivity injection file (same format as the release files), read instead of downloading the `--sensitivity-release` file from Zenodo, which is then ignored; with `--catalogs GWTC-1` it must be the mixture that includes the semi-analytic O1+O2 injections |
+| `--catalogs` | the runs of the real-injection mixture (O3 onward) | catalog keys (GWTC-1 … GWTC-5, GWTC-4.1, or ALL): events and injections restricted to their observing runs (see [Selecting catalogs](#selecting-catalogs)) |
+| `--far-threshold` | 1 per year | events and injections below this false-alarm rate |
+| `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR (with GWTC-1) |
+| `--ns-max-mass` | 2.5 M☉ | neutron stars below it, black holes above, for the classification and the BNS and NSBH models |
+| `--mass-model` | `plp` | BBH mass model: `plp` (Power Law + Peak, GWTC-3 values unless `--population-posterior`) or `mltp` (Multi Peak, two peaks near 10 and 35 M☉; needs `--population-posterior`) |
+| `--population-posterior` | none | samples of the BBH population (a `hubble_constant` run, or a TSV file): the BBH rate is then computed over them, see [The population posterior](#the-population-posterior) |
+| `--n-draws` | 200 | posterior draws with `--population-posterior` |
+| `--bbh-kappa` | 2.9 | BBH rate evolution R ∝ (1+z)^κ, for the fixed Power Law + Peak (not used with `--population-posterior`, whose evolution is fitted) |
+| `--bbh-z-ref` | 0.2 | redshift at which the evolving BBH rate is reported (also at z = 0) |
+| `--out-rates`, `--out-events`, `--out-report` | `merger_rates.tsv`, `merger_rates_events.tsv`, `merger_rates.html` | output files ([above](#outputs)) |
+| `--plots-dir` | `rates_plots` | directory of the plots |

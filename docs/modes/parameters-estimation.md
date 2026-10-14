@@ -235,6 +235,13 @@ since the primary is by convention the heavier component; the band follows a lin
 chirp mass, the best-measured mass parameter. Right: the skymap of the IMRPhenomXPHM analysis, 159 deg²
 at 90% with the two LIGO detectors.*
 
+## Outputs
+
+- `--out-report` (HTML): every product below, with the log of the run;
+- `--plots-dir`: the posterior distributions (and those of `--pe-vars`, `--pe-pairs`), the strain overlay, the
+  q-transform and the matched-filter SNR of each detector, the PSDs, the sky map, the 3D sky map
+  (`<event>_<waveform>_skymap3d.png`); `<event>_multipoles_precession.tsv` and `<event>_host_galaxies.tsv`.
+
 ## Options
 
 | Option | Default | Meaning |

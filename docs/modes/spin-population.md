@@ -51,7 +51,7 @@ draw density minus an isotropic, uniform-magnitude spin part still correlates wi
 `hubble_constant`: dividing by the full draw density with an isotropic spin population makes the
 population spins isotropic, whatever the draw.
 
-## Result
+## Results
 
 | Parameter | Correlated model, median (90%) | Gaussian model (α = 0) |
 |---|---|---|
@@ -98,6 +98,12 @@ parameters are recovered inside their 90% intervals, with P(α < 0) > 0.9.
 - Only the mean of χ_eff varies with q; GWTC-4.0 notes that the data cannot yet tell whether the mean or
   the width varies [\[13\]](../references.md#ref-13).
 - χ_p (precession) is not modeled: the other spin components follow the isotropic distribution.
+
+## Outputs
+
+- `--out-report` (HTML): the posterior, the fraction with χ_eff < 0, the diagnostics and the plot;
+- `--out-summary` (TSV): the posterior quantiles; `<name>.posterior.tsv`: the samples;
+- `--plots-dir`: `spin_population.png`.
 
 ## Options
 
