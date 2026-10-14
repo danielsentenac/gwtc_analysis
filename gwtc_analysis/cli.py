@@ -4,24 +4,12 @@ import argparse
 import json
 from typing import List, Optional
 
-from .catalogs import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES, run_catalog_statistics, run_merger_rates
-from .hubble_constant import (H0_DEFAULT_EXCLUDE, H0_DEFAULT_MASS_MODEL, H0_DEFAULT_RELEASE, H0_SENSITIVITY_RELEASES,
-                              MASS_MODELS as H0_MASS_MODELS, STAGES as H0_STAGES, run_hubble_constant)
-from .counterpart import COUNTERPARTS, run_counterpart
-from .h0_bright import run_h0_bright
-from .h0_joint import run_h0_joint
-from .area_law import run_area_law
-from .stochastic import run_stochastic
-from .ns_eos import EVENTS as NS_EOS_EVENTS, run_ns_eos
-from .spin_population import run_spin_population
-from .lens_pairs import DEFAULT_CATALOGS as LENS_DEFAULT_CATALOGS, run_lens_pairs
-from .event_selection import run_event_selection
-from .source_classes import (MASS_GAP as SC_MASS_GAP, NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN,
-                             PRESETS as SOURCE_PRESETS)
-from .search_skymaps import run_search_skymaps
-from .parameters_estimation import run_parameters_estimation
+from .cli_defaults import (ALLOWED_CATALOGS, COUNTERPART_EVENTS as COUNTERPARTS, H0_DEFAULT_EXCLUDE,
+                           H0_DEFAULT_MASS_MODEL, H0_DEFAULT_RELEASE, H0_MASS_MODELS, H0_SENSITIVITY_RELEASES,
+                           H0_STAGES, LENS_DEFAULT_CATALOGS, MASS_GAP as SC_MASS_GAP, NS_EOS_EVENTS,
+                           NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN, RATES_DEFAULT_RELEASE,
+                           RATES_SENSITIVITY_RELEASES, SOURCE_PRESETS)
 from .unofficial_pe import build_unofficial_pe_bundle, get_unofficial_pe_spec, list_unofficial_pe_specs
-from .gw_stat import ALLOWED_CATALOGS as ALLOWED_CATALOGS
 from .catalog_registry import DEFAULT_H0_RELEASE, catalog_help, catalog_runs_help, release_runs_help, update_help
 
 DEFAULT_H0_RELEASE_TEXT = f"{DEFAULT_H0_RELEASE}: the published analysis"
@@ -1080,6 +1068,7 @@ def main(argv=None) -> int:
             _record_options(args, args.workdir)
 
         if args.mode == "catalog_statistics":
+            from .catalogs import run_catalog_statistics
             catalogs = _parse_catalogs(args.catalogs)
             _validate_catalogs(catalogs)
             run_catalog_statistics(
@@ -1096,6 +1085,7 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "rates":
+            from .catalogs import run_merger_rates
             if args.far_threshold <= 0 or args.ns_max_mass <= 1:
                 raise ValueError("--far-threshold must be > 0 and --ns-max-mass > 1")
             if args.n_draws < 1:
@@ -1120,6 +1110,7 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "hubble_constant" and args.method == "bright":
+            from .h0_bright import run_h0_bright
             run_h0_bright(
                 event=args.event, workdir=args.workdir, out_report_html=args.out_report,
                 out_summary_tsv=args.out_summary, pe_labels=args.pe_label, pe_file=args.pe_file,
@@ -1137,11 +1128,13 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "hubble_constant" and args.method == "joint":
+            from .h0_joint import run_h0_joint
             run_h0_joint(args.inputs, workdir=args.workdir, out_report_html=args.out_report,
                          out_summary_tsv=args.out_summary)
             return 0
 
         if args.mode == "hubble_constant":
+            from .hubble_constant import run_hubble_constant
             if args.far_threshold <= 0 or args.pe_samples < 10 or args.parallel < 1 or not 0 < args.min_ess_fraction <= 1:
                 raise ValueError("--far-threshold must be > 0, --pe-samples >= 10, --parallel >= 1 and "
                                  "--min-ess-fraction in (0, 1]")
@@ -1220,6 +1213,7 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "counterpart":
+            from .counterpart import run_counterpart
             run_counterpart(
                 event=args.event, ra_deg=args.ra, dec_deg=args.dec, pe_labels=args.pe_label, pe_file=args.pe_file,
                 cache_dir=args.cache_dir, pe_cache=args.pe_cache,
@@ -1243,11 +1237,13 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "area_law":
+            from .area_law import run_area_law
             run_area_law(src_name=args.src_name, cache_dir=args.cache_dir, with_imr=args.with_imr,
                          out_report_html=args.out_report, out_summary_tsv=args.out_summary, plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "stochastic":
+            from .stochastic import run_stochastic
             if args.n_draws < 10:
                 raise ValueError("--n-draws must be >= 10")
             run_stochastic(args.spectral_posterior, args.rates, n_draws=args.n_draws, high_z=args.high_z,
@@ -1256,12 +1252,14 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "neutron_star_eos":
+            from .ns_eos import run_ns_eos
             run_ns_eos(events=args.events, spin_prior=args.spin_prior, lambda_max=args.lambda_max,
                        cache_dir=args.cache_dir, pe_cache=args.pe_cache, out_report_html=args.out_report,
                        out_summary_tsv=args.out_summary, plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "spin_population":
+            from .spin_population import run_spin_population
             if args.pe_samples < 100 or args.walkers < 6 or args.steps < 100:
                 raise ValueError("--pe-samples >= 100, --walkers >= 6 and --steps >= 100 are needed")
             run_spin_population(sensitivity_release=args.sensitivity_release, sensitivity_file=args.sensitivity_file,
@@ -1274,6 +1272,7 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "lens_pairs":
+            from .lens_pairs import run_lens_pairs
             catalogs = _parse_catalogs(args.catalogs)
             _validate_catalogs(catalogs)
             if args.pe_samples < 200:
@@ -1286,6 +1285,7 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "event_selection":
+            from .event_selection import run_event_selection
             catalogs = _parse_catalogs(args.catalogs)
             _validate_catalogs(catalogs)
             run_event_selection(
@@ -1308,6 +1308,7 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "search_skymaps":
+            from .search_skymaps import run_search_skymaps
             catalogs = _parse_catalogs(args.catalogs) if args.catalogs else []
             if catalogs:
                 _validate_catalogs(catalogs)
@@ -1347,6 +1348,7 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "parameters_estimation":
+            from .parameters_estimation import run_parameters_estimation
             out = run_parameters_estimation(
                 src_name=args.src_name,
                 plots_dir=args.plots_dir,

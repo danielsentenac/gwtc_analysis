@@ -892,8 +892,7 @@ def run_catalog_statistics(
 # LVK cumulative search-sensitivity releases usable by the rates mode: their
 # real-injection mixture with Cartesian spins. The file is found in the latest
 # version of the Zenodo record, so a new version is picked up automatically.
-RATES_SENSITIVITY_RELEASES = {k: (r.record, r.label) for k, r in _reg.SENSITIVITY_RELEASES.items()}
-RATES_DEFAULT_RELEASE = _reg.DEFAULT_RATES_RELEASE
+from .cli_defaults import RATES_DEFAULT_RELEASE, RATES_SENSITIVITY_RELEASES  # noqa: E402
 _SENSITIVITY_FILE_RE = _reg.SENSITIVITY_RELEASES[RATES_DEFAULT_RELEASE].real_file_re
 # the same releases with semi-analytic O1+O2 injections, used when O1 or O2 is selected
 _SEMI_SENSITIVITY_FILE_RE = {k: r.semi_file_re for k, r in _reg.SENSITIVITY_RELEASES.items()}

@@ -96,6 +96,8 @@ or dark siren, formerly `--spectral-posterior`) and `counterpart` (degeneracy pl
 
 ### Other changes
 
+- `gwtc_analysis -h` and `gwtc_analysis MODE -h` answer in about 0.2 s instead of 10–15 s: the parser takes its
+  defaults from the light `cli_defaults` module, and each mode imports its analysis code only when it runs.
 - `rates`: Multi Peak mass model, BBH rate over the draws of a `hubble_constant` posterior
   (`--population-posterior`), evolving BBH rate also at z = 0.
 - `stochastic`: Multi Peak mass model, read from the `hubble_constant` posterior.
