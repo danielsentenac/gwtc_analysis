@@ -12,14 +12,6 @@ source-frame masses, distances, network SNR); with `--include-detectors`, the de
 event from the GWOSC v2 API; with `--include-area`, the sky-localization area at the credible level
 `--area-cred` (A90 by default), computed from the skymaps of `--data-repo`.
 
-**Outputs.**
-
-- `--out-events` (TSV): one row per event;
-- `--plots-dir`: the primary against secondary mass diagram colored by SNR, histograms of the main
-  parameters, the fraction of each source type (BBH, BNS, NSBH), the detector networks, the cumulative
-  distribution of the sky-localization areas and the remnants (below);
-- `--out-report`: the HTML report with the tables and plots.
-
 ## Remnants and energetics
 
 Every event with a final mass in GWOSC gets, in the TSV and the report:
@@ -79,6 +71,14 @@ during O4a).*
 
 *90% sky areas from the Zenodo PE skymaps: median 2 065 deg² with two detectors, about 27 600 deg²
 with a single detector, which localizes an event only to a large part of the sky.*
+
+## Outputs
+
+- `--out-events` (TSV): one row per event;
+- `--plots-dir`: the primary against secondary mass diagram colored by SNR, histograms of the main
+  parameters, the fraction of each source type (BBH, BNS, NSBH), the detector networks, the cumulative
+  distribution of the sky-localization areas and the remnants ([above](#remnants-and-energetics));
+- `--out-report`: the HTML report with the tables and plots.
 
 ## Options
 
