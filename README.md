@@ -21,6 +21,9 @@ The tool provides:
 - Predicted background of unresolved compact binaries, Ω_GW(f), against the stochastic upper limits
 - Test of Hawking's area law with GW250114 (inspiral against ringdown, reproducing the published 4.4σ)
 - Electromagnetic counterparts in the GW posterior (`counterpart`): searched probability, distance along the line of sight against the host redshift, viewing angle and an independent constraint on it
+- Multi-messenger coincidences in the sky maps (`search_skymaps --counterparts`): gamma-ray bursts and neutrinos
+- A binary black hole in an ultralight scalar-field cloud (`scalar_cloud`, GW190728) and the LVK continuous-wave limits (`continuous_waves`)
+- Strongly lensed pairs (`lens_pairs`): every pair of BBH events ranked by posterior overlap and time delay, reproducing the LVK O4a screen
 
 All gravitational-wave data products are retrieved from the **Gravitational Wave Open Science Center (GWOSC)**,
 or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
@@ -92,7 +95,7 @@ entry of any new catalog (see [Adding a new catalog](https://danielsentenac.gith
 ## Command-Line Interface (CLI)
 
 ```text
-usage: gwtc_analysis [-h] MODE ...
+usage: gwtc_analysis [-h] [--version] MODE ...
 
 positional arguments:
   MODE
@@ -101,7 +104,9 @@ positional arguments:
     hubble_constant
     galaxy_catalog
     counterpart
+    continuous_waves
     area_law
+    scalar_cloud
     stochastic
     neutron_star_eos
     spin_population
@@ -119,6 +124,8 @@ Each mode has its own help:
 ```bash
 gwtc_analysis <MODE> -h
 ```
+
+The help answers in a fraction of a second: the analysis libraries (numpy, pandas, healpy, ligo.skymap, the waveform packages) are loaded only when a mode runs.
 
 The `gwtc_analysis` command is installed with the package (conda-forge, PyPI or Docker); from a source checkout that is not installed, `python -m gwtc_analysis.cli` is equivalent.
 
@@ -604,7 +611,7 @@ Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK popula
 
 `hubble_constant` measures H₀ by four methods, `--method spectral` (default), `dark` (with a galaxy catalog built by `galaxy_catalog`), `bright` (an event with an identified host, [below](#hubble_constant---method-bright-hubble-constant-from-an-identified-host)) and `joint` (the product of independent results). This section is about the **spectral-siren** method. Each event gives its luminosity distance D_L and its detector-frame masses m_det = m_src (1+z), but not its redshift. The redshift comes from the population: for a trial H₀, every D_L gives a z and every m_det a source-frame mass, and only the right H₀ makes the events near and far fall on one distance-independent mass distribution. The *Power Law + Peak* (PLP) mass model and the Madau–Dickinson rate evolution are therefore fitted together with H₀ (flat ΛCDM, Ω_m = 0.3065), with the hierarchical likelihood of [icarogw](https://github.com/icarogw-developers/icarogw) and bilby/dynesty. Selection effects are corrected with the LVK search-sensitivity injections.
 
-The default setup reproduces the spectral-siren measurements of the [GWTC-4.0 cosmology paper](https://arxiv.org/abs/2509.04348) (published version v3): H₀ = 105.5 (+46.4 / −35.8) km/s/Mpc with the *Power Law + Peak* mass model (`--mass-model plp`, the default) and 72.3 (+42.5 / −25.6) km/s/Mpc with the *Multi Peak* model (`--mass-model mltp`: a power law and two Gaussian peaks, found near 9 and 27 M☉ in the paper and near 10 and 30 M☉ in the reproduction run). Use one work directory per mass model. The setup:
+The default setup reproduces the spectral-siren measurements of the [GWTC-4.0 cosmology paper](https://arxiv.org/abs/2509.04348) (published version v3): H₀ = 105.5 (+46.4 / −35.8) km/s/Mpc with the *Power Law + Peak* mass model (`--mass-model plp`, the default) and 72.3 (+42.5 / −25.6) km/s/Mpc with the *Multi Peak* model (`--mass-model mltp`: a power law and two Gaussian peaks, found near 9 and 27 M☉ in the paper and near 10 and 30 M☉ in the reproduction run). With *FullPop-4.0*, the paper's fiducial population of all compact binaries (`--mass-model fullpop4`, 141 events, GW170817 kept for the bright siren), it gives 74.4 (+25.4 / −18.9) km/s/Mpc against the published 72.9 (+21.9 / −18.8). Use one work directory per mass model. The setup:
 
 - **Catalogs** (`--catalogs`): events and injections restricted to the observing runs of the selected catalogs; by default all the runs of `--sensitivity-release` (`gwtc4`: O1–O4a, the published analysis; `gwtc5`: O1–O4b, compared with the GWTC-5.0 cosmology paper, MLTP 71.0 (+21.0 / −17.5) km/s/Mpc).
 - **Events**: BBHs of O1–O4a from the GWOSC confident and marginal lists, lowest FAR at most 0.25/yr (`--far-threshold`; the published FARs are rounded, so they are compared inclusively), both source-frame masses above 3 M☉ (`--min-mass`), GW231123 and GW200105 left out (`--exclude`): 137 events, as in the paper.
@@ -643,7 +650,7 @@ gwtc_analysis hubble_constant --stages sample combine report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 
-**Seeds.** Each seed is an independent dynesty run (`result/<model>_seed<N>_result.json`, with `<model>` = `plp` or `mltp`); `combine` merges all the finished ones, weighted by their evidence. All runs sample the same likelihood: the PE samples are shuffled once in `prepare` and the injection subset is drawn with a fixed seed, and `run_settings.json` refuses runs with other `--mass-model`, `--nlive`, `--pe-samples` or `--inj-fraction` values in the same work directory. Launching again resumes the interrupted runs from their checkpoint and skips the finished ones. A lock file (`result/<model>_seed<N>.lock`) prevents the same seed from running twice at once; interrupting the launcher (Ctrl-C) stops its runs after they write their checkpoint.
+**Seeds.** Each seed is an independent dynesty run (`result/<model>_seed<N>_result.json`, with `<model>` = `plp`, `mltp` or `fullpop4`); `combine` merges all the finished ones, weighted by their evidence. All runs sample the same likelihood: the PE samples are shuffled once in `prepare` and the injection subset is drawn with a fixed seed, and `run_settings.json` refuses runs with other `--mass-model`, `--nlive`, `--pe-samples` or `--inj-fraction` values in the same work directory. Launching again resumes the interrupted runs from their checkpoint and skips the finished ones. A lock file (`result/<model>_seed<N>.lock`) prevents the same seed from running twice at once; interrupting the launcher (Ctrl-C) stops its runs after they write their checkpoint.
 
 **`--npool` and `--parallel`.** Nearly all the time of a run goes into likelihood evaluations. At each iteration dynesty replaces the live point of lowest likelihood L_min by a new point with L > L_min, found by a random walk (about `--naccept` accepted steps, one likelihood evaluation per step) from another live point. With `--npool N`, bilby starts N worker processes, each holding a copy of the likelihood, and dynesty runs N such walks at the same time; their new points replace the next N worst points. The walks all start from the same L_min, so some of their points are no longer good enough when used: N workers give less than N times the speed. `--npool` makes one seed finish sooner without changing its result; `--parallel` runs several seeds at the same time. The machine then runs `--parallel` × `--npool` processes, which should not exceed its number of CPUs, and each of them holds the likelihood data in memory. For the same CPUs, several seeds with few workers each use the machine better than one seed with many workers.
 
@@ -679,7 +686,7 @@ Runs can be spread over several machines that share the work directory: start `p
 2. remotely, with the icarogw interpreter (and `LD_LIBRARY_PATH=<env>/lib` if needed): `python h0_icarogw.py run --workdir RDIR --seed N` for each seed, then `python h0_icarogw.py combine --workdir RDIR`;
 3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` and `RDIR/corner.png` (a few MB) back into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
 
-With 10 runs of 100 live points and 1500 PE samples per event, sampled with 10% of the found injections and 136 events, then reweighted to all the injections and the paper's 137 events, the result is H₀ = 105.8 (+44.7 / −33.2) km/s/Mpc [68%], 90%: 54.4–175.7, and μ_g = 28.7 (+3.8 / −4.6) M☉ (PLP), against 105.5 (+46.4 / −35.8), 90%: 50.5–176.1, and 28.3 (+4.1 / −4.4) M☉ in the published paper; MLTP gives 78.6 (+38.0 / −26.5) against 72.3 (+42.5 / −25.6). Without the reweighting, the 10% subset alone shifts H₀ by about +13 km/s/Mpc for PLP (119.3) and +10 for MLTP (89.1): a subset estimates the detectable fraction without bias, but its Monte Carlo noise, raised to the power N = 136 in the likelihood, tilts the posterior. This is why `--inj-fraction auto` (the default) probes the subsets before sampling and reweights afterwards; `--inj-fraction 1` samples with all the injections, as the paper does. The number of PE samples per event also matters (3000 instead of 1500 raises H₀ by about 5 km/s/Mpc). H₀ is strongly anti-correlated with μ_g, and the upper part of its interval depends on the prior bound of 200 km/s/Mpc. The lower peak of MLTP, near 9–10 M☉ (σ ≈ 0.8 M☉ in the run), is a much sharper feature than the ~28–30 M☉ bump, hence its tighter and lower H₀; FullPop-4.0 (72.9 km/s/Mpc in the paper) is not implemented.
+With 10 runs of 100 live points and 1500 PE samples per event, sampled with 10% of the found injections and 136 events, then reweighted to all the injections and the paper's 137 events, the result is H₀ = 105.8 (+44.7 / −33.2) km/s/Mpc [68%], 90%: 54.4–175.7, and μ_g = 28.7 (+3.8 / −4.6) M☉ (PLP), against 105.5 (+46.4 / −35.8), 90%: 50.5–176.1, and 28.3 (+4.1 / −4.4) M☉ in the published paper; MLTP gives 78.6 (+38.0 / −26.5) against 72.3 (+42.5 / −25.6). Without the reweighting, the 10% subset alone shifts H₀ by about +13 km/s/Mpc for PLP (119.3) and +10 for MLTP (89.1): a subset estimates the detectable fraction without bias, but its Monte Carlo noise, raised to the power N = 136 in the likelihood, tilts the posterior. This is why `--inj-fraction auto` (the default) probes the subsets before sampling and reweights afterwards; `--inj-fraction 1` samples with all the injections, as the paper does. The number of PE samples per event also matters (3000 instead of 1500 raises H₀ by about 5 km/s/Mpc). H₀ is strongly anti-correlated with μ_g, and the upper part of its interval depends on the prior bound of 200 km/s/Mpc. The lower peak of MLTP, near 9–10 M☉ (σ ≈ 0.8 M☉ in the run), is a much sharper feature than the ~28–30 M☉ bump, hence its tighter and lower H₀. FullPop-4.0 (seven runs of 100 live points, 141 events, reweighted to all the injections) gives 74.4 (+25.4 / −18.9) km/s/Mpc, 90%: 44.4–122.9, against 72.9 (+21.9 / −18.8), 90%: 44.0–111.9, in the paper: the same lower end, a longer upper tail.
 
 ### `hubble_constant --method bright`: Hubble Constant From An Identified Host
 
@@ -1042,6 +1049,7 @@ gwtc_analysis build_unofficial_pe --src-name GW170817
 gwtc_analysis hubble_constant --method bright
 gwtc_analysis counterpart
 gwtc_analysis area_law
+gwtc_analysis lens_pairs --data-repo s3
 gwtc_analysis parameters_estimation --src-name GW231223_032836 --data-repo zenodo
 gwtc_analysis parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log
 ```
