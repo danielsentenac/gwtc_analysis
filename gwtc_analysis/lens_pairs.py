@@ -44,7 +44,7 @@ import pandas as pd
 
 from .report import write_simple_html_report
 
-DEFAULT_CATALOGS = ("GWTC-4",)
+from .cli_defaults import LENS_DEFAULT_CATALOGS as DEFAULT_CATALOGS  # noqa: E402
 A_MAX = 0.99                          # spin-magnitude prior bound of the LVK PE
 MASS_BOX = (1.0, 1000.0)             # detector-frame component masses of the reference prior (the PE constraint)
 FLOOR_LOG10 = -30.0                   # log10 B_overlap of pairs whose chirp masses do not overlap (as the LVK)
