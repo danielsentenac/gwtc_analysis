@@ -1151,7 +1151,81 @@ BBH_MASS_MODELS = {
                          "sigma_g_high", "lambda_g", "lambda_g_low"),
                  ln=lambda m1, m2, p: _ln_multi_peak(m1, m2, **p)),
 }
+BBH_MASS_MODELS["fullpop4"] = dict(
+    name="FullPop-4.0",
+    params=("alpha_1", "alpha_2", "beta_bottom", "beta_top", "mmin", "mmax", "bottomsmooth", "topsmooth", "mu_g_low",
+            "sigma_g_low", "mu_g_high", "sigma_g_high", "lambda_g", "lambda_g_low", "leftdip", "rightdip",
+            "leftdipsmooth", "rightdipsmooth", "deep"),
+    ln=lambda m1, m2, p: _ln_fullpop4(m1, m2, p))
 RATE_EVOLUTION_PARAMS = ("gamma", "kappa", "zp")
+
+
+def _fullpop4_classes(p: dict, ns: float) -> tuple[float, dict]:
+    """ln of the normalization of FullPop-4.0 over m2 <= m1, and the fractions of its binaries in the BNS (m1 < ns),
+    NSBH (m2 < ns <= m1) and BBH (m2 >= ns) regions.
+
+    The density p_S(m1) p_S(m2) (m2/m1)^β(m2) factorizes: with C_β(m) = ∫_m p_S(m1) m1^-β dm1, the integrals are
+    one-dimensional, ∫ p_S(m2) m2^β C_β(m2) dm2 over the m2 range of each region (C_β(m2) - C_β(ns) for BNS)."""
+    from .h0_bright import _fullpop4_mbreak, ln_mass_1d_fullpop4
+
+    trapz = getattr(np, "trapezoid", None) or np.trapz
+    g = np.geomspace(p["mmin"], p["mmax"], 40000)
+    ps = np.exp(ln_mass_1d_fullpop4(g, p))
+    bottom = g <= _fullpop4_mbreak(p)
+
+    def tail(b):            # C_b on the grid: integral from m to mmax
+        f = ps * g ** -b
+        c = np.concatenate([[0.0], np.cumsum(0.5 * (f[1:] + f[:-1]) * np.diff(g))])
+        return c[-1] - c
+
+    cb, ct = tail(p["beta_bottom"]), tail(p["beta_top"])
+    c = np.where(bottom, cb, ct)
+    c_ns = np.where(bottom, np.interp(ns, g, cb), np.interp(ns, g, ct))
+    w = ps * g ** np.where(bottom, p["beta_bottom"], p["beta_top"])
+    low = g < ns
+    total = trapz(w * c, g)
+    f_bns = trapz(np.where(low, w * (c - c_ns), 0.0), g) / total
+    f_nsbh = trapz(np.where(low, w * c_ns, 0.0), g) / total
+    return float(np.log(total)), dict(BNS=f_bns, NSBH=f_nsbh, BBH=1.0 - f_bns - f_nsbh)
+
+
+def _ln_fullpop4(m1: np.ndarray, m2: np.ndarray, p: dict) -> np.ndarray:
+    """ln p(m1, m2) of FullPop-4.0 (all compact binaries; bright siren's density), normalized over m2 <= m1."""
+    from .h0_bright import ln_mass_fullpop4
+
+    return ln_mass_fullpop4(m1, m2, p) - _fullpop4_classes(p, 2.5)[0]
+
+
+def _fullpop4_rates(inj: dict, n: int, draws: list[tuple[dict, tuple[float, float, float]]], ns: float, z_ref: float,
+                    seed: int = 1, n_gamma: int = 50) -> dict:
+    """Rates of the BNS, NSBH and BBH regions of FullPop-4.0: one total rate from the n events of all classes,
+    Gamma(n + 1/2) / <VT> for each (mass parameters, (gamma, kappa, zp)) draw, times the fraction of the population
+    in each region. Spins isotropic, magnitudes uniform up to 0.4 below ns (the neutron stars, as the O3 injections)
+    and 0.99 above. Returns {class: (5, 50, 95 % at z = 0, at z_ref)}, the median <VT> and the smallest Neff."""
+    from scipy.stats import gamma as gamma_dist
+
+    from .h0_bright import ln_mass_fullpop4, ln_rate_madau
+
+    rng = np.random.default_rng(seed)
+    m1, m2, z = inj["mass1_source"], inj["mass2_source"], inj["redshift"]
+    amax1, amax2 = np.where(m1 < ns, 0.4, 0.99), np.where(m2 < ns, 0.4, 0.99)
+    out = {k: ([], []) for k in ("BNS", "NSBH", "BBH", "all")}
+    vts, neffs = [], []
+    for p, (g, k, zp) in draws:
+        ln_norm, frac = _fullpop4_classes(p, ns)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            lnp = ln_mass_fullpop4(m1, m2, p) - ln_norm + ln_rate_madau(z, g, k, zp)
+        vt, neff = _sensitive_vt(inj, lnp, amax1, amax2, kappa=0.0)        # the evolution is inside lnp
+        total = gamma_dist.rvs(n + 0.5, size=n_gamma, random_state=rng) / vt
+        evol = float(np.exp(ln_rate_madau(np.array([z_ref]), g, k, zp)[0]))
+        for key, f in list(frac.items()) + [("all", 1.0)]:
+            out[key][0].append(total * f)
+            out[key][1].append(total * f * evol)
+        vts.append(vt)
+        neffs.append(neff)
+    q = lambda a: np.percentile(np.concatenate(a), [5, 50, 95])
+    return dict(rates={k: (q(a0), q(az)) for k, (a0, az) in out.items()}, vt=float(np.median(vts)),
+                neff=float(min(neffs)), n_draws=len(draws))
 
 
 def _read_population_posterior(path: str | Path, mass_model: str) -> tuple[pd.DataFrame, Path]:
@@ -1333,11 +1407,15 @@ def run_merger_rates(
     kappa, zp, e.g. from hubble_constant), the BBH rate is computed over `n_draws` posterior samples instead,
     so its interval includes the population uncertainty; it is reported at z = bbh_z_ref and at z = 0.
     `bbh_mass_model` "plp" (Power Law + Peak) or "mltp" (Multi Peak); "mltp" needs a posterior.
+    "fullpop4" (FullPop-4.0) models all compact binaries at once: one rate from the events of all classes, split
+    into the BNS, NSBH and BBH regions of the distribution (masses below and above `ns_max_mass`), at z = 0 and at
+    `bbh_z_ref`; its parameters are the GWTC-4.0 spectral-siren medians, or draws of `population_posterior`
+    (a hubble_constant --mass-model fullpop4 run).
     Returns the rates table (also written to `out_rates_tsv`).
     """
     if bbh_mass_model not in BBH_MASS_MODELS:
         raise ValueError(f"Unknown BBH mass model {bbh_mass_model!r}; choose from {', '.join(BBH_MASS_MODELS)}")
-    if bbh_mass_model != "plp" and population_posterior is None:
+    if bbh_mass_model == "mltp" and population_posterior is None:
         raise ValueError(f"--mass-model {bbh_mass_model} needs --population-posterior (its parameters are not "
                          "fixed in the package): e.g. a hubble_constant --mass-model mltp work directory")
     post = post_path = None
@@ -1373,8 +1451,8 @@ def run_merger_rates(
     fixed = [
         ("BNS", bns, 0.4, 0.4, 0.0, 0.0, f"m1, m2 uniform in [1, {ns:g}] Msun; |spin| < 0.4; constant rate"),
         ("NSBH", nsbh, 0.99, 0.4, 0.0, 0.0, f"m_BH ~ m^-2.35 on [{ns:g}, 40], m_NS uniform in [1, {ns:g}]; constant rate"),
-    ]
-    if post is None:
+    ] if bbh_mass_model != "fullpop4" else []
+    if post is None and bbh_mass_model != "fullpop4":
         evolving = f"Power Law + Peak (GWTC-3); R ∝ (1+z)^{bbh_kappa:g}"
         fixed.append(("BBH", bbh, 0.99, 0.99, bbh_kappa, bbh_z_ref, evolving))
         if bbh_z_ref != 0:   # the same evolving rate at z = 0, for comparison with local rates (display only)
@@ -1387,7 +1465,29 @@ def run_merger_rates(
         lo, med, hi = _rate_quantiles(n, vt) * (1.0 + zref) ** kappa
         rows.append(dict(population=pop, model=model, z_ref=zref, n_detected=n, vt_gpc3_yr=vt, n_eff=neff,
                          rate_median=med, rate_05=lo, rate_95=hi))
-    if post is not None:
+    if bbh_mass_model == "fullpop4":
+        from .h0_bright import FULLPOP4_GWTC4, MADAU_GWTC4
+
+        n = int(sum(counts.get(k, 0) for k in ("BNS", "NSBH", "BBH")))
+        if post is None:
+            draws = [(dict(FULLPOP4_GWTC4), tuple(MADAU_GWTC4[k] for k in RATE_EVOLUTION_PARAMS))]
+            src = "GWTC-4.0 spectral-siren medians"
+        else:
+            rows_ = post.iloc[np.random.default_rng(seed).choice(len(post), size=min(n_draws, len(post)), replace=False)]
+            draws = [({k: float(r[k]) for k in BBH_MASS_MODELS["fullpop4"]["params"]},
+                      tuple(float(r[k]) for k in RATE_EVOLUTION_PARAMS)) for _, r in rows_.iterrows()]
+            src = f"{len(draws)} draws of {post_path.name}"
+        res = _fullpop4_rates(inj, n, draws, ns, bbh_z_ref, seed=seed)
+        for pop in ("BNS", "NSBH", "BBH", "all"):
+            (lo0, med0, hi0), (loz, medz, hiz) = res["rates"][pop]
+            model = (f"FullPop-4.0 ({src}), the {pop} region (masses below/above {ns:g} Msun) of one rate fitted "
+                     f"to all {n} events; Madau-Dickinson evolution" if pop != "all" else
+                     f"FullPop-4.0 ({src}), all compact binaries; Madau-Dickinson evolution")
+            for zref, (lo, med, hi) in (((bbh_z_ref, (loz, medz, hiz)),) if pop == "BBH" and bbh_z_ref else ()) + (
+                    (0.0, (lo0, med0, hi0)),):
+                rows.append(dict(population=pop, model=model, z_ref=zref, n_detected=int(counts.get(pop, n)),
+                                 vt_gpc3_yr=res["vt"], n_eff=res["neff"], rate_median=med, rate_05=lo, rate_95=hi))
+    elif post is not None:
         n = int(counts.get("BBH", 0))
         res = _bbh_rate_over_posterior(inj, n, bbh_mass_model, post, n_draws, bbh_z_ref, seed=seed)
         model = (f"{BBH_MASS_MODELS[bbh_mass_model]['name']}, {res['n_draws']} draws of {post_path.name}; "
@@ -1429,7 +1529,12 @@ def run_merger_rates(
             f"{n_unknown} candidate(s) without masses are left out.",
             "Intervals are 90% Poisson (Jeffreys prior) for fixed population shapes; the full LVK analyses fit "
             "the shapes together with the rates, so their intervals are wider and model-dependent."
-            + ("" if post is None else
+            + (f" With FullPop-4.0, one mass distribution covers all compact binaries: a single rate is fitted to "
+               f"the events of all classes and split into the BNS, NSBH and BBH regions (masses below or above "
+               f"{ns:g} Msun), at z = 0 and, for BBH, at z = {bbh_z_ref:g}"
+               + (", over the population posterior, so the intervals include its uncertainty." if post is not None
+                  else ", with the parameters fixed to the GWTC-4.0 spectral-siren medians.")
+               if bbh_mass_model == "fullpop4" else "" if post is None else
                f" The BBH rate is instead computed over {n_draws} draws of the "
                f"{BBH_MASS_MODELS[bbh_mass_model]['name']} population posterior {post_path.name} (mass model and "
                "rate evolution), so its interval includes the population uncertainty; that posterior should come "

@@ -233,8 +233,8 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--bbh-z-ref` | `0.2` | Redshift at which the evolving BBH rate is reported. |
 | `--catalogs` | `` | Catalog keys (GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5, or ALL): events and injections are restricted to their observing runs (GWTC-1: O1-O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-4.1: O4a, GWTC-5: O4b). Default: the runs of the real-injection mixture (O3 onward). |
 | `--snr-threshold` | `10.0` | Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1). |
-| `--mass-model` | `plp` | BBH mass model: plp = Power Law + Peak (GWTC-3 values unless --population-posterior); mltp = Multi Peak, two peaks near 10 and 35 Msun (needs --population-posterior). |
-| `--population-posterior` | `` | Samples of the BBH population: a hubble_constant work directory of the same --mass-model, or its posterior TSV file. The BBH rate is then computed over them. |
+| `--mass-model` | `plp` | Mass model: plp = Power Law + Peak (GWTC-3 values unless --population-posterior); mltp = Multi Peak, two peaks near 10 and 35 Msun (needs --population-posterior); fullpop4 = FullPop-4.0, all compact binaries in one distribution, split into BNS, NSBH and BBH (GWTC-4.0 medians unless --population-posterior). |
+| `--population-posterior` | `` | Samples of the population: a hubble_constant work directory of the same --mass-model, or its posterior TSV file. The BBH rate (with fullpop4, all the rates) is then computed over them. |
 | `--n-draws` | `200` | Posterior draws with --population-posterior. |
 
 ### `hubble_constant`
@@ -591,6 +591,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
   `--sensitivity-file` uses a local injection file instead (same LVK mixture format).
 - **Populations** (fixed shapes): BNS with both masses uniform in [1, 2.5] M☉; NSBH with the black hole ∝ m^-2.35 on [2.5, 40] M☉; BBH with the GWTC-3 *Power Law + Peak* model, reported with R ∝ (1+z)^κ at z = 0.2 (`--bbh-kappa`, `--bbh-z-ref`) and without evolution.
 - **Intervals**: 90% Poisson (Jeffreys prior). The LVK population papers fit the population shapes together with the rates, so their intervals are wider and model-dependent.
+- **Population posterior and FullPop-4.0**: `--population-posterior` computes the BBH rate over the samples of a `hubble_constant` run (`--mass-model plp` or `mltp`), so the interval includes the population uncertainty. `--mass-model fullpop4` uses FullPop-4.0, one distribution for all compact binaries: one rate fitted to the events of all classes, split into BNS, NSBH and BBH; over the FullPop-4.0 spectral-siren posterior (GWTC-4.0 injections) BNS 68 [7, 670], NSBH 21 [6, 73], BBH 22 [12.5, 35] at z = 0 and 40 [27, 60] at z = 0.2, inside the LVK intervals.
 
 - **Catalogs** (`--catalogs`, as in the other modes): the events **and** the injections are restricted to the observing runs of the selected catalogs (GWTC-1: O1–O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b; `ALL` for O1 to O4b), so that counts and ⟨VT⟩ describe the same observing time. GWTC-1 uses the release's mixture with semi-analytic O1+O2 injections (`--snr-threshold`, 10). For O4b alone (`--catalogs GWTC-5`): 104 BBH candidates, BBH rate 24.8 [21.0, 29.0] Gpc⁻³ yr⁻¹ at z = 0.2.
 
