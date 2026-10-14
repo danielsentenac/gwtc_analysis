@@ -145,4 +145,25 @@ read from the PE samples with [parameters_estimation](parameters-estimation.md).
 
 *The shaded areas are the pair-instability gap (m₁ ≥ 50 M☉) and negative χ_eff.*
 
-All options: [CLI reference](../cli-reference.md#event_selection).
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--catalogs` | — | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5). ALL takes them all except the updates (GWTC-4.1, update of GWTC-4), which are used only when named. |
+| `--out-selection` | `event_selection.tsv` | Output TSV path for the selected events. |
+| `--m1-min` | — | Minimum primary mass (source frame). |
+| `--m1-max` | — | Maximum primary mass (source frame). |
+| `--m2-min` | — | Minimum secondary mass (source frame). |
+| `--m2-max` | — | Maximum secondary mass (source frame). |
+| `--dl-min` | — | Minimum luminosity distance (Mpc). |
+| `--dl-max` | — | Maximum luminosity distance (Mpc). |
+| `--chi-eff-min` | — | Minimum effective spin chi_eff. |
+| `--chi-eff-max` | — | Maximum effective spin chi_eff. |
+| `--preset {neutron-stars,mass-gap,hierarchical}` | — | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%: earlier-generation black holes). |
+| `--ns-max-mass` | `3.0` | Maximum neutron-star mass (M_sun). |
+| `--mass-gap LO HI` | `3.0 5.0` | Lower mass gap between neutron stars and black holes (M_sun). |
+| `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
+| `--out-plot` | — | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
+
+Every report ends with the options of its run, defaults included. The same table with the help text
+of all the modes: [CLI reference](../cli-reference.md#event_selection).
