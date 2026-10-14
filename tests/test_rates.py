@@ -287,3 +287,20 @@ def test_cli_rates_mass_model_arguments():
     args = build_parser().parse_args(["rates", "--mass-model", "mltp", "--population-posterior", "w", "--n-draws", "50"])
     assert args.mass_model == "mltp" and args.population_posterior == "w" and args.n_draws == 50
     assert build_parser().parse_args(["rates"]).mass_model == "plp"
+
+
+def test_fullpop4_classes_normalization_and_fractions():
+    """The 1D integrals of the factorized FullPop-4.0 density agree with a 2D integration."""
+    import numpy as np
+
+    from gwtc_analysis import catalogs as c, h0_bright as hb
+
+    p = hb.FULLPOP4_GWTC4
+    ln_norm, frac = c._fullpop4_classes(p, 2.5)
+    assert sum(frac.values()) == pytest.approx(1.0)
+    g = np.geomspace(p["mmin"], p["mmax"], 2500)
+    m1, m2 = np.meshgrid(g, g, indexing="ij")
+    dens = np.exp(hb.ln_mass_fullpop4(m1, m2, p) - ln_norm) * m1 * m2 * np.log(g[1] / g[0]) ** 2
+    assert dens.sum() == pytest.approx(1.0, abs=0.01)
+    assert dens[m1 < 2.5].sum() == pytest.approx(frac["BNS"], abs=0.01)
+    assert dens[(m2 < 2.5) & (m1 >= 2.5)].sum() == pytest.approx(frac["NSBH"], abs=0.01)
