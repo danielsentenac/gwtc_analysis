@@ -174,7 +174,16 @@ carry weight (hence the jagged curve) and the population, not the flare, shapes 
 October 2026 the event carried no mass term (30.4, median 63.2), inconsistent with the selection. The result
 depends strongly on the sky selection (median 55.5 within 5°, against 94.9 within 3°) and on the waveform
 model; only IMRPhenomXPHM has enough samples near the flare in GWTC-2.1. Read it as an illustration of the
-method, not as a measurement. The selection term is computed from 106,376 found O3a injections, with
+method, not as a measurement.
+
+The published values from GW190521 and the flare alone span the same range: 43–62 km/s/Mpc depending on
+the waveform (Mukherjee et al. [\[112\]](../references.md#ref-112)), 48 (+23 / −10) (Chen et al.
+[\[113\]](../references.md#ref-113)), both with the 2020 PE release, and 102 (+27 / −25) in a later
+reanalysis (Morton et al. [\[114\]](../references.md#ref-114)). The 90% interval here
+contains all of them. The closeness of the median to the last one is partly a coincidence: here the shift
+upwards comes from the mass cutoff (a higher H₀ puts the source at a higher redshift and lowers the
+source-frame mass below 87 M☉), not from the distance posterior.
+The selection term is computed from 106,376 found O3a injections, with
 13,000–16,000 effective injections over the H₀ range.
 
 ## Validation: mock bright sirens
