@@ -397,10 +397,12 @@ def build_parser() -> argparse.ArgumentParser:
     _add_counterpart_options(p_h0, "[bright] ")
     p_h0.add_argument("--selection", choices=("auto", "euclidean", "injections"), default="auto",
                       help="[bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections "
-                           "(LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05).")
+                           "(LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05, injections above "
+                           "or with --population fullpop4).")
     p_h0.add_argument("--population", choices=("volume", "fullpop4"), default="volume",
                       help="[bright] Population of the sources: volume (uniform in comoving volume and source-frame "
-                           "time; the masses enter the selection only) or fullpop4 (FullPop-4.0 masses and the "
+                           "time; with injections, the mass model of the class, Power Law + Peak or uniform neutron stars, "
+                           "weights both the PE samples and the selection) or fullpop4 (FullPop-4.0 masses and the "
                            "Madau-Dickinson rate fixed to the GWTC-4.0 spectral-siren medians, as the GWTC-4.0 "
                            "reanalysis of GW170817; selection by injections with --selection auto).")
     p_h0.add_argument("--h0-range", nargs=2, type=float, metavar=("MIN", "MAX"), default=[10.0, 200.0],

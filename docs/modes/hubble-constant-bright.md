@@ -58,8 +58,10 @@ see [Validation](#validation-mock-bright-sirens). `--selection`:
 | `injections` | the found LVK sensitivity injections of the event's observing run, carried to the source frame at each trial H₀ and reweighted to the population of the event's class: Power Law + Peak for black holes (as in `rates`), uniform 1–2.5 M☉ for neutron stars; the injected isotropic spins | distant events |
 | `auto` (default) | `euclidean` below z = 0.05, `injections` above; `injections` with `--population fullpop4` | |
 
-**The population** (`--population`). By default the sources are uniform in comoving volume and source-frame time,
-and the masses enter only the selection. `fullpop4` is the population of the GWTC-4.0 reanalysis of GW170817
+**The population** (`--population`). By default the sources are uniform in comoving volume and source-frame time.
+The masses enter only with the `injections` selection, where the mass model of the class also weights each PE sample
+(with the detector-frame masses carried to the source frame at each H₀), so that event and selection see the same
+population; with `euclidean` they do not enter. `fullpop4` is the population of the GWTC-4.0 reanalysis of GW170817
 [\[29\]](../references.md#ref-29) (Appendix E): the FullPop-4.0 mass distribution, which covers BNS, NSBH and BBH in
 one (a broken power law with a dip between neutron stars and black holes, two Gaussian peaks, and a pairing function
 in the mass ratio), and the Madau–Dickinson rate, fixed to the medians of the paper's spectral siren. Each sample then
@@ -233,13 +235,14 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 | `--redshift Z SIGMA` | from the list (GW190521) | Hubble-flow redshift of the host, instead of the velocities |
 | `--viewing-angle MEAN SIGMA` | none | independent Gaussian constraint on the viewing angle, degrees |
 | `--pe-distance-prior` | the file's, else \(d_L^2\) up to O3 and source-frame (uniform in comoving volume and source-frame time) from O4 | distance prior of the PE samples: `dl2`, `comoving` or `source-frame` (Planck15_LAL) |
-| `--selection` | `auto` | `euclidean`, `injections` or `auto` |
-| `--population` | `volume` | `volume` (uniform in comoving volume) or `fullpop4` (FullPop-4.0 and Madau–Dickinson at the GWTC-4.0 medians, [Method](#method)) |
+| `--selection` | `auto` | `euclidean` (β ∝ H₀³), `injections` (the found injections of the event's run, reweighted to the population) or `auto` (`euclidean` below z = 0.05, `injections` above or with `fullpop4`); [Method](#method) |
+| `--population` | `volume` | `volume` (uniform in comoving volume and source-frame time; with `injections`, the mass model of the class weights both the PE samples and the selection) or `fullpop4` (FullPop-4.0 and Madau–Dickinson at the GWTC-4.0 medians, [Method](#method)) |
 | `--sensitivity-release`, `--sensitivity-file` | `gwtc4` | injections of the selection term |
 | `--far-threshold`, `--snr-threshold` | 0.25 /yr, 10 | found injections (real searches, semi-analytic O1+O2) |
 | `--sky-radius` | 3° | for samples not fixed to the counterpart |
 | `--h0-range MIN MAX` | 10 200 | flat prior; `--method joint` needs the default |
 | `--workdir` | `hubble_constant_bright` | the work directory |
+| `--settings FILE` | none | JSON or YAML file of option values (keys: the long option names); the command line overrides it |
 | `--out-report`, `--out-summary` | `hubble_constant_bright.html`, `.tsv` | the report and the summary |
 
 The published comparison is shown only with the velocities or redshift from the list, no viewing-angle constraint,

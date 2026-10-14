@@ -291,8 +291,8 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--sky-radius` | `3.0` | [bright] For samples not fixed to the counterpart's position: keep those within this angle (deg). |
 | `--viewing-angle` | `` | [bright] Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
 | `--pe-distance-prior` | `` | [bright] Luminosity-distance prior of the PE samples, divided out of the distance posterior: dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE file, else D_L^2 up to O3 and source-frame from O4. |
-| `--selection` | `auto` | [bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05). |
-| `--population` | `volume` | [bright] Population of the sources: volume (uniform in comoving volume and source-frame time; the masses enter the selection only) or fullpop4 (FullPop-4.0 masses and the Madau-Dickinson rate fixed to the GWTC-4.0 spectral-siren medians, as the GWTC-4.0 reanalysis of GW170817; selection by injections with --selection auto). |
+| `--selection` | `auto` | [bright] Selection term: euclidean (GW-limited, nearby sources: beta ∝ H0^3), injections (LVK sensitivity injections of the event's run), auto (euclidean below z = 0.05, injections above or with --population fullpop4). |
+| `--population` | `volume` | [bright] Population of the sources: volume (uniform in comoving volume and source-frame time; with injections, the mass model of the class, Power Law + Peak or uniform neutron stars, weights both the PE samples and the selection) or fullpop4 (FullPop-4.0 masses and the Madau-Dickinson rate fixed to the GWTC-4.0 spectral-siren medians, as the GWTC-4.0 reanalysis of GW170817; selection by injections with --selection auto). |
 | `--h0-range` | `[10.0, 200.0]` | [bright] Flat H0 prior range, km/s/Mpc (that of the spectral siren, needed by joint). |
 | `--inputs` | `` | [joint] Independent results to combine: hubble_constant work directories (spectral, dark or bright) or posterior TSV files (H0 samples, or an H0 grid with a p column). |
 
@@ -451,6 +451,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
 | `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
 | `--pe-samples` | `5000` | PE samples per event. |
+| `--data-repo` | `zenodo` | Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an earlier version of a release). |
 | `--max-injections` | `250000` | Random subset of the found injections (0: all). |
 | `--walkers` | `20` | emcee walkers. |
 | `--steps` | `1200` | emcee steps (the first third is burn-in). |
@@ -712,6 +713,8 @@ gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright hub
 - **Selection term** (`--selection`, `auto` by default):
   - **nearby events** (z < 0.05): GW-limited detection, β ∝ H₀³. This cancels the volume factor and gives the LVK 2017 formula p(H₀) ∝ Σᵢ N(v_H; H₀ dᵢ, σ).
   - **distant events:** β is computed from the LVK sensitivity injections of the event's run, reweighted at each trial H₀ to the population of its class.
+- **Population** (`--population`): `volume` (default), sources uniform in comoving volume and source-frame time; with the injection selection the mass model of the class (Power Law + Peak for black holes, uniform 1–2.5 M☉ for neutron stars) weights both the PE samples and the selection. `fullpop4`: the FullPop-4.0 masses and Madau–Dickinson rate at the GWTC-4.0 medians, as the GWTC-4.0 reanalysis of GW170817.
+- **Other options:** `--event`, or any PE-release event with `--ra --dec --redshift`; `--pe-label`, `--pe-file`, `--pe-distance-prior`, `--sky-radius`, `--viewing-angle`, `--v-recession`/`--v-peculiar`, `--counterpart-class`, `--sensitivity-release`, `--h0-range`.
 - **GW170817:** the upper side of its interval is wider than published because the public GWTC-1 distance has a longer low-distance tail, from the distance–inclination degeneracy; an independent constraint on the viewing angle (`--viewing-angle MEAN SIGMA`) removes it. Its samples come from the [unofficial bundle](#build_unofficial_pe-unofficial-bundle-workflow), whose sky position is fixed to AT2017gfo.
 - **GW190521:** the association with ZTF19abanrhr is not established; [Ashton et al. 2021](https://arxiv.org/abs/2009.12346) find odds between 1 and 12 in favour of a common source, depending on the waveform model. The report gives H₀ *if* the flare is the counterpart.
 - **Validation:** mock bright sirens (simulated detections at z ≈ 0.5 with a known H₀) check the analysis. It recovers H₀ = 70 to within its uncertainty with the selection term, against a 3σ bias without it, and passes a P–P coverage test.
