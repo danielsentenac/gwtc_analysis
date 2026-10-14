@@ -203,7 +203,7 @@ options given on the command line override it. The resolved options of each invo
 gwtc_analysis hubble_constant --workdir h0_plp --stages sample combine reweight report --settings precise.json
 ```
 
-All options with their help text: [CLI reference](../cli-reference.md#hubble_constant).
+Every report ends with the options of its run (of its method), defaults included. All options with their help text: [CLI reference](../cli-reference.md#hubble_constant).
 
 ## Mass models
 
@@ -391,7 +391,14 @@ kernel estimate reflected at the prior bounds.
 gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright h0_dark_plp
 ```
 
-The inputs must be independent, and this is checked:
+| Option | Default | Meaning |
+|---|---|---|
+| `--inputs DIR [DIR ...]` | — (required) | work directories of `hubble_constant` runs (spectral, dark or bright), or posterior TSV files |
+| `--workdir` | `hubble_constant_joint` | the work directory |
+| `--out-report`, `--out-summary` | `hubble_constant_joint.html`, `.tsv` | the report and the summary |
+| `--settings FILE` | — | JSON or YAML file of option values; the command line overrides it |
+
+The options of the other methods are refused. The inputs must be independent, and this is checked:
 
 - at most one spectral or dark siren: the dark siren already contains the spectral siren of its events;
 - no event in two inputs (from the work directories' `events.tsv` and `bright.json`): GW190521 as a bright siren

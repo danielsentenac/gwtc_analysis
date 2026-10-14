@@ -80,4 +80,19 @@ during O4a).*
 *90% sky areas from the Zenodo PE skymaps: median 2 065 deg² with two detectors, about 27 600 deg²
 with a single detector, which localizes an event only to a large part of the sky.*
 
-All options: [CLI reference](../cli-reference.md#catalog_statistics).
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--catalogs` | — | Catalog keys, space-separated (e.g. GWTC-1 GWTC-2.1 GWTC-3 GWTC-4 GWTC-4.1 GWTC-5). ALL takes them all except the updates (GWTC-4.1, update of GWTC-4), which are used only when named. |
+| `--out-events` | `catalogs_statistics.tsv` | Output TSV path (per-event table). |
+| `--out-report` | `catalogs_statistics.html` | Output HTML report path. |
+| `--include-detectors` | off | Include detector network via GWOSC v2 calls. |
+| `--include-area` | off | Compute sky localization area Axx if skymaps are available. |
+| `--area-cred` | `0.9` | Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95. |
+| `--plots-dir` | `cat_plots` | Directory for plots (default: cat_plots). |
+| `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
+| `--zenodo-version CATALOG=VERSION` | — | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
+
+Every report ends with the options of its run, defaults included. The same table with the help text
+of all the modes: [CLI reference](../cli-reference.md#catalog_statistics).

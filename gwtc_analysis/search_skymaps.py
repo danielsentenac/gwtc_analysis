@@ -13,6 +13,7 @@ import numpy as np
 from ligo.skymap.io.fits import read_sky_map
 
 from .read_skymap import plot_skymap_with_ra_dec
+from .report import options_html
 
 
 def _tqdm_or_none():
@@ -677,7 +678,7 @@ def _write_search_skymaps_report(*, out_path: Path, rows: list[dict[str, Any]], 
 
         lines.append("</table>")
 
-    lines.append("</body></html>\n")
+    lines.append(options_html() + "</body></html>\n")
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 

@@ -1020,16 +1020,39 @@ H0_BRIGHT_OPTS = ("event", "pe_label", "pe_file", "cache_dir", "v_recession", "v
 H0_BRIGHT_SHARED_OPTS = ("sensitivity_release", "sensitivity_file", "far_threshold", "snr_threshold", "pe_cache")
 
 
+def _h0_method_dests(m: str, sp: argparse.ArgumentParser) -> set[str]:
+    """The options (dests) of hubble_constant --method m."""
+    if m == "bright":
+        return set(H0_ALL_METHODS_OPTS + H0_BRIGHT_OPTS + H0_BRIGHT_SHARED_OPTS)
+    if m == "joint":
+        return set(H0_ALL_METHODS_OPTS + ("inputs",))
+    return {a.dest for a in sp._actions} - set(H0_BRIGHT_OPTS) - {"inputs"}
+
+
+def _set_report_options(args: argparse.Namespace, p: argparse.ArgumentParser, given: dict) -> None:
+    """Every option of the run's mode (for hubble_constant, of its method), with its value, its default and whether
+    it was set (`given`: the options as parsed, before the defaults resolved from the method), for the reports."""
+    from .report import set_run_options
+
+    sp = p._mode_parsers[args.mode]
+    keep = _h0_method_dests(args.method, sp) | {"method"} if args.mode == "hubble_constant" else None
+    rows = []
+    for a in sp._actions:
+        if not a.option_strings or a.dest == "help" or a.help == argparse.SUPPRESS or (keep and a.dest not in keep):
+            continue
+        v, d = getattr(args, a.dest, None), sp.get_default(a.dest)
+        set_ = given.get(a.dest) != d
+        if isinstance(a, argparse._StoreFalseAction):       # --no-x: whether the flag was given
+            v, d = not v, not d
+        rows.append((a.option_strings[-1], v, d, set_))
+    set_run_options(args.mode + (f" --method {args.method}" if args.mode == "hubble_constant" else ""), rows)
+
+
 def _resolve_h0_method(args: argparse.Namespace, sp: argparse.ArgumentParser) -> None:
     """Refuse the options of another hubble_constant method (set away from their default), check what the method
     needs, and name the default work directory and outputs after the method."""
     m = args.method
-    if m == "bright":
-        allowed = set(H0_ALL_METHODS_OPTS + H0_BRIGHT_OPTS + H0_BRIGHT_SHARED_OPTS)
-    elif m == "joint":
-        allowed = set(H0_ALL_METHODS_OPTS + ("inputs",))
-    else:
-        allowed = {a.dest for a in sp._actions} - set(H0_BRIGHT_OPTS) - {"inputs"}
+    allowed = _h0_method_dests(m, sp)
     bad = [a.option_strings[-1] for a in sp._actions if a.option_strings and a.dest not in allowed | {"help", "method"}
            and getattr(args, a.dest) != sp.get_default(a.dest)]
     if bad:
@@ -1068,10 +1091,12 @@ def main(argv=None) -> int:
     try:
         p = build_parser()
         args = _apply_settings_file(p, argv)
+        given = dict(vars(args))
         if args.mode == "hubble_constant":
             _resolve_h0_method(args, p._mode_parsers["hubble_constant"])
         if args.mode in SETTINGS_MODES:
             _record_options(args, args.workdir)
+        _set_report_options(args, p, given)
 
         if args.mode == "catalog_statistics":
             from .catalogs import run_catalog_statistics

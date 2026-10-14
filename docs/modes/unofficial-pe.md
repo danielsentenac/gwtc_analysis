@@ -63,4 +63,13 @@ gwtc_analysis parameters_estimation --src-name GW170817 \
 H1 at the coalescence time, recovered from the public samples, PSDs and the fitted extrinsic
 parameters.*
 
-All options: [CLI reference](../cli-reference.md#build_unofficial_pe).
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--src-name` | — | Source event name (e.g. GW170817). |
+| `--cache-dir` | `.cache_gwosc` | Cache root where unofficial_pe/&lt;bundle&gt;.h5 will be written. |
+| `--force` | off | Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date. |
+
+Every report ends with the options of its run, defaults included. The same table with the help text
+of all the modes: [CLI reference](../cli-reference.md#build_unofficial_pe).

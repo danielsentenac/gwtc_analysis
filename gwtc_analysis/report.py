@@ -3,6 +3,40 @@ import base64
 from pathlib import Path
 from typing import List, Optional
 
+# The options of the command-line run, set by cli.main and listed at the end of every report
+_RUN_OPTIONS: Optional[dict] = None
+
+
+def set_run_options(mode: str, rows: list[tuple[str, object, object, bool]]) -> None:
+    """Record the options of this run: (option, value, default, set by the user) for each option of the mode,
+    defaults included."""
+    global _RUN_OPTIONS
+    _RUN_OPTIONS = dict(mode=mode, rows=rows)
+
+
+def options_html() -> str:
+    """The options of the run as an HTML table (empty when the run did not come from the command line)."""
+    if not _RUN_OPTIONS:
+        return ""
+    from html import escape
+
+    def fmt(v):
+        if v is None:
+            return "—"
+        if isinstance(v, (list, tuple)):
+            return " ".join(map(str, v)) if v else "—"
+        return str(v)
+
+    body = "\n".join(
+        f"<tr><td><code>{escape(o)}</code></td><td>{'<b>' if given else ''}{escape(fmt(v))}"
+        f"{'</b>' if given else ''}</td><td>{escape(fmt(d))}</td></tr>"
+        for o, v, d, given in _RUN_OPTIONS["rows"])
+    return (f"<h2>Options of this run</h2>\n<p><code>gwtc_analysis {escape(_RUN_OPTIONS['mode'])}</code>: every "
+            "option with the value used; in bold, those set on the command line or in a settings file.</p>\n"
+            "<table border='1' cellspacing='0' cellpadding='4'><tr><th>Option</th><th>Value</th><th>Default</th>"
+            f"</tr>\n{body}\n</table>\n")
+
+
 def _img_to_data_uri(path: str | Path) -> str:
     p = Path(path)
     data = p.read_bytes()
@@ -136,6 +170,8 @@ th {{
 {tbl_html}
 
 {img_html}
+
+{options_html()}
 
 </body>
 </html>

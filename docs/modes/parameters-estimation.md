@@ -235,4 +235,35 @@ since the primary is by convention the heavier component; the band follows a lin
 chirp mass, the best-measured mass parameter. Right: the skymap of the IMRPhenomXPHM analysis, 159 deg²
 at 90% with the two LIGO detectors.*
 
-All options: [CLI reference](../cli-reference.md#parameters_estimation).
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--out-report` | `parameters_estimation.html` | Output HTML report path. |
+| `--src-name` | — | Source event name (e.g. GW231223_032836). |
+| `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
+| `--zenodo-version CATALOG=VERSION` | — | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
+| `--pe-vars` | — | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
+| `--pe-pairs` | — | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
+| `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
+| `--start` | `0.2` | Default seconds before GPS time for overlay and q-transform windows. |
+| `--stop` | `0.1` | Default seconds after GPS time for overlay and q-transform windows. |
+| `--fmin` | `20.0` | Default low frequency bound (Hz) used for overlay filtering and q-transform range. |
+| `--fmax` | `300.0` | Default high frequency bound (Hz) used for overlay filtering and q-transform range. |
+| `--overlay-start` | — | Override seconds before GPS time for the whitened overlay window. |
+| `--overlay-stop` | — | Override seconds after GPS time for the whitened overlay window. |
+| `--overlay-fmin` | — | Override low frequency bound (Hz) for overlay whitening/bandpass. |
+| `--overlay-fmax` | — | Override high frequency bound (Hz) for overlay whitening/bandpass. |
+| `--q-start` | — | Override seconds before GPS time for the q-transform window. |
+| `--q-stop` | — | Override seconds after GPS time for the q-transform window. |
+| `--q-fmin` | — | Override low frequency bound (Hz) for the q-transform. |
+| `--q-fmax` | — | Override high frequency bound (Hz) for the q-transform. |
+| `--q-fscale {linear,log}` | `log` | Frequency axis scaling for q-transform plots (default: log). |
+| `--pe-label` | — | PE label used to select posterior samples and metadata. If omitted and --waveform-engine is provided, the tool selects the closest PE label by substring match in the PE label. If both are omitted: the Mixed label for the posteriors, and for the strain overlay the IMRPhenomXPHM label when the Mixed one has no PSD. |
+| `--waveform-engine` | — | Waveform engine used to generate a time-domain waveform for strain overlay. If omitted, a sensible default engine is used for overlays. |
+| `--no-skymap-3d` | off | Skip the 3D sky map (FITS map of the Zenodo skymap archive: credible volume, distance by direction, host-galaxy candidates). |
+| `--galaxies` | `glade` | Galaxy catalog cross-matched with the 3D sky map: 'glade' (GLADE+ via VizieR, default), a CSV/TSV file with ra, dec and dist [Mpc] or z columns, or 'none'. |
+| `--galaxy-max-area` | `100.0` | Largest 90 percent credible area (deg2) for which GLADE+ is queried (default: 100). |
+
+Every report ends with the options of its run, defaults included. The same table with the help text
+of all the modes: [CLI reference](../cli-reference.md#parameters_estimation).
