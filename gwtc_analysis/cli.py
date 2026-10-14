@@ -260,12 +260,15 @@ def build_parser() -> argparse.ArgumentParser:
                              "mixture (O3 onward).")
     p_rate.add_argument("--snr-threshold", type=float, default=10.0,
                         help="Network SNR threshold for the semi-analytic O1+O2 injections (with GWTC-1).")
-    p_rate.add_argument("--mass-model", choices=("plp", "mltp"), default="plp",
-                        help="BBH mass model: plp = Power Law + Peak (GWTC-3 values unless --population-posterior); "
-                             "mltp = Multi Peak, two peaks near 10 and 35 Msun (needs --population-posterior).")
+    p_rate.add_argument("--mass-model", choices=("plp", "mltp", "fullpop4"), default="plp",
+                        help="Mass model: plp = Power Law + Peak (GWTC-3 values unless --population-posterior); "
+                             "mltp = Multi Peak, two peaks near 10 and 35 Msun (needs --population-posterior); "
+                             "fullpop4 = FullPop-4.0, all compact binaries in one distribution, split into BNS, NSBH "
+                             "and BBH (GWTC-4.0 medians unless --population-posterior).")
     p_rate.add_argument("--population-posterior", default=None,
-                        help="Samples of the BBH population: a hubble_constant work directory of the same "
-                             "--mass-model, or its posterior TSV file. The BBH rate is then computed over them.")
+                        help="Samples of the population: a hubble_constant work directory of the same "
+                             "--mass-model, or its posterior TSV file. The BBH rate (with fullpop4, all the rates) "
+                             "is then computed over them.")
     p_rate.add_argument("--n-draws", type=int, default=200, help="Posterior draws with --population-posterior.")
 
     # ---------------------------------------------------------------------
