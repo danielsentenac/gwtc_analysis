@@ -20,10 +20,7 @@ import numpy as np
 import pandas as pd
 
 MSUN_C2_ERG = 1.7877e54          # M☉ c² in erg
-NS_MAX_MASS = 3.0                # as catalog_statistics --ns-threshold and the binary types
-MASS_GAP = (3.0, 5.0)            # lower mass gap (M☉)
-PISN_GAP_MIN = 50.0              # lower edge of the pair-instability gap (M☉); uncertain, ~45-65 in the literature
-PRESETS = ("neutron-stars", "mass-gap", "hierarchical")
+from .cli_defaults import MASS_GAP, NS_MAX_MASS, PISN_GAP_MIN, SOURCE_PRESETS as PRESETS  # noqa: E402,F401
 
 
 # ---------------------------------------------------------------------------
