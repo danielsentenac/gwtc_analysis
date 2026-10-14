@@ -139,3 +139,13 @@ def test_delay_ratio_bounded_in_the_tails():
     r = lp.DelayRatio(pairs, np.full(60, 0.4))
     ln_r = r.ln_r(np.array([0.01, 0.02, 2000.0, 9000.0]))
     assert np.all(np.abs(ln_r) / np.log(10) < 3)      # |log10 R| < 3 where both densities vanish
+
+
+def test_window_overlap_and_delay_cutoff():
+    seg = [(0.0, 100 * 86400.0), (200 * 86400.0, 300 * 86400.0)]       # two 100-day runs with a 100-day gap
+    w = lp.window_overlap_days(np.array([0.0, 50.0, 150.0, 250.0, 400.0]), seg)
+    assert w == pytest.approx([200.0, 100.0, 50.0, 50.0, 0.0])
+    r = lp.DelayRatio(np.abs(np.random.default_rng(1).uniform(0, 300, (200, 2)) @ [1, -1]), np.full(20, 0.5),
+                      segments=[(0.0, 30 * 86400.0)])
+    # no lensed pair can be longer than a 30-day run: R there is the floor of the uniform part
+    assert r.ln_r(np.array([5.0]))[0] > r.ln_r(np.array([100.0]))[0]

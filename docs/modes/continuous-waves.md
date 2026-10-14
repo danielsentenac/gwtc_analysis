@@ -77,6 +77,6 @@ search for their clouds.
 | Option | Default | Meaning |
 |---|---|---|
 | `--boson-mass LOW MID HIGH` | GW190728, superradiance prior: 0.70e-12 0.89e-12 1.17e-12 | the band drawn on the boson plots, eV |
-| `--boson-label` | `GW190728 (scalar_cloud)` | its label |
+| `--boson-label` | `GW190728 (scalar_cloud)`, or `given band` with `--boson-mass` | its label |
 | `--refresh` | off | download the data releases again (they are cached in `~/.cache_gwtc_analysis/continuous_waves`, or `$GWTC_CW_CACHE`) |
 | `--out-report`, `--out-summary`, `--plots-dir` | `continuous_waves.html`, `continuous_waves.tsv`, `continuous_waves_plots` | outputs; the summary has three companions, `<name>.pulsars.tsv` (the 45 pulsars), `<name>.narrowband.tsv` and `<name>.boson_reach.tsv` (the largest excluded distance in the band) |

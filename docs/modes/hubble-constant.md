@@ -103,7 +103,8 @@ The stages (`--stages`, all by default) share one work directory (`--workdir`) a
 them, and a later run with other values is refused rather than mixed in:
 
 - `prepare` fixes the events, the injections and the redshift source (the [selection options](#which-events-and-injections)
-  and `--galaxy-catalog`, hence the method); to change them, use another work directory. The later stages take
+  and `--galaxy-catalog`, hence the method); to change them, use another work directory (once runs exist,
+  `prepare` refuses another selection, and the later stages refuse another `--sensitivity-release`). The later stages take
   the method from the work directory: they need `--method dark` but not `--galaxy-catalog`;
 - the first run fixes `--mass-model`, `--nlive`, `--pe-samples` and `--inj-fraction`, and
   `--neff-pe`/`--neff-inj` ([below](#precision-and-speed)).
@@ -121,7 +122,7 @@ runs and with the same thresholds; these options are read by `prepare` only.
 
 | Option | Default | Meaning | When to change it |
 |---|---|---|---|
-| `--sensitivity-release` | `gwtc4` | the LVK injection release, which sets the runs that can be analysed: `gwtc4` = O1–O4a ([\[29\]](../references.md#ref-29), validated), `gwtc5` = O1–O4b (no validation run yet; the report compares Multi Peak with the GWTC-5.0 value, 71.0 (+21.0 / −17.5)) | to include O4b |
+| `--sensitivity-release` | `gwtc4` | the LVK injection release, which sets the runs that can be analysed: `gwtc4` = O1–O4a ([\[29\]](../references.md#ref-29), validated), `gwtc5` = O1–O4b (no validation run yet; the report compares Multi Peak with the GWTC-5.0 value, 71.0 (+21.0 / −17.5)); it also sets the priors: those of the GWTC-4.0 paper with `gwtc4`, of the GWTC-5.0 paper (wider Multi Peak widths) with `gwtc5` | to include O4b |
 | `--catalogs` | all the runs of the release | keep only the runs of these catalogs, for both events and injections: `GWTC-1` (O1–O2), `GWTC-2.1` (O3a), `GWTC-3` (O3b), `GWTC-4` (O4a), `GWTC-5` (O4b), `GWTC-4.1` (the update of GWTC-4.0), or `ALL`. The runs must be in the release: `--catalogs GWTC-5` needs `--sensitivity-release gwtc5` | to analyse a subset (e.g. O4a alone) |
 | `--far-threshold` | 0.25 per year | events with a published FAR ≤ threshold; real injections found with FAR < threshold | to test the sensitivity to the event selection |
 | `--snr-threshold` | 10 | O1–O2 injections are semi-analytic: found when their network SNR is above this | with `--far-threshold`, to keep the two consistent |
@@ -148,7 +149,7 @@ gwtc_analysis hubble_constant --workdir h0_gwtc5 --stages prepare --sensitivity-
 |---|---|---|
 | `--method` | `spectral` | `spectral` or `dark` here; `bright` and `joint` have their own options ([bright siren](hubble-constant-bright.md#options), [joint](#joint-posterior)), and the options of another method are refused |
 | `--galaxy-catalog` | none | with `--method dark`: the catalog file made by [galaxy_catalog](galaxy-catalog.md) ([below](#dark-sirens-with-a-galaxy-catalog)). Given to `prepare`, which records it in `inputs.h5`; the other stages then use it |
-| `--mass-model` | `plp` | `plp` (Power Law + Peak, Table 3 of [\[29\]](../references.md#ref-29)) or `mltp` (Multi Peak, Table 4): the BBH primary mass; `fullpop4` (FullPop-4.0, Table 5): the masses of all compact binaries ([mass models](#mass-models)). One work directory per model; `prepare` can be copied (`inputs.h5`) between `plp` and `mltp`, `fullpop4` needs its own (other events) |
+| `--mass-model` | `plp` | `plp` (Power Law + Peak, Table 3 of [\[29\]](../references.md#ref-29)) or `mltp` (Multi Peak, Table 4): the BBH primary mass; `fullpop4` (FullPop-4.0, Table 5): the masses of all compact binaries ([mass models](#mass-models)). One work directory per model; `prepare` can be copied (`inputs.h5`) between `plp` and `mltp`, `fullpop4` needs its own (other events). `fullpop4` has the GWTC-4.0 priors only, so it needs `--sensitivity-release gwtc4` |
 
 The priors are those of the paper (Tables 3 to 6); the merger-rate evolution is the Madau–Dickinson shape
 fitted with H₀ ([below](#merger-rate-evolution)).
@@ -230,7 +231,7 @@ letting them differ changes nothing significant).
 the spectrum: its power law steepens to absorb the low-mass excess, which pulls H₀ up. MLTP adds that peak, a narrow
 ruler populated by many light BBHs ([why Multi Peak is tighter](../science/spectral-siren.md#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)).
 FullPop-4.0 adds further scales at known masses, the neutron-star range and the edges of the gap: with only four
-more events, its 68% interval is about 40–50% narrower than MLTP's, with a similar median.
+more events, its 68% interval is about 30–40% narrower than MLTP's (40% in the paper, 31% in our runs), with a similar median.
 
 | GWTC-4.0, H₀ (km/s/Mpc, median and 68%) [\[29\]](../references.md#ref-29) | PLP | MLTP | FullPop-4.0 |
 |---|---|---|---|
@@ -657,9 +658,10 @@ with few workers each use the machine better than one seed with many workers.
 ## Running on other machines
 
 Runs can be spread over several machines that share the work directory: start
-`python gwtc_analysis/h0_icarogw.py run --workdir DIR --seed N` with the icarogw interpreter on each,
-then run the `combine` and `report` stages once. The seed locks protect against starting the same seed
-twice.
+`python gwtc_analysis/h0_icarogw.py run --workdir DIR --seed N --mass-model M` with the icarogw interpreter on
+each (the same `--mass-model`, `--prior-set`, `--pe-samples` and `--inj-fraction` for every seed: the runner has
+its own defaults, `plp`, `gwtc4`, 1500 and 0.1, and refuses settings that differ from the first run), then run the
+`combine`, `reweight` and `report` stages once. The seed locks protect against starting the same seed twice.
 
 **Without icarogw on the local machine.** `h0_icarogw.py` only needs numpy, h5py, icarogw and bilby,
 so the sampling can run on another machine that has icarogw (a computing cluster, for instance):
@@ -667,10 +669,18 @@ so the sampling can run on another machine that has icarogw (a computing cluster
 1. locally: `hubble_constant --stages prepare --workdir DIR`, then copy `DIR/inputs.h5` (about
    45 MB) and `gwtc_analysis/h0_icarogw.py` to a work directory on the remote machine (with
    `--galaxy-catalog`, also the catalog file);
-2. remotely, with the icarogw interpreter (and `LD_LIBRARY_PATH=<env>/lib` if needed):
-   `python h0_icarogw.py run --workdir RDIR --seed N` for each seed, then
-   `python h0_icarogw.py combine --workdir RDIR` (either `run` with `--inj-fraction 1`, or `reweight`
-   and `reweight-merge` after `combine`, see [Stages](#stages));
+2. remotely, with the icarogw interpreter (and `LD_LIBRARY_PATH=<env>/lib` if needed), for each seed
+
+   ```bash
+   python h0_icarogw.py run --workdir RDIR --seed N --mass-model M --prior-set P --inj-fraction 1
+   ```
+
+   (`M` = `plp`, `mltp` or `fullpop4`; `P` = `gwtc4`, or `gwtc5` with `--sensitivity-release gwtc5`), then
+   `python h0_icarogw.py combine --workdir RDIR`. With all the injections (`--inj-fraction 1`) no reweighting
+   is needed. With a subset (`--inj-fraction 0.1`, faster), correct it after `combine` with
+   `python h0_icarogw.py reweight --workdir RDIR --chunk 0 --nchunks 1` then
+   `python h0_icarogw.py reweight-merge --workdir RDIR`: the subset alone biases H₀ (about +13 km/s/Mpc for
+   Power Law + Peak, [precision](#precision-and-speed));
 3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` (and `posterior_reweighted.tsv`) and `RDIR/corner.png` (a few MB) back
    into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
 

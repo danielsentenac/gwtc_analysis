@@ -159,6 +159,18 @@ def stage_shard(workdir: Path, galaxies: Path, opts: dict, chunk_rows: int = 2_0
     _done(workdir, "shard").touch()
 
 
+def _check_nchunks(workdir: Path, stage: str, nchunks: int) -> None:
+    """A chunked stage keeps one partition: its done markers record chunk indices only, so resuming with another
+    number of jobs would skip or leave out shards (gather would then miss pixels)."""
+    f = workdir / "done" / f"{stage}.nchunks"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    if f.exists() and int(f.read_text().strip()) != int(nchunks):
+        raise RuntimeError(f"the {stage} stage was started with {f.read_text().strip()} jobs, not {nchunks}: resume "
+                           f"with --jobs {f.read_text().strip()}, or delete {workdir / 'done'} to start it again")
+    if not f.exists():
+        f.write_text(str(int(nchunks)))
+
+
 def stage_pixels(workdir: Path, chunk: int, nchunks: int) -> None:
     """Per-pixel files in the layout of icarogw.catalog.create_pixelated_catalogs, NaNs marked."""
     import h5py
@@ -169,6 +181,7 @@ def stage_pixels(workdir: Path, chunk: int, nchunks: int) -> None:
     nside, grouping = int(s["nside"]), s["grouping"]
     out = pixel_dir(workdir)
     out.mkdir(exist_ok=True)
+    _check_nchunks(workdir, "pixels", nchunks)
     marker = _done(workdir, "pixels", chunk)
     if marker.exists():
         _log(f"pixels {chunk}/{nchunks}: already done")
@@ -206,6 +219,7 @@ def stage_pixels(workdir: Path, chunk: int, nchunks: int) -> None:
 
 def stage_gather(workdir: Path, nchunks: int) -> np.ndarray:
     """filled_pixels.txt from the pixel lists of the `nchunks` chunks of the pixels stage."""
+    _check_nchunks(workdir, "pixels", nchunks)
     lists = [workdir / "done" / f"pixels_{c}.list" for c in range(nchunks)]
     missing = [str(p.name) for p in lists if not p.exists()]
     if missing:
@@ -245,6 +259,7 @@ def stage_prepare(workdir: Path, chunk: int, nchunks: int) -> None:
     out = str(pixel_dir(workdir))
     if not _done(workdir, "gather").exists():
         raise RuntimeError("run the gather stage first")
+    _check_nchunks(workdir, "prepare", nchunks)
     marker = _done(workdir, "prepare", chunk)
     if marker.exists():
         _log(f"prepare {chunk}/{nchunks}: already done")

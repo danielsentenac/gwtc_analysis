@@ -50,7 +50,7 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
   [galaxy_catalog](modes/galaxy-catalog.md) and the
   [validation](modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band).
 - **Strongly lensed pairs.** `lens_pairs` repeats the first stage of the LVK lensing search on the 84 O4a binary
-  black holes (3486 pairs): the same top pair, and 28 of the LVK's 38 pairs flagged at FPP < 1 %, compared pair
+  black holes (3486 pairs): the same top pair, and 28 of the LVK's 38 pairs flagged at FPP < 1 % (ours ≤ 1 %), compared pair
   by pair with their data release. See [lens_pairs](modes/lens-pairs.md).
 - **Merger rates** of the three source classes, corrected for selection effects with the LVK
   search-sensitivity injections. See [Merger rates](science/merger-rates.md).

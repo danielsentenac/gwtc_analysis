@@ -107,7 +107,7 @@ def run_search_skymaps(
     dec_deg: float,
     prob: float,
     plots_dir: Optional[str] = None,
-    data_repo: str = "s3",
+    data_repo: str = "zenodo",            # as the CLI
     skymap_label: str = "Mixed",
     zenodo_versions: Optional[dict[str, str]] = None,
 ) -> None:
@@ -125,6 +125,17 @@ def run_search_skymaps(
     # GWTC-1 is read from the GWTC-2.1 skymaps, keeping its own events
     catalogs, catalog_events = _skymap_sources(catalogs)
     requested_percent = 100.0 * prob
+
+    def selection(catalog: str) -> Optional[set[str]]:
+        """The events to search in a catalog's maps: the catalog's own events (GWTC-1 inside GWTC-2.1) intersected
+        with the user's selection; an empty set means all, None that the selection has none of them."""
+        own = catalog_events.get(catalog)
+        if own is None:
+            return selected_event_ids
+        if not selected_event_ids:
+            return own
+        both = {e for e in own if _event_selected(e, selected_event_ids)}
+        return both or None
 
     rows: list[dict[str, Any]] = []
 
@@ -163,7 +174,9 @@ def run_search_skymaps(
         pbar = tqdm(total=None, unit=" event", desc="Zenodo skymaps") if tqdm else None
 
         for catalog in catalogs:
-            sel = catalog_events.get(catalog, selected_event_ids)
+            sel = selection(catalog)
+            if sel is None:
+                continue
             event_ids = sorted(sel) if sel else []
             tar_path = download_zenodo_skymaps_tarball(
                 catalog, progress=True, verbose=False, version=(zenodo_versions or {}).get(catalog)
@@ -182,8 +195,13 @@ def run_search_skymaps(
                         event_keys.append(key)
 
             with tarfile.open(tar_path, mode="r:gz") as tf:
-                for ev_key in event_keys:
-                    member_name = select_skymap_member(index, ev_key, prefer=prefer)
+                def members(ev_key):
+                    """The maps of an event to search: all of them for 'any', else the preferred one ([None]: none)."""
+                    if str(wf).lower() == "any":
+                        return sorted(index[k] for k in index if k[0] == ev_key) or [None]
+                    return [select_skymap_member(index, ev_key, prefer=prefer)]
+
+                for ev_key, member_name in ((e, m) for e in event_keys for m in members(e)):
                     if member_name is None:
                         miss += 1
                         if pbar is not None:
@@ -271,6 +289,8 @@ def run_search_skymaps(
 
         try:
             for catalog in catalogs:
+                if selection(catalog) is None:
+                    continue
                 prefix = _catalog_to_s3_prefix(catalog)
 
                 # Safety: never allow empty / root prefix scans
@@ -295,7 +315,7 @@ def run_search_skymaps(
                             catalog=catalog,
                             s3_key=key,
                             s3_bytes=data,
-                            selected_event_ids=catalog_events.get(catalog, selected_event_ids),
+                            selected_event_ids=selection(catalog),
                             ra_deg=ra_deg,
                             dec_deg=dec_deg,
                             prob=prob,
@@ -351,6 +371,8 @@ def run_search_skymaps(
         from .gw_stat import resolve_galaxy_inputs_dir
 
         for catalog in catalogs:
+            if selection(catalog) is None:
+                continue
             try:
                 base_path = Path(resolve_galaxy_inputs_dir(catalog=catalog, kind="SKYMAPS", base_dir="galaxy_inputs"))
             except Exception as e:
@@ -382,7 +404,7 @@ def run_search_skymaps(
                     rows=rows,
                     catalog=catalog,
                     skymap_path=skymap_path,
-                    selected_event_ids=catalog_events.get(catalog, selected_event_ids),
+                    selected_event_ids=selection(catalog),
                     ra_deg=ra_deg,
                     dec_deg=dec_deg,
                     prob=prob,
@@ -422,18 +444,22 @@ def _process_one_skymap(
         cls_at_point = credible_level_at_radec_percent(skymap_path, ra_deg, dec_deg)
         inside = cls_at_point <= requested_percent
 
-        # Plot ONLY for hits (prevents lots of irrelevant plots for small prob)
+        # Plot ONLY for hits (prevents lots of irrelevant plots for small prob). A failed plot (its sky backdrop is
+        # downloaded on first use) must not turn a hit into an error: the credible level is the result.
         if inside:
             safe_title = _safe_filename(event_id)
-            produced = plot_skymap_with_ra_dec(
-                str(skymap_path),
-                safe_title,
-                ra_deg,
-                dec_deg,
-                "grey",
-                contour_levels=(50, 90, prob * 100.0),
-            )
-            plot_png = _normalize_plot_output(produced, plots_path / f"{safe_title}.png")
+            try:
+                produced = plot_skymap_with_ra_dec(
+                    str(skymap_path),
+                    safe_title,
+                    ra_deg,
+                    dec_deg,
+                    "grey",
+                    contour_levels=(50, 90, prob * 100.0),
+                )
+                plot_png = _normalize_plot_output(produced, plots_path / f"{safe_title}.png")
+            except Exception as e:
+                print(f"[search_skymaps] WARN: no plot for {event_id}: {type(e).__name__}: {e}")
 
         rows.append(
             dict(
@@ -725,10 +751,9 @@ def _extract_event_ids(events_json: dict | str | None) -> set[str]:
 
     if isinstance(events_json, str):
         p = Path(events_json)
-        if p.exists():
-            data = json.loads(p.read_text(encoding="utf-8"))
-        else:
-            return set()
+        if not p.exists():
+            raise FileNotFoundError(f"--events-json: no such file {events_json!r}")
+        data = json.loads(p.read_text(encoding="utf-8"))
 
     ids: set[str] = set()
 
@@ -743,6 +768,9 @@ def _extract_event_ids(events_json: dict | str | None) -> set[str]:
             add_id(data["event_id"])
         if "events" in data:
             ev = data["events"]
+            if isinstance(ev, dict):          # the GWOSC API form: {"events": {id: {...}}}
+                for k, item in ev.items():
+                    add_id((item.get("commonName") if isinstance(item, dict) else None) or k)
             if isinstance(ev, list):
                 for item in ev:
                     if isinstance(item, str):

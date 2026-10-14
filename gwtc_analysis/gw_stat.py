@@ -58,7 +58,11 @@ def _download_with_byte_progress(
     allow_resume: bool = True,
 ) -> Path:
     """
-    Download `url` to `dest` with streaming + optional resume + tqdm byte progress.
+    Download `url` to `dest` with streaming, tqdm byte progress, and resume of an interrupted download.
+
+    The bytes go to `<dest>.part`, renamed to `dest` only when the size the server announced has arrived: `dest`
+    is never a truncated file, and a later call resumes from the `.part` file (or restarts if the server ignores
+    the Range request).
     """
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -68,78 +72,55 @@ def _download_with_byte_progress(
     except Exception:
         tqdm = None  # type: ignore
 
-    # Resume if partial file exists
-    existing = dest.stat().st_size if dest.exists() else 0
-    headers: dict[str, str] = {}
-    mode = "wb"
-
-    if allow_resume and existing > 0:
-        headers["Range"] = f"bytes={existing}-"
-        mode = "ab"
-        if verbose:
-            print(f"[gw_stat] resuming download at byte {existing}: {dest}")
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    if not allow_resume:
+        tmp.unlink(missing_ok=True)
+    existing = tmp.stat().st_size if tmp.exists() else 0
+    headers: dict[str, str] = {"Range": f"bytes={existing}-"} if existing > 0 else {}
+    if existing and verbose:
+        print(f"[gw_stat] resuming download at byte {existing}: {dest}")
 
     with requests.get(url, stream=True, headers=headers, timeout=timeout) as r:
-        # If server doesn't support Range, it may return 200; then restart.
-        if existing > 0 and r.status_code == 200 and "Range" in headers:
+        if existing > 0 and r.status_code == 416:       # the .part file is already complete (or larger)
+            tmp.replace(dest)
+            return dest
+        r.raise_for_status()
+        mode = "ab"
+        if existing > 0 and r.status_code != 206:       # the server ignored Range: start again
             if verbose:
                 print("[gw_stat] server ignored Range; restarting full download")
-            existing = 0
+            existing, mode = 0, "wb"
+        elif existing == 0:
             mode = "wb"
 
-        r.raise_for_status()
-
-        # Determine total size (best effort)
-        total = None
         cl = r.headers.get("Content-Length")
-        if cl is not None:
-            try:
-                total = int(cl)
-            except ValueError:
-                total = None
-
-        # If resuming and server replied 206, total is remaining bytes; add existing for full bar
-        if existing > 0 and r.status_code == 206 and total is not None:
-            total = existing + total
+        remaining = int(cl) if cl and cl.isdigit() else None
+        total = existing + remaining if remaining is not None else None
+        encoded = r.headers.get("Content-Encoding", "identity").lower() not in ("", "identity")
 
         pbar = None
         if progress and tqdm is not None:
-            pbar = tqdm(
-                total=total,
-                initial=existing if total is not None else 0,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=dest.name,
-                leave=False,
-            )
+            pbar = tqdm(total=total, initial=existing if total is not None else 0, unit="B", unit_scale=True,
+                        unit_divisor=1024, desc=dest.name, leave=False)
+        try:
+            with open(tmp, mode) as f:
+                for chunk in r.iter_content(chunk_size=chunk_size):
+                    if not chunk:
+                        continue
+                    f.write(chunk)
+                    if pbar is not None:
+                        pbar.update(len(chunk))
+        finally:
+            if pbar is not None:
+                pbar.close()
 
-        tmp = dest.with_suffix(dest.suffix + ".part")
+    got = tmp.stat().st_size
+    if total is not None and not encoded and got != total:
+        raise OSError(f"{url}: {got} of {total} bytes received; run again to resume")
+    os.replace(tmp, dest)
+    return dest
 
-        # Write to .part then move into place at end (safer)
-        # If resuming, we append to .part if it exists, else start from dest itself
-        out_path = tmp
-        if mode == "ab" and tmp.exists():
-            # keep appending to existing .part
-            pass
-        elif mode == "ab" and dest.exists() and not tmp.exists():
-            # move existing dest to .part so we append to the temp file
-            dest.replace(tmp)
 
-        with open(out_path, mode) as f:
-            for chunk in r.iter_content(chunk_size=chunk_size):
-                if not chunk:
-                    continue
-                f.write(chunk)
-                if pbar is not None:
-                    pbar.update(len(chunk))
-
-        if pbar is not None:
-            pbar.close()
-
-        os.replace(out_path, dest)
-        return dest
-        
 def _require_ligo_skymap():
     try:
         import ligo.skymap  # noqa: F401
@@ -203,10 +184,10 @@ def fetch_gwtc_events(catalog: str):
     # Expand ALL into a merged dict of events from all catalogs (excluding ALL itself)
     if catalog == "ALL":
         merged: dict = {"events": {}}
-        from .catalog_registry import default_catalog_keys
+        from .catalog_registry import default_catalog_keys, gwosc_list
 
         for c in default_catalog_keys():      # the default catalogs, without the updates (GWTC-4.1)
-            raw = fetch_gwtc_events(c)
+            raw = fetch_gwtc_events(gwosc_list(c))       # GWOSC list names (GWTC-4 -> GWTC-4.0)
             # Defensive: accept either dict events or missing
             evs = raw.get("events", {}) if isinstance(raw, dict) else {}
             merged["events"].update(evs)
@@ -925,8 +906,12 @@ def download_zenodo_skymaps_tarball(
 
         if pbar is not None:
             pbar.close()
+        encoded = r.headers.get("Content-Encoding", "identity").lower() not in ("", "identity")
 
-    # Finalize
+    # Finalize, only when complete: a truncated tarball would be taken for a finished one by every later run
+    got = os.path.getsize(part_path)
+    if total is not None and not encoded and got != total:
+        raise OSError(f"{url}: {got} of {total} bytes received; run again to resume")
     os.replace(part_path, dest_path)
     if verbose:
         print(f"[gw_stat] downloaded tarball: {dest_path}")
@@ -943,8 +928,15 @@ def build_skymap_index_from_tar(
     index = {}
     ev_re = re.compile(r"(GW\d{6}_\d{6}|GW\d{6}|S\d{6}[a-z]?)", re.IGNORECASE)
 
-    with tarfile.open(tar_path, mode="r:gz") as tf:
-        for mem in tf.getmembers():
+    try:
+        tf = tarfile.open(tar_path, mode="r:gz")
+        members = tf.getmembers()
+    except (tarfile.TarError, EOFError, OSError) as e:
+        # a corrupt cached tarball (from an older, non-atomic download) is removed, so the next run fetches it again
+        Path(tar_path).unlink(missing_ok=True)
+        raise OSError(f"corrupt skymap tarball {tar_path} ({type(e).__name__}: {e}); removed, run again") from e
+    with tf:
+        for mem in members:
             name = mem.name
             lname = name.lower()
 
@@ -965,7 +957,7 @@ def build_skymap_index_from_tar(
                 if verbose:
                     kept = index[key]
                     print(
-                        f"[gw_stat] duplicate skymap for {event_id} approximant {approximant}: "
+                        f"[gw_stat] duplicate skymap for {event_id} approximant {key[1]}: "
                         f"kept='{kept}' skipped='{name}'"
                     )
                 continue
@@ -1030,10 +1022,10 @@ def _catalog_to_s3_prefix(catalog_key: str) -> str:
 
 def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False) -> dict[str, str]:
     """
-    Return dict: ev_key ('GWYYYYMM_DDHHMM') -> object_name.
-    If multiple matches exist for same event, keep the first (or refine later).
+    Return dict: ev_key ('GWYYYYMM_DDHHMM') -> object_name, the map choose_skymap prefers (Mixed, else the
+    SKYMAP_FALLBACK order), as the Zenodo path does.
     """
-    index: dict[str, str] = {}
+    by_event: dict[str, dict[str, str]] = {}
     rx = re.compile(r"(GW\d{6}_\d{6})")
 
     for obj in mc.list_objects(bucket, prefix=prefix, recursive=True):
@@ -1045,11 +1037,12 @@ def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False) 
         if not m:
             continue
 
-        ev_key = m.group(1)
-        if ev_key not in index:
-            index[ev_key] = name
-            if verbose:
-                print(f"[gw_stat] S3 index: {ev_key} -> {name}")
+        by_event.setdefault(m.group(1), {}).setdefault(skymap_waveform(name), name)
+    index: dict[str, str] = {}
+    for ev_key, maps in by_event.items():
+        index[ev_key] = choose_skymap(maps, prefer="Mixed")[1]
+        if verbose:
+            print(f"[gw_stat] S3 index: {ev_key} -> {index[ev_key]}")
 
     return index
 
@@ -1199,8 +1192,9 @@ def add_localization_area_from_zenodo(
 
     Returns a copy of df with `column` filled where possible.
     """
-    tar_path = download_zenodo_skymaps_tarball(
-        catalog_key, cache_dir=cache_dir, progress=progress, verbose=verbose, version=zenodo_version
+    tar_path = download_zenodo_skymaps_tarball(      # GWTC-1 maps are in the GWTC-2.1 release
+        _products_catalog(catalog_key), cache_dir=cache_dir, progress=progress, verbose=verbose,
+        version=zenodo_version,
     )
     index = build_skymap_index_from_tar(tar_path, verbose=verbose)
 

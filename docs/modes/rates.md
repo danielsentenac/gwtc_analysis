@@ -76,11 +76,12 @@ NSBH rates are upper limits (90%: 113 and 40 Gpc⁻³ yr⁻¹).
 | `gwtc5` (O3–O4b, 2.59 yr) | 259 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] | 15 [13, 17] |
 | `gwtc4` (O3–O4a, 1.7 yr) | 155 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] | 15 [13, 18] |
 
-Rates in Gpc⁻³ yr⁻¹, median [90%]. Compare with the LVK population papers:
+Rates in Gpc⁻³ yr⁻¹, median [90%]; the candidates include a few without published masses, which are not
+classified. Compare with the LVK population papers:
 GWTC-5.0 [\[14\]](../references.md#ref-14) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉),
 GWTC-4.0 [\[13\]](../references.md#ref-13) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and
 GWTC-3 [\[12\]](../references.md#ref-12). The BNS and NSBH rates fall inside the LVK intervals. The
-BBH rate with the fixed GWTC-3 Power Law + Peak sits at the low edge of the GWTC-5.0 interval, with a
+BBH rate with the fixed GWTC-3 Power Law + Peak sits just below the GWTC-5.0 interval (25 against 27.5–49.4), with a
 much narrower interval, and so does its value at z = 0 against the GWTC-4.0 interval: see the next
 section. The BBH rate at z = 0 is the same evolving rate, R ∝ (1+z)^κ, taken at z = 0; it is given for
 comparison with local rates. The constant-rate row is a different assumption: without evolution, the
