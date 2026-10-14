@@ -71,14 +71,17 @@ def select_events(catalogs: Iterable[str], far_threshold: float = 1.0, min_mass:
                   exclude: Iterable[str] = ()) -> pd.DataFrame:
     """BBH events of the catalogs with PE (GWOSC masses), FAR at most the threshold, both source masses >= min_mass.
 
-    An event in several catalogs (an update such as GWTC-4.1) is kept once, from the catalog named last."""
+    An event in several catalogs is kept once: from an update (GWTC-4.1) over the catalog it re-analyses, whatever
+    the order on the command line."""
     from . import catalog_registry as reg
     from . import gw_stat as gw
     from .hubble_constant import _full_name
 
     exclude = set(exclude)
     best: dict[str, dict] = {}
-    for key in reg.expand_all(catalogs):
+    keys = reg.expand_all(catalogs)
+    keys = [k for k in keys if not reg.is_update(k)] + [k for k in keys if reg.is_update(k)]   # updates last: they win
+    for key in keys:
         cat = reg.CATALOGS[key]
         raw = gw.fetch_gwtc_events(cat.gwosc_list)
         for v in (raw.get("events") or {}).values():
@@ -164,7 +167,9 @@ def _s3_index(cache: Path) -> dict[str, str]:
     return out
 
 
-def _download(row, cache: Path, data_repo: str, s3_index: Optional[dict]) -> Path:
+def _download(row, cache: Path, data_repo: str, s3_index: Optional[dict]) -> tuple[Path, bool]:
+    """The event's PE file, and whether this call downloaded it (a file already in the shared cache belongs to
+    whichever mode fetched it and is kept)."""
     from .hubble_constant import _full_name
 
     names = [row["event"]] + [_full_name(row["gps"] + d) for d in (-2, -1, 1, 2)]
@@ -177,15 +182,18 @@ def _download(row, cache: Path, data_repo: str, s3_index: Optional[dict]) -> Pat
         if obj is None:
             raise ValueError(f"no PE file for {row['event']} on the S3 mirror")
         dest = cache / "files" / Path(obj).name
-        if not (dest.exists() and dest.stat().st_size > 0):
-            tmp = dest.with_suffix(dest.suffix + ".part")
-            _download_s3_with_progress(Minio("minio-dev.odahub.fr", secure=True), bucket="gwtc", object_name=obj,
-                                       out_path=tmp, desc=row["event"])
-            tmp.replace(dest)
-        return dest
+        if dest.exists() and dest.stat().st_size > 0:
+            return dest, False
+        tmp = dest.with_suffix(dest.suffix + ".part")
+        _download_s3_with_progress(Minio("minio-dev.odahub.fr", secure=True), bucket="gwtc", object_name=obj,
+                                   out_path=tmp, desc=row["event"])
+        tmp.replace(dest)
+        return dest, True
     from .spin_population import _pe_file
 
-    return _pe_file(row, cache)
+    before = set((cache / "files").glob("*")) if (cache / "files").exists() else set()
+    src = _pe_file(row, cache)
+    return src, src not in before
 
 
 def fetch_samples(events: pd.DataFrame, cache: Path, data_repo: str = "zenodo", workers: int = 4,
@@ -197,12 +205,16 @@ def fetch_samples(events: pd.DataFrame, cache: Path, data_repo: str = "zenodo", 
     if not todo:
         return out
     s3_index = _s3_index(cache) if data_repo == "s3" else None
+    if data_repo != "s3":       # the Zenodo PE index, built once here: the download threads only read it
+        from .parameters_estimation import build_zenodo_pe_index
+
+        build_zenodo_pe_index(cache_dir=str(cache / "index"), force_refresh=False)
     _log(f"extracting the PE samples of {len(todo)} events ({data_repo})")
 
     def one(r):
-        src = _download(r, cache, data_repo, s3_index)
+        src, downloaded = _download(r, cache, data_repo, s3_index)
         _extract(src, out[r["event"]])
-        if not keep_files:
+        if downloaded and not keep_files:
             src.unlink(missing_ok=True)
         return r["event"]
 
@@ -340,15 +352,35 @@ def lensed_delays(z_sources: np.ndarray, n: int = 200_000, seed: int = 1) -> tup
     return dt[ok], w[ok]
 
 
-class DelayRatio:
-    """ln R(Δt) = ln p_L(log10 Δt) - ln p_U(log10 Δt), both Gaussian kernel densities."""
+def window_overlap_days(delays_days: np.ndarray, segments_gps: list[tuple[float, float]]) -> np.ndarray:
+    """W(Δt) = ∫ I(t) I(t + Δt) dt in days, I the indicator of the observing segments: the time over which two
+    signals Δt apart can both arrive inside the observations."""
+    dt = np.asarray(delays_days, float) * _DAY_S
+    out = np.zeros_like(dt)
+    for a1, b1 in segments_gps:
+        for a2, b2 in segments_gps:
+            out += np.clip(np.minimum(b1, b2 - dt) - np.maximum(a1, a2 - dt), 0.0, None)
+    return out / _DAY_S
 
-    def __init__(self, pair_delays_days: np.ndarray, z_sources: np.ndarray, seed: int = 1):
+
+class DelayRatio:
+    """ln R(Δt) = ln p_L(log10 Δt) - ln p_U(log10 Δt), both Gaussian kernel densities.
+
+    With the observing `segments` (GPS), the lensed delays are weighted by W(Δt), the time over which both images
+    can arrive inside the observations: a galaxy lens with a delay longer than the runs gives no observed pair. The
+    unlensed density, from the delays of the pairs themselves, already includes it."""
+
+    def __init__(self, pair_delays_days: np.ndarray, z_sources: np.ndarray, seed: int = 1,
+                 segments: Optional[list[tuple[float, float]]] = None):
         from scipy.stats import gaussian_kde
 
         u = np.log10(np.maximum(pair_delays_days, 1e-3))
         self.unlensed = gaussian_kde(u)
         dt, w = lensed_delays(z_sources, seed=seed)
+        if segments:
+            w = w * window_overlap_days(dt, segments)
+            ok = w > 0
+            dt, w = dt[ok], w[ok]
         rng = np.random.default_rng(seed)
         keep = rng.choice(len(dt), 20_000, p=w / w.sum())         # resampled: a kde of 20 000 points is fast
         self.lensed_log10 = np.log10(dt[keep])
@@ -387,7 +419,13 @@ def search_pairs(samples: dict[str, dict], events: pd.DataFrame, seed: int = 1,
     pairs = list(itertools.combinations(names, 2))
     delays = np.array([abs(t[b] - t[a]) / _DAY_S for a, b in pairs])
     z = events["redshift"].to_numpy(float)
-    ratio = DelayRatio(delays, z[np.isfinite(z)], seed=seed)
+    segments = None
+    if "run" in events:
+        from .catalog_registry import OBSERVING_RUNS
+
+        runs = sorted({r for r in events["run"] if r in OBSERVING_RUNS})
+        segments = [(OBSERVING_RUNS[r].start_gps, OBSERVING_RUNS[r].end_gps) for r in runs] or None
+    ratio = DelayRatio(delays, z[np.isfinite(z)], seed=seed, segments=segments)
     ln_r = ratio.ln_r(delays)
     rows = []
     margin = np.log(1.05)

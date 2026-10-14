@@ -36,6 +36,7 @@ KAPPA = 2.9                       # redshift evolution of the rates mode
 _trapz = getattr(np, "trapezoid", None) or np.trapz
 PRIORS = dict(mu0=(-1.0, 1.0), sigma=(0.005, 1.0), alpha=(-5.0, 5.0))
 MIN_NEFF_PE = 10                  # as icarogw and the GWTC-4.0 cosmology paper
+A_MAX_PE = 0.99                   # upper bound of the spin-magnitude prior of the LVK PE (the injections go to 1)
 
 
 def _log(msg: str) -> None:
@@ -99,7 +100,10 @@ def trunc_normal(x, mu, sigma):
     from scipy.special import erf
 
     norm = 0.5 * (erf((1 - mu) / (np.sqrt(2) * sigma)) - erf((-1 - mu) / (np.sqrt(2) * sigma)))
-    return np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (np.sqrt(2 * np.pi) * sigma * norm)
+    # a mean many sigma outside [-1, 1] leaves no mass inside (norm = 0): density 0 there, not 0/0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        p = np.exp(-0.5 * ((x - mu) / sigma) ** 2) / (np.sqrt(2 * np.pi) * sigma * norm)
+    return np.where(norm > 0, p, 0.0)
 
 
 def mass_redshift_weight(m1_det, m2_det, dl, prior):
@@ -204,8 +208,9 @@ def prepare(release: str, far_threshold: float, snr_threshold: float, min_mass: 
         d = _event_samples(r, pe_cache, pe_samples, rng)
         prior, _ = hc.pe_distance_prior(d["luminosity_distance"], d["prior_desc"], r["run"])
         w = mass_redshift_weight(d["mass_1"], d["mass_2"], d["luminosity_distance"], prior)
+        # the PE spin prior is uniform in magnitude up to A_MAX_PE: its chi_eff density is the unit one rescaled
         ev.append(dict(event=r["event"], w=w, chi=d["chi_eff"], q=d["mass_ratio"],
-                       iso=np.maximum(iso(d["chi_eff"], d["mass_ratio"]), 1e-12)))
+                       iso=np.maximum(iso(d["chi_eff"] / A_MAX_PE, d["mass_ratio"]) / A_MAX_PE, 1e-12)))
     inj = hc.detector_frame_injections(hc.h0_sensitivity_path(sensitivity_file, release), far_threshold, snr_threshold)
     wi = mass_redshift_weight(inj["mass_1"], inj["mass_2"], inj["luminosity_distance"], inj["prior"])
     keep = np.flatnonzero(wi > 0)
@@ -254,7 +259,7 @@ class Likelihood:
         per = s1 / self.counts
         fi = self.iw * trunc_normal(self.ichi, mu0 + alpha * (self.iq - 0.5), sigma)
         s = fi.sum()
-        if s <= 0 or not np.all(per > 0):
+        if not np.isfinite(s) or s <= 0 or not np.all(per > 0):
             return -np.inf
         if s * s / (fi * fi).sum() < 4 * self.n:                       # effective injections
             return -np.inf
@@ -270,7 +275,7 @@ class Likelihood:
         return float(fi.sum() ** 2 / (fi * fi).sum()), float(np.min(s1 * s1 / s2))
 
 
-def sample(lik: Likelihood, n_walkers: int = 24, n_steps: int = 1500, burn: int = 500, seed: int = 1) -> pd.DataFrame:
+def sample(lik: Likelihood, n_walkers: int = 20, n_steps: int = 1200, burn: int = 400, seed: int = 1) -> pd.DataFrame:
     import emcee
 
     rng = np.random.default_rng(seed)
@@ -279,6 +284,7 @@ def sample(lik: Likelihood, n_walkers: int = 24, n_steps: int = 1500, burn: int 
     p0 = start + 1e-2 * rng.normal(size=(n_walkers, ndim))
     p0[:, 1] = np.abs(p0[:, 1])
     s = emcee.EnsembleSampler(n_walkers, ndim, lik.ln_prob)
+    s.random_state = np.random.RandomState(seed).get_state()     # the moves too, not only the start: reproducible
     s.run_mcmc(p0, n_steps, progress=False)
     chain = s.get_chain(discard=burn, flat=True)
     cols = ["mu0", "sigma", "alpha"][:ndim]
@@ -301,19 +307,29 @@ def predictive(post: pd.DataFrame, q: float, chi=np.linspace(-1, 1, 401), n: int
     return chi, trunc_normal(chi[None, :], mu[:, None], d["sigma"].to_numpy()[:, None])
 
 
+def astrophysical_mass_ratios(n: int = 20000, seed: int = 1) -> np.ndarray:
+    """Mass ratios of the astrophysical BBH population (the fixed GWTC-3 Power Law + Peak of the likelihood),
+    drawn from the model itself: the found injections would weight them by detectability (heavy, equal masses)."""
+    from .stochastic import sample_plp
+
+    m1, m2 = sample_plp(np.random.default_rng(seed), n, alpha=3.4, beta=1.1, mmin=5.1, mmax=87.0, delta_m=4.8,
+                        mu_g=34.0, sigma_g=3.6, lambda_peak=0.04)
+    return np.minimum(m1, m2) / np.maximum(m1, m2)
+
+
 def negative_fraction(post: pd.DataFrame, lik: "Likelihood", n: int = 300, seed: int = 1) -> np.ndarray:
-    """Fraction of the population with chi_eff < 0, averaged over its mass ratios (the injections' population
-    weights), for posterior draws."""
+    """Fraction of the astrophysical population with chi_eff < 0, averaged over its mass ratios, for posterior
+    draws (comparable to the LVK's population fractions)."""
     from scipy.special import erf
 
     d = post.sample(min(n, len(post)), random_state=seed)
-    w = lik.iw_mass / lik.iw_mass.sum()
+    q = astrophysical_mass_ratios(seed=seed)
     out = []
     for _, r in d.iterrows():
-        mu = r["mu0"] + (r["alpha"] if "alpha" in r else 0.0) * (lik.iq - 0.5)
+        mu = r["mu0"] + (r["alpha"] if "alpha" in r else 0.0) * (q - 0.5)
         s = r["sigma"] * np.sqrt(2)
         lo, hi = erf((-1 - mu) / s), erf((1 - mu) / s)
-        out.append(float(np.sum(w * (erf(-mu / s) - lo) / (hi - lo))))
+        out.append(float(np.mean((erf(-mu / s) - lo) / (hi - lo))))
     return np.array(out)
 
 
@@ -372,8 +388,8 @@ def run_spin_population(
     pe_samples: int = 5000,
     max_injections: Optional[int] = 250_000,
     correlated: bool = True,
-    n_walkers: int = 24,
-    n_steps: int = 1500,
+    n_walkers: int = 20,        # as the CLI
+    n_steps: int = 1200,
     out_report_html: Optional[str | Path] = "spin_population.html",
     out_summary_tsv: Optional[str | Path] = "spin_population.tsv",
     plots_dir: str | Path = "spin_population_plots",

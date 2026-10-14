@@ -24,6 +24,7 @@ it is shown only as a consistency check (`with_imr`).
 from __future__ import annotations
 
 import re
+import shutil
 import tarfile
 from pathlib import Path
 from typing import Optional
@@ -86,14 +87,21 @@ def fetch_release(cache_dir: Optional[str | Path] = None, with_imr: bool = False
             _download_http_with_progress(f"https://zenodo.org/records/{RECORD}/files/{ARCHIVE}?download=1", tmp,
                                          desc=ARCHIVE)
             tmp.replace(tgz)
+        # extracted into a temporary directory renamed at the end: an interrupted extraction leaves no partial
+        # data/ that later runs would take for a complete one
+        staging = root / "data.extracting"
+        shutil.rmtree(staging, ignore_errors=True)
         with tarfile.open(tgz) as tar:
             members = [m for m in tar.getmembers() if m.isfile() and _MEMBERS.search(m.name)]
             for m in members:
-                m.name = "data/" + m.name.split("data/", 1)[-1]
+                m.name = "data.extracting/" + m.name.split("data/", 1)[-1]
             try:
                 tar.extractall(root, members=members, filter="data")
             except TypeError:                     # Python < 3.10.12 / 3.11.4: no extraction filters
                 tar.extractall(root, members=members)
+        if data.exists():
+            shutil.rmtree(data)
+        staging.replace(data)
         tgz.unlink()
         _log(f"extracted {len(members)} files to {data}")
     if with_imr and not (data / IMR_FILE).exists():
@@ -333,7 +341,9 @@ def run_area_law(
             "distributions being less Gaussian.",
             f"Over the inspiral truncations from −250 M to 0 M the significance stays above {r['min_all_cuts']:.1f}σ and "
             f"exceeds 5σ from {r['five_sigma_from']} M on; with the 220 + 221 model from {OVERTONE_START} M<sub>f</sub> "
-            f"(its earliest time of validity) it is {r['overtone']:.1f}σ. Later truncations keep more of the "
+            + (f"(its earliest time of validity) it is {r['overtone']:.1f}σ. " if r["overtone"] is not None else
+               "(its earliest time of validity): not in the release files found. ")
+            + "Later truncations keep more of the "
             "inspiral and measure A<sub>i</sub> better; later ringdown starts lose signal.",
             f"Data: LVK, GW250114 discovery paper release (Zenodo {RECORD}, arXiv:2509.08054).",
         ]

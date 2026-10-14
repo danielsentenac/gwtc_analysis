@@ -241,7 +241,7 @@ def fill_missing_skymaps(
     container = getattr(pedata, "skymap", None)
     missing = [lab for lab in labels if container is None or lab not in container]
     spec = get_psd_supplement(src_name)
-    if not missing or spec is None or not spec.skymap_url or container is None:
+    if not missing or spec is None or not spec.skymap_url:
         return []
 
     cache = Path(cache_dir or _cache_dir())
@@ -255,7 +255,9 @@ def fill_missing_skymaps(
             r = requests.get(spec.skymap_url, timeout=(10, 300), headers={"User-Agent": USER_AGENT})
             r.raise_for_status()
             cache.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(r.content)
+            tmp = path.with_suffix(".part")
+            tmp.write_bytes(r.content)
+            tmp.replace(path)                      # a complete file only
 
         from ligo.skymap.io import read_sky_map
         from pesummary.gw.file.skymap import SkyMap
@@ -275,6 +277,8 @@ def fill_missing_skymaps(
             log_cb(f"⚠️ [WARN] Could not load the supplementary skymap for {spec.event}: {type(e).__name__}: {e}")
         return []
 
+    if container is None:                  # a file with no skymaps at all: create the container, as for the PSDs
+        pedata.skymap = container = {}
     for lab in missing:
         container[lab] = skymap
     if log_cb:

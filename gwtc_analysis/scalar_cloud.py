@@ -598,17 +598,25 @@ def sampling_priors(an: Analysis, model: str, tau_d_yr: float | None = None):
     from bilby.gw.prior import UniformInComponentsChirpMass, UniformInComponentsMassRatio
 
     tc = float(an.catalog["geocent_time"][0])
+    # the PE priors of GW190728 (C01:IMRPhenomXPHM); for another event, bounds that contain its PE samples
+    mc_lo, mc_hi, dl_max = 7.83981847070932, 12.811796079336329, 2000.0
+    mc, dl = np.asarray(an.catalog["chirp_mass"], float), np.asarray(an.catalog["luminosity_distance"], float)
+    if mc.min() < mc_lo or mc.max() > mc_hi:
+        mc_lo, mc_hi = 0.7 * float(mc.min()), 1.3 * float(mc.max())
+        _log(f"chirp-mass prior {mc_lo:.2f}-{mc_hi:.2f} M_sun (detector frame), from the PE samples of the event")
+    if dl.max() > 0.75 * dl_max:
+        dl_max = 2.0 * float(dl.max())
     pri = bilby.core.prior.PriorDict(conversion_function=_cloud_conversion(tau_d_yr if model == "superradiance"
                                                                            else None))
     pri.update(dict(
-        chirp_mass=UniformInComponentsChirpMass(7.83981847070932, 12.811796079336329, name="chirp_mass"),
+        chirp_mass=UniformInComponentsChirpMass(mc_lo, mc_hi, name="chirp_mass"),
         mass_ratio=UniformInComponentsMassRatio(0.05, 1.0, name="mass_ratio"),
         mass_1=Constraint(1.0, 1000.0, name="mass_1"), mass_2=Constraint(1.0, 1000.0, name="mass_2"),
         a_1=Uniform(0, 0.99, name="a_1"), a_2=Uniform(0, 0.99, name="a_2"),
         tilt_1=Sine(name="tilt_1"), tilt_2=Sine(name="tilt_2"),
         phi_12=Uniform(0, 2 * pi, name="phi_12", boundary="periodic"),
         phi_jl=Uniform(0, 2 * pi, name="phi_jl", boundary="periodic"),
-        luminosity_distance=PowerLaw(2, 10.0, 2000.0, name="luminosity_distance"),
+        luminosity_distance=PowerLaw(2, 10.0, dl_max, name="luminosity_distance"),
         dec=Cosine(name="dec"), ra=Uniform(0, 2 * pi, name="ra", boundary="periodic"),
         theta_jn=Sine(name="theta_jn"), psi=Uniform(0, pi, name="psi", boundary="periodic"),
         phase=Uniform(0, 2 * pi, name="phase", boundary="periodic"),

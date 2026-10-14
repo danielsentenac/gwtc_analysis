@@ -116,7 +116,7 @@ entry of the list (`COUNTERPARTS` in `gwtc_analysis/counterpart.py`) remains the
 | GW170817, LVK 2017 [\[27\]](../references.md#ref-27) | **70.0** (+12.0 / −8.0) | |
 | GW170817, LowSpin, viewing angle 20 ± 3° | **68.2** (+4.7 / −4.4) | 68.4, 61.1–76.1 |
 | GW170817 and the radio jet, Hotokezaka et al. 2019 [\[73\]](../references.md#ref-73) | 70.3 (+5.3 / −5.0) | |
-| GW190521 + ZTF19abanrhr, IMRPhenomXPHM | **30.4** (+61.0 / −7.0) | 63.2, 26.1–129.5 |
+| GW190521 + ZTF19abanrhr, IMRPhenomXPHM | **32.9** (+115.6 / −4.6) | 94.9, 31.9–184.2 |
 
 ![H0 from GW170817 and NGC 4993](../img/modes/h0_bright_GW170817.png)
 
@@ -167,10 +167,15 @@ must not come from the GW data.
 
 **GW190521.** The posterior is bimodal because the distance posterior is, in the direction of the flare.
 At z = 0.438, H₀ ≈ 30 corresponds to \(d_L\) ≈ 5.6 Gpc and H₀ ≈ 75 to 2.25 Gpc; the samples within 3°
-of the flare have a median of 4.6 Gpc with 16% below 2.2 Gpc. The result depends on the sky selection
-(median 54.7 within 5°, against 63.2 within 3°) and on the waveform model; only IMRPhenomXPHM has enough
-samples near the flare in GWTC-2.1. The selection term is computed from 106,376 found O3a injections,
-with 13,000–16,000 effective injections over the H₀ range.
+of the flare have a median of 4.6 Gpc with 16% below 2.2 Gpc. With injections, the source-frame mass model
+of the BBH class (Power Law + Peak, m_max = 87 M☉) weights both the selection and the event: GW190521's
+primary, about 95 M☉ in the source frame at the flare's redshift, lies beyond it, so only a few samples
+carry weight (hence the jagged curve) and the population, not the flare, shapes the upper side. Until
+October 2026 the event carried no mass term (30.4, median 63.2), inconsistent with the selection. The result
+depends strongly on the sky selection (median 55.5 within 5°, against 94.9 within 3°) and on the waveform
+model; only IMRPhenomXPHM has enough samples near the flare in GWTC-2.1. Read it as an illustration of the
+method, not as a measurement. The selection term is computed from 106,376 found O3a injections, with
+13,000–16,000 effective injections over the H₀ range.
 
 ## Validation: mock bright sirens
 

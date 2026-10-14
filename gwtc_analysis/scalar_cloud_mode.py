@@ -346,6 +346,9 @@ def write_slurm_chains(workdir: Path, python: str, stages: list[str], n_backgrou
     from .slurm import ARRAY_INDEX, Step, write_chain
 
     wd = str(workdir)
+    starts_file = Path(workdir) / "offsource" / "starts.json"
+    if starts_file.exists():        # fewer off-source segments than asked (data gaps): no array task past the last
+        n_background = min(n_background, len(json.loads(starts_file.read_text())))
     runner = Path(sc.__file__)
     lib = Path(python).expanduser().parent.parent / "lib"
     env = {"LD_LIBRARY_PATH": str(lib)} if lib.is_dir() else None

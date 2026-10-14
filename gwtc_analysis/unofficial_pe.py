@@ -204,7 +204,8 @@ def build_unofficial_pe_bundle(
         except (OSError, ValueError):
             cached_fp = None  # bundle from an older recipe: rebuild it
         target_mtime = target.stat().st_mtime
-        if cached_fp == fingerprint and all(p.stat().st_mtime <= target_mtime for p in sources):
+        complete = json.loads(recipe_file.read_text(encoding="utf-8")).get("complete", True) if cached_fp else False
+        if cached_fp == fingerprint and complete and all(p.stat().st_mtime <= target_mtime for p in sources):
             if log_cb:
                 log_cb(f"ℹ️ [CACHE] Using unofficial PE bundle: {target}")
             return target
@@ -214,9 +215,10 @@ def build_unofficial_pe_bundle(
             log_cb(f"ℹ️ [BUILD] Rebuilding unofficial PE bundle for {spec.event_id}: {target}")
         log_cb(f"ℹ️ [BUILD] Building unofficial PE bundle for {spec.event_id} from local cache files")
 
-    _write_unofficial_pesummary_bundle(spec, target, log_cb=log_cb)
+    complete = _write_unofficial_pesummary_bundle(spec, target, log_cb=log_cb)
     recipe_file.write_text(
-        json.dumps({"fingerprint": fingerprint, "sources": [str(p) for p in sources]}, indent=2),
+        json.dumps({"fingerprint": fingerprint, "sources": [str(p) for p in sources], "complete": complete is not False},
+                   indent=2),
         encoding="utf-8",
     )
 
@@ -230,10 +232,12 @@ def _write_unofficial_pesummary_bundle(
     out_path: Path,
     *,
     log_cb: Callable[[str], None] | None = None,
-) -> None:
+) -> bool:
+    """Write the bundle; False when a time/phase/polarization fit failed (the bundle is then rebuilt next time)."""
     import h5py
     import numpy as np
     from astropy.io import fits
+    fits_ok = True
     from pesummary.gw.file.formats.pesummary import write_pesummary
     from pesummary.gw.file.skymap import SkyMap
     from pesummary.utils.samples_dict import MultiAnalysisSamplesDict, SamplesDict
@@ -302,6 +306,7 @@ def _write_unofficial_pesummary_bundle(
                     log_cb=log_cb,
                 )
             except Exception as e:
+                fits_ok = False
                 if log_cb:
                     log_cb(
                         f"⚠️ [WARN] {analysis.label}: could not fit time/phase/polarization to the strain "
@@ -330,6 +335,7 @@ def _write_unofficial_pesummary_bundle(
         skymap=skymap_by_label,
         **calibration_kwargs,
     )
+    return fits_ok
 
 
 def _fit_maxl_extrinsics(

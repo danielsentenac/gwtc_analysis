@@ -87,7 +87,8 @@ GWOSC lists it only as a marginal candidate
 
 `--preset` selects a class of sources; the cuts (`--m1-min`, `--chi-eff-max`, …) apply on top of it. The
 GWOSC values are medians: a median inside a range is not a probability of being in it, so each preset
-adds the 90% intervals and a `*_confident` flag that requires the whole interval in the range.
+adds the 90% intervals and a flag that requires the whole interval in the range (`*_confident`, or
+`m2_below_ns_max_90` for neutron stars).
 
 | Preset | Selects | Parameters | Added columns |
 |---|---|---|---|

@@ -49,7 +49,8 @@ final spins cluster near 0.69, as expected for mergers of similar masses with sm
 | GW200220_061928 | 148 | 141 | 7.0 | 1.3 × 10⁵⁵ | 0.69 |
 | GW150914 (for reference) | 64.5 | 61.5 | 3.0 | 5.4 × 10⁵⁴ | 0.67 |
 
-The total mass is the GWOSC median of m₁ + m₂ (not the sum of the two medians), and E_rad = total − final.
+Here the total mass is the GWOSC median of m₁ + m₂, the one E_rad = total − final uses; the `total_mass_source`
+column of the mode's TSV and report is the sum of the two medians, slightly larger for the heaviest events.
 GW150914 matches its published values (3.0 +0.5 −0.4 M☉c², final spin 0.67–0.69).
 
 ## Example

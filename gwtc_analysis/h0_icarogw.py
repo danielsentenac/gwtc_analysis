@@ -239,6 +239,20 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
+def _slurm_job_alive(job_id: str) -> bool:
+    """Whether a Slurm job is still queued or running (True when squeue cannot tell: the lock is kept)."""
+    import subprocess
+
+    try:
+        out = subprocess.run(["squeue", "-h", "-j", str(job_id), "-o", "%T"], capture_output=True, text=True,
+                             timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return True
+    if out.returncode != 0:
+        return "Invalid job id" not in (out.stderr or "")     # finished jobs leave the queue: invalid id
+    return bool(out.stdout.strip())
+
+
 def _lock_seed(seed: int, mass_model: str = "plp") -> None:
     """One process per seed: result/<model>_seed<N>.lock holds 'host pid' while the run is going (cwd = workdir)."""
     lock = Path("result") / f"{mass_model}_seed{seed}.lock"
@@ -250,15 +264,15 @@ def _lock_seed(seed: int, mass_model: str = "plp") -> None:
             break
         except FileExistsError:
             parts = lock.read_text().split()
-            h, pid = (parts + ["?", "-1"])[:2]
-            if h == host and not _pid_alive(int(pid)):
-                lock.unlink(missing_ok=True)       # stale: the process is gone
+            h, pid, job = (parts + ["?", "-1", ""])[:3]
+            if (h == host and not _pid_alive(int(pid))) or (job and not _slurm_job_alive(job)):
+                lock.unlink(missing_ok=True)       # stale: the process, or the Slurm job (another node), is gone
                 continue
             raise SystemExit(f"[h0] seed {seed} is already running on {h} (pid {pid}); "
                              f"if it is not, remove {lock.resolve()}")
     else:
         raise SystemExit(f"[h0] cannot take the lock {lock.resolve()}")
-    os.write(fd, f"{host} {os.getpid()}\n".encode())
+    os.write(fd, f"{host} {os.getpid()} {os.environ.get('SLURM_JOB_ID', '')}\n".encode())
     os.close(fd)
     atexit.register(lambda: lock.unlink(missing_ok=True))
 
@@ -320,6 +334,9 @@ def combine(workdir: Path, diagnostics: bool = True) -> dict:
 
     model = _settings(Path.cwd()).get("mass_model", "plp")
     params = MASS_MODELS[model]["params"]
+    # a reweighting of an earlier combination no longer applies: the joint, rates and stochastic modes read
+    # posterior_reweighted.tsv whenever it exists
+    Path("posterior_reweighted.tsv").unlink(missing_ok=True)
     files = sorted(Path("result").glob(f"{model}_seed*_result.json"))
     if not files:
         raise SystemExit(f"[h0] no finished run in {workdir / 'result'}")
