@@ -52,8 +52,8 @@ one merger averaged over the population (Planck15, as the volumes of the `rates`
 
 | Population | Rate | Masses | Spectrum |
 |---|---|---|---|
-| BBH | R(0.2) of `rates` (25.2 Gpc⁻³ yr⁻¹), times the [Madau–Dickinson shape](hubble-constant.md#merger-rate-evolution) of each spectral-siren draw | the mass model of each draw: Power Law + Peak or Multi Peak | inspiral–merger–ringdown, Ajith et al. 2008 [\[84\]](../references.md#ref-84) |
-| BNS | R(0) of `rates`, star-formation history [\[82\]](../references.md#ref-82) | uniform 1–2.5 M☉ | inspiral to the ISCO |
+| BBH | R(0.2) of `rates` (25.2 Gpc⁻³ yr⁻¹ with its default release, `gwtc5`), times the [Madau–Dickinson shape](hubble-constant.md#merger-rate-evolution) of each spectral-siren draw | the mass model of each draw: Power Law + Peak or Multi Peak | inspiral–merger–ringdown, Ajith et al. 2008 [\[84\]](../references.md#ref-84) |
+| BNS | R(0) of `rates`, star-formation history [\[16\]](../references.md#ref-16) | uniform 1–2.5 M☉ | inspiral to the ISCO |
 | NSBH | R(0) of `rates`, star-formation history | m_BH ∝ m^−2.35 on 2.5–40 M☉, NS uniform 1–2.5 M☉ | inspiral to the ISCO |
 
 The BBH rate is normalized at z = 0.2, where the catalog measures it best. **Beyond the farthest detected
@@ -63,7 +63,9 @@ the fitted shape up to z = 10.
 
 ## Result
 
-GWTC-4.0 Power Law + Peak posterior, rates of GWTC-1 to GWTC-4.0:
+GWTC-4.0 Power Law + Peak posterior, with the rates of the default `rates` release (`gwtc5`, O3–O4b: BBH 25.2 at
+z = 0.2). With the `gwtc4` rates of the example above (BBH 26, BNS 43, NSBH 54) the BNS and NSBH parts grow in
+proportion:
 
 | Population | Ω_GW(25 Hz), median (90%) |
 |---|---|

@@ -74,8 +74,9 @@ statistic is
 
 The cloud model contains vacuum, so Λ is positive even without a cloud, and its distribution is not the textbook
 χ² with two degrees of freedom: the density sits at the edge of its range, and α does nothing when it vanishes.
-A first version profiled the cloud on a grid of α and of the dephasing at 20 Hz from the vacuum best fit (still in
-the code, the `profile` and `polish` stages): Λ = 0.96 for GW190728, the cloud mode missed.
+A first version stopped at a profile of the cloud on a grid of α and of the dephasing at 20 Hz from the vacuum best
+fit (the `profile` step, which the `fit` stage still runs before its `polish` step): Λ = 0.96 for GW190728, the
+cloud mode missed.
 
 **Background.** The vacuum best fit is injected into off-source GWOSC noise, within an hour of the event, and the
 same procedure is run on each segment, from the same starting points moved to the time of the injection. The

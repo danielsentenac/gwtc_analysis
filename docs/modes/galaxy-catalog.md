@@ -92,7 +92,7 @@ made with another selection).
 | Option | Default | GWTC-4.0 | Meaning |
 |---|---|---|---|
 | `--nside` | 64 | paper | HEALPix resolution of the catalog (0.84 deg² pixels) |
-| `--nside-mthr` | 32 | paper | resolution of the apparent-magnitude threshold map (3.35 deg² pixels) |
+| `--nside-mthr` | 32 | paper | resolution of the apparent-magnitude threshold map (3.36 deg² pixels) |
 | `--mthr-percentile` | 50 | paper | the threshold of a pixel: this percentile of its galaxies' magnitudes (the median) |
 | `--epsilon` | 1 | paper | luminosity weight L^ε of the galaxies (0: every galaxy equally likely) |
 

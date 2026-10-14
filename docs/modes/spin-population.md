@@ -63,11 +63,11 @@ population spins isotropic, whatever the draw.
 The mean effective spin falls with the mass ratio: 0.27 (0.16–0.34) at q = 0.3, 0.14 (0.09–0.17) at
 q = 0.6, −0.04 (−0.07 to 0.00) for equal masses. **Unequal-mass binaries have larger effective spins**,
 as Callister et al. found at 98.7% credibility with GWTC-2 [\[89\]](../references.md#ref-89); GWTC-4.0 also
-finds evidence for a χ_eff–q correlation [\[90\]](../references.md#ref-90). Most formation models predict the
+finds evidence for a χ_eff–q correlation [\[13\]](../references.md#ref-13). Most formation models predict the
 opposite trend.
 
 Averaged over the population's mass ratios (median q = 0.84), a fraction **0.35 (0.26–0.43)** of the
-binaries have χ_eff < 0, against 0.24–0.42 in GWTC-4.0 [\[90\]](../references.md#ref-90): a substantial
+binaries have χ_eff < 0, against 0.24–0.42 in GWTC-4.0 [\[13\]](../references.md#ref-13): a substantial
 population consistent with dynamical assembly.
 
 ![BBH chi_eff population](../img/modes/spin_population.png)
@@ -91,7 +91,7 @@ parameters are recovered inside their 90% intervals, with P(α < 0) > 0.9.
 - The mass and redshift population is fixed, not fitted with the spins; a joint fit would widen the
   intervals somewhat.
 - Only the mean of χ_eff varies with q; GWTC-4.0 notes that the data cannot yet tell whether the mean or
-  the width varies [\[90\]](../references.md#ref-90).
+  the width varies [\[13\]](../references.md#ref-13).
 - χ_p (precession) is not modeled: the other spin components follow the isotropic distribution.
 
 All options: [CLI reference](../cli-reference.md#spin_population).

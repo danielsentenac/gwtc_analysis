@@ -62,7 +62,7 @@ is equivalent.
 
 ## icarogw, for the `hubble_constant` mode
 
-The `sample` and `combine` stages of [`hubble_constant`](modes/hubble-constant.md) need
+The `sample`, `combine` and `reweight` stages of [`hubble_constant`](modes/hubble-constant.md) need
 [icarogw](https://github.com/icarogw-developers/icarogw) [\[57\]](references.md#ref-57) and bilby [\[58\]](references.md#ref-58). icarogw requires Python ≥ 3.12
 and is not on PyPI, so it usually lives in an environment of its own:
 
@@ -88,6 +88,10 @@ Downloads are cached so that each file is fetched once:
 | Directory | Content |
 |---|---|
 | `~/.cache_gwtc_analysis/zenodo` | Zenodo version listings (one day) and sensitivity-injection files |
-| `~/.cache_gwtc_analysis/pe_catalog` | PE samples extracted for `hubble_constant` (`$GWTC_PE_CACHE` or `--pe-cache` to move it) |
-| `.cache_gwosc/` | Skymap tarballs and the PE index, per Zenodo record |
+| `~/.cache_gwtc_analysis/pe_catalog` | PE samples extracted for `hubble_constant`, `spin_population`, `lens_pairs` and `neutron_star_eos` (`$GWTC_PE_CACHE` or `--pe-cache` to move it) |
+| `~/.cache_gwtc_analysis/galaxies` | Galaxy catalogs downloaded for `galaxy_catalog` (GLADE+; `$GWTC_GALAXY_CACHE`) |
+| `~/.cache_gwtc_analysis/skymaps` | 3D sky maps of `parameters_estimation` and `counterpart` (`$GWTC_SKYMAP_CACHE`) |
+| `~/.cache_gwtc_analysis/coincidence` | GRB and neutrino catalogs of `search_skymaps --counterparts` (`$GWTC_COINCIDENCE_CACHE`) |
+| `~/.cache_gwtc_analysis/continuous_waves` | LVK continuous-wave upper-limit tables (`$GWTC_CW_CACHE`) |
+| `.cache_gwosc/` | Skymap tarballs and the PE index, per Zenodo record; the unofficial GW170817 bundle (`unofficial_pe/`) |
 | `~/.gwcache` | Public GWTC-1 products for GW170817, supplementary PSDs |

@@ -60,9 +60,10 @@ what is seen far away comes from the higher rate there, and the local rate is lo
 Rates in Gpc⁻³ yr⁻¹, median [90%], from 1 BNS (GW190425), 4 NSBH and 248 BBH candidates with FAR
 below 1 per year. GW170817 is not counted: it is in O2, before the injection periods.
 
-These values fall in the ranges of the LVK population analyses
+The BNS and NSBH rates fall inside the intervals of the LVK population analyses
 (GWTC-3 [\[12\]](../references.md#ref-12), GWTC-4.0 [\[13\]](../references.md#ref-13),
-GWTC-5.0 [\[14\]](../references.md#ref-14)). The LVK intervals are wider because they fit the
+GWTC-5.0 [\[14\]](../references.md#ref-14)); the BBH rate with the fixed Power Law + Peak sits at the low edge
+of the GWTC-5.0 interval ([rates](../modes/rates.md#population-uncertainty-and-the-multi-peak-model)). The LVK intervals are wider because they fit the
 population shape together with the rate: the BNS rate in particular rests on one or two events and
 depends strongly on the assumed mass distribution.
 
@@ -85,8 +86,9 @@ there are poorly constrained.
 
 ## Limitations
 
-- Fixed population shapes: the intervals do not include the uncertainty of the mass, spin and redshift
-  distributions.
+- Fixed population shapes by default: the intervals then do not include the uncertainty of the mass, spin and
+  redshift distributions. `--population-posterior` folds it in from posterior draws, and `--mass-model mltp`
+  changes the mass model ([rates](../modes/rates.md#population-uncertainty-and-the-multi-peak-model)).
 - Classification by median masses: events near the 2.5 M☉ boundary (GW230529, with a 2.5–4.5 M☉
   primary) may belong to either class.
 - All candidates below the FAR threshold are counted as astrophysical; the LVK analyses weight them by
