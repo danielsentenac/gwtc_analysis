@@ -104,7 +104,7 @@ them, and a later run with other values is refused rather than mixed in:
 
 - `prepare` fixes the events, the injections and the redshift source (the [selection options](#which-events-and-injections)
   and `--galaxy-catalog`, hence the method); to change them, use another work directory. The later stages take
-  the method from the work directory: `--method dark` without `--galaxy-catalog`;
+  the method from the work directory: they need `--method dark` but not `--galaxy-catalog`;
 - the first run fixes `--mass-model`, `--nlive`, `--pe-samples` and `--inj-fraction`, and
   `--neff-pe`/`--neff-inj` ([below](#precision-and-speed)).
 
@@ -121,7 +121,7 @@ runs and with the same thresholds; these options are read by `prepare` only.
 
 | Option | Default | Meaning | When to change it |
 |---|---|---|---|
-| `--sensitivity-release` | `gwtc4` | the LVK injection release, which sets the runs that can be analysed: `gwtc4` = O1–O4a ([\[29\]](../references.md#ref-29), validated), `gwtc5` = O1–O4b (not yet compared with a published result) | to include O4b |
+| `--sensitivity-release` | `gwtc4` | the LVK injection release, which sets the runs that can be analysed: `gwtc4` = O1–O4a ([\[29\]](../references.md#ref-29), validated), `gwtc5` = O1–O4b (no validation run yet; the report compares Multi Peak with the GWTC-5.0 value, 71.0 (+21.0 / −17.5)) | to include O4b |
 | `--catalogs` | all the runs of the release | keep only the runs of these catalogs, for both events and injections: `GWTC-1` (O1–O2), `GWTC-2.1` (O3a), `GWTC-3` (O3b), `GWTC-4` (O4a), `GWTC-5` (O4b), `GWTC-4.1` (the update of GWTC-4.0), or `ALL`. The runs must be in the release: `--catalogs GWTC-5` needs `--sensitivity-release gwtc5` | to analyse a subset (e.g. O4a alone) |
 | `--far-threshold` | 0.25 per year | events with a published FAR ≤ threshold; real injections found with FAR < threshold | to test the sensitivity to the event selection |
 | `--snr-threshold` | 10 | O1–O2 injections are semi-analytic: found when their network SNR is above this | with `--far-threshold`, to keep the two consistent |
@@ -243,7 +243,7 @@ more events, its 68% interval is about 40–50% narrower than MLTP's, with a sim
 FullPop-4.0 run (CC-IN2P3, October 2026): the 141 events of the paper (137 BBH, GW190425, GW190814, GW200115,
 GW230529; GW170817 kept for the bright siren), the priors of Table 5, nested sampling with 100 live points, 7 seeds
 combined (the eighth, on a slow node, was stopped: the seven agreed, medians 73.6–77.4), reweighted to all the
-injections and 1500 PE samples per event (effective sample size 88 %). The 90% interval is 44.4–122.9 against
+injections and 1500 PE samples per event (effective sample size 88%). The 90% interval is 44.4–122.9 against
 44.0–111.9: the median is 1.5 higher, the lower bound the same, the upper tail longer.
 
 The dark-siren rows of the paper combine icarogw and gwcosmo; the data-release values reproduced above
@@ -396,6 +396,9 @@ The inputs must be independent, and this is checked:
 - no event in two inputs (from the work directories' `events.tsv` and `bright.json`): GW190521 as a bright siren
   needs a spectral or dark siren run with `--exclude GW190521_030229`.
 
+The input rows are the posteriors as the joint mode reads them, smoothed on its H₀ grid: their medians and
+intervals differ slightly from the runs' own (114.6, 90%: 63.4–179.9 for the Power Law + Peak dark siren).
+
 The report has the table of each input and of the joint result (maximum a posteriori, 68% interval, median, 90%
 interval) and their posteriors:
 
@@ -433,11 +436,12 @@ gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright h0_
 
 **Which measurement dominates.** Independent posteriors multiply, so the narrower one sets the result and the
 broader one tilts it. With the GWTC-4.0 Power Law + Peak sirens, GW170817 dominates: its 68% interval is about
-32 km/s/Mpc wide (61.6–93.4), the dark siren's about 75 (81–156), so the dark siren only pushes the result up
+32 km/s/Mpc wide (61.6–93.4, around its maximum), the dark siren's about 75 (81–156, around its median), so the dark siren only pushes the result up
 (maximum 69.8 → 73.2). In the GWTC-5.0 analysis [\[30\]](../references.md#ref-30) it is the other way round: with
 235 events, the FullPop-4.0 mass model and the DES-Y6 galaxies, the dark sirens, 68.8 (+14.2 / −13.2), are narrower
 than the LVK's GW170817 bright siren, 79.1 (+27.6 / −12.4), and drive the combination, 71.7 (+9.4 / −7.5). That
-setup (FullPop-4.0, DES-Y6) is not in this version of `gwtc_analysis`.
+setup needs a DES-Y6 band definition, which is not in this version of `gwtc_analysis` (FullPop-4.0 is:
+`--mass-model fullpop4`).
 
 Outputs: `--out-report` (`hubble_constant_joint.html`), `--out-summary` (the table), `<workdir>/posterior_joint.tsv`
 (the joint and input densities on the H₀ grid), `<workdir>/joint.json` (the inputs) and `<workdir>/plots/h0_joint.png`.
@@ -454,7 +458,7 @@ published result (orange line, 90% band) and the Planck and SH0ES values for com
 
 ### Merger-rate evolution
 
-The Madau–Dickinson rate shape fitted together with H₀ [\[82\]](../references.md#ref-82),
+The Madau–Dickinson rate shape fitted together with H₀ [\[16\]](../references.md#ref-16),
 
 \[
 \frac{R(z)}{R(0)} = \left[1 + (1 + z_p)^{-\gamma-\kappa}\right]
@@ -489,11 +493,12 @@ installed, through its public API. The LVK also uses a second code, gwcosmo; the
 
 - **icarogw provides** the hierarchical likelihood (PE and injection reweighting, selection term,
   scale-free rate marginalisation, effective-sample-size checks), the population models
-  (`massprior_PowerLawPeak` with the `m1m2_conditioned_lowpass` smoothing, `rateevolution_Madau`,
+  (`massprior_PowerLawPeak` or `massprior_MultiPeak` with the `m1m2_conditioned_lowpass` smoothing, or
+  `m1m2_paired_massratio_bplmulti_dip` for FullPop-4.0, `rateevolution_Madau`,
   `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`, or `CBC_catalog_vanilla_rate` with a galaxy catalog), and
   the detector-frame conversion for each trial H₀.
 - **The driver** reads `inputs.h5` into icarogw's `posterior_samples` and `injections` objects,
-  chooses the model components and the priors (Tables 3 and 6 of the paper [\[29\]](../references.md#ref-29)), runs bilby/dynesty,
+  chooses the model components and the priors (Tables 3 to 6 of the paper [\[29\]](../references.md#ref-29)), runs bilby/dynesty,
   merges the runs and computes the diagnostics with icarogw's own methods.
 - **The analysis choices made here**, outside icarogw, are the input preparation in
   `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw
@@ -559,7 +564,7 @@ injections, as the paper does, and needs no reweighting.
 
 ### Seeds
 
-Each seed is an independent dynesty run (`result/<model>_seed<N>_result.json`, with `<model>` = `plp` or `mltp`);
+Each seed is an independent dynesty run (`result/<model>_seed<N>_result.json`, with `<model>` = `plp`, `mltp` or `fullpop4`);
 `combine` merges all the finished ones, weighted by their evidence.
 
 - **All runs sample the same likelihood.** The PE samples are shuffled once in `prepare`, and the
@@ -664,8 +669,9 @@ so the sampling can run on another machine that has icarogw (a computing cluster
    `--galaxy-catalog`, also the catalog file);
 2. remotely, with the icarogw interpreter (and `LD_LIBRARY_PATH=<env>/lib` if needed):
    `python h0_icarogw.py run --workdir RDIR --seed N` for each seed, then
-   `python h0_icarogw.py combine --workdir RDIR`;
-3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` and `RDIR/corner.png` (a few MB) back
+   `python h0_icarogw.py combine --workdir RDIR` (either `run` with `--inj-fraction 1`, or `reweight`
+   and `reweight-merge` after `combine`, see [Stages](#stages));
+3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` (and `posterior_reweighted.tsv`) and `RDIR/corner.png` (a few MB) back
    into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
 
 ### On a Slurm cluster

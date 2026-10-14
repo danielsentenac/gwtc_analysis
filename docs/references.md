@@ -100,7 +100,7 @@ was checked against the arXiv API.
 **[30]** LVK, *GWTC-5.0: Constraints on the Cosmic Expansion Rate and Modified Gravitational-wave Propagation*. [arXiv:2605.27227](https://arxiv.org/abs/2605.27227)
 {: #ref-30 }
 
-**[31]** *Probing the Mass–Redshift Dependence of Binary Black Holes and its Implications for H₀ with GWTC-5.0*. A recent test of the key assumption of spectral sirens, a mass distribution that does not evolve with redshift. [arXiv:2609.25662](https://arxiv.org/abs/2609.25662)
+**[31]** Y. Liu, P. Wu, J.-J. Wei and X.-F. Wu, *Probing the Mass–Redshift Dependence of Binary Black Holes and its Implications for H₀ with GWTC-5.0*. A recent test of the key assumption of spectral sirens, a mass distribution that does not evolve with redshift. [arXiv:2609.25662](https://arxiv.org/abs/2609.25662)
 {: #ref-31 }
 
 **[32]** Planck Collaboration, *Planck 2015 results. XIII. Cosmological parameters*. The reference cosmology of the GW catalogs (Planck15, Planck15_LAL). [arXiv:1502.01589](https://arxiv.org/abs/1502.01589)
@@ -201,7 +201,7 @@ was checked against the arXiv API.
 **[98]** V. Varma et al., *Surrogate models for precessing binary black hole simulations with unequal masses* (NRSur7dq4). Phys. Rev. Research 1, 033015 (2019). [arXiv:1905.09300](https://arxiv.org/abs/1905.09300)
 {: #ref-98 }
 
-**[99]** P. C. Peters, *Gravitational radiation and the motion of two point masses*. Phys. Rev. 136, B1224 (1964).
+**[99]** P. C. Peters, *Gravitational radiation and the motion of two point masses*. Phys. Rev. 136, B1224 (1964). [doi:10.1103/PhysRev.136.B1224](https://doi.org/10.1103/PhysRev.136.B1224)
 {: #ref-99 }
 
 **[100]** S. Roy, R. Vicente, J. C. Aurrekoetxea, K. Clough and P. G. Ferreira, *Scalar fields around black hole binaries in LIGO-Virgo-KAGRA*. [arXiv:2510.17967](https://arxiv.org/abs/2510.17967)
@@ -296,9 +296,6 @@ was checked against the arXiv API.
 
 ## Rate evolution and stochastic background
 
-**[82]** P. Madau and M. Dickinson, *Cosmic Star Formation History*. [arXiv:1403.0007](https://arxiv.org/abs/1403.0007)
-{: #ref-82 }
-
 **[83]** E. S. Phinney, *A Practical Theorem on Gravitational Wave Backgrounds*. [arXiv:astro-ph/0108028](https://arxiv.org/abs/astro-ph/0108028)
 {: #ref-83 }
 
@@ -323,9 +320,6 @@ was checked against the arXiv API.
 
 **[89]** T. A. Callister et al., *Who Ordered That? Unequal-Mass Binary Black Hole Mergers Have Larger Effective Spins*. The χ_eff–q model. [arXiv:2106.00521](https://arxiv.org/abs/2106.00521)
 {: #ref-89 }
-
-**[90]** LVK, *GWTC-4.0: Population Properties of Merging Compact Binaries*. [arXiv:2508.18083](https://arxiv.org/abs/2508.18083)
-{: #ref-90 }
 
 ## Primordial black holes
 
@@ -387,11 +381,14 @@ LIGO O3 data*. Phys. Rev. D 105, 102001 (2022). Data: [LIGO-P2100343](https://dc
 
 | Release | Where |
 |---|---|
-| GWTC-2.1 PE and skymaps | [Zenodo 6513631](https://zenodo.org/records/6513631) |
+| GWTC-2.1 PE and skymaps (also those of the GWTC-1 events) | [Zenodo 6513631](https://zenodo.org/records/6513631) |
 | GWTC-3 PE and skymaps | [Zenodo 22685054](https://zenodo.org/records/22685054) (v3) |
 | GWTC-4.0 PE and skymaps | [Zenodo 17602505](https://zenodo.org/records/17602505) |
+| GWTC-4.1 PE and skymaps (O4a re-analysed) | [Zenodo 20275769](https://zenodo.org/records/20275769) |
 | GWTC-5.0 PE and skymaps | [Zenodo 20348005](https://zenodo.org/records/20348005), [20348006](https://zenodo.org/records/20348006) |
 | GWTC-4.0 lensing searches (posterior-overlap results of every O4a pair) | [Zenodo 18163632](https://zenodo.org/records/18163632) |
+| GWTC-4.0 cosmology (posteriors and settings of the H₀ analyses) | [Zenodo 22284039](https://zenodo.org/records/22284039) |
+| GW250114 (area law) | [Zenodo 16877102](https://zenodo.org/records/16877102) |
 | GWTC-4.0 sensitivity injections | [Zenodo 16740128](https://zenodo.org/records/16740128) |
 | GWTC-5.0 sensitivity injections | [Zenodo 19500052](https://zenodo.org/records/19500052) |
 | GW230529 discovery release | [Zenodo 10845779](https://zenodo.org/records/10845779), [LIGO-P2300352](https://dcc.ligo.org/LIGO-P2300352/public) |

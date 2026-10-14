@@ -24,7 +24,7 @@ analyses. Its PE files are read only on request (`--zenodo-version GWTC-4.1=late
 
 All the keys are **confident** catalogs: every event of these lists has a probability of
 astrophysical origin p_astro ≥ 0.5 (the re-analysed O1–O2 events of GWTC-2.1 carry no p_astro value).
-The marginal lists are read only by the `rates` and `hubble_constant` modes (below).
+The marginal lists are read only by the `rates`, `hubble_constant` and `spin_population` modes (below).
 
 Event counts of the GWOSC lists in September 2026. A catalog key holds the events of *its* release
 only: GWTC-4.0, for instance, does not repeat the O1–O3 events. The exception is GWTC-2.1, whose list
@@ -45,7 +45,7 @@ the periods covered by the injections or by the run dates.
 
 These are the GWOSC run boundaries used by the `hubble_constant` event selection.
 
-The `rates` and `hubble_constant` modes also read the **marginal** lists (`GWTC-2.1-marginal`,
+The `rates`, `hubble_constant` and `spin_population` modes also read the **marginal** lists (`GWTC-2.1-marginal`,
 `GWTC-3-marginal`): some events used by the LVK population and cosmology analyses are only there
 (see [GW200105](known-data-issues.md#gw200105-only-in-the-marginal-list)).
 
@@ -57,7 +57,10 @@ The `rates` and `hubble_constant` modes also read the **marginal** lists (`GWTC-
 :   The official catalog releases on Zenodo (table above).
 
 `s3`
-:   The `gwtc` bucket of an S3/MinIO mirror at `https://minio-dev.odahub.fr`.
+:   The `gwtc` bucket of an S3/MinIO mirror at `https://minio-dev.odahub.fr`, much faster than Zenodo but
+    not always the latest version of a release: in October 2026 it holds GWTC-2.1 v2, GWTC-3 v2 (Zenodo has
+    v3, which fixed the PSDs of GW200105), the first GWTC-4.0 PE version (`1a206db3d_721`; Zenodo's latest is
+    `38214bd95_724`) and GWTC-5.0 (latest), and no GWTC-4.1. `--zenodo-version` does not apply to it.
 
 `galaxy`
 :   Collections staged by Galaxy (`./galaxy_inputs/<CATALOG>-PE`, `-SKYMAPS`); when none is staged,
@@ -72,7 +75,8 @@ fetched from the Zenodo API (`/api/records/<id>/versions`) and cached for one da
 `~/.cache_gwtc_analysis/zenodo`, so a new release is picked up automatically.
 
 An older version is selected with `--zenodo-version CATALOG=VERSION`, versions being numbered from the
-oldest (`v1`); `latest` is also accepted:
+oldest (`v1`); `latest` is also accepted. The modes that read PE files or skymaps through `--data-repo` take it:
+`catalog_statistics`, `search_skymaps` and `parameters_estimation` (and `zenodo_releases` lists the versions):
 
 ```bash
 gwtc_analysis zenodo_releases --catalogs GWTC-3 GWTC-4     # list the versions

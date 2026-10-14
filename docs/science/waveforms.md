@@ -44,7 +44,7 @@ physics element leaves its mark (schematic).*
 | tides (neutron stars) | an extra phase shift at the end of the inspiral, set by the tidal deformability Λ | **NRTidal**, T | IMRPhenomPv2_NRTidal(v2) [\[66\]](../references.md#ref-66), SEOBNRv4T |
 | tidal disruption (neutron star–black hole) | the neutron star is torn apart and the signal shuts off early | NSBH | IMRPhenomNSBH, SEOBNRv4_ROM_NRTidalv2_NSBH |
 | eccentricity | a burst at each closest approach, extra harmonics, a faster inspiral | E, Dalí | TEOBResumS-Dalí, SEOBNRv5EHM (research models: the catalogs assume circular orbits) |
-| environment (gas, dark matter) | extra dephasing in the inspiral, largest at low frequency | added terms | IMRPhenomXP_Scalar, a scalar cloud around GW190728 (Roy et al. [\[100\]](../references.md#ref-100); not an LVK model) |
+| environment (gas, dark matter) | extra dephasing in the inspiral, largest at low frequency | added terms | IMRPhenomXPHM_Scalar, a scalar cloud around GW190728 (Roy et al. [\[100\]](../references.md#ref-100); not an LVK model) |
 | deviations from general relativity | shifted post-Newtonian, merger or ringdown coefficients | parametrized versions | parametrized IMRPhenom (TIGER, FTI), pSEOBNR; ringdown-only fits (pyRing) |
 
 ![Precession: L turning around J, and the modulated signal](../img/science/precession.png)
@@ -111,8 +111,8 @@ spin priors of neutron-star analyses (spins up to large values, or limited to th
 | GWTC-1 (O1–O2, 2018) | IMRPhenomPv2, SEOBNRv3 (precessing), NRTidal for the neutron stars | spins and precession across a population |
 | GWTC-2 (O3a, 2020) | IMRPhenomPv3HM, SEOBNRv4PHM; NRSur7dq4 for GW190521 | higher modes became necessary with unequal-mass events (GW190412, GW190814) |
 | GWTC-2.1, GWTC-3 (O3, 2021) | IMRPhenomXPHM and SEOBNRv4PHM, combined as Mixed; IMRPhenomNSBH and SEOBNRv4_ROM_NRTidalv2_NSBH for the neutron-star–black-hole events | faster, more accurate precessing models for ~90 events |
-| GWTC-4.0 (O4a, 2025) | IMRPhenomXPHM-SpinTaylor and SEOBNRv5PHM for all 84 events (and Mixed); NRSur7dq4 for 44, IMRPhenomXO4a for 28; IMRPhenomNSBH and IMRPhenomPv2_NRTidalv2 for neutron-star events | louder signals need better precession; the heaviest need surrogates |
-| GWTC-5.0 (O4b, 2026) | IMRPhenomXPHM-SpinTaylor, IMRPhenomXPNR and SEOBNRv5PHM for all 93 events; NRSur7dq4 for 53 | precession tuned to numerical relativity; several models per event to measure the systematics |
+| GWTC-4.0 (O4a, 2025) | IMRPhenomXPHM-SpinTaylor and SEOBNRv5PHM for the binary black holes (and Mixed); NRSur7dq4 for 44, IMRPhenomXO4a for 28; IMRPhenomNSBH and IMRPhenomPv2_NRTidalv2 for neutron-star events | louder signals need better precession; the heaviest need surrogates |
+| GWTC-5.0 (O4b, 2026) | IMRPhenomXPHM-SpinTaylor, IMRPhenomXPNR and SEOBNRv5PHM for the binary black holes; NRSur7dq4 for 53 | precession tuned to numerical relativity; several models per event to measure the systematics |
 
 The O4 rows are counted from the public PE files of the two releases; the earlier ones are the models of the
 catalog papers.
@@ -126,9 +126,10 @@ precession signal-to-noise ratios differ by a factor of three to four between mo
 
 - **Environments and dark matter.** A binary in a dense medium loses energy and angular momentum faster than in
   vacuum, so its phase drifts from the vacuum prediction, mostly early in the inspiral. Roy et al.
-  [\[100\]](../references.md#ref-100) built IMRPhenomXP_Scalar, IMRPhenomXP plus a Newtonian dynamical-friction
+  [\[100\]](../references.md#ref-100) built IMRPhenomXPHM_Scalar, IMRPhenomXPHM plus a Newtonian dynamical-friction
   torque from a scalar cloud, and re-analysed the public strain of 28 binary black holes: ln B ≈ 3.5 in favour of
-  the environment for GW190728 alone, a tentative result. Such models cannot reuse the catalog posterior samples,
+  the environment for GW190728 alone, a tentative result. The [scalar_cloud](../modes/scalar-cloud.md) mode repeats
+  that fit: ln B = 1.34 ± 0.30 with the superradiance prior and −0.82 ± 0.31 with the agnostic one. Such models cannot reuse the catalog posterior samples,
   which assume the vacuum model: the strain has to be analysed again.
 - **Eccentricity** models (TEOBResumS-Dalí, SEOBNRv5EHM) would test dynamical formation directly.
 - **Tests of general relativity** add free deviations to the coefficients of the models, or fit the ringdown tones
@@ -138,8 +139,9 @@ precession signal-to-noise ratios differ by a factor of three to four between mo
 
 ## The waveform models in gwtc_analysis
 
-`gwtc_analysis` reads the posterior samples of the public releases; it never re-runs parameter estimation. The
-waveform behind each result is the label it reads:
+`gwtc_analysis` reads the posterior samples of the public releases; it re-runs parameter estimation only in
+[scalar_cloud](../modes/scalar-cloud.md), which fits the strain of one event itself. The waveform behind each
+result is the label it reads:
 
 | Mode | Label read (default) | Choose another |
 |---|---|---|
@@ -149,6 +151,8 @@ waveform behind each result is the label it reads:
 | [hubble_constant](../modes/hubble-constant.md), [spin_population](../modes/spin-population.md) | one model per event, as the LVK cosmology analyses: IMRPhenomXPHM-SpinTaylor (O4), IMRPhenomXPHM (O1–O3) | — |
 | [hubble_constant --method bright](../modes/hubble-constant-bright.md), [counterpart](../modes/counterpart.md), [neutron_star_eos](../modes/neutron-star-eos.md) | IMRPhenomPv2_NRTidal, low-spin prior (high spin also reported) | `--pe-label` (bright, counterpart), `--spin-prior` (neutron_star_eos) |
 | [area_law](../modes/area-law.md) | NRSur7dq4, on the full signal and on data truncated before the peak | — |
+| [lens_pairs](../modes/lens-pairs.md) | IMRPhenomXPHM, as hubble_constant | — |
+| [scalar_cloud](../modes/scalar-cloud.md) | its own fits of the strain: IMRPhenomXPHM against IMRPhenomXPHM_Scalar | `--sample-models` |
 
 Using a single model per event, rather than a mixture, avoids combining samples drawn with different priors (for
 instance on the luminosity distance), which the reweighting of the population analyses would otherwise have to

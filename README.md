@@ -366,11 +366,11 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--boson-mass` | `` | Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%%: 0.70e-12 0.89e-12 1.17e-12). |
+| `--boson-mass` | `` | Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%: 0.70e-12 0.89e-12 1.17e-12). |
 | `--boson-label` | `` | Label of the band (default: GW190728 (scalar_cloud)). |
 | `--refresh` | `False` | Download the data releases again. |
 | `--out-report` | `continuous_waves.html` | Output HTML report path. |
-| `--out-summary` | `continuous_waves.tsv` | Output TSV of the summary (pulsars in <name>.pulsars.tsv, boson reach in <name>.boson_reach.tsv). |
+| `--out-summary` | `continuous_waves.tsv` | Output TSV of the summary (pulsars in <name>.pulsars.tsv, narrowband limits in <name>.narrowband.tsv, boson reach in <name>.boson_reach.tsv). |
 | `--plots-dir` | `continuous_waves_plots` | Directory for the plots. |
 
 ### `area_law`
@@ -493,7 +493,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--dl-max` | `` | Maximum luminosity distance (Mpc). |
 | `--chi-eff-min` | `` | Minimum effective spin chi_eff. |
 | `--chi-eff-max` | `` | Maximum effective spin chi_eff. |
-| `--preset` | `` | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%%: earlier-generation black holes). |
+| `--preset` | `` | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%: earlier-generation black holes). |
 | `--ns-max-mass` | `3.0` | Maximum neutron-star mass (M_sun). |
 | `--mass-gap` | `[3.0, 5.0]` | Lower mass gap between neutron stars and black holes (M_sun). |
 | `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
@@ -602,7 +602,7 @@ gwtc_analysis rates --sensitivity-release gwtc4   # GWTC-4.0 injections (O3 + O4
 
 | Release | Candidates | BNS | NSBH | BBH at z = 0.2 |
 |---|---|---|---|---|
-| `gwtc5` (O3–O4b, 2.5 yr) | 259 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] |
+| `gwtc5` (O3–O4b, 2.59 yr) | 259 | 26 [4, 87] | 33 [13, 67] | 25 [23, 28] |
 | `gwtc4` (O3–O4a, 1.7 yr) | 155 | 43 [6, 143] | 54 [21, 109] | 26 [23, 30] |
 
 Rates in Gpc⁻³ yr⁻¹, median [90%]. They are consistent with the LVK population papers: [GWTC-5.0](https://arxiv.org/abs/2605.27226) (BBH 27.5–49.4 at z = 0.2 for masses 2.5–200 M☉), [GWTC-4.0](https://arxiv.org/abs/2508.18083) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and [GWTC-3](https://arxiv.org/abs/2111.03634).
@@ -631,7 +631,7 @@ The work is split into stages (`--stages`, all by default), sharing `--workdir`:
 
 **icarogw.** `gwtc_analysis/h0_icarogw.py` is a driver of icarogw, not a modified copy: icarogw is used as installed, through its public API. icarogw provides the hierarchical likelihood (PE and injection reweighting, selection term, scale-free rate marginalisation, effective-sample-size checks), the population models (`massprior_PowerLawPeak` with the `m1m2_conditioned_lowpass` smoothing, `rateevolution_Madau`, `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`) and the detector-frame conversion for each trial H₀. The driver reads `inputs.h5` into icarogw's `posterior_samples` and `injections` objects, chooses the model components and the priors (Tables 3 and 6 of the paper), runs bilby/dynesty, merges the runs and computes the diagnostics with icarogw's own methods. The analysis choices made here, outside icarogw, are the input preparation in `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw density carried to the detector frame with the spin part divided out and the mixture weights applied) and three settings of the driver: at least 10 effective PE samples per event (the paper's choice; the default of icarogw's likelihood class is 20), at least 4 × N_events effective injections (icarogw's default), and the `--inj-fraction` subset of the injections.
 
-Only the `sample` and `combine` stages need icarogw; `prepare` and `report` run in the gwtc_analysis environment. icarogw needs Python ≥ 3.12, so it usually has its own environment; pass its interpreter with `--icarogw-python` (default: the interpreter running gwtc_analysis; the mode stops with an error before sampling if icarogw or bilby cannot be imported there). The stages run `h0_icarogw.py` with it, in CPU mode (a `config.py` with `CUPY=False` in the work directory) and with the environment's `lib/` on `LD_LIBRARY_PATH` (for its `libstdc++`). icarogw is not on PyPI; an installation that works:
+Only the `sample`, `combine` and `reweight` stages need icarogw; `prepare` and `report` run in the gwtc_analysis environment. icarogw needs Python ≥ 3.12, so it usually has its own environment; pass its interpreter with `--icarogw-python` (default: the interpreter running gwtc_analysis; the mode stops with an error before sampling if icarogw or bilby cannot be imported there). The stages run `h0_icarogw.py` with it, in CPU mode (a `config.py` with `CUPY=False` in the work directory) and with the environment's `lib/` on `LD_LIBRARY_PATH` (for its `libstdc++`). icarogw is not on PyPI; an installation that works:
 
 ```bash
 conda create -n icarogw python=3.12

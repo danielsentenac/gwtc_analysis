@@ -549,8 +549,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_cw.add_argument("--refresh", action="store_true", help="Download the data releases again.")
     p_cw.add_argument("--out-report", default="continuous_waves.html", help="Output HTML report path.")
     p_cw.add_argument("--out-summary", default="continuous_waves.tsv",
-                      help="Output TSV of the summary (pulsars in <name>.pulsars.tsv, boson reach in "
-                           "<name>.boson_reach.tsv).")
+                      help="Output TSV of the summary (pulsars in <name>.pulsars.tsv, narrowband limits in <name>.narrowband.tsv, "
+                           "boson reach in <name>.boson_reach.tsv).")
     p_cw.add_argument("--plots-dir", default="continuous_waves_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------

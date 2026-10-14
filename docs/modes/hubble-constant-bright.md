@@ -35,7 +35,7 @@ p(H_0 \mid \text{data}) \propto \frac{1}{\beta(H_0)}
 \]
 
 \(\mathcal{L}_\text{GW}\) is the posterior of \(d_L\) divided by the PE distance prior, read from the
-file (\(d_L^2\) up to O3, uniform in comoving volume in O4), or set by `--pe-distance-prior`. Over the PE samples \(d_i\), whose
+file (\(d_L^2\) up to O3, uniform in comoving volume and source-frame time in O4), or set by `--pe-distance-prior`. Over the PE samples \(d_i\), whose
 redshift at a trial H₀ is \(z_i\), the integral is a kernel sum:
 
 \[
@@ -86,7 +86,7 @@ labels used by default. In the options below, "from the list" refers to it.
 | GW190521 | AGN J124942.3+344929, ZTF19abanrhr | 0.438 ± 0.0015 [\[74\]](../references.md#ref-74) | **candidate** | injections (O3a, BBH) |
 
 **GW190521 is a candidate.** Graham et al. proposed the ZTF flare in an AGN disk as the counterpart
-[\[74\]](../references.md#ref-74). The odds of a common source are only 1 to 12, depending on the
+[\[74\]](../references.md#ref-74). The odds of a common source are only between 1 and 12, depending on the
 waveform model (Ashton et al. 2021 [\[75\]](../references.md#ref-75)). Its result is H₀ *if* the flare is
 the counterpart, and the report says so. The [counterpart](counterpart.md) mode shows where the flare sits
 in the GW posterior.
@@ -218,7 +218,7 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 | `--v-recession V SIGMA`, `--v-peculiar V SIGMA` | from the list (GW170817) | velocities of a nearby host, km/s: measured recession velocity, and the peculiar velocity subtracted from it |
 | `--redshift Z SIGMA` | from the list (GW190521) | Hubble-flow redshift of the host, instead of the velocities |
 | `--viewing-angle MEAN SIGMA` | none | independent Gaussian constraint on the viewing angle, degrees |
-| `--pe-distance-prior` | the file's, else \(d_L^2\) up to O3 | distance prior of the PE samples: `dl2`, `comoving` or `source-frame` (Planck15_LAL) |
+| `--pe-distance-prior` | the file's, else \(d_L^2\) up to O3 and source-frame (uniform in comoving volume and source-frame time) from O4 | distance prior of the PE samples: `dl2`, `comoving` or `source-frame` (Planck15_LAL) |
 | `--selection` | `auto` | `euclidean`, `injections` or `auto` |
 | `--population` | `volume` | `volume` (uniform in comoving volume) or `fullpop4` (FullPop-4.0 and Madau–Dickinson at the GWTC-4.0 medians, [Method](#method)) |
 | `--sensitivity-release`, `--sensitivity-file` | `gwtc4` | injections of the selection term |

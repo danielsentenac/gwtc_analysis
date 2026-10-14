@@ -26,7 +26,7 @@ analyses. Its PE files are read only on request (`--zenodo-version GWTC-4.1=late
 
 All the keys are **confident** catalogs: every event of their GWOSC lists has a probability of
 astrophysical origin p_astro ≥ 0.5 (the re-analysed O1–O2 events of GWTC-2.1 carry no p_astro value).
-The marginal candidates are only read by the `rates` and `hubble_constant` modes. Event counts of the
+The marginal candidates are only read by the `rates`, `hubble_constant` and `spin_population` modes. Event counts of the
 GWOSC lists in September 2026; the Zenodo records are the starting point, the version read being
 resolved at run time ([Zenodo release versions](data-sources.md#zenodo-release-versions)); the run
 dates are in [Data sources](data-sources.md#observing-runs).
@@ -58,7 +58,7 @@ gwtc_analysis rates
 
 # Hubble constant, spectral siren: prepare the inputs, then 4 sampler runs, 2 at a time
 gwtc_analysis hubble_constant --stages prepare
-gwtc_analysis hubble_constant --stages sample combine report \
+gwtc_analysis hubble_constant --stages sample combine reweight report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 
 # Hubble constant from GW170817 and its host (seconds), then joint with the spectral siren
@@ -71,7 +71,7 @@ gwtc_analysis counterpart
 
 ## Outputs
 
-Every mode writes:
+Most modes write:
 
 - **TSV tables** (one row per event, per population or per parameter);
 - **plots** (PNG, in a `--plots-dir` directory);
