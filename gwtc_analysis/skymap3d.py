@@ -265,9 +265,11 @@ def query_glade(cones: list[tuple[float, float, float]], dmin: float, dmax: floa
     if cache.exists():
         return pd.read_csv(cache, dtype={c: str for c in GLADE_NAME_COLS})
     frames = []
+    queue = list(cones)
     with requests.Session() as s:
         s.headers["User-Agent"] = "gwtc_analysis (https://github.com/danielsentenac/gwtc_analysis)"
-        for ra, dec, rad in cones:
+        while queue:
+            ra, dec, rad = queue.pop(0)
             params = {"-source": GLADE_TABLE, "-c": f"{ra:.5f} {dec:+.5f}", "-c.rd": f"{rad:.5f}",
                       "-out": ",".join(GLADE_COLS), "dL": f"{dmin:.2f}..{dmax:.2f}", "-out.max": str(GLADE_MAX_ROWS),
                       "-oc.form": "d"}
@@ -284,6 +286,16 @@ def query_glade(cones: list[tuple[float, float, float]], dmin: float, dmax: floa
             if len(lines) < 3:                       # header, units, dashes: no row
                 continue
             body = "\n".join([lines[0]] + lines[3:])
+            if len(lines) - 3 >= GLADE_MAX_ROWS and rad > 0.05:
+                # the service stops at GLADE_MAX_ROWS: query the cone again as 7 cones of half the radius (a centre
+                # and a hexagonal ring at sqrt(3)/2 of the radius cover it), duplicates dropped below
+                d = np.sqrt(3) / 2 * rad
+                queue.append((ra, dec, rad / 2))
+                for k in range(6):
+                    a = np.radians(60 * k)
+                    dd = float(np.clip(dec + d * np.sin(a), -89.999, 89.999))
+                    queue.append(((ra + d * np.cos(a) / max(np.cos(np.radians(dd)), 1e-3)) % 360, dd, rad / 2))
+                continue
             frames.append(pd.read_csv(io.StringIO(body), sep="\t", dtype={c: str for c in GLADE_NAME_COLS}))
     df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=list(GLADE_COLS))
     for c in df.columns[df.dtypes == object]:
@@ -295,7 +307,9 @@ def query_glade(cones: list[tuple[float, float, float]], dmin: float, dmax: floa
     if "GLADE+" in df:
         df = df.drop_duplicates("GLADE+").reset_index(drop=True)
     cache.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(cache, index=False)
+    tmp = cache.with_suffix(".part")
+    df.to_csv(tmp, index=False)
+    tmp.replace(cache)
     return df
 
 

@@ -39,7 +39,7 @@ a clear outlier from the noise background"), and it is one of the two NSBH detec
 discovery paper [\[44\]](references.md#ref-44).
 
 A tool that builds its event list from the confident lists therefore misses GW200105, while its
-sibling GW200115 is there. The `rates` and `hubble_constant` modes read the marginal lists too and
+sibling GW200115 is there. The `rates`, `hubble_constant` and `spin_population` modes read the marginal lists too and
 select events by false-alarm rate, as the LVK population analyses do [\[12\]](references.md#ref-12) [\[13\]](references.md#ref-13). (The `hubble_constant` mode then
 leaves GW200105 out, as the GWTC-4.0 cosmology analysis [\[29\]](references.md#ref-29) does, because it is an NSBH.)
 

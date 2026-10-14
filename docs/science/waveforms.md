@@ -150,9 +150,9 @@ result is the label it reads:
 | [search_skymaps](../modes/search-skymaps.md) | the `Mixed` skymap, else IMRPhenomXPHM-SpinTaylor (GWTC-5.0 has no `Mixed` maps) | `--skymap-label` |
 | [hubble_constant](../modes/hubble-constant.md), [spin_population](../modes/spin-population.md) | one model per event, as the LVK cosmology analyses: IMRPhenomXPHM-SpinTaylor (O4), IMRPhenomXPHM (O1–O3) | — |
 | [hubble_constant --method bright](../modes/hubble-constant-bright.md), [counterpart](../modes/counterpart.md), [neutron_star_eos](../modes/neutron-star-eos.md) | IMRPhenomPv2_NRTidal, low-spin prior (high spin also reported) | `--pe-label` (bright, counterpart), `--spin-prior` (neutron_star_eos) |
-| [area_law](../modes/area-law.md) | NRSur7dq4, on the full signal and on data truncated before the peak | — |
+| [area_law](../modes/area-law.md) | the LVK release: NRSur7dq4 on data truncated before the peak for the initial areas, ringdown quasinormal-mode fits for the remnant | — |
 | [lens_pairs](../modes/lens-pairs.md) | IMRPhenomXPHM, as hubble_constant | — |
-| [scalar_cloud](../modes/scalar-cloud.md) | its own fits of the strain: IMRPhenomXPHM against IMRPhenomXPHM_Scalar | `--sample-models` |
+| [scalar_cloud](../modes/scalar-cloud.md) | its own fits of the strain, IMRPhenomXPHM against IMRPhenomXPHM_Scalar, set up from the `C01:IMRPhenomXPHM` PE analysis | `--pe-label` |
 
 Using a single model per event, rather than a mixture, avoids combining samples drawn with different priors (for
 instance on the luminosity distance), which the reweighting of the population analyses would otherwise have to

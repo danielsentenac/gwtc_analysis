@@ -617,7 +617,7 @@ The default setup reproduces the spectral-siren measurements of the [GWTC-4.0 co
 - **Events**: BBHs of O1–O4a from the GWOSC confident and marginal lists, lowest FAR at most 0.25/yr (`--far-threshold`; the published FARs are rounded, so they are compared inclusively), both source-frame masses above 3 M☉ (`--min-mass`), GW231123 and GW200105 left out (`--exclude`): 137 events, as in the paper.
 - **PE samples**: from the Zenodo PE releases, `C01:IMRPhenomXPHM` up to O3 and `C00:IMRPhenomXPHM-SpinTaylor` in O4a, reduced to (m1_det, m2_det, D_L). The PE distance prior of each event is read from its file (D_L² up to O3, uniform in source-frame comoving volume in O4a) and divided out.
 - **Injections** (`--sensitivity-release`): `gwtc4` (default), the GWTC-4.0 semi-analytic O1+O2 + real O3+O4a mixture ([Zenodo 16740128](https://zenodo.org/records/16740128)), found when the semi-analytic SNR exceeds 10 (`--snr-threshold`) or the lowest search FAR is below the threshold; `gwtc5` adds GWTC-5.0 and O4b ([Zenodo 19500052](https://zenodo.org/records/19500052)) and is not yet validated against a published result.
-- **Priors**: those of the paper (Tables 3 and 6), H₀ uniform in [10, 200] km/s/Mpc.
+- **Priors**: those of the paper (Tables 3 to 6), H₀ uniform in [10, 200] km/s/Mpc; with `--sensitivity-release gwtc5`, those of the GWTC-5.0 paper.
 
 The work is split into stages (`--stages`, all by default), sharing `--workdir`:
 
@@ -629,7 +629,7 @@ The work is split into stages (`--stages`, all by default), sharing `--workdir`:
 | `reweight` | when the runs used a subset of the injections, reweights their posterior to all of them (importance weights exp(ln L_all − ln L_runs)) → `posterior_reweighted.tsv`, with the effective sample size in `summary.json` | minutes to an hour |
 | `report` | `--out-report` (HTML) and `--out-summary` (TSV of the posterior quantiles) | seconds |
 
-**icarogw.** `gwtc_analysis/h0_icarogw.py` is a driver of icarogw, not a modified copy: icarogw is used as installed, through its public API. icarogw provides the hierarchical likelihood (PE and injection reweighting, selection term, scale-free rate marginalisation, effective-sample-size checks), the population models (`massprior_PowerLawPeak` with the `m1m2_conditioned_lowpass` smoothing, `rateevolution_Madau`, `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`) and the detector-frame conversion for each trial H₀. The driver reads `inputs.h5` into icarogw's `posterior_samples` and `injections` objects, chooses the model components and the priors (Tables 3 and 6 of the paper), runs bilby/dynesty, merges the runs and computes the diagnostics with icarogw's own methods. The analysis choices made here, outside icarogw, are the input preparation in `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw density carried to the detector frame with the spin part divided out and the mixture weights applied) and three settings of the driver: at least 10 effective PE samples per event (the paper's choice; the default of icarogw's likelihood class is 20), at least 4 × N_events effective injections (icarogw's default), and the `--inj-fraction` subset of the injections.
+**icarogw.** `gwtc_analysis/h0_icarogw.py` is a driver of icarogw, not a modified copy: icarogw is used as installed, through its public API. icarogw provides the hierarchical likelihood (PE and injection reweighting, selection term, scale-free rate marginalisation, effective-sample-size checks), the population models (`massprior_PowerLawPeak` or `massprior_MultiPeak` with the `m1m2_conditioned_lowpass` smoothing, or `m1m2_paired_massratio_bplmulti_dip` for FullPop-4.0, `rateevolution_Madau`, `FlatLambdaCDM_wrap`, combined by `CBC_vanilla_rate`, or `CBC_catalog_vanilla_rate` with a galaxy catalog) and the detector-frame conversion for each trial H₀. The driver reads `inputs.h5` into icarogw's `posterior_samples` and `injections` objects, chooses the model components and the priors (Tables 3 to 6 of the paper), runs bilby/dynesty, merges the runs and computes the diagnostics with icarogw's own methods. The analysis choices made here, outside icarogw, are the input preparation in `hubble_constant.py` (event selection, PE distance prior read from each file, injection draw density carried to the detector frame with the spin part divided out and the mixture weights applied) and three settings of the driver: at least 10 effective PE samples per event (the paper's choice; the default of icarogw's likelihood class is 20), at least 4 × N_events effective injections (icarogw's default), and the `--inj-fraction` subset of the injections.
 
 Only the `sample`, `combine` and `reweight` stages need icarogw; `prepare` and `report` run in the gwtc_analysis environment. icarogw needs Python ≥ 3.12, so it usually has its own environment; pass its interpreter with `--icarogw-python` (default: the interpreter running gwtc_analysis; the mode stops with an error before sampling if icarogw or bilby cannot be imported there). The stages run `h0_icarogw.py` with it, in CPU mode (a `config.py` with `CUPY=False` in the work directory) and with the environment's `lib/` on `LD_LIBRARY_PATH` (for its `libstdc++`). icarogw is not on PyPI; an installation that works:
 
@@ -646,7 +646,7 @@ If other packages in that environment need an older numpy (e.g. ligo.skymap), pi
 ```bash
 # prepare in the gwtc_analysis environment, then 4 runs, 2 at a time with 2 processes each, and the report
 gwtc_analysis hubble_constant --stages prepare
-gwtc_analysis hubble_constant --stages sample combine report \
+gwtc_analysis hubble_constant --stages sample combine reweight report \
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 
@@ -678,13 +678,13 @@ The PLP posterior is broad, so 3–5 seeds give the result to two significant di
 | Result to report | 4–5 seeds, or 2 seeds with `--nlive 500` |
 | Precise comparison with a paper | about 10 seeds |
 
-Runs can be spread over several machines that share the work directory: start `python gwtc_analysis/h0_icarogw.py run --workdir DIR --seed N` with the icarogw interpreter on each, then run the `combine` and `report` stages once.
+Runs can be spread over several machines that share the work directory: start `python gwtc_analysis/h0_icarogw.py run --workdir DIR --seed N --mass-model M` with the icarogw interpreter on each (the same `--mass-model`, `--prior-set`, `--pe-samples` and `--inj-fraction` for every seed: the runner has its own defaults, `plp`, `gwtc4`, 1500 and 0.1), then run the `combine`, `reweight` and `report` stages once.
 
 **Without icarogw on the local machine.** `h0_icarogw.py` only needs numpy, h5py, icarogw and bilby, so the sampling can run on another machine that has icarogw (e.g. a computing cluster):
 
 1. locally: `hubble_constant --stages prepare --workdir DIR`, then copy `DIR/inputs.h5` (about 45 MB) and `gwtc_analysis/h0_icarogw.py` to a work directory on the remote machine;
-2. remotely, with the icarogw interpreter (and `LD_LIBRARY_PATH=<env>/lib` if needed): `python h0_icarogw.py run --workdir RDIR --seed N` for each seed, then `python h0_icarogw.py combine --workdir RDIR`;
-3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` and `RDIR/corner.png` (a few MB) back into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
+2. remotely, with the icarogw interpreter (and `LD_LIBRARY_PATH=<env>/lib` if needed): `python h0_icarogw.py run --workdir RDIR --seed N --mass-model M --prior-set P --inj-fraction 1` for each seed, then `python h0_icarogw.py combine --workdir RDIR`. With a subset of the injections (`--inj-fraction 0.1`), correct it with `reweight --workdir RDIR --chunk 0 --nchunks 1` and `reweight-merge --workdir RDIR` (the subset alone biases H₀ by about +13 km/s/Mpc);
+3. locally: copy `RDIR/summary.json`, `RDIR/posterior.tsv` (and `posterior_reweighted.tsv`) and `RDIR/corner.png` (a few MB) back into `DIR`, which still holds `events.tsv`, and run `hubble_constant --stages report --workdir DIR`.
 
 With 10 runs of 100 live points and 1500 PE samples per event, sampled with 10% of the found injections and 136 events, then reweighted to all the injections and the paper's 137 events, the result is H₀ = 105.8 (+44.7 / −33.2) km/s/Mpc [68%], 90%: 54.4–175.7, and μ_g = 28.7 (+3.8 / −4.6) M☉ (PLP), against 105.5 (+46.4 / −35.8), 90%: 50.5–176.1, and 28.3 (+4.1 / −4.4) M☉ in the published paper; MLTP gives 78.6 (+38.0 / −26.5) against 72.3 (+42.5 / −25.6). Without the reweighting, the 10% subset alone shifts H₀ by about +13 km/s/Mpc for PLP (119.3) and +10 for MLTP (89.1): a subset estimates the detectable fraction without bias, but its Monte Carlo noise, raised to the power N = 136 in the likelihood, tilts the posterior. This is why `--inj-fraction auto` (the default) probes the subsets before sampling and reweights afterwards; `--inj-fraction 1` samples with all the injections, as the paper does. The number of PE samples per event also matters (3000 instead of 1500 raises H₀ by about 5 km/s/Mpc). H₀ is strongly anti-correlated with μ_g, and the upper part of its interval depends on the prior bound of 200 km/s/Mpc. The lower peak of MLTP, near 9–10 M☉ (σ ≈ 0.8 M☉ in the run), is a much sharper feature than the ~28–30 M☉ bump, hence its tighter and lower H₀. FullPop-4.0 (seven runs of 100 live points, 141 events, reweighted to all the injections) gives 74.4 (+25.4 / −18.9) km/s/Mpc, 90%: 44.4–122.9, against 72.9 (+21.9 / −18.8), 90%: 44.0–111.9, in the paper: the same lower end, a longer upper tail.
 
@@ -707,13 +707,13 @@ gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright hub
 | GW170817, viewing angle 20 ± 3° (radio jet, [Hotokezaka et al. 2019](https://arxiv.org/abs/1806.10596): 70.3 (+5.3 / −5.0)) | | | 68.2 (+4.7 / −4.4) |
 | GW170817 × spectral siren (Power Law + Peak), `--method joint` | | | 71.7 (+22.3 / −8.0) |
 | GW170817 × dark siren (Power Law + Peak, GLADE+ K), `--method joint` | | | 73.2 (+24.2 / −8.4) |
-| GW190521, IMRPhenomXPHM | **candidate** AGN flare at z = 0.438 ([Graham et al. 2020](https://arxiv.org/abs/2006.14122)) | O3a injections, BBH population | 30.4 (+61.0 / −7.0), bimodal |
+| GW190521, IMRPhenomXPHM | **candidate** AGN flare at z = 0.438 ([Graham et al. 2020](https://arxiv.org/abs/2006.14122)) | O3a injections, BBH population | 32.9 (+115.6 / −4.6), bimodal; dominated by the mass model (the primary lies beyond its 87 M☉) |
 
 - **Selection term** (`--selection`, `auto` by default):
   - **nearby events** (z < 0.05): GW-limited detection, β ∝ H₀³. This cancels the volume factor and gives the LVK 2017 formula p(H₀) ∝ Σᵢ N(v_H; H₀ dᵢ, σ).
   - **distant events:** β is computed from the LVK sensitivity injections of the event's run, reweighted at each trial H₀ to the population of its class.
 - **GW170817:** the upper side of its interval is wider than published because the public GWTC-1 distance has a longer low-distance tail, from the distance–inclination degeneracy; an independent constraint on the viewing angle (`--viewing-angle MEAN SIGMA`) removes it. Its samples come from the [unofficial bundle](#build_unofficial_pe-unofficial-bundle-workflow), whose sky position is fixed to AT2017gfo.
-- **GW190521:** the association with ZTF19abanrhr is not established; [Ashton et al. 2021](https://arxiv.org/abs/2009.12346) find odds of 1 to 12. The report gives H₀ *if* the flare is the counterpart.
+- **GW190521:** the association with ZTF19abanrhr is not established; [Ashton et al. 2021](https://arxiv.org/abs/2009.12346) find odds between 1 and 12 in favour of a common source, depending on the waveform model. The report gives H₀ *if* the flare is the counterpart.
 - **Validation:** mock bright sirens (simulated detections at z ≈ 0.5 with a known H₀) check the analysis. It recovers H₀ = 70 to within its uncertainty with the selection term, against a 3σ bias without it, and passes a P–P coverage test.
 - **Joint posterior:** `--method joint --inputs` takes `hubble_constant` work directories (or TSVs); the posteriors multiply (same flat prior 10–200 km/s/Mpc). The inputs are checked to be independent: at most one spectral or dark siren, no event in two inputs.
 
@@ -748,7 +748,7 @@ gwtc_analysis area_law               # downloads 114 MB once
 
 - **BBH:** the Power Law + Peak masses and the Madau–Dickinson rate shape of each draw of a spectral-siren posterior (`hubble_constant`), normalized to the BBH rate at z = 0.2 of the `rates` mode, with the inspiral–merger–ringdown spectrum of Ajith et al. 2008. Beyond the farthest detected events (z ≈ 1) the rate follows the star-formation history (`--high-z sfr`, default) or the fitted shape, there the prior's (`--high-z posterior`).
 - **BNS, NSBH:** the local rates of `rates`, the star-formation history, the inspiral spectrum up to the ISCO.
-- **Result (GWTC-4.0):** Ω_GW(25 Hz) = 7.5 × 10⁻¹⁰ (90%: 5.5–11.7 × 10⁻¹⁰), BBH 6.0 × 10⁻¹⁰. The LVK prediction from GWTC-5.0 is 6.3 (+5.0 / −2.2) × 10⁻¹⁰, and the upper limit from the data through April 2025 is 2.0 × 10⁻⁹ ([arXiv:2608.23477](https://arxiv.org/abs/2608.23477)): a factor 2.7 below detection.
+- **Result (GWTC-4.0 posterior, rates of the default `gwtc5` release):** Ω_GW(25 Hz) = 7.5 × 10⁻¹⁰ (90%: 5.5–11.7 × 10⁻¹⁰), BBH 6.0 × 10⁻¹⁰. The LVK prediction from GWTC-5.0 is 6.3 (+5.0 / −2.2) × 10⁻¹⁰, and the upper limit from the data through April 2025 is 2.0 × 10⁻⁹ ([arXiv:2608.23477](https://arxiv.org/abs/2608.23477)): a factor 2.7 below detection.
 
 ```bash
 gwtc_analysis rates --out-rates merger_rates.tsv
@@ -781,7 +781,7 @@ gwtc_analysis neutron_star_eos
 | μ₀, mean χ_eff at q = 0.5 | 0.18 (0.11–0.23) |
 | σ | 0.077 (0.067–0.097) |
 | α, slope with q | −0.44 (−0.58 to −0.24), P(α < 0) > 0.999 |
-| fraction with χ_eff < 0 | 0.35 (0.26–0.43); GWTC-4.0: 0.24–0.42 |
+| fraction with χ_eff < 0 | 0.35 (0.26–0.43) over the detected mass ratios (to be updated: the mode now averages over the astrophysical ones); GWTC-4.0: 0.24–0.42 |
 
 Unequal-mass binaries have larger effective spins, as Callister et al. found; [GWTC-4.0](https://arxiv.org/abs/2508.18083) also finds evidence for a χ_eff–q correlation. A run takes about 30 minutes.
 
@@ -793,7 +793,7 @@ gwtc_analysis spin_population
 
 `lens_pairs` tests every pair of binary black holes for being two lensed images of one merger: the same detector-frame masses, spins and sky position, a delay typical of galaxy lenses. The statistic is the posterior-overlap Bayes factor ([Haris et al. 2018](https://arxiv.org/abs/1807.07062)) times the ratio of the delay densities of galaxy-lensed (isothermal lenses) and unrelated pairs, and the false-positive probability of a pair is its rank among all the pairs. It is the tier-1 screen of the LVK lensing searches: a flagged pair is a candidate for joint parameter estimation, not a detection.
 
-- **Validation (O4a):** the 84 binary black holes and 3486 pairs of the LVK GWTC-4.0 search ([arXiv:2512.16347](https://arxiv.org/abs/2512.16347)); the same top pair, the LVK's five highest pairs in the first six, 28 of their 38 pairs flagged at FPP < 1 %, and their time-delay factor reproduced (rank correlation 0.998).
+- **Validation (O4a):** the 84 binary black holes and 3486 pairs of the LVK GWTC-4.0 search ([arXiv:2512.16347](https://arxiv.org/abs/2512.16347)); the same top pair, the LVK's five highest pairs in the first six, 28 of their 38 pairs flagged at FPP < 1 %, and their time-delay factor reproduced (rank correlation 1.000).
 
 ```bash
 gwtc_analysis lens_pairs                                   # O4a, as the LVK
@@ -816,7 +816,7 @@ If an override is omitted, the corresponding shared default is used.
 
 When the posterior is BNS-like (median `chirp_mass` < 5 M☉), the workflow
 automatically switches the overlay and q-transform windows to a BNS profile
-(longer windows, wider frequency range) for any parameter you did **not** set
+(overlay 0.2 s on each side of the merger, 20–300 Hz; q-transform from 2 s before to 1 s after, 50–1000 Hz) for any parameter you did **not** set
 explicitly on the CLI. An explicit `--overlay-*` / `--q-*` value always wins.
 
 ### `parameters_estimation`: Higher multipoles and precession
@@ -840,13 +840,13 @@ sit at the coalescence time and rise to the detector's recovered SNR.
   at 15 Hz, resampled to a 2048 Hz grid, edges cropped of filter transients), so
   the off-source `|ρ(t)|` has unit-scale RMS (~0.7). A normalization guard warns
   if it strays from that range.
-- **Short (BBH-like) signals only.** A single maximum-likelihood template cannot
-  coherently recover a long BNS inspiral — over the many thousands of inspiral
-  cycles, small parameter/phase differences accumulate and the SNR is lost
-  (reliable BNS recovery requires a template bank, not just more strain). When the
-  template is longer than the available conditioned data, the matched-filter SNR
-  is **skipped with a warning**; all other plots are still produced. This is *not*
-  fixable by fetching a longer strain segment.
+- **Long (BNS-like) templates.** When the template is longer than the strain fetched
+  for the plots, up to ±512 s of strain are fetched for the filter; if that fails,
+  the matched-filter SNR is skipped with a warning and the other plots are still
+  produced. A single maximum-likelihood template can still lose part of the SNR
+  over thousands of inspiral cycles (a search uses a template bank).
+- The filter uses the full band of the conditioned data (to 1024 Hz), not the
+  overlay's display band.
 
 ### `build_unofficial_pe`: Unofficial Bundle Workflow
 

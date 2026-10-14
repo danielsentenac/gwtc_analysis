@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import html
+import os
 import json
 import re
 import warnings
@@ -94,17 +95,27 @@ def _download_http_with_progress(
         total_size = int(total) if total and total.isdigit() else None
 
         pbar = tqdm(total=total_size, unit="B", unit_scale=True, desc=desc) if tqdm else None
+        # written to a .part file, renamed only when complete: an interrupted download must not stay in the cache
+        # as a truncated file that every later run takes for a finished one
+        tmp = out_path.with_name(out_path.name + ".dl")
+        got = 0
         try:
-            with out_path.open("wb") as f:
+            with tmp.open("wb") as f:
                 for chunk in r.iter_content(chunk_size=chunk_size):
                     if not chunk:
                         continue
                     f.write(chunk)
+                    got += len(chunk)
                     if pbar:
                         pbar.update(len(chunk))
         finally:
             if pbar:
                 pbar.close()
+        encoded = r.headers.get("Content-Encoding", "identity").lower() not in ("", "identity")
+        if total_size is not None and not encoded and got != total_size:    # decoded sizes differ from the header
+            tmp.unlink(missing_ok=True)
+            raise OSError(f"{url}: received {got} of {total_size} bytes")
+        tmp.replace(out_path)
 
 
 MAX_SKYMAP_NSIDE = 1024           # finer PE skymaps are summed down before reading (memory)
@@ -331,7 +342,9 @@ def build_zenodo_pe_index(
             return cached["index"]
         return index
 
-    cache_path.write_text(json.dumps({"record_ids": rids, "index": index}, indent=2), encoding="utf-8")
+    tmp = cache_path.with_name(f"{cache_path.name}.{os.getpid()}.part")     # atomic: readers never see half a file
+    tmp.write_text(json.dumps({"record_ids": rids, "index": index}, indent=2), encoding="utf-8")
+    tmp.replace(cache_path)
     return index
 
 
@@ -508,15 +521,22 @@ def _download_s3_with_progress(
 
     pbar = tqdm(total=total_size, unit="B", unit_scale=True, desc=desc) if tqdm else None
     resp = client.get_object(bucket, object_name)
+    tmp = out_path.with_name(out_path.name + ".dl")      # renamed when complete (see _download_http_with_progress)
+    got = 0
     try:
-        with out_path.open("wb") as f:
+        with tmp.open("wb") as f:
             while True:
                 chunk = resp.read(chunk_size)
                 if not chunk:
                     break
                 f.write(chunk)
+                got += len(chunk)
                 if pbar:
                     pbar.update(len(chunk))
+        if total_size is not None and got != total_size:
+            tmp.unlink(missing_ok=True)
+            raise OSError(f"s3://{bucket}/{object_name}: received {got} of {total_size} bytes")
+        tmp.replace(out_path)
     finally:
         try:
             resp.close()
@@ -915,7 +935,7 @@ def run_parameters_estimation(
     pe_label: str = "Mixed",
     waveform_engine: str = "IMRPhenomXPHM",
     out_report_html: str | None = None,
-    data_repo: str = "s3",
+    data_repo: str = "zenodo",            # as the CLI
     catalog: str | None = None,
     pe_vars: list[str] | None = None,
     pe_pairs: list[str] | None = None,
@@ -937,6 +957,9 @@ def run_parameters_estimation(
     Returns a dict of produced filenames (always relative/absolute paths as written).
     """
     global LAST_RESULT
+    from . import gwpe_utils as _gu
+
+    _gu._LAST_REQUESTED_WAVEFORM_ENGINE = None     # the engine of an earlier event must not choose this one's labels
     
     import os
 
@@ -1183,6 +1206,7 @@ def run_parameters_estimation(
             )
 
             remote_file: Optional[str] = None
+            cands: dict[str, list[str]] = {}
             for obj in client.list_objects("gwtc", recursive=True):
                 file_name = obj.object_name
                 if (
@@ -1190,9 +1214,23 @@ def run_parameters_estimation(
                     and "PEDataRelease" in file_name
                     and (file_name.endswith(".h5") or file_name.endswith(".hdf5"))
                 ):
-                    remote_file = file_name
-                    pe_log(f"ℹ️ [INFO] Found remote PE file: {file_name}", event_logs)
-                    break
+                    m_ev = re.search(r"GW\d{6}_\d{6}", file_name)
+                    cands.setdefault(m_ev.group(0) if m_ev else file_name, []).append(file_name)
+            if len(cands) > 1:
+                # a short name (GW190521) matching several events: ask for the full one, never pick by listing order
+                exact = [k for k in cands if k == src_name]
+                if not exact:
+                    msg = (f"❌ [ERROR] {src_name} matches several events on S3 ({', '.join(sorted(cands))}): "
+                           "give the full name")
+                    pe_log(msg, event_logs)
+                    raise ValueError(msg)
+                cands = {exact[0]: cands[exact[0]]}
+            if cands:
+                files = next(iter(cands.values()))
+                # the original distance prior first (nocosmo), as for Zenodo
+                remote_file = sorted(files, key=lambda f: (0 if "nocosmo" in f.lower() else
+                                                           1 if "combined" in f.lower() else 2, f))[0]
+                pe_log(f"ℹ️ [INFO] Found remote PE file: {remote_file}", event_logs)
 
             if remote_file is None:
                 local_pe_path = _maybe_use_unofficial_bundle(
@@ -1580,7 +1618,7 @@ def run_parameters_estimation(
                         label=pe_label_waveform,
                         t0=t0,
                         fmin=overlay_fmin,
-                        fmax=overlay_fmax,
+                        fmax=None,          # the full band (to 1024 Hz), not the overlay's display band
                         requested_approximant=requested_engine_aprx,
                         allow_fallback=True,
                         event_logs=event_logs,
@@ -1598,20 +1636,28 @@ def run_parameters_estimation(
                 except Exception as e_mf:
                     pe_log(f"⚠️ [WARN] Could not compute matched-filter SNR for {det}: {e_mf}", event_logs)
 
-                bp_cropped, crop_temp, used_aprx = generate_projected_waveform(
-                    strain=strain,
-                    event=src_name,
-                    det=det,
-                    t0=t0,
-                    pedata=data,
-                    label=pe_label_waveform,                      # PE label for PSD/maxL context
-                    requested_approximant=requested_engine_aprx,  # engine approximant
-                    allow_fallback=True,
-                    freqrange=(overlay_fmin, overlay_fmax),
-                    time_window=(overlay_start_before, overlay_stop_after),
-                    event_logs=event_logs,
-                    align=align,
-                )
+                # one detector's failure (whitening, cropping, plotting) must not skip the other detectors, the
+                # q-transforms, the PSD and the skymaps
+                bp_cropped = crop_temp = None
+                used_aprx = requested_engine_aprx
+                try:
+                    bp_cropped, crop_temp, used_aprx = generate_projected_waveform(
+                        strain=strain,
+                        event=src_name,
+                        det=det,
+                        t0=t0,
+                        pedata=data,
+                        label=pe_label_waveform,                      # PE label for PSD/maxL context
+                        requested_approximant=requested_engine_aprx,  # engine approximant
+                        allow_fallback=True,
+                        freqrange=(overlay_fmin, overlay_fmax),
+                        time_window=(overlay_start_before, overlay_stop_after),
+                        event_logs=event_logs,
+                        align=align,
+                    )
+                except Exception as e_ov:
+                    pe_log(f"⚠️ [WARN] Could not build the projected waveform for {det}: "
+                           f"{type(e_ov).__name__}: {e_ov}", event_logs)
 
                 if bp_cropped is not None and crop_temp is not None:
                 
@@ -1620,21 +1666,25 @@ def run_parameters_estimation(
                             "ℹ️ [INFO] SEOBNRv5PHM exists in PE but may not be regenerable "
                             "for strain overlays with GWSignal; fallback may occur.", event_logs
                         )
-                    fname_overlay = plot_whitened_overlay(
-                        bp_cropped,
-                        crop_temp,
-                        src_name,
-                        det,
-                        outdir,
-                        approximant=used_aprx,
-                        t0=t0,
-                        pe_label=pe_rhs,
-                        engine_requested=requested_engine_aprx,   # what you tried first
-                        engine_used=used_aprx,                    # what succeeded (may be fallback)
-                    )
-                    result.files_strain.append(fname_overlay)
-                    if oda_available and PictureProduct is not None:
-                        fig_strainList.append(PictureProduct.from_file(fname_overlay))
+                    try:
+                        fname_overlay = plot_whitened_overlay(
+                            bp_cropped,
+                            crop_temp,
+                            src_name,
+                            det,
+                            outdir,
+                            approximant=used_aprx,
+                            t0=t0,
+                            pe_label=pe_rhs,
+                            engine_requested=requested_engine_aprx,   # what you tried first
+                            engine_used=used_aprx,                    # what succeeded (may be fallback)
+                        )
+                        result.files_strain.append(fname_overlay)
+                        if oda_available and PictureProduct is not None:
+                            fig_strainList.append(PictureProduct.from_file(fname_overlay))
+                    except Exception as e_pl:
+                        pe_log(f"⚠️ [WARN] Could not plot the overlay for {det}: {type(e_pl).__name__}: {e_pl}",
+                               event_logs)
                 else:
                     pe_log(f"⚠️ [WARN] Skipping overlay for {det} (no waveform).", event_logs)
 
@@ -1701,8 +1751,8 @@ def run_parameters_estimation(
                 fig_psdList.append(PictureProduct.from_file(fname_psd))
 
         except Exception as e:
-            pe_log(f"❌ [ERROR] Failed creating PSD plot: {e}", event_logs)
-            go_next_cell = False
+            # a missing PSD (no label has one and no supplement is registered) loses this plot only, not the skymaps
+            pe_log(f"⚠️ [WARN] Could not create the PSD plot: {type(e).__name__}: {e}", event_logs)
 
     # ---------------------------------------------------------------------
     # Skymap plot

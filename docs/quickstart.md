@@ -26,7 +26,7 @@ analyses. Its PE files are read only on request (`--zenodo-version GWTC-4.1=late
 
 All the keys are **confident** catalogs: every event of their GWOSC lists has a probability of
 astrophysical origin p_astro ≥ 0.5 (the re-analysed O1–O2 events of GWTC-2.1 carry no p_astro value).
-The marginal candidates are only read by the `rates`, `hubble_constant` and `spin_population` modes. Event counts of the
+Only the `rates`, `hubble_constant` and `spin_population` modes select events from the marginal lists (`counterpart` and `search_skymaps --counterparts` also look events up in them). Event counts of the
 GWOSC lists in September 2026; the Zenodo records are the starting point, the version read being
 resolved at run time ([Zenodo release versions](data-sources.md#zenodo-release-versions)); the run
 dates are in [Data sources](data-sources.md#observing-runs).

@@ -7,7 +7,8 @@ improvement on off-source noise. It reproduces their analysis of **GW190728_0645
 tentative evidence for a scalar environment.
 
 ```bash
-gwtc_analysis scalar_cloud                                     # GW190728: prepare, best fit, report (laptop, ~2 h)
+gwtc_analysis scalar_cloud                                     # GW190728: prepare, first best fit, report (laptop, ~2 h)
+# the headline result (Λ = 8.98) needs the samplings, then the fits seeded from them:
 gwtc_analysis scalar_cloud --stages sample --executor slurm --submit \
     --python /path/to/env/bin/python --slurm-option=--partition=htc --slurm-option=--licenses=sps
 gwtc_analysis scalar_cloud --stages seeded --executor slurm --submit ...   # once the superradiance sampling is done
@@ -98,7 +99,8 @@ The binary priors are those of the GWTC-2.1 analysis. The merger time is margina
 
 ## GW190728_064510
 
-CC-IN2P3 (`--executor slurm`): the vacuum sampling with 1000 live points, the two cloud samplings with 500 (64 CPUs,
+CC-IN2P3 (`--executor slurm`): the vacuum sampling with 1000 live points, the two cloud samplings with 500 (run by hand with `python -m gwtc_analysis.scalar_cloud sample --nlive 500`;
+the mode's own samplings use the paper's 1000) (64 CPUs,
 about a day each), 151 jobs of about an hour for the event and the background, 150 for the injections of the cloud
 best fit (`scalar_cloud.py seeded --inject cloud`).
 

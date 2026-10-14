@@ -376,8 +376,8 @@ def _plot_area_cdf(
     if source_type is not None and "binary_type" in d.columns:
         d = d[d["binary_type"] == source_type]
 
-    # Need detector count for MMODA-style grouping
-    if "n_det" not in d.columns:
+    # Need detector count for MMODA-style grouping: without it (not requested, or every lookup failed), one curve
+    if "n_det" not in d.columns or pd.to_numeric(d["n_det"], errors="coerce").isna().all():
         # fall back to single curve
         s = pd.to_numeric(d[column], errors="coerce").dropna()
         if s.empty:
@@ -454,7 +454,7 @@ def run_catalog_statistics(
     area_cred: float = 0.9,
     area_column: str | None = None,
     ns_threshold: float = 3.0,
-    data_repo: str = "s3",
+    data_repo: str = "zenodo",            # as the CLI
     plots_dir: Optional[str] = None,
     zenodo_versions: Optional[dict[str, str]] = None,
 ) -> None:
@@ -635,7 +635,7 @@ def run_catalog_statistics(
                     tmp = gw.add_localization_area_from_galaxy(
                         df.loc[m],
                         catalog_key=cat,
-                        skymap_dir=str(base),
+                        base_dir=str(base.parent),
                         cred=area_cred,
                         column=area_column,
                         progress=True,
@@ -945,14 +945,33 @@ def _zenodo_sensitivity_file(record: str, label: str, pattern: str, tag: str = "
         raise ValueError(f"Cannot list the Zenodo files of the sensitivity release {label} (record {record}): {e}") from e
     if not names:
         raise ValueError(f"No injection mixture file matching {pattern} in Zenodo record {record_id} ({label})")
-    name = sorted(names)[0]
+    # several matches (a release with per-run and cumulative files): the one naming the most observing runs
+    runs = ("o1", "o2", "o3", "o4a", "o4b", "o4c", "o5")
+    name = sorted(names, key=lambda n: (-sum(t in re.split(r"[^a-z0-9]+", n.lower()) for t in runs), n))[0]
+    entry = next(f for f in latest["files"] if f.get("key") == name)
     dest = zenodo_cache_dir() / f"zenodo_{record_id}_{name}"
     if not (dest.exists() and dest.stat().st_size > 0):
         url = f"https://zenodo.org/records/{record_id}/files/{name}?download=1"
         print(f"[{tag}] retrieving LVK search-sensitivity injections, {label}: {url}")
         gw._download_with_byte_progress(url, dest)
+        _check_md5(dest, entry.get("checksum"))
     print(f"[{tag}] sensitivity injections: {label}, record {record_id}: {dest.name}")
     return dest
+
+
+def _check_md5(path: Path, checksum: Optional[str]) -> None:
+    """Compare a downloaded file with the 'md5:...' checksum Zenodo lists; a mismatch removes it."""
+    import hashlib
+
+    if not checksum or not str(checksum).startswith("md5:"):
+        return
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 24), b""):
+            h.update(block)
+    if h.hexdigest() != checksum[4:]:
+        path.unlink(missing_ok=True)
+        raise OSError(f"{path.name}: MD5 checksum mismatch with Zenodo; removed, run again")
 
 
 def _rates_sensitivity_path(sensitivity_file: str | Path | None = None,
@@ -1063,6 +1082,8 @@ def _ln_power_law_peaks(m1: np.ndarray, m2: np.ndarray, *, alpha, beta, mmin, mm
                         peaks: tuple[tuple[float, float, float], ...]) -> np.ndarray:
     """ln p(m1, m2): m1 a power law on [mmin, mmax] plus Gaussian peaks (weight, mean, width), m2 ~ m2^beta
     on [mmin, m1], both with the low-mass smoothing over delta; normalized numerically."""
+    from scipy.special import erf
+
     trapz = getattr(np, "trapezoid", None) or np.trapz
 
     def smooth(m):
@@ -1082,7 +1103,12 @@ def _ln_power_law_peaks(m1: np.ndarray, m2: np.ndarray, *, alpha, beta, mmin, mm
         pl = np.where((m >= mmin) & (m <= mmax), np.maximum(m, 1e-12) ** -alpha, 0.0) / pl_norm
         out = (1 - sum(w for w, _, _ in peaks)) * pl
         for w, mu, sig in peaks:
-            out = out + w * np.exp(-0.5 * ((m - mu) / sig) ** 2) / (sig * np.sqrt(2 * np.pi))
+            # truncated to [mmin, mu + 5 sigma] and normalized there, as icarogw's PowerLawPeak and MultiPeak
+            hi = mu + 5 * sig
+            tn = 0.5 * (erf((hi - mu) / (np.sqrt(2) * sig)) - erf((mmin - mu) / (np.sqrt(2) * sig)))
+            inside = (m >= mmin) & (m <= hi)
+            out = out + w * np.where(inside, np.exp(-0.5 * ((m - mu) / sig) ** 2), 0.0) / (
+                sig * np.sqrt(2 * np.pi) * max(tn, 1e-300))
         return out * smooth(m)
 
     norm1 = trapz(shape1(g), g)
@@ -1196,7 +1222,9 @@ def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_
             # the published FARs are rounded (e.g. 0.25 for 0.245-0.255): compared inclusively
             if not any(a <= gps <= b for a, b in segments) or far > far_threshold:
                 continue
-            name, key = v.get("commonName"), int(round(gps))
+            name = v.get("commonName")
+            # the same event in two lists, its GPS time given to different precisions: matched within 1 s
+            key = next((k for k in best if abs(best[k]["gps"] - gps) < 1.0), gps)
             if key in best and best[key]["far_per_yr"] <= far:
                 continue
             best[key] = dict(event=name, catalog=cat, gps=gps, far_per_yr=far, p_astro=v.get("p_astro"),
@@ -1252,7 +1280,7 @@ def _plot_rates_mass_distribution(inj: dict, events: pd.DataFrame, out_png: Path
         ax.tick_params(colors=ink2, labelsize=9)
     ax1.bar(edges[:-1], counts, width=np.diff(edges) * 0.94, align="edge", color=blue, linewidth=0, zorder=2)
     ax1.set_ylabel("Detected events", color=ink2, fontsize=10)
-    ax1.set_title(f"Observed: {len(em1)} detections (FAR < threshold)", color=ink, fontsize=10.5, loc="left")
+    ax1.set_title(f"Observed: {len(em1)} detections (FAR ≤ threshold)", color=ink, fontsize=10.5, loc="left")
     det = counts > 0
     ax2.errorbar(np.sqrt(edges[1:] * edges[:-1])[det], med[det], yerr=[med[det] - lo_q[det], hi_q[det] - med[det]],
                  fmt="o", ms=5, color=orange, ecolor=orange, elinewidth=1.5, capsize=0, zorder=3)
@@ -1326,8 +1354,11 @@ def run_merger_rates(
                                  far_threshold, snr_threshold, runs=runs)
     if len(inj["redshift"]) == 0:
         raise ValueError(f"No found injection in the selected runs ({', '.join(runs or [])})")
-    # an update catalog (GWTC-4.1) adds its list to the default ones: each event keeps its lowest FAR
-    event_lists = RATES_EVENT_LISTS + _reg.gwosc_lists(_reg.update_catalogs(catalogs or []))
+    # an update catalog (GWTC-4.1) replaces the list of the catalog it re-analyses: its FARs supersede the original
+    # ones (keeping the lowest of both would count events the update demoted)
+    updates = _reg.update_catalogs(catalogs or [])
+    replaced = set(_reg.gwosc_lists({_reg.CATALOGS[u].update_of for u in updates}))
+    event_lists = tuple(l for l in RATES_EVENT_LISTS if l not in replaced) + _reg.gwosc_lists(updates)
     events = _rates_events(inj["segments"], far_threshold, ns_max_mass, event_lists)
     counts = events["class"].value_counts().to_dict()
     n_unknown = int(counts.get("unknown", 0))
@@ -1372,7 +1403,7 @@ def run_merger_rates(
         events.to_csv(out_events_tsv, sep="\t", index=False)
     periods = ", ".join(f"{a:.0f}-{b:.0f}" for a, b in inj["segments"])
     sel = f"runs {', '.join(runs)}" if runs else f"{inj['T_yr']:.2f} yr analysed"
-    print(f"[rates] {len(events)} events with FAR < {far_threshold:g}/yr in the injection periods (GPS {periods}; "
+    print(f"[rates] {len(events)} events with FAR ≤ {far_threshold:g}/yr in the injection periods (GPS {periods}; "
           f"{sel}); {n_unknown} without masses left out")
     for r in rows:
         print(f"[rates] {r['population']:4s} N={r['n_detected']:3d} <VT>={r['vt_gpc3_yr']:.4g} Gpc3 yr "

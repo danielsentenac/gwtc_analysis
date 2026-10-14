@@ -76,7 +76,7 @@ COUNTERPARTS = {
         population="BBH", ref="Graham et al. 2020, arXiv:2006.14122", z=0.438, sigma_z=0.0015,
         pe_event="GW190521_030229", pe_labels=("C01:IMRPhenomXPHM",), candidate=True,
         caveat="The association of ZTF19abanrhr with GW190521 is not established: the odds of a common source "
-               "are 1 to 12 depending on the waveform model (Ashton et al. 2021, arXiv:2009.12346). The result "
+               "are between 1 and 12 in its favour, depending on the waveform model (Ashton et al. 2021, arXiv:2009.12346). The result "
                "is H<sub>0</sub> <i>if</i> the flare is the counterpart.",
     ),
 }
@@ -88,6 +88,9 @@ def hubble_flow_redshift(cp: Counterpart, v_recession=None, v_peculiar=None, red
         z, s = redshift
         return float(z), float(s), f"z = {z:g} ± {s:g} (given)"
     if v_recession is not None or v_peculiar is not None or cp.v_recession is not None:
+        if v_recession is None and cp.v_recession is None:
+            raise ValueError(f"--v-peculiar needs a recession velocity (--v-recession): {cp.host} is registered by its "
+                             "redshift; give --redshift instead")
         vr, sr = v_recession or (cp.v_recession, cp.sigma_recession)
         vp, sp = v_peculiar or (cp.v_peculiar or 0.0, cp.sigma_peculiar or 0.0)
         vh, sv = vr - vp, float(np.hypot(sr, sp))
@@ -480,7 +483,6 @@ def run_counterpart(
     `sky_map`: FITS sky map for the searched probability; by default the event's LVK map when its PE file is read
     from Zenodo, else (or with "none") a kernel estimate on the PE samples."""
     from . import h0_bright as hb
-    from .hubble_constant import pe_distance_prior as distance_prior
 
     cp = get_counterpart(event, ra_deg, dec_deg, redshift=redshift, host=host, population=counterpart_class)
     if sky_radius_deg <= 0:
@@ -520,8 +522,7 @@ def run_counterpart(
             notes.append(f"{label}: {e}; the distance along the line of sight is not estimated.")
             rows.append(row)
             continue
-        d = np.asarray(s["luminosity_distance"], float)[keep]
-        prior, _ = distance_prior(d, s["prior_desc"], cp.run, kind=pe_distance_prior)
+        d = np.asarray(s["luminosity_distance"], float)[keep]     # the posterior as released, PE prior included
         row["n_line_of_sight"] = int(keep.sum())
         row["distance_median"], row["distance_low_90"], row["distance_high_90"] = _q(d)
         for name, dl in refs:

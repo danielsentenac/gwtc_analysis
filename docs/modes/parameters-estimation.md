@@ -48,7 +48,7 @@ frequency bands have shared defaults and per-product overrides:
 | q-transform only | `--q-start`, `--q-stop`, `--q-fmin`, `--q-fmax`, `--q-fscale {linear,log}` |
 
 When the posterior is BNS-like (median chirp mass below 5 M☉), the windows not set explicitly switch
-to a BNS profile: longer windows and a wider frequency range.
+to a BNS profile: overlay 0.2 s on each side of the merger, 20–300 Hz; q-transform from 2 s before to 1 s after, 50–1000 Hz.
 
 The waveform is aligned to the data in time and phase with the matched filter below, so that the
 overlay stays coherent even when the stored maximum-likelihood extrinsic parameters are approximate.
@@ -65,10 +65,12 @@ coalescence time, at about the detector's recovered SNR.
   warns if it strays from that range.
 - Loud glitches are gated out before filtering, and the SNR is only reported where the matched
   filter is valid.
-- **Short (BBH-like) signals only.** A single template cannot coherently recover a long BNS inspiral:
-  over thousands of cycles, small parameter and phase differences accumulate and the SNR is lost
-  (that requires a template bank). When the template is longer than the conditioned data, the
-  matched-filter SNR is skipped with a warning; the other products are still made.
+- **Long (BNS-like) templates.** When the template is longer than the strain fetched for the plots, up to
+  ±512 s of strain are fetched for the filter; if that fails, the matched-filter SNR is skipped with a
+  warning and the other products are still made. Over thousands of cycles a single maximum-likelihood
+  template can still lose part of the SNR (small parameter and phase differences accumulate; a search
+  uses a template bank).
+- The filter uses the full band of the conditioned data (to 1024 Hz), not the overlay's display band.
 
 ## Higher multipoles and precession
 

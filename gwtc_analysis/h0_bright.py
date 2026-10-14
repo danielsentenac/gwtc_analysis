@@ -26,8 +26,10 @@ sample spacing (a distant host with a spectroscopic redshift).
   population (the mass model of its class; the injected isotropic spins) at each trial H0.
 - ``auto`` (default): ``euclidean`` below z = 0.05, ``injections`` above; ``injections`` with a population model.
 
-The population (``--population``) is, by default, sources uniform in comoving volume and source-frame time, with no
-mass term in the numerator (the mass of the event's class enters the selection only). ``fullpop4`` is the model of the
+The population (``--population``) is, by default, sources uniform in comoving volume and source-frame time. With the
+``euclidean`` selection there is no mass term; with ``injections``, the source-frame mass model of the event's class
+weights the numerator as it weights β (the two must describe the same population, and the source-frame masses depend
+on H0 through z). ``fullpop4`` is the model of the
 GWTC-4.0 reanalysis of GW170817 (arXiv:2509.04348, Appendix E): the FullPop-4.0 mass distribution (BNS, NSBH and BBH
 in one, icarogw's ``m1m2_paired_massratio_bplmulti_dip``) and the Madau-Dickinson rate, fixed to the medians of the
 paper's spectral siren. The numerator then carries p_m(m1/(1+z), m2/(1+z)) ψ(z) / (1+z)^2 for each sample (the PE
@@ -477,6 +479,11 @@ def run_h0_bright(
             sel_note += f" <b>Fewer than {MIN_NEFF_INJECTIONS} effective injections: β is noisy.</b>"
             _log(f"WARN: only {neff.min():.0f} effective injections")
     _log(f"selection: {sel}; population: {population}")
+    # the population in the numerator must be the one β is computed for: with injections and the default (volume)
+    # population, β carries the source-frame mass model of the event's class, so the numerator carries it too
+    num_pop = pop
+    if pop is None and sel == "injections":
+        num_pop = Population(MASS_POPULATIONS[cp.population], lambda z: np.zeros_like(z), "")
 
     rows, posts, notes = [], {}, []
     for label, s in samples.items():
@@ -484,7 +491,7 @@ def run_h0_bright(
         d = np.asarray(s["luminosity_distance"], float)[keep]
         prior, prior_desc = hc.pe_distance_prior(d, s["prior_desc"], cp.run, kind=pe_distance_prior)
         masses = None
-        if pop is not None:
+        if num_pop is not None:
             if "mass_1" not in s or "mass_2" not in s:
                 raise ValueError(f"{label}: no detector-frame masses (mass_1, mass_2) in the samples for "
                                  f"--population {population}")
@@ -496,7 +503,7 @@ def run_h0_bright(
                 raise ValueError(f"{label}: no viewing angle (theta_jn or iota) in the samples for the constraint")
             w = viewing_angle_weights(view[keep], viewing_angle_constraint)
             w_note = f"; {w.sum() ** 2 / (w * w).sum():.0f} effective samples with the viewing-angle constraint"
-        p = posterior_from_ln(h0, event_ln_likelihood(h0, d, prior, z_obs, sigma_z, weights=w, population=pop,
+        p = posterior_from_ln(h0, event_ln_likelihood(h0, d, prior, z_obs, sigma_z, weights=w, population=num_pop,
                                                           masses=masses) - ln_beta)
         posts[label] = p
         dq = np.percentile(d, [5, 50, 95])
