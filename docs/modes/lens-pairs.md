@@ -104,6 +104,16 @@ LVK results (superevent names mapped to the catalog events through their GraceDB
   smoothed histograms of 2000 samples of an earlier PE release version. The LVK passed 105 pairs (posterior
   overlap or Phazap) to tier 2; none survived tier 3.
 
+## Limits
+
+- Tier 1 only: no joint parameter estimation, and no phase consistency test (the LVK runs Phazap beside
+  posterior overlap; a type-II image's π/2 phase is not used here).
+- Only events with PE: LVK marginal candidates have none. Faint second images below the detection threshold
+  need a targeted search of the strain data (the LVK sub-threshold search), outside this mode.
+- Events of other catalogs (IAS, OGC), which the O1–O4a search of Barsode et al.
+  [\[110\]](../references.md#ref-110) includes, are not read.
+- The lens model is a single isothermal sphere: no ellipticity (four images), no clusters (delays of years).
+
 ## Outputs
 
 - `lens_pairs.tsv`: every pair, ranked: the two events, the delay (days), ln 𝓑 intrinsic and sky,
@@ -131,13 +141,3 @@ LVK results (superevent names mapped to the catalog events through their GraceDB
 | `--plots-dir` | `lens_pairs_plots` | Directory for the plots. |
 
 Every report ends with the options of its run, defaults included.
-
-## Limits
-
-- Tier 1 only: no joint parameter estimation, and no phase consistency test (the LVK runs Phazap beside
-  posterior overlap; a type-II image's π/2 phase is not used here).
-- Only events with PE: LVK marginal candidates have none. Faint second images below the detection threshold
-  need a targeted search of the strain data (the LVK sub-threshold search), outside this mode.
-- Events of other catalogs (IAS, OGC), which the O1–O4a search of Barsode et al.
-  [\[110\]](../references.md#ref-110) includes, are not read.
-- The lens model is a single isothermal sphere: no ellipticity (four images), no clusters (delays of years).

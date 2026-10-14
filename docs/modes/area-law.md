@@ -35,7 +35,7 @@ significance is the paper's, \((\langle A_f\rangle - \langle A_i\rangle)/\sqrt{\
 with the remnant areas of two ringdown codes pooled in equal numbers; the report also gives the direct
 probability \(P(A_f < A_i)\) over random pairs of samples.
 
-## Result
+## Results
 
 | Result | gwtc_analysis | Published [\[79\]](../references.md#ref-79) |
 |---|---|---|
@@ -70,6 +70,15 @@ enough SNR in both parts. Of the earlier results:
   frequency cut instead of a time cut GW150914 gives 74% instead of 97%, and the weak events need quality
   cuts (an uninformative inspiral or ringdown can mimic a violation). Not implemented.
 
+## Outputs
+
+- `--out-report` (HTML): the result, the comparison with the paper, the scans, the plots;
+- `--out-summary` (TSV): the comparison with the paper; `<name>.truncation.tsv` and `<name>.ringdown.tsv`:
+  significance and median areas against \(t_<\) and \(t_>\);
+- `--plots-dir`: `area_law_GW250114.png`, `area_law_scans_GW250114.png`.
+
+The release is extracted (37 files) into the Zenodo cache, or `--cache-dir`.
+
 ## Options
 
 | Option | Default | Meaning |
@@ -77,7 +86,7 @@ enough SNR in both parts. Of the earlier results:
 | `--src-name` | `GW250114` | the event; only GW250114 has a public release of inspiral-only and ringdown-only analyses ([why](#why-only-gw250114)) |
 | `--with-imr` | off | also show the area change of the full-signal analysis, made with an **IMR** waveform (see below): a consistency check, not a test; downloads 27 MB more |
 | `--cache-dir` | the Zenodo cache | where the release is extracted |
-| `--out-report`, `--out-summary`, `--plots-dir` | `area_law.html`, `area_law.tsv`, `area_law_plots` | outputs ([below](#outputs)) |
+| `--out-report`, `--out-summary`, `--plots-dir` | `area_law.html`, `area_law.tsv`, `area_law_plots` | outputs ([above](#outputs)) |
 
 **IMR** stands for *inspiral–merger–ringdown*, the three phases of a compact-binary coalescence:
 
@@ -99,12 +108,3 @@ For the area law, the full-signal (IMR) analysis cannot be the test: its remnant
 numerical-relativity simulations, which obey the law by construction. The test compares the inspiral-only and
 ringdown-only analyses; `--with-imr` only shows that the full-signal remnant agrees with them. See also the
 [glossary](../science/glossary.md) and [waveforms](../science/waveforms.md).
-
-## Outputs
-
-- `--out-report` (HTML): the result, the comparison with the paper, the scans, the plots;
-- `--out-summary` (TSV): the comparison with the paper; `<name>.truncation.tsv` and `<name>.ringdown.tsv`:
-  significance and median areas against \(t_<\) and \(t_>\);
-- `--plots-dir`: `area_law_GW250114.png`, `area_law_scans_GW250114.png`.
-
-The release is extracted (37 files) into the Zenodo cache, or `--cache-dir`.

@@ -19,9 +19,6 @@ gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --
 - Skymaps come from `--data-repo`: the Zenodo tarballs (a given version with `--zenodo-version`), the
   S3 bucket, or Galaxy collections.
 
-**Outputs.** `--out-events` (TSV) lists every event with the credible level of the position; the
-events that contain it are plotted in `--plots-dir` and gathered in `--out-report`.
-
 The catalog skymaps are built by the LVK from the PE posterior samples; see
 Singer et al. 2016 [\[56\]](../references.md#ref-56) for the three-dimensional skymap format.
 
@@ -139,6 +136,14 @@ arcseconds and, when measured, the redshift of its host (columns `redshift` and 
 be run as a bright siren with that counterpart, and the jet seen nearly on-axis as a viewing-angle constraint:
 `hubble_constant --method bright --event <name> --ra ... --dec ... --redshift Z SIGMA --viewing-angle 10 5`
 ([bright siren](hubble-constant-bright.md#registered-events)).
+
+## Outputs
+
+`--out-events` (TSV) lists every event with the credible level of the position; the
+events that contain it are plotted in `--plots-dir` and gathered in `--out-report`.
+
+With `--counterparts`: `coincidences.tsv` (one row per coincident burst or neutrino), `coincidences.events.tsv`
+(one row per event), `coincidences.html` and `coincidence_plots/`.
 
 ## Options
 
