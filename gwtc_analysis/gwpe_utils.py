@@ -1174,7 +1174,13 @@ def generate_projected_waveform(
     cropstart = t0_center - dt_before
     cropend = t0_center + dt_after
 
-    # Whiten + bandpass + crop strain
+    # Whiten + bandpass + crop strain. Without a PE PSD, one ASD estimated from the strain whitens both the data and
+    # the template: whitening the template by its own spectrum (mostly zero padding) would flatten it.
+    if asd is None:
+        try:
+            asd = strain.asd(fftlength=min(4.0, float(strain.duration.value) / 4), method="median")
+        except Exception as e:
+            pe_log(f"⚠️ [WARN] Could not estimate the ASD of the {det} strain: {e}", event_logs)
     white_data = strain.whiten(asd=asd) if asd is not None else strain.whiten()
     bp_data = white_data.bandpass(f_lo, f_hi)
     bp_cropped = bp_data.crop(cropstart, cropend)

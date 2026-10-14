@@ -55,12 +55,13 @@ population spins isotropic, whatever the draw.
 
 | Parameter | Correlated model, median (90%) | Gaussian model (α = 0) |
 |---|---|---|
-| μ₀, mean χ_eff at q = 0.5 | 0.154 (0.081–0.215) | 0.036 (0.013–0.057) |
-| σ, width | 0.081 (0.069–0.106) | 0.096 (0.077–0.121) |
-| α, slope with q | **−0.38 (−0.55 to −0.16)** | — |
-| P(α < 0) | 0.993 (of 16,000 samples) | — |
+| μ₀, mean χ_eff at q = 0.5 | 0.154 (0.086–0.212) | 0.033 (0.009–0.056) |
+| σ, width | 0.081 (0.069–0.104) | 0.099 (0.082–0.125) |
+| α, slope with q | **−0.38 (−0.54 to −0.17)** | — |
+| P(α < 0) | 0.997 (of 16,000 samples) | — |
+| fraction with χ_eff < 0 | **0.42 (0.32–0.52)** | 0.37 (0.27–0.47) |
 
-The mean effective spin falls with the mass ratio: 0.23 (0.11–0.32) at q = 0.3, 0.12 (0.06–0.16) at
+The mean effective spin falls with the mass ratio: 0.23 (0.12–0.32) at q = 0.3, 0.12 (0.07–0.16) at
 q = 0.6, −0.03 (−0.07 to 0.01) for equal masses. **Unequal-mass binaries have larger effective spins**,
 as Callister et al. found at 98.7% credibility with GWTC-2 [\[89\]](../references.md#ref-89); GWTC-4.0 also
 finds evidence for a χ_eff–q correlation [\[13\]](../references.md#ref-13). Most formation models predict the
@@ -72,16 +73,16 @@ than the detected binaries, median 0.84), a fraction **0.42 (0.32–0.52)** of t
 assembly. The fraction comes mostly from the near-equal-mass binaries, where the linear trend puts the mean just
 below zero; it depends on the assumed q distribution and on the linear form of the trend, which GWTC-4.0 does not
 assume. Until October 2026 the mode averaged over the detected mass ratios, with 0.35 (0.26–0.43) from an
-earlier run (before the spin-prior bound of 0.99 and the other fixes of that review).
+earlier run (before the fixes of the October 2026 reviews).
 
 ![BBH chi_eff population](../img/modes/spin_population.png)
 
 *Left: the population χ_eff distribution at three mass ratios (median and 90%). Right: the posterior of the
-mean at q = 0.5 against the slope; 99.3% of the samples have α < 0.*
+mean at q = 0.5 against the slope; 99.7% of the samples have α < 0.*
 
 Diagnostics of the correlated run (14 October 2026, PE files from the S3 mirror): at the posterior median
-16,537 effective injections (threshold 548) and at least 17 effective PE samples per event (threshold 10);
-20 walkers × 1200 steps, acceptance 0.62, autocorrelation time 30 steps, about 530 independent samples.
+16,554 effective injections (threshold 548) and at least 17 effective PE samples per event (threshold 10);
+20 walkers × 1200 steps, acceptance 0.62, autocorrelation time 33 steps, about 480 independent samples.
 
 ## Validation
 

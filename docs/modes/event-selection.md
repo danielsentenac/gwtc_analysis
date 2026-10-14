@@ -165,5 +165,4 @@ read from the PE samples with [parameters_estimation](parameters-estimation.md).
 | `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
 | `--out-plot` | — | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
 
-Every report ends with the options of its run, defaults included. The same table with the help text
-of all the modes: [CLI reference](../cli-reference.md#event_selection).
+The same table with the help text of all the modes: [CLI reference](../cli-reference.md#event_selection).

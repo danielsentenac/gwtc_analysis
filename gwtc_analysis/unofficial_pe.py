@@ -215,6 +215,7 @@ def build_unofficial_pe_bundle(
             log_cb(f"ℹ️ [BUILD] Rebuilding unofficial PE bundle for {spec.event_id}: {target}")
         log_cb(f"ℹ️ [BUILD] Building unofficial PE bundle for {spec.event_id} from local cache files")
 
+    recipe_file.unlink(missing_ok=True)     # an interrupted write must not leave a recipe that matches
     complete = _write_unofficial_pesummary_bundle(spec, target, log_cb=log_cb)
     recipe_file.write_text(
         json.dumps({"fingerprint": fingerprint, "sources": [str(p) for p in sources], "complete": complete is not False},

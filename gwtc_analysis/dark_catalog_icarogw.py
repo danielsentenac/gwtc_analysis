@@ -164,11 +164,21 @@ def _check_nchunks(workdir: Path, stage: str, nchunks: int) -> None:
     number of jobs would skip or leave out shards (gather would then miss pixels)."""
     f = workdir / "done" / f"{stage}.nchunks"
     f.parent.mkdir(parents=True, exist_ok=True)
-    if f.exists() and int(f.read_text().strip()) != int(nchunks):
-        raise RuntimeError(f"the {stage} stage was started with {f.read_text().strip()} jobs, not {nchunks}: resume "
-                           f"with --jobs {f.read_text().strip()}, or delete {workdir / 'done'} to start it again")
-    if not f.exists():
-        f.write_text(str(int(nchunks)))
+    try:        # all the chunks of the stage start together: the first creates the file, atomically
+        fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+    except FileExistsError:
+        recorded = ""
+        for _ in range(50):      # written by another chunk an instant ago
+            recorded = f.read_text().strip()
+            if recorded:
+                break
+            time.sleep(0.1)
+        if recorded != str(int(nchunks)):
+            raise RuntimeError(f"the {stage} stage was started with {recorded or '?'} jobs, not {nchunks}: resume "
+                               f"with --jobs {recorded or '?'}, or delete {workdir / 'done'} to start it again")
+    else:
+        with os.fdopen(fd, "w") as h:
+            h.write(str(int(nchunks)))
 
 
 def stage_pixels(workdir: Path, chunk: int, nchunks: int) -> None:
@@ -393,6 +403,7 @@ def stage_interpolate(workdir: Path, chunk: int, nchunks: int) -> None:
     import icarogw
 
     s = settings(workdir)
+    _check_nchunks(workdir, "interpolate", nchunks)
     marker = _done(workdir, "interpolate", chunk)
     if marker.exists():
         _log(f"interpolate {chunk}/{nchunks}: already done")
@@ -445,6 +456,10 @@ def _build_from_summaries(cat, workdir: Path, s: dict, summaries: list[Path]) ->
         with h5py.File(f, "r") as h:
             for p, v in zip(h["pixels"][:], h["vals"][:]):
                 vals[int(p)] = v
+    missing = sorted(set(int(f) for f in filled) - set(vals))
+    if missing:
+        raise RuntimeError(f"{len(missing)} filled pixels (e.g. {missing[:5]}) have no interpolate summary: run the "
+                           "interpolate stage again with the same --jobs")
     cat.sky_grid = np.arange(0, len(cat.moc_mthr_map.data), 1).astype(int)
     cat.band, cat.epsilon = s["band"], float(s["epsilon"])
     cat.calc_kcorr = icarogw.catalog.kcorr(cat.band)

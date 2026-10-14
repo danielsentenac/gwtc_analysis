@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterable, Optional
@@ -87,6 +88,8 @@ def select_events(catalogs: Iterable[str], far_threshold: float = 1.0, min_mass:
         for v in (raw.get("events") or {}).values():
             g, far = v.get("GPS"), v.get("far")
             m1, m2 = v.get("mass_1_source"), v.get("mass_2_source")
+            if g is not None and reg.is_update(key):
+                best.pop(_full_name(g), None)     # the update's values win, also when they fail the cuts
             if g is None or far is None or m1 is None or m2 is None or float(far) > far_threshold:
                 continue
             if min(float(m1), float(m2)) < min_mass:
@@ -163,7 +166,9 @@ def _s3_index(cache: Path) -> dict[str, str]:
             if prev is None or ("nocosmo" in n and "nocosmo" not in prev):
                 out[m.group(1)] = n
     idx_file.parent.mkdir(parents=True, exist_ok=True)
-    idx_file.write_text(json.dumps(out))
+    tmp = idx_file.with_name(f"{idx_file.name}.{os.getpid()}.part")     # atomic: another process may read it
+    tmp.write_text(json.dumps(out))
+    tmp.replace(idx_file)
     return out
 
 

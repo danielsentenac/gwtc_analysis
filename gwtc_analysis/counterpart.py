@@ -472,7 +472,6 @@ def run_counterpart(
     counterpart_class: Optional[str] = None,
     sky_radius_deg: float = 3.0,
     viewing_angle_constraint: Optional[tuple[float, float]] = None,
-    pe_distance_prior: Optional[str] = None,
     sky_map: Optional[str | Path] = None,
     out_report_html: Optional[str | Path] = "counterpart.html",
     out_summary_tsv: Optional[str | Path] = "counterpart.tsv",

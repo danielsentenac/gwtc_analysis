@@ -337,10 +337,10 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
 | `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |
-| `--start` | `0.2` | Default seconds before GPS time for overlay and q-transform windows. |
-| `--stop` | `0.1` | Default seconds after GPS time for overlay and q-transform windows. |
-| `--fmin` | `20.0` | Default low frequency bound (Hz) used for overlay filtering and q-transform range. |
-| `--fmax` | `300.0` | Default high frequency bound (Hz) used for overlay filtering and q-transform range. |
+| `--start` | `` | Seconds before GPS time for the overlay and q-transform windows (default 0.2; a BNS-like event without it gets the BNS profile). |
+| `--stop` | `` | Seconds after GPS time for the overlay and q-transform windows (default 0.1; a BNS-like event without it gets the BNS profile). |
+| `--fmin` | `` | Low frequency bound (Hz) of the overlay filtering and q-transform range (default 20; a BNS-like event without it gets the BNS profile). |
+| `--fmax` | `` | High frequency bound (Hz) of the overlay filtering and q-transform range (default 300; a BNS-like event without it gets the BNS profile). |
 | `--overlay-start` | `` | Override seconds before GPS time for the whitened overlay window. |
 | `--overlay-stop` | `` | Override seconds after GPS time for the whitened overlay window. |
 | `--overlay-fmin` | `` | Override low frequency bound (Hz) for overlay whitening/bandpass. |

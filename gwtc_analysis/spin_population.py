@@ -36,7 +36,6 @@ KAPPA = 2.9                       # redshift evolution of the rates mode
 _trapz = getattr(np, "trapezoid", None) or np.trapz
 PRIORS = dict(mu0=(-1.0, 1.0), sigma=(0.005, 1.0), alpha=(-5.0, 5.0))
 MIN_NEFF_PE = 10                  # as icarogw and the GWTC-4.0 cosmology paper
-A_MAX_PE = 0.99                   # upper bound of the spin-magnitude prior of the LVK PE (the injections go to 1)
 
 
 def _log(msg: str) -> None:
@@ -221,9 +220,11 @@ def prepare(release: str, far_threshold: float, snr_threshold: float, min_mass: 
         d = _event_samples(r, pe_cache, pe_samples, rng, data_repo, s3_index)
         prior, _ = hc.pe_distance_prior(d["luminosity_distance"], d["prior_desc"], r["run"])
         w = mass_redshift_weight(d["mass_1"], d["mass_2"], d["luminosity_distance"], prior)
-        # the PE spin prior is uniform in magnitude up to A_MAX_PE: its chi_eff density is the unit one rescaled
+        # the isotropic reference of the population is that of the injections (magnitudes uniform up to 1): the PE
+        # prior (up to 0.99) differs from it by a constant factor on the component spins, so both terms divide by the
+        # same chi_eff density, whatever the PE bound
         ev.append(dict(event=r["event"], w=w, chi=d["chi_eff"], q=d["mass_ratio"],
-                       iso=np.maximum(iso(d["chi_eff"] / A_MAX_PE, d["mass_ratio"]) / A_MAX_PE, 1e-12)))
+                       iso=np.maximum(iso(d["chi_eff"], d["mass_ratio"]), 1e-12)))
     inj = hc.detector_frame_injections(hc.h0_sensitivity_path(sensitivity_file, release), far_threshold, snr_threshold)
     wi = mass_redshift_weight(inj["mass_1"], inj["mass_2"], inj["luminosity_distance"], inj["prior"])
     keep = np.flatnonzero(wi > 0)
