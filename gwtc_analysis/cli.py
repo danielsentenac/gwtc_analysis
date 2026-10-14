@@ -153,6 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis catalog_statistics -h\n"
             "  gwtc_analysis rates -h\n"
             "  gwtc_analysis hubble_constant -h\n"
+            "  gwtc_analysis galaxy_catalog -h\n"
             "  gwtc_analysis counterpart -h\n"
             "  gwtc_analysis area_law -h\n"
             "  gwtc_analysis continuous_waves -h\n"
