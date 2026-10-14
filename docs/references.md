@@ -358,6 +358,20 @@ LIGO O3 data*. Phys. Rev. D 105, 102001 (2022). Data: [LIGO-P2100343](https://dc
 [arXiv:2111.15507](https://arxiv.org/abs/2111.15507)
 {: #ref-107 }
 
+## Strong lensing
+
+**[108]** K. Haris, A. K. Mehta, S. Kumar, T. Venumadhav and P. Ajith, *Identifying strongly lensed gravitational wave signals from binary black hole mergers*. The posterior-overlap statistic and the time-delay ratio. [arXiv:1807.07062](https://arxiv.org/abs/1807.07062)
+{: #ref-108 }
+
+**[109]** LVK, *GWTC-4.0: Searches for Gravitational-Wave Lensing Signatures*. The O4a pair search (3486 pairs), tiers 1 to 3; data release [Zenodo 18163632](https://zenodo.org/records/18163632). [arXiv:2512.16347](https://arxiv.org/abs/2512.16347)
+{: #ref-109 }
+
+**[110]** A. Barsode, K. N. Maity and P. Ajith, *Search for strong lensing of gravitational waves in the binary black hole events from O1–O4a* (not an LVK paper). 207 events with IAS and OGC, 21 321 pairs, lensed fraction < 1.4 %. [arXiv:2607.08466](https://arxiv.org/abs/2607.08466)
+{: #ref-110 }
+
+**[111]** Y.-Y. Choi, C. Park and M. S. Vogeley, *Internal and Collective Properties of Galaxies in the Sloan Digital Sky Survey*. ApJ 658, 884 (2007). The velocity-dispersion function of early-type galaxies. [arXiv:astro-ph/0611607](https://arxiv.org/abs/astro-ph/0611607)
+{: #ref-111 }
+
 ## Galaxy catalogs
 
 **[91]** G. Dálya et al., *GLADE+: an extended galaxy catalogue for multimessenger searches with advanced gravitational-wave detectors*. Queried from VizieR VII/291. [arXiv:2110.06184](https://arxiv.org/abs/2110.06184)
@@ -377,6 +391,7 @@ LIGO O3 data*. Phys. Rev. D 105, 102001 (2022). Data: [LIGO-P2100343](https://dc
 | GWTC-3 PE and skymaps | [Zenodo 22685054](https://zenodo.org/records/22685054) (v3) |
 | GWTC-4.0 PE and skymaps | [Zenodo 17602505](https://zenodo.org/records/17602505) |
 | GWTC-5.0 PE and skymaps | [Zenodo 20348005](https://zenodo.org/records/20348005), [20348006](https://zenodo.org/records/20348006) |
+| GWTC-4.0 lensing searches (posterior-overlap results of every O4a pair) | [Zenodo 18163632](https://zenodo.org/records/18163632) |
 | GWTC-4.0 sensitivity injections | [Zenodo 16740128](https://zenodo.org/records/16740128) |
 | GWTC-5.0 sensitivity injections | [Zenodo 19500052](https://zenodo.org/records/19500052) |
 | GW230529 discovery release | [Zenodo 10845779](https://zenodo.org/records/10845779), [LIGO-P2300352](https://dcc.ligo.org/LIGO-P2300352/public) |

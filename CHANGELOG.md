@@ -28,6 +28,15 @@ Where an electromagnetic counterpart sits in the GW posterior of an event: the s
 redshift for Planck and SH0ES H₀, the viewing angle and the distance–inclination degeneracy, and an optional
 viewing-angle constraint. `--ra`/`--dec` test another position.
 
+### New mode: `lens_pairs`
+
+A screen for strongly lensed pairs: every pair of the BBH events of the chosen LVK catalogs (`--catalogs`,
+default GWTC-4) is ranked by the posterior-overlap Bayes factor (detector-frame masses, spins, sky position)
+times the ratio of time-delay densities of galaxy-lensed and unrelated pairs (isothermal lenses), with a
+false-positive probability from the ranking of all the pairs. On the 84 O4a events it reproduces the LVK
+GWTC-4.0 search: the same 3486 pairs, the same top pair, 28 of the LVK's 38 flagged pairs. `--data-repo s3`
+reads the PE files from the MinIO mirror.
+
 ### New mode: `continuous_waves`
 
 The upper limits of the LVK continuous-wave data releases (LIGO DCC): the 45 known pulsars of O4a against their
