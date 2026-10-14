@@ -82,8 +82,8 @@ GWTC-5.0 [\[14\]](../references.md#ref-14) (BBH 27.5–49.4 at z = 0.2 for masse
 GWTC-4.0 [\[13\]](../references.md#ref-13) (z = 0: BNS 7.6–250, NSBH 9.1–84, BBH 14–26) and
 GWTC-3 [\[12\]](../references.md#ref-12). The BNS and NSBH rates fall inside the LVK intervals. The
 BBH rate with the fixed GWTC-3 Power Law + Peak sits just below the GWTC-5.0 interval (25 against 27.5–49.4), with a
-much narrower interval, and so does its value at z = 0 against the GWTC-4.0 interval: see the next
-section. The BBH rate at z = 0 is the same evolving rate, R ∝ (1+z)^κ, taken at z = 0; it is given for
+much narrower interval, and its value at z = 0 sits at the low edge of the GWTC-4.0 interval (15 against
+14–26): see the next section. The BBH rate at z = 0 is the same evolving rate, R ∝ (1+z)^κ, taken at z = 0; it is given for
 comparison with local rates. The constant-rate row is a different assumption: without evolution, the
 rate is in effect averaged over the redshifts of the detected binaries (z ≈ 0.3–0.5), hence its
 higher value (41 [37, 46] with `gwtc5`).

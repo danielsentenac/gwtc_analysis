@@ -155,9 +155,9 @@ be run as a bright siren with that counterpart, and the jet seen nearly on-axis 
 | `--refresh-catalogs` | off | With --counterparts: download the external catalogs again (otherwise weekly). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
 | `--skymap-label` | `Mixed` | Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed then IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case). 'any': every map of every event. |
-| `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |
-| `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
-| `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
+| `--out-events` | `search_skymaps.tsv` (`coincidences.tsv` with `--counterparts`) | Output TSV file. |
+| `--out-report` | `search_skymaps.html` (`coincidences.html` with `--counterparts`) | Output HTML report path for hits. |
+| `--plots-dir` | `sky_plots` (`coincidence_plots` with `--counterparts`) | Directory for hit plots. |
 | `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
 | `--zenodo-version CATALOG=VERSION` | — | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 

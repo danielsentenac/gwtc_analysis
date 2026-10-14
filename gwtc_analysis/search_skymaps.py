@@ -13,6 +13,7 @@ import numpy as np
 from ligo.skymap.io.fits import read_sky_map
 
 from .read_skymap import plot_skymap_with_ra_dec
+from .catalog_registry import products_catalog as _products_catalog
 from .report import options_html
 
 
@@ -180,7 +181,7 @@ def run_search_skymaps(
                 continue
             event_ids = sorted(sel) if sel else []
             tar_path = download_zenodo_skymaps_tarball(
-                catalog, progress=True, verbose=False, version=(zenodo_versions or {}).get(catalog)
+                catalog, progress=True, verbose=False, version=(zenodo_versions or {}).get(_products_catalog(catalog))
             )
             index = build_skymap_index_from_tar(tar_path, verbose=False)
 
@@ -448,7 +449,10 @@ def _process_one_skymap(
         # Plot ONLY for hits (prevents lots of irrelevant plots for small prob). A failed plot (its sky backdrop is
         # downloaded on first use) must not turn a hit into an error: the credible level is the result.
         if inside:
-            safe_title = _safe_filename(event_id)
+            from .gw_stat import skymap_waveform
+
+            wf = skymap_waveform(Path(skymap_path).name)     # several maps of one event with --skymap-label any
+            safe_title = _safe_filename(event_id if wf == "Unknown" or wf in event_id else f"{event_id}_{wf}")
             try:
                 produced = plot_skymap_with_ra_dec(
                     str(skymap_path),
@@ -770,8 +774,10 @@ def _extract_event_ids(events_json: dict | str | None) -> set[str]:
         if "events" in data:
             ev = data["events"]
             if isinstance(ev, dict):          # the GWOSC API form: {"events": {id: {...}}}
-                for k, item in ev.items():
-                    add_id((item.get("commonName") if isinstance(item, dict) else None) or k)
+                for k, item in ev.items():     # the full name of the key (a common name like GW190521 is ambiguous)
+                    full = re.search(r"GW\d{6}_\d{6}", str(k))
+                    add_id(full.group(0) if full else
+                           (item.get("commonName") if isinstance(item, dict) else None) or k)
             if isinstance(ev, list):
                 for item in ev:
                     if isinstance(item, str):

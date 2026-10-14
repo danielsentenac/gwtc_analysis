@@ -841,15 +841,25 @@ def download_zenodo_skymaps_tarball(
     with requests.Session() as s:
         # NOTE: _safe_get must accept headers=... and stream=True, or you can pass stream=True via _safe_get.
         # If your _safe_get doesn't support these kwargs yet, add them there.
-        r = _safe_get(
-            s,
-            url,
-            timeout=(10, 1200),
-            retries=3,
-            verbose=verbose,
-            headers=headers,   # e.g. {"Range": "bytes=123-"} or {}
-            stream=True,
-        )
+        try:
+            r = _safe_get(
+                s,
+                url,
+                timeout=(10, 1200),
+                retries=3,
+                verbose=verbose,
+                headers=headers,   # e.g. {"Range": "bytes=123-"} or {}
+                stream=True,
+            )
+        except requests.HTTPError:
+            if existing == 0:
+                raise
+            # a range the server refuses (416: the .part is already complete, the process died before the rename,
+            # or larger than the file): start again from scratch
+            print(f"[gw_stat] cannot resume {part_path}; downloading it again")
+            os.remove(part_path)
+            existing, headers = 0, {}
+            r = _safe_get(s, url, timeout=(10, 1200), retries=3, verbose=verbose, headers=headers, stream=True)
 
         # If server ignored Range and returned 200, restart from scratch
         if existing > 0 and r.status_code == 200:
@@ -965,7 +975,7 @@ def build_skymap_index_from_tar(
             index[key] = name
 
             if verbose:
-                print(f"[gw_stat] indexed: event={event_id} approx={approximant} member='{name}'")
+                print(f"[gw_stat] indexed: event={event_id} approx={key[1]} member='{name}'")
 
     if verbose:
         n_events = len({ev for ev, _ in index.keys()})

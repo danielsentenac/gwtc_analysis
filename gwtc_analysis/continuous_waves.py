@@ -345,6 +345,31 @@ def plot_boson_distance(boson: dict, band, band_label: str, out_png: Path) -> Pa
 # ---------------------------------------------------------------------------
 # mode
 # ---------------------------------------------------------------------------
+def boson_paragraph(lo, hi, f_lo, f_hi, boson_label, res, excl, far, default_band: bool = True) -> str:
+    """The boson-cloud paragraph of the report, for the band [lo, hi] eV radiating at [f_lo, f_hi] Hz."""
+    inside = 20 <= f_lo and f_hi <= 610
+    text = (f"<b>Boson clouds, O3</b> ({REFS['boson']}). A cloud of bosons of mass m radiates at 2mc²/h; the band "
+            f"{lo:.2g}–{hi:.2g} eV ({boson_label}) radiates at {f_lo:.0f}–{f_hi:.0f} Hz, "
+            + ("inside" if inside else "<b>not entirely inside</b>") + " the 20–610 Hz of the search"
+            + (f", where its h0 upper limits are {res['boson_ul_in_band'][0]:.2g}–{res['boson_ul_in_band'][1]:.2g}"
+               if res["boson_ul_in_band"] else ": the search has no upper limit there") + ".")
+    light = [f"{r.m_bh_min:.0f}–{r.m_bh_max:.0f} M☉ at {r.distance_kpc:g} kpc"
+             for r in excl[(excl["chi"] == 0.9) & (excl["age_yr"] == 1e3)].itertuples() if np.isfinite(r.m_bh_min)]
+    if light:
+        text += (" There the excluded black holes are the light ones, " + ", ".join(light)
+                 + " (spin 0.9, cloud age 10³ yr): bosons this heavy are superradiant only around light black holes"
+                 + (", the range of GW190728's own components." if default_band else "."))
+    else:
+        text += " No black-hole mass is excluded in this band (spin 0.9, cloud age 10³ yr)."
+    reach = [f"{r.d_max_kpc_in_band:.2g} kpc (M_BH ≤ {r.m_bh_max:g} M☉, {r.age_yr:.0e} yr)"
+             for r in far.itertuples() if r.d_max_kpc_in_band > 0]
+    if reach:
+        text += " Clouds younger than 10⁵ yr are excluded out to " + ", ".join(reach) + "."
+    return text + (" These limits concern clouds around isolated black holes of the Galaxy, with assumptions on "
+                   "their mass, spin, age and distance; they constrain the boson only together with a population of "
+                   "black holes.")
+
+
 def run_continuous_waves(boson_mass_ev=GW190728_BOSON_MASS_EV, boson_label: str = "GW190728 (scalar_cloud)",
                          out_report_html: Optional[str] = "continuous_waves.html",
                          out_summary_tsv: Optional[str] = "continuous_waves.tsv",
@@ -430,20 +455,8 @@ def run_continuous_waves(boson_mass_ev=GW190728_BOSON_MASS_EV, boson_label: str 
                if "best_ellipticity" in res else "."),
             f"<b>All-sky, O4a</b> ({REFS['allsky']}): " + "; ".join(f"{k} {h:.2g} at {f:.0f} Hz"
                                                                      for k, (h, f) in allmin.items()) + ".",
-            f"<b>Boson clouds, O3</b> ({REFS['boson']}). A cloud of bosons of mass m radiates at 2mc²/h; the band "
-            f"{lo:.2g}–{hi:.2g} eV ({boson_label}) radiates at {f_lo:.0f}–{f_hi:.0f} Hz, inside the 20–610 Hz of the "
-            "search" + (f", where its h0 upper limits are {res['boson_ul_in_band'][0]:.2g}–"
-                        f"{res['boson_ul_in_band'][1]:.2g}" if res["boson_ul_in_band"] else "")
-            + ". There the excluded black holes are the light ones, "
-            + ", ".join(f"{r.m_bh_min:.0f}–{r.m_bh_max:.0f} M☉ at {r.distance_kpc:g} kpc"
-                        for r in excl[(excl["chi"] == 0.9) & (excl["age_yr"] == 1e3)].itertuples()
-                        if np.isfinite(r.m_bh_min))
-            + " (spin 0.9, cloud age 10³ yr): bosons this heavy are superradiant only around light black holes, "
-            "the range of GW190728's own components. Clouds younger than 10⁵ yr are excluded out to "
-            + ", ".join(f"{r.d_max_kpc_in_band:.2g} kpc (M_BH ≤ {r.m_bh_max:g} M☉, {r.age_yr:.0e} yr)"
-                        for r in far.itertuples()) + ". These limits concern clouds around isolated black holes of "
-            "the Galaxy, with assumptions on their mass, spin, age and distance; they constrain the boson only "
-            "together with a population of black holes.",
+            boson_paragraph(lo, hi, f_lo, f_hi, boson_label, res, excl, far,
+                            default_band=tuple(boson_mass_ev) == GW190728_BOSON_MASS_EV),
         ]
         write_simple_html_report(out_report_html, title="Continuous waves: LVK upper limits", paragraphs=paras,
                                  images=[str(i) for i in images],

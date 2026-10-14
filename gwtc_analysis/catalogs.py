@@ -597,7 +597,7 @@ def run_catalog_statistics(
                     cache_dir=zenodo_cache_dir,
                     progress=True,
                     verbose=False,
-                    zenodo_version=(zenodo_versions or {}).get(cat),
+                    zenodo_version=(zenodo_versions or {}).get(_reg.products_catalog(cat)),   # GWTC-1: its maps are GWTC-2.1's
                 )
                 df.loc[m, area_column] = tmp[area_column].values
                 continue
@@ -1211,8 +1211,8 @@ def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_
     for cat in (event_lists or RATES_EVENT_LISTS):
         try:
             raw = gw.fetch_gwtc_events(cat)
-        except Exception as e:  # a list may not exist on GWOSC yet
-            print(f"[rates] WARN: could not fetch {cat}: {type(e).__name__}: {e}")
+        except ValueError as e:  # the list is not on GWOSC (yet); a network error stops the run: a missing list
+            print(f"[rates] WARN: could not fetch {cat}: {e}")   # would bias the rates low without a trace
             continue
         for v in (raw.get("events") or {}).values():
             gps, far = v.get("GPS"), v.get("far")

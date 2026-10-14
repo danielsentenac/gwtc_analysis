@@ -126,7 +126,8 @@ def plot_skymap_with_ra_dec(skymapFILE, title, ra, dec, color, contour_levels=(5
     cb.set_label(r'prob. per deg$^2$')
     plotname = f'plot_{title}'
     plt.savefig(plotname)
-    
+    plt.close()        # one figure per hit: hundreds in a search over ALL catalogs
+
     return plotname
 
     

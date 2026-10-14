@@ -100,7 +100,7 @@ The binary priors are those of the GWTC-2.1 analysis. The merger time is margina
 ## GW190728_064510
 
 CC-IN2P3 (`--executor slurm`): the vacuum sampling with 1000 live points, the two cloud samplings with 500 (run by hand with `python -m gwtc_analysis.scalar_cloud sample --nlive 500`;
-the mode's own samplings use the paper's 1000) (64 CPUs,
+the mode's own samplings use the paper's 1000) (64 CPUs with `--npool 64`; the default is 32,
 about a day each), 151 jobs of about an hour for the event and the background, 150 for the injections of the cloud
 best fit (`scalar_cloud.py seeded --inject cloud`).
 
@@ -212,7 +212,8 @@ and its limits constrain the boson only together with a model of the Galactic bl
 | `--sample-models` | `vacuum agnostic superradiance` | models of the sample stage |
 | `--tau-d` | 10⁶ | superradiance prior: years between black-hole formation and merger |
 | `--executor` | `local` | `slurm`: the heavy stages as sbatch scripts in `<workdir>/slurm`, `<workdir>/slurm_sample` and `<workdir>/slurm_seeded` |
-| `--python`, `--slurm-option`, `--slurm-env-setup`, `--submit`, `--npool` | | Slurm: the jobs' interpreter, extra #SBATCH options, setup lines, submission, CPUs of each sampling job |
+| `--python`, `--slurm-option`, `--slurm-env-setup`, `--submit` | this interpreter; none; none; off | Slurm: the jobs' interpreter, extra #SBATCH options, setup lines, submission |
+| `--npool` | 32 | Slurm: CPUs of each sampling job |
 | `--out-report`, `--out-summary` | `scalar_cloud.html`, `scalar_cloud.tsv` | report and table of the fits |
 
 Cost for GW190728 (16 s at 2048 Hz): a vacuum likelihood 0.035 s, a cloud likelihood 0.2 s (the modes of LAL). The
