@@ -51,21 +51,27 @@ The `rates`, `hubble_constant` and `spin_population` modes also read the **margi
 
 ## Parameter estimation and skymaps: three repositories
 
-`--data-repo` chooses where PE files and skymaps are read from:
+`--data-repo` chooses where PE files and skymaps are downloaded from. It does not choose **which** PE
+file is read: that depends only on the mode and on the release version (below,
+[Which PE file is read](#which-pe-file-is-read)).
 
 `zenodo` (default)
 :   The official catalog releases on Zenodo (table above).
 
 `s3`
-:   The `gwtc` bucket of an S3/MinIO mirror at `https://minio-dev.odahub.fr`, much faster than Zenodo but
-    not always the latest version of a release: in October 2026 it holds GWTC-2.1 v2, GWTC-3 v2 (Zenodo has
-    v3, which fixed the PSDs of GW200105), the first GWTC-4.0 PE version (`1a206db3d_721`; Zenodo's latest is
-    `38214bd95_724`) and GWTC-5.0 (latest), and no GWTC-4.1. `--zenodo-version` does not apply to it.
+:   The `gwtc` bucket of an S3/MinIO mirror at `https://minio-dev.odahub.fr`, much faster than Zenodo. It
+    serves a PE file when it holds the file of that name; a file it does not hold (another release version,
+    or the other of the `cosmo`/`nocosmo` pair) is downloaded from Zenodo, with a log line. In October
+    2026 the mirror holds GWTC-2.1 v2 (the `mixed_cosmo` files only), GWTC-3 v2 (Zenodo has v3, which fixed
+    the PSDs of GW200105), the first GWTC-4.0 PE version (`1a206db3d_721`; Zenodo's latest is
+    `38214bd95_724`) and GWTC-5.0 (latest), and no GWTC-4.1. The **skymaps** of `catalog_statistics` and
+    `search_skymaps` are read from the mirror as it is: with `s3`, they are those of the mirror's versions.
 
 `galaxy`
-:   Collections staged by Galaxy (`./galaxy_inputs/<CATALOG>-PE`, `-SKYMAPS`); when none is staged,
-    PE files are downloaded over HTTP from the public usegalaxy.org "GWTC" published history
-    (anonymous, no API key).
+:   Collections staged by Galaxy (`./galaxy_inputs/<CATALOG>-PE`, `-SKYMAPS`): the staged collection is the
+    input of the Galaxy tool, and the rule of the mode picks the file among its files of the event. When none
+    is staged, the file chosen in the Zenodo listing is downloaded over HTTP from the public usegalaxy.org
+    "GWTC" published history (anonymous, no API key) when the history has it, else from Zenodo.
 
 ## Zenodo release versions
 
@@ -75,9 +81,10 @@ fetched from the Zenodo API (`/api/records/<id>/versions`) and cached for one da
 `~/.cache_gwtc_analysis/zenodo`, so a new release is picked up automatically.
 
 An older version is selected with `--zenodo-version CATALOG=VERSION`, versions being numbered from the
-oldest (`v1`); `latest` is also accepted. It is taken by `catalog_statistics`, `search_skymaps` and `parameters_estimation` (and
-`zenodo_releases` lists the versions); `lens_pairs` and `spin_population` take no `--zenodo-version`: with
-`--data-repo zenodo` they read the latest version, with `s3` whatever the mirror holds (possibly an earlier one). `zenodo_releases` has one option, `--catalogs` (default `ALL`):
+oldest (`v1`); `latest` is also accepted. It is taken by `catalog_statistics` and `search_skymaps` (with
+`--data-repo zenodo`) and by `parameters_estimation` (with any `--data-repo`), and `zenodo_releases` lists the
+versions. The other modes that read PE files take no `--zenodo-version`: they read the latest versions,
+whatever `--data-repo`. `zenodo_releases` has one option, `--catalogs` (default `ALL`):
 
 ```bash
 gwtc_analysis zenodo_releases --catalogs GWTC-3 GWTC-4     # list the versions
@@ -88,6 +95,42 @@ gwtc_analysis parameters_estimation --src-name GW200105_162426 --zenodo-version 
 Skymap tarballs are cached per Zenodo record, and the PE index is rebuilt when the selected records
 change. If zenodo.org is unreachable, the cached listing is used; with no cache at all, the latest
 version falls back to the record of the table above.
+
+## Which PE file is read
+
+The PE release of an event holds one file per event from GWTC-4.0 on (`*-combined_PEDataRelease.hdf5`),
+but two for GWTC-2.1 and GWTC-3, with the same analyses and different distance priors:
+
+| File | Samples | Distance prior recorded in the file |
+|---|---|---|
+| `*_PEDataRelease_mixed_nocosmo.h5` | as sampled, with a prior ∝ D_L² (uniform in Euclidean volume) | `PowerLaw(alpha=2)`: the prior of the samples |
+| `*_PEDataRelease_mixed_cosmo.h5` | reweighted to a source population uniform in comoving volume and source-frame time (Planck15): the posteriors quoted in the GWTC-2.1 and GWTC-3 papers; fewer samples after the reweighting | still `PowerLaw(alpha=2)`: **not** the prior of the samples |
+
+A hierarchical analysis divides each event's samples by the prior they were drawn with, so it needs the
+`nocosmo` file, whose recorded prior is the right one. The file read is therefore chosen in the Zenodo
+listing of the release (its latest version, or that of `--zenodo-version`), by a rule that depends only on
+the mode:
+
+| Modes | Rule | GWTC-2.1, GWTC-3 | GWTC-4.0 on |
+|---|---|---|---|
+| `hubble_constant` (all methods), `counterpart`, `neutron_star_eos`, `scalar_cloud`, `spin_population`, `lens_pairs` | samples under their recorded prior | `*_mixed_nocosmo.h5` | the combined file |
+| `parameters_estimation` | the catalog's posteriors | `*_mixed_cosmo.h5` | the combined file |
+
+`--data-repo` then only says where that file is downloaded from (above), and a result does not depend on
+what the S3 mirror or the Galaxy history hold. GW170817 has no release file: the modes read the bundle
+rebuilt by [`build_unofficial_pe`](modes/unofficial-pe.md).
+
+Two safeguards keep it so:
+
+- **Caches.** A PE file is reused from the PE cache (`files/`) only under its exact name. The samples
+  extracted from it (`samples/`, `samples_spin/`, `samples_lens/`) record the name of their source file, and
+  an extract made from another file (an earlier release version, or the other file of the pair) is made
+  again. Extracts made before this rule, which may come from a `cosmo` file of the mirror, are therefore
+  redone on the next run.
+- **A `cosmo` file given explicitly** (for instance `--pe-file` of the bright siren) is read with the prior
+  its samples follow, uniform in comoving volume and source-frame time (Planck15), not with the recorded
+  one. Reweighting the `nocosmo` samples of GW151226 by this prior over D_L² gives the distance quantiles of
+  its `cosmo` file (5, 50 and 95%: 263, 461 and 621 Mpc against 264, 460 and 622).
 
 ## Search-sensitivity injections
 

@@ -254,7 +254,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
 | `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
 | `--pe-samples` | `5000` | PE samples per event. |
-| `--data-repo` | `zenodo` | Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an earlier version of a release). |
+| `--data-repo` | `zenodo` | Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files are the same, those of the latest Zenodo versions: a file the mirror does not have comes from Zenodo. |
 | `--max-injections` | `250000` | Random subset of the found injections (0: all). |
 | `--walkers` | `20` | emcee walkers. |
 | `--steps` | `1200` | emcee steps (the first third is burn-in). |
@@ -273,7 +273,7 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--exclude` | `[]` | Events left out (full or common names). |
 | `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
 | `--pe-samples` | `2000` | PE samples per event. |
-| `--data-repo` | `zenodo` | Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an earlier version of a release). |
+| `--data-repo` | `zenodo` | Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files are the same, those of the latest Zenodo versions: a file the mirror does not have comes from Zenodo. |
 | `--workers` | `4` | Parallel PE downloads. |
 | `--keep-pe-files` | `False` | Keep the downloaded PE files (only the extracted samples are kept by default). |
 | `--fpp-threshold` | `0.01` | Flag the pairs with an FPP at most this. |
@@ -332,8 +332,8 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `-h, --help` | `` | show this help message and exit |
 | `--out-report` | `parameters_estimation.html` | Output HTML report path. |
 | `--src-name` | `` | Source event name (e.g. GW231223_032836). |
-| `--data-repo` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
-| `--zenodo-version` | `` | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
+| `--data-repo` | `zenodo` | Where to download the PE file from: zenodo, s3 (the MinIO mirror) or galaxy (staged collections, else the public usegalaxy.org history). The file itself is chosen in the Zenodo listing: s3 and galaxy serve it when they have it, else it comes from Zenodo. |
+| `--zenodo-version` | `` | Read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1), with any --data-repo. Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 | `--pe-vars` | `` | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
 | `--pe-pairs` | `` | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |

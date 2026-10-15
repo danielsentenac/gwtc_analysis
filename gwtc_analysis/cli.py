@@ -47,11 +47,13 @@ def _parse_catalogs(items: Optional[List[str]]) -> List[str]:
     return out
 
 
-def _parse_zenodo_versions(items: Optional[List[str]], data_repo: str) -> Optional[dict[str, str]]:
-    """Parse --zenodo-version CAT=VER items into {catalog: version}."""
+def _parse_zenodo_versions(items: Optional[List[str]], data_repo: str,
+                           any_repo: bool = False) -> Optional[dict[str, str]]:
+    """Parse --zenodo-version CAT=VER items into {catalog: version}. `any_repo`: the mode chooses its files in the
+    Zenodo listing whatever --data-repo (parameters_estimation), so the version applies to every repository."""
     if not items:
         return None
-    if data_repo != "zenodo":
+    if data_repo != "zenodo" and not any_repo:
         raise ValueError("--zenodo-version only applies with --data-repo zenodo")
     out: dict[str, str] = {}
     for it in _parse_catalogs(items):
@@ -69,13 +71,13 @@ def _parse_zenodo_versions(items: Optional[List[str]], data_repo: str) -> Option
     return out
 
 
-def _add_zenodo_version_arg(p: argparse.ArgumentParser) -> None:
+def _add_zenodo_version_arg(p: argparse.ArgumentParser, help: Optional[str] = None) -> None:
     p.add_argument(
         "--zenodo-version",
         nargs="+",
         default=None,
         metavar="CATALOG=VERSION",
-        help=(
+        help=help or (
             "With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest "
             "(e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); "
             "list them with the zenodo_releases mode."
@@ -718,8 +720,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_spin.add_argument("--pe-cache", default=None, help="PE cache (default: that of hubble_constant).")
     p_spin.add_argument("--pe-samples", type=int, default=5000, help="PE samples per event.")
     p_spin.add_argument("--data-repo", choices=["zenodo", "s3"], default="zenodo",
-                        help="Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an "
-                             "earlier version of a release).")
+                        help="Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files "
+                             "are the same, those of the latest Zenodo versions: a file the mirror does not have "
+                             "comes from Zenodo.")
     p_spin.add_argument("--max-injections", type=int, default=250000,
                         help="Random subset of the found injections (0: all).")
     p_spin.add_argument("--walkers", type=int, default=20, help="emcee walkers.")
@@ -754,8 +757,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_lens.add_argument("--pe-cache", default=None, help="PE cache (default: that of hubble_constant).")
     p_lens.add_argument("--pe-samples", type=int, default=2000, help="PE samples per event.")
     p_lens.add_argument("--data-repo", choices=["zenodo", "s3"], default="zenodo",
-                        help="Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an "
-                             "earlier version of a release).")
+                        help="Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files "
+                             "are the same, those of the latest Zenodo versions: a file the mirror does not have "
+                             "comes from Zenodo.")
     p_lens.add_argument("--workers", type=int, default=4, help="Parallel PE downloads.")
     p_lens.add_argument("--keep-pe-files", action="store_true",
                         help="Keep the downloaded PE files (only the extracted samples are kept by default).")
@@ -858,8 +862,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_pe.add_argument("--out-report", default="parameters_estimation.html", help="Output HTML report path.")
     p_pe.add_argument("--src-name", dest="src_name", required=True, help="Source event name (e.g. GW231223_032836).")
-    p_pe.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
-    _add_zenodo_version_arg(p_pe)
+    p_pe.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo",
+                      help="Where to download the PE file from: zenodo, s3 (the MinIO mirror) or galaxy (staged "
+                           "collections, else the public usegalaxy.org history). The file itself is chosen in the "
+                           "Zenodo listing: s3 and galaxy serve it when they have it, else it comes from Zenodo.")
+    _add_zenodo_version_arg(p_pe, help=(
+        "Read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 "
+        "GWTC-4=v1), with any --data-repo. Versions are numbered from the oldest (v1); list them with the "
+        "zenodo_releases mode."))
     p_pe.add_argument("--pe-vars", nargs="+", default=None, help=("Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance."))
     p_pe.add_argument("--pe-pairs", nargs="+", default=None, help=("Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p."))
     p_pe.add_argument("--plots-dir", default="pe_plots", help="Directory for output PE plots (default: pe_plots).")
@@ -1421,7 +1431,7 @@ def main(argv=None) -> int:
                 data_repo=args.data_repo,
                 pe_vars=args.pe_vars,
                 pe_pairs=args.pe_pairs,
-                zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
+                zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo, any_repo=True),
                 skymap_3d=args.skymap_3d,
                 galaxies=args.galaxies,
                 galaxy_max_area=args.galaxy_max_area,
