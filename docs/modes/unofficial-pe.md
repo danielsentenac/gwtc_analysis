@@ -73,5 +73,6 @@ overlays of this special case are then not produced.
 | `--src-name` | — | Source event name (e.g. GW170817). |
 | `--cache-dir` | `.cache_gwosc` | Cache root where unofficial_pe/&lt;bundle&gt;.h5 will be written. |
 | `--force` | off | Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date. |
+| `--data-repo {zenodo,s3}` | `zenodo` | where the GWTC-1 products of GW170817 are downloaded from: their public sources, or `s3`, the MinIO mirror (faster), when it holds the same file ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |
 
 The same table with the help text of all the modes: [CLI reference](../cli-reference.md#build_unofficial_pe).

@@ -55,34 +55,38 @@ population spins isotropic, whatever the draw.
 
 | Parameter | Correlated model, median (90%) | Gaussian model (α = 0) |
 |---|---|---|
-| μ₀, mean χ_eff at q = 0.5 | 0.154 (0.086–0.212) | 0.033 (0.009–0.056) |
-| σ, width | 0.081 (0.069–0.104) | 0.099 (0.082–0.125) |
-| α, slope with q | **−0.38 (−0.54 to −0.17)** | — |
-| P(α < 0) | 0.997 (of 16,000 samples) | — |
-| fraction with χ_eff < 0 | **0.42 (0.32–0.52)** | 0.37 (0.27–0.47) |
+| μ₀, mean χ_eff at q = 0.5 | 0.165 (0.095–0.225) | 0.035 (0.014–0.056) |
+| σ, width | 0.079 (0.068–0.100) | 0.094 (0.077–0.121) |
+| α, slope with q | **−0.39 (−0.56 to −0.18)** | — |
+| P(α < 0) | 0.998 (of 16,000 samples) | — |
+| fraction with χ_eff < 0 | **0.39 (0.30–0.48)** | 0.36 (0.27–0.45) |
 
-The mean effective spin falls with the mass ratio: 0.23 (0.12–0.32) at q = 0.3, 0.12 (0.07–0.16) at
+The mean effective spin falls with the mass ratio: 0.24 (0.13–0.34) at q = 0.3, 0.13 (0.08–0.17) at
 q = 0.6, −0.03 (−0.07 to 0.01) for equal masses. **Unequal-mass binaries have larger effective spins**,
 as Callister et al. found at 98.7% credibility with GWTC-2 [\[89\]](../references.md#ref-89); GWTC-4.0 also
 finds evidence for a χ_eff–q correlation [\[13\]](../references.md#ref-13). Most formation models predict the
 opposite trend.
 
 Averaged over the astrophysical mass ratios of the fixed Power Law + Peak population (median q = 0.89, more equal
-than the detected binaries, median 0.84), a fraction **0.42 (0.32–0.52)** of the binaries have χ_eff < 0, against
+than the detected binaries, median 0.84), a fraction **0.39 (0.30–0.48)** of the binaries have χ_eff < 0, against
 0.24–0.42 in GWTC-4.0 [\[13\]](../references.md#ref-13): a substantial population consistent with dynamical
 assembly. The fraction comes mostly from the near-equal-mass binaries, where the linear trend puts the mean just
 below zero; it depends on the assumed q distribution and on the linear form of the trend, which GWTC-4.0 does not
 assume. Until October 2026 the mode averaged over the detected mass ratios, with 0.35 (0.26–0.43) from an
-earlier run (before the fixes of the October 2026 reviews).
+earlier run (before the fixes of the October 2026 reviews). The run of 14 October 2026, 0.42 (0.32–0.52), read the
+O1–O3 events from the cosmologically reweighted PE files, dividing by the prior these files record (D_L²) while
+their samples follow the cosmological one, and GWTC-4.0 from its earlier release version; the rule of
+[Which PE file is read](../data-sources.md#which-pe-file-is-read) corrects both.
 
 ![BBH chi_eff population](../img/modes/spin_population.png)
 
 *Left: the population χ_eff distribution at three mass ratios (median and 90%). Right: the posterior of the
-mean at q = 0.5 against the slope; 99.7% of the samples have α < 0.*
+mean at q = 0.5 against the slope; 99.8% of the samples have α < 0.*
 
-Diagnostics of the correlated run (14 October 2026, PE files from the S3 mirror): at the posterior median
-16,554 effective injections (threshold 548) and at least 17 effective PE samples per event (threshold 10);
-20 walkers × 1200 steps, acceptance 0.62, autocorrelation time 33 steps, about 480 independent samples.
+Diagnostics of the correlated run (15 October 2026; PE files: 62 `nocosmo` for O1–O3, 75 combined of GWTC-4.0
+v3): at the posterior median 16,164 effective injections (threshold 548) and at least 18 effective PE samples per
+event (threshold 10); 20 walkers × 1200 steps, acceptance 0.62, autocorrelation time 40 steps, about 400
+independent samples.
 
 ## Validation
 

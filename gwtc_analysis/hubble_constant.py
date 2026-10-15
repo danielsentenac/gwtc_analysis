@@ -237,7 +237,7 @@ def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False
     _log(f"extracting the PE samples of {len(jobs)} events (files in {cache / 'files'})")
 
     def one(name, entry):
-        src, downloaded = fetch(entry, cache, "zenodo", desc=name, log=_log)
+        src, downloaded = fetch(entry, cache, desc=name, log=_log)
         target = cache / "samples" / f"{name}.h5"
         _extract_pe(src, target)
         if downloaded and not keep_files:   # a file already in the shared cache belongs to the mode that kept it

@@ -154,15 +154,17 @@ def s3_objects(cache: Path | str) -> dict[str, str]:
         return out
 
 
-def fetch(entry: dict, cache: Path | str, data_repo: str = "zenodo", *, desc: str = "",
+def fetch(entry: dict, cache: Path | str, data_repo: Optional[str] = None, *, desc: str = "",
           log: Callable[[str], None] = print) -> tuple[Path, bool]:
     """The file of `entry` in `cache`/files (or in a shared PE cache), else downloaded: from the S3 mirror when
     `data_repo` is s3 and it has the file, else from Zenodo. Returns the path and whether this call downloaded
     it (a file already there belongs to whichever mode fetched it, and is kept)."""
     from . import parameters_estimation as pe
 
+    from .mirror import data_repo as run_data_repo
     from .report import note_pe_source
 
+    data_repo = data_repo or run_data_repo()      # the --data-repo of the run
     fname = entry["filename"]
     dest = Path(cache) / "files" / fname
     if dest.exists() and dest.stat().st_size > 0:
@@ -175,17 +177,22 @@ def fetch(entry: dict, cache: Path | str, data_repo: str = "zenodo", *, desc: st
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
     if data_repo == "s3":
-        obj = s3_objects(cache).get(fname)
-        if obj is not None:
-            from .gw_stat import _s3_client_from_env
+        try:
+            obj = s3_objects(cache).get(fname)
+            if obj is not None:
+                from .gw_stat import _s3_client_from_env
 
-            pe._download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj, out_path=tmp,
-                                          desc=desc or fname)
-            tmp.replace(dest)
-            note_pe_source(fname, "S3 mirror")
-            return dest, True
-        log(f"{fname} is not on the S3 mirror: downloading it from Zenodo")
-        note_pe_source(fname, "Zenodo (not on the S3 mirror)")
+                pe._download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj, out_path=tmp,
+                                              desc=desc or fname)
+                tmp.replace(dest)
+                note_pe_source(fname, "S3 mirror")
+                return dest, True
+            log(f"{fname} is not on the S3 mirror: downloading it from Zenodo")
+            note_pe_source(fname, "Zenodo (not on the S3 mirror)")
+        except Exception as e:                 # the mirror unreachable or a failed transfer: Zenodo
+            tmp.unlink(missing_ok=True)
+            log(f"S3 mirror failed for {fname} ({type(e).__name__}: {e}): downloading it from Zenodo")
+            note_pe_source(fname, "Zenodo (S3 mirror failed)")
     else:
         note_pe_source(fname, "Zenodo")
     pe._download_http_with_progress(entry["url"], tmp, desc=desc or fname)

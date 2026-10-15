@@ -509,17 +509,22 @@ def _download_pe_from_s3(
             log_cb(f"ℹ️ [CACHE] Using the PE file of the shared PE cache: {shared}")
         note_pe_source(fname, "PE cache of another mode")
         return shared
-    obj = s3_objects(".cache_gwosc").get(fname)
-    if obj is None:
+    try:
+        obj = s3_objects(".cache_gwosc").get(fname)
+        if obj is None:
+            if log_cb:
+                log_cb(f"ℹ️ [INFO] {fname} is not on the S3 mirror: downloading it from Zenodo")
+            return None
         if log_cb:
-            log_cb(f"ℹ️ [INFO] {fname} is not on the S3 mirror: downloading it from Zenodo")
+            log_cb(f"ℹ️ [DOWNLOAD] Fetching from S3: {obj}")
+        outdir.mkdir(parents=True, exist_ok=True)
+        _download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj, out_path=out_path,
+                                   desc=f"S3: {fname}")
+    except Exception as e:                     # the mirror unreachable or a failed transfer: Zenodo
+        if log_cb:
+            log_cb(f"⚠️ [WARN] S3 mirror failed for {fname} ({type(e).__name__}: {e}): downloading it from Zenodo")
         return None
     note_pe_source(fname, "S3 mirror")
-    if log_cb:
-        log_cb(f"ℹ️ [DOWNLOAD] Fetching from S3: {obj}")
-    outdir.mkdir(parents=True, exist_ok=True)
-    _download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj, out_path=out_path,
-                               desc=f"S3: {fname}")
     return out_path
 
 

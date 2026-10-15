@@ -150,3 +150,4 @@ association, with odds between 1 and 12 in its favour depending on the waveform 
 | `--viewing-angle MEAN SIGMA` | none | an independent measurement of the viewing angle (degrees, Gaussian), e.g. from the radio jet of GW170817, to see how it narrows the distance |
 | `--pe-distance-prior` | — | refused here: the distances reported are the PE posterior as released (the option is shared with the [bright siren](hubble-constant-bright.md), which divides the prior out) |
 | `--out-report`, `--out-summary`, `--plots-dir` | `counterpart.html`, `counterpart.tsv`, `counterpart_plots` | the HTML report, the summary table (one row per PE label) and the plots |
+| `--data-repo {zenodo,s3}` | `zenodo` | where the PE file are downloaded from: their public sources, or `s3`, the MinIO mirror (faster), when it holds the same file ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |

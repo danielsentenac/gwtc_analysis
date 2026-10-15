@@ -1030,10 +1030,12 @@ def _catalog_to_s3_prefix(catalog_key: str) -> str:
     """Map the CLI catalog keys to S3 folder names (catalog_registry)."""
     return _s3_prefix(catalog_key)
 
-def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False) -> dict[str, str]:
+def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False,
+                           release_tag: str | None = None) -> dict[str, str]:
     """
     Return dict: ev_key ('GWYYYYMM_DDHHMM') -> object_name, the map choose_skymap prefers (Mixed, else the
-    SKYMAP_FALLBACK order), as the Zenodo path does.
+    SKYMAP_FALLBACK order), as the Zenodo path does. With `release_tag`, only the maps of that release version
+    (file names starting with it).
     """
     by_event: dict[str, dict[str, str]] = {}
     rx = re.compile(r"(GW\d{6}_\d{6})")
@@ -1041,6 +1043,8 @@ def _build_s3_skymap_index(mc, bucket: str, prefix: str, verbose: bool = False) 
     for obj in mc.list_objects(bucket, prefix=prefix, recursive=True):
         name = obj.object_name
         if not (name.endswith(".fits") or name.endswith(".fits.gz")):
+            continue
+        if release_tag and not name.rsplit("/", 1)[-1].startswith(release_tag + "-"):
             continue
 
         m = rx.search(name)
@@ -1102,9 +1106,11 @@ def add_localization_area_from_s3(
     cache_index: bool = True,
     progress: bool = True,
     verbose: bool = False,
+    release_tag: str | None = None,
 ) -> pd.DataFrame:
     """
-    Compute credible area by reading per-event skymap FITS from S3 (recursive scan).
+    Compute credible area by reading per-event skymap FITS from S3 (recursive scan); with `release_tag`, only the
+    maps of that release version.
 
     - Lists all .fits/.fits.gz under s3://bucket/<base_prefix>/<GWTC-*/...> recursively.
     - Builds an event->object index from filenames containing GWYYYYMM_DDHHMM.
@@ -1121,7 +1127,7 @@ def add_localization_area_from_s3(
     prefix = f"{base_prefix}{cat_prefix}"
 
     # build (or optionally cache) index
-    index = _build_s3_skymap_index(mc, bucket=bucket, prefix=prefix, verbose=verbose)
+    index = _build_s3_skymap_index(mc, bucket=bucket, prefix=prefix, verbose=verbose, release_tag=release_tag)
 
     try:
         from tqdm.auto import tqdm  # type: ignore
