@@ -219,6 +219,7 @@ population; the report gives the effective number of injections over the H₀ ra
 
 ## Outputs
 
+- The HTML report ends with the **PE files of this run**: for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `--out-report` (HTML): the result, the caveat of a candidate counterpart, the inputs, the selection
   term and the plot;
 - `--out-summary` (TSV): maximum a posteriori, 68.3% highest-density interval, median and 90%

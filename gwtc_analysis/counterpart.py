@@ -248,16 +248,21 @@ def load_event_samples(event: str, cp: Counterpart, pe_file: Optional[str | Path
                        ) -> tuple[Path, dict[str, dict]]:
     """(PE file, samples by label) of the event: its Zenodo PE file, or the unofficial bundle for GW170817."""
     from . import hubble_constant as hc
+    from .report import record_pe_file
 
     if pe_file is None:
         if cp.pe_event:
             pe_file = _event_pe_file(cp.pe_event, Path(pe_cache).expanduser() if pe_cache else hc.default_pe_cache())
+            record_pe_file(cp.pe_event, Path(pe_file).name)
         else:
             from .unofficial_pe import build_unofficial_pe_bundle
 
             pe_file = build_unofficial_pe_bundle(event, cache_dir=cache_dir, log_cb=log_cb or _log)
             if pe_file is None:
                 raise ValueError(f"could not build the PE bundle of {event}")
+            record_pe_file(event, Path(pe_file).name, "build_unofficial_pe")
+    else:
+        record_pe_file(cp.pe_event or event, Path(pe_file).name, "--pe-file")
     pe_file = Path(pe_file)
     return pe_file, _read_pe_labels(pe_file, pe_labels or cp.pe_labels or None)
 

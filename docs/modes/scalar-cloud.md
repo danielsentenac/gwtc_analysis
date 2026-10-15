@@ -200,6 +200,7 @@ and its limits constrain the boson only together with a model of the Galactic bl
 
 ## Outputs
 
+- The HTML report ends with the **PE files of this run** (recorded in `event.json` by `prepare`): for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `--out-report` (HTML): the fits, the background and the posteriors, with the plots;
 - `--out-summary` (TSV): the fits (vacuum and cloud), with Λ and its p-value;
 - `<workdir>/`: `event.json` (the event and its priors), the results of each stage, and `plots/` (`whitened.png`,

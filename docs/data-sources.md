@@ -117,7 +117,8 @@ the mode:
 | `parameters_estimation` | the catalog's posteriors | `*_mixed_cosmo.h5` | the combined file |
 
 `--data-repo` then only says where that file is downloaded from (above), and a result does not depend on
-what the S3 mirror or the Galaxy history hold. GW170817 has no release file: the modes read the bundle
+what the S3 mirror or the Galaxy history hold. Every HTML report of these modes ends with the **PE files of
+this run**: for each event the file read, its type and where this run took it from. GW170817 has no release file: the modes read the bundle
 rebuilt by [`build_unofficial_pe`](modes/unofficial-pe.md).
 
 Two safeguards keep it so:

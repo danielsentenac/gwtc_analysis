@@ -101,6 +101,7 @@ parameters are recovered inside their 90% intervals, with P(α < 0) > 0.9.
 
 ## Outputs
 
+- The HTML report ends with the **PE files of this run**: for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `--out-report` (HTML): the posterior, the fraction with χ_eff < 0, the diagnostics and the plot;
 - `--out-summary` (TSV): the posterior quantiles; `<name>.posterior.tsv`: the samples;
 - `--plots-dir`: `spin_population.png`.
