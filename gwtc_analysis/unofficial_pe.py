@@ -118,18 +118,25 @@ def _download_public_sources(spec: UnofficialPEBundleSpec, log_cb: Callable[[str
 
     import requests
 
+    from . import mirror
+
     archives: dict[str, bytes] = {}
     for src in spec.downloads:
         path = src.path.expanduser()
         if path.exists() and path.stat().st_size > 0:
+            mirror.cached(src.url)
             continue
         try:
             if src.url not in archives:
                 if log_cb:
                     log_cb(f"ℹ️ [DOWNLOAD] {src.url}")
-                r = requests.get(src.url, timeout=(10, 600))
-                r.raise_for_status()
-                archives[src.url] = r.content
+
+                def http(u):
+                    r = requests.get(u, timeout=(10, 600))
+                    r.raise_for_status()
+                    return r.content
+
+                archives[src.url] = mirror.fetch_bytes(src.url, http, log=log_cb or print)
             data = archives[src.url]
             if src.member is not None:
                 with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:

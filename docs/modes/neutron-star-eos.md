@@ -96,6 +96,7 @@ width is half of Silverman's rule, the full width over-smoothing (98% coverage).
 | `--out-report` | `neutron_star_eos.html` | Output HTML report path. |
 | `--out-summary` | `neutron_star_eos.tsv` | Output TSV of Lambda_1.4 and R_1.4 (the posteriors go to &lt;name&gt;.posterior.tsv). |
 | `--plots-dir` | `neutron_star_eos_plots` | Directory for the plots. |
+| `--data-repo {zenodo,s3}` | `zenodo` | where the PE files and the GWTC-1 products of GW170817 are downloaded from: their public sources, or `s3`, the MinIO mirror (faster), when it holds the same file ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |
 
 Every report ends with the options of its run, defaults included. The same table with the help text
 of all the modes: [CLI reference](../cli-reference.md#neutron_star_eos).

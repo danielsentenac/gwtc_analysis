@@ -223,6 +223,7 @@ and its limits constrain the boson only together with a model of the Galactic bl
 | `--python`, `--slurm-option`, `--slurm-env-setup`, `--submit` | this interpreter; none; none; off | Slurm: the jobs' interpreter, extra #SBATCH options, setup lines, submission |
 | `--npool` | 32 | Slurm: CPUs of each sampling job |
 | `--out-report`, `--out-summary` | `scalar_cloud.html`, `scalar_cloud.tsv` | report and table of the fits |
+| `--data-repo {zenodo,s3}` | `zenodo` | where the PE file are downloaded from: their public sources, or `s3`, the MinIO mirror (faster), when it holds the same file ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |
 
 Cost for GW190728 (16 s at 2048 Hz): a vacuum likelihood 0.035 s, a cloud likelihood 0.2 s (the modes of LAL). The
 best fit takes about 2 CPU-hours, each background injection about 2 (1 with `seeded`), the nested sampling of the

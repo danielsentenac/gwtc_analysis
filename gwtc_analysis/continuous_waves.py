@@ -67,13 +67,19 @@ def fetch(name: str, refresh: bool = False) -> Path:
 
     url = FILES[name]
     p = cache_dir() / (url.rsplit("/", 1)[-1] if name != "known_pulsars_tex" else "2501.01495.tar.gz")
+    from . import mirror
+
     if p.exists() and not refresh:
+        mirror.cached(url)
         return p
     p.parent.mkdir(parents=True, exist_ok=True)
-    r = requests.get(url, timeout=300)
-    r.raise_for_status()
-    p.with_suffix(".part").write_bytes(r.content)
-    p.with_suffix(".part").replace(p)
+
+    def http(u, dest):
+        r = requests.get(u, timeout=300)
+        r.raise_for_status()
+        Path(dest).write_bytes(r.content)
+
+    mirror.fetch_to(url, p, http, log=_log)
     _log(f"downloaded {url}")
     return p
 

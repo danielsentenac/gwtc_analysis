@@ -153,9 +153,108 @@ def run_search_skymaps(
     wf = (skymap_label or "").strip()
 
     # -------------------------
+    # S3 repo
+    # -------------------------
+    zenodo_catalogs = list(catalogs) if data_repo == "zenodo" else []
+    if data_repo == "s3":
+        # the maps of the selected Zenodo version, from the mirror when it holds them, else from Zenodo
+        from .data_repo import skymap_release_tag
+        from .gw_stat import _catalog_to_s3_prefix, _s3_client_from_env
+
+        bucket = "gwtc"
+
+        tqdm = _tqdm_or_none()
+        matched = 0
+        errors = 0
+
+        pbar = tqdm(total=None, unit=" skymap", desc="S3 skymaps") if tqdm is not None else None
+
+        try:
+            for catalog in catalogs:
+                if selection(catalog) is None:
+                    continue
+                prefix = _catalog_to_s3_prefix(catalog)
+
+                # never scan the whole bucket: a catalog without a folder there (GWTC-4.1) is read from Zenodo
+                if not prefix or prefix == "/":
+                    zenodo_catalogs.append(catalog)
+                    continue
+
+                try:
+                    tag = skymap_release_tag(catalog, (zenodo_versions or {}).get(_products_catalog(catalog))) + "-"
+                    client = _s3_client_from_env()
+                    keys = [o.object_name for o in client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True)
+                            if o.object_name.endswith((".fits", ".fits.gz"))
+                            and o.object_name.rsplit("/", 1)[-1].startswith(tag)]
+                except Exception as e:             # the mirror unreachable: Zenodo
+                    print(f"[search_skymaps] S3 mirror failed for {catalog} ({type(e).__name__}: {e}): using Zenodo")
+                    keys = []
+                if not keys:
+                    print(f"[search_skymaps] no skymap of the selected {catalog} release on the S3 mirror: using Zenodo")
+                    zenodo_catalogs.append(catalog)
+                    continue
+                for key in _one_map_per_event(keys, wf):
+
+                    try:
+                        resp = client.get_object(bucket_name=bucket, object_name=key)
+                        try:
+                            data = resp.read()
+                        finally:
+                            resp.close()
+                            resp.release_conn()
+
+                        before_len = len(rows)
+                        _process_one_skymap_s3_object(
+                            rows=rows,
+                            catalog=catalog,
+                            s3_key=key,
+                            s3_bytes=data,
+                            selected_event_ids=selection(catalog),
+                            ra_deg=ra_deg,
+                            dec_deg=dec_deg,
+                            prob=prob,
+                            requested_percent=requested_percent,
+                            plots_path=plots_path,
+                        )
+
+                        if len(rows) > before_len:
+                            last = rows[-1]
+                            if last.get("status") == "ok" and last.get("inside_requested_credible") is True:
+                                matched += 1
+                            if last.get("status") == "error":
+                                errors += 1
+
+                    except Exception:
+                        errors += 1
+                        rows.append(
+                            dict(
+                                catalog=catalog,
+                                event_id="",
+                                skymap_path=key,
+                                status="error",
+                                error="download_or_process_failed",
+                            )
+                        )
+
+                    if pbar is not None:
+                        pbar.update(1)
+                        try:
+                            pbar.set_postfix(matched=matched, errors=errors)
+                        except Exception:
+                            pass
+                        try:
+                            pbar.set_description(f"S3 skymaps ({catalog})")
+                        except Exception:
+                            pass
+
+        finally:
+            if pbar is not None:
+                pbar.close()
+
+    # -------------------------
     # Zenodo repo
     # -------------------------
-    if data_repo == "zenodo":
+    if zenodo_catalogs:
         from .gw_stat import (
             build_skymap_index_from_tar,
             download_zenodo_skymaps_tarball,
@@ -175,7 +274,7 @@ def run_search_skymaps(
         # We iterate by event ids (fast) rather than by tar members (slow).
         pbar = tqdm(total=None, unit=" event", desc="Zenodo skymaps") if tqdm else None
 
-        for catalog in catalogs:
+        for catalog in zenodo_catalogs:
             sel = selection(catalog)
             if sel is None:
                 continue
@@ -274,94 +373,9 @@ def run_search_skymaps(
             _write_search_skymaps_report(out_path=Path(out_report_html), rows=rows, tsv_path=out_tsv_path)
         return
 
-    # -------------------------
-    # S3 repo
-    # -------------------------
-    if data_repo == "s3":
-        from .gw_stat import _catalog_to_s3_prefix, _s3_client_from_env
-
-        client = _s3_client_from_env()
-        bucket = "gwtc"
-
-        tqdm = _tqdm_or_none()
-        matched = 0
-        errors = 0
-
-        pbar = tqdm(total=None, unit=" skymap", desc="S3 skymaps") if tqdm is not None else None
-
-        try:
-            for catalog in catalogs:
-                if selection(catalog) is None:
-                    continue
-                prefix = _catalog_to_s3_prefix(catalog)
-
-                # Safety: never allow empty / root prefix scans
-                if not prefix or prefix == "/":
-                    raise RuntimeError(f"Refusing to scan S3 with unsafe prefix={prefix!r} for catalog={catalog!r}")
-
-                keys = [o.object_name for o in client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True)
-                        if o.object_name.endswith((".fits", ".fits.gz"))]
-                for key in _one_map_per_event(keys, wf):
-
-                    try:
-                        resp = client.get_object(bucket_name=bucket, object_name=key)
-                        try:
-                            data = resp.read()
-                        finally:
-                            resp.close()
-                            resp.release_conn()
-
-                        before_len = len(rows)
-                        _process_one_skymap_s3_object(
-                            rows=rows,
-                            catalog=catalog,
-                            s3_key=key,
-                            s3_bytes=data,
-                            selected_event_ids=selection(catalog),
-                            ra_deg=ra_deg,
-                            dec_deg=dec_deg,
-                            prob=prob,
-                            requested_percent=requested_percent,
-                            plots_path=plots_path,
-                        )
-
-                        if len(rows) > before_len:
-                            last = rows[-1]
-                            if last.get("status") == "ok" and last.get("inside_requested_credible") is True:
-                                matched += 1
-                            if last.get("status") == "error":
-                                errors += 1
-
-                    except Exception:
-                        errors += 1
-                        rows.append(
-                            dict(
-                                catalog=catalog,
-                                event_id="",
-                                skymap_path=key,
-                                status="error",
-                                error="download_or_process_failed",
-                            )
-                        )
-
-                    if pbar is not None:
-                        pbar.update(1)
-                        try:
-                            pbar.set_postfix(matched=matched, errors=errors)
-                        except Exception:
-                            pass
-                        try:
-                            pbar.set_description(f"S3 skymaps ({catalog})")
-                        except Exception:
-                            pass
-
-        finally:
-            if pbar is not None:
-                pbar.close()
-
+    if data_repo == "s3":                     # every catalog found on the mirror
         out_tsv_path = Path(out_events_tsv)
         _write_tsv(out_tsv_path, rows)
-
         if out_report_html:
             _write_search_skymaps_report(out_path=Path(out_report_html), rows=rows, tsv_path=out_tsv_path)
         return

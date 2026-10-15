@@ -149,9 +149,13 @@ def load_supplementary_psds(
 
     if log_cb:
         log_cb(f"ℹ️ [DOWNLOAD] PSDs for {spec.event} from {spec.reference}: {spec.url}")
+    from . import mirror
+
     try:
-        if spec.range_read:
+        if spec.range_read and not mirror.on_mirror(spec.url):   # read in place, only the PSD bytes
             import fsspec
+
+            mirror._record(spec.url, "zenodo.org (HTTP range read)")
 
             fs = fsspec.filesystem("http", block_size=2**20, headers={"User-Agent": USER_AGENT})
             with fs.open(spec.url, "rb") as fo, h5py.File(fo, "r") as h5:
@@ -161,13 +165,16 @@ def load_supplementary_psds(
 
             cache.mkdir(parents=True, exist_ok=True)
             tmp = cache / f"{spec.event}_source.h5.part"
-            try:
-                with requests.get(spec.url, stream=True, timeout=(10, 600),
-                                  headers={"User-Agent": USER_AGENT}) as r:
+
+            def http(u, dest):
+                with requests.get(u, stream=True, timeout=(10, 600), headers={"User-Agent": USER_AGENT}) as r:
                     r.raise_for_status()
-                    with tmp.open("wb") as out:
+                    with Path(dest).open("wb") as out:
                         for chunk in r.iter_content(chunk_size=2**20):
                             out.write(chunk)
+
+            try:
+                mirror.fetch_to(spec.url, tmp, http, log=log_cb or print)
                 with h5py.File(tmp, "r") as h5:
                     psds = _read_psds(h5, spec.run)
             finally:
@@ -252,12 +259,15 @@ def fill_missing_skymaps(
 
             if log_cb:
                 log_cb(f"ℹ️ [DOWNLOAD] Skymap for {spec.event} from {spec.reference}: {spec.skymap_url}")
-            r = requests.get(spec.skymap_url, timeout=(10, 300), headers={"User-Agent": USER_AGENT})
-            r.raise_for_status()
+            from . import mirror
+
+            def http(u, dest):
+                r = requests.get(u, timeout=(10, 300), headers={"User-Agent": USER_AGENT})
+                r.raise_for_status()
+                Path(dest).write_bytes(r.content)
+
             cache.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(".part")
-            tmp.write_bytes(r.content)
-            tmp.replace(path)                      # a complete file only
+            mirror.fetch_to(spec.skymap_url, path, http, log=log_cb or print)      # a complete file only
 
         from ligo.skymap.io import read_sky_map
         from pesummary.gw.file.skymap import SkyMap

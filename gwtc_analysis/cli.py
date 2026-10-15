@@ -53,8 +53,8 @@ def _parse_zenodo_versions(items: Optional[List[str]], data_repo: str,
     Zenodo listing whatever --data-repo (parameters_estimation), so the version applies to every repository."""
     if not items:
         return None
-    if data_repo != "zenodo" and not any_repo:
-        raise ValueError("--zenodo-version only applies with --data-repo zenodo")
+    if data_repo not in ("zenodo", "s3") and not any_repo:
+        raise ValueError("--zenodo-version only applies with --data-repo zenodo or s3")
     out: dict[str, str] = {}
     for it in _parse_catalogs(items):
         cat, sep, ver = it.partition("=")
@@ -78,7 +78,7 @@ def _add_zenodo_version_arg(p: argparse.ArgumentParser, help: Optional[str] = No
         default=None,
         metavar="CATALOG=VERSION",
         help=help or (
-            "With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest "
+            "With --data-repo zenodo or s3, read an older Zenodo release version of a catalog instead of the latest "
             "(e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); "
             "list them with the zenodo_releases mode."
         ),
@@ -213,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cat.add_argument("--include-area", action="store_true", help="Compute sky localization area Axx if skymaps are available.")
     p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
     p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
-    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
+    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs), s3 (the MinIO mirror, faster, when it holds the maps of the selected release version; else Zenodo) or galaxy (staged collections).")
     _add_zenodo_version_arg(p_cat)
 
     # ---------------------------------------------------------------------
@@ -846,7 +846,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sky.add_argument("--out-events", default="search_skymaps.tsv", help="Output TSV file (default: search_skymaps.tsv).")
     p_sky.add_argument("--out-report", default="search_skymaps.html", help="Optional output HTML report path for hits.")
     p_sky.add_argument("--plots-dir", default="sky_plots", help="Directory for hit plots (default: sky_plots).")
-    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where to read data from: galaxy | zenodo | s3.")
+    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs), s3 (the MinIO mirror, faster, when it holds the maps of the selected release version; else Zenodo) or galaxy (staged collections).")
     _add_zenodo_version_arg(p_sky)
 
     # ---------------------------------------------------------------------
@@ -960,6 +960,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_zen.add_argument("--catalogs", nargs="+", default=["ALL"], help="Catalog keys, space-separated (e.g. GWTC-3 GWTC-4). ALL key takes them all.")
 
+    # where the public files of the modes without a --data-repo of their own are downloaded from
+    for mode, files in (("rates", "the search-sensitivity injections"),
+                        ("hubble_constant", "the PE files and the search-sensitivity injections"),
+                        ("counterpart", "the PE file"), ("continuous_waves", "the LVK upper-limit files"),
+                        ("area_law", "the GW250114 data release"), ("scalar_cloud", "the PE file"),
+                        ("neutron_star_eos", "the PE files and the GWTC-1 products of GW170817"),
+                        ("build_unofficial_pe", "the GWTC-1 products of GW170817")):
+        p._mode_parsers[mode].add_argument(
+            "--data-repo", choices=["zenodo", "s3"], default="zenodo",
+            help=f"Where {files} are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the "
+                 "MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its "
+                 "public source.")
     return p
 
 
@@ -1116,6 +1128,9 @@ def main(argv=None) -> int:
         if args.mode in SETTINGS_MODES:
             _record_options(args, args.workdir)
         _set_report_options(args, p, given)
+        from . import mirror
+
+        mirror.set_data_repo(getattr(args, "data_repo", None))      # public files: also from the S3 mirror with s3
 
         if args.mode == "catalog_statistics":
             from .catalogs import run_catalog_statistics
