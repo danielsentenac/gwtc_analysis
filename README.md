@@ -14,7 +14,7 @@ The tool provides:
 - Visualization of parameter-estimation results for individual events
 - Selection of events based on physical constraints (masses, distance, χ_eff), or by class of sources: neutron stars, the lower mass gap (3–5 M☉), hierarchical-merger candidates (pair-instability gap, negative χ_eff)
 - Global catalog statistics, including detector-network participation, sky-localization performance, and remnants (radiated energy, final-spin estimate)
-- BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections
+- BNS, NSBH and BBH merger-rate estimates (R = N / ⟨VT⟩) from the catalogs and the LVK search-sensitivity injections, with fixed populations or FullPop-4.0 (one rate for all compact binaries), optionally over a population posterior
 - Hubble-constant estimate (`hubble_constant --method`): from the BBH mass spectrum (spectral siren) or with a galaxy catalog (dark siren), with icarogw; from an event with an identified host (bright siren: GW170817, the candidate GW190521 flare); the joint posterior of independent results
 - BBH effective-spin population and its correlation with the mass ratio
 - Neutron-star equation of state from GW170817 and GW190425 jointly (Λ₁.₄, R₁.₄)
@@ -184,7 +184,7 @@ Galaxy, like the S3 bucket, is only a data repository (`--data-repo galaxy`, bel
 
 ### Outputs
 - TSV tables
-- HTML reports
+- HTML reports, each ending with an "Options of this run" table (every option and its value, defaults included)
 - Plot images
 
 ---
@@ -591,7 +591,21 @@ python gwtc_analysis/gen_readme_cli_tables.py
   `--sensitivity-file` uses a local injection file instead (same LVK mixture format).
 - **Populations** (fixed shapes): BNS with both masses uniform in [1, 2.5] M☉; NSBH with the black hole ∝ m^-2.35 on [2.5, 40] M☉; BBH with the GWTC-3 *Power Law + Peak* model, reported with R ∝ (1+z)^κ at z = 0.2 (`--bbh-kappa`, `--bbh-z-ref`) and without evolution.
 - **Intervals**: 90% Poisson (Jeffreys prior). The LVK population papers fit the population shapes together with the rates, so their intervals are wider and model-dependent.
-- **Population posterior and FullPop-4.0**: `--population-posterior` computes the BBH rate over the samples of a `hubble_constant` run (`--mass-model plp` or `mltp`), so the interval includes the population uncertainty. `--mass-model fullpop4` uses FullPop-4.0, one distribution for all compact binaries: one rate fitted to the events of all classes, split into BNS, NSBH and BBH; over the FullPop-4.0 spectral-siren posterior (GWTC-4.0 injections) BNS 68 [7, 670], NSBH 21 [6, 73], BBH 22 [12.5, 35] at z = 0, against 89 [22, 248], 23 [10, 43] and 19 [14, 26] for FullPop-4.0 in the GWTC-4.0 population paper.
+- **Population posterior and FullPop-4.0**: `--population-posterior` computes the BBH rate over the samples of a `hubble_constant` run (`--mass-model plp` or `mltp`), so the interval includes the population uncertainty. `--mass-model fullpop4` uses FullPop-4.0, one distribution for all compact binaries: one rate fitted to the events of all classes, split into BNS, NSBH and BBH by the fraction of the population in each (neutron stars below `--ns-max-mass`), with the Madau–Dickinson evolution (classes at z = 0, BBH also at z = 0.2).
+
+  ```bash
+  gwtc_analysis rates --mass-model fullpop4                                   # GWTC-4.0 medians, Poisson only
+  gwtc_analysis rates --mass-model fullpop4 --population-posterior h0_fullpop4 --sensitivity-release gwtc4
+  ```
+
+  | Rates (Gpc⁻³ yr⁻¹), median [90%] | BNS, z = 0 | NSBH, z = 0 | BBH, z = 0 | BBH, z = 0.2 |
+  |---|---|---|---|---|
+  | GWTC-4.0 medians, `gwtc5` injections (253 events) | 98 [88, 103] | 22 [20, 23] | 19 [17, 20] | 36.5 [33, 39] |
+  | FullPop-4.0 posterior (200 draws), `gwtc4` injections (149 events) | 68 [7, 670] | 21 [6, 73] | 22 [12.5, 35] | 40 [27, 60] |
+  | LVK *FullPop-4.0*, [GWTC-4.0](https://arxiv.org/abs/2508.18083) | 89 [22, 248] | 23 [10, 43] | 19 [14, 26] | — |
+  | LVK *FullPop*, [GWTC-5.0](https://arxiv.org/abs/2605.27226) | 59 [15, 155] | 14 [7, 26] | — | 36 [27.5, 47] |
+
+  With fixed parameters the intervals are Poisson only and the BNS rate is the BBH-dominated total times the model's BNS fraction, not a measurement of the one BNS; over the posterior, the classes agree with the LVK intervals.
 
 - **Catalogs** (`--catalogs`, as in the other modes): the events **and** the injections are restricted to the observing runs of the selected catalogs (GWTC-1: O1–O2, GWTC-2.1: O3a, GWTC-3: O3b, GWTC-4: O4a, GWTC-5: O4b; `ALL` for O1 to O4b), so that counts and ⟨VT⟩ describe the same observing time. GWTC-1 uses the release's mixture with semi-analytic O1+O2 injections (`--snr-threshold`, 10). For O4b alone (`--catalogs GWTC-5`): 104 BBH candidates, BBH rate 24.8 [21.0, 29.0] Gpc⁻³ yr⁻¹ at z = 0.2.
 
@@ -790,7 +804,8 @@ gwtc_analysis neutron_star_eos
 Unequal-mass binaries have larger effective spins, as Callister et al. found; [GWTC-4.0](https://arxiv.org/abs/2508.18083) also finds evidence for a χ_eff–q correlation. A run takes about 30 minutes.
 
 ```bash
-gwtc_analysis spin_population
+gwtc_analysis spin_population                    # PE files from Zenodo
+gwtc_analysis spin_population --data-repo s3      # from the MinIO mirror (faster), deleted after extraction
 ```
 
 ### `lens_pairs`: Strongly Lensed Pairs
@@ -1054,6 +1069,8 @@ gwtc_analysis hubble_constant --method bright
 gwtc_analysis counterpart
 gwtc_analysis area_law
 gwtc_analysis lens_pairs --data-repo s3
+gwtc_analysis rates --mass-model fullpop4
+gwtc_analysis spin_population --data-repo s3
 gwtc_analysis parameters_estimation --src-name GW231223_032836 --data-repo zenodo
 gwtc_analysis parameters_estimation --src-name GW170817 --overlay-start 0.2 --overlay-stop 0.2 --overlay-fmax 1000 --q-start 2 --q-stop 2 --q-fmax 1000 --q-fscale log
 ```
