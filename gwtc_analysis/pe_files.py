@@ -44,6 +44,21 @@ def is_cosmo_reweighted(filename: str) -> bool:
     return "cosmo" in n and "nocosmo" not in n
 
 
+def describe(filename: str) -> tuple[str, str]:
+    """(short type, description) of a PE file, for the reports."""
+    n = Path(str(filename)).name.lower()
+    if "nocosmo" in n:
+        return "nocosmo", "nocosmo: the samples under the prior they were drawn with (D_L^2), recorded in the file"
+    if is_cosmo_reweighted(n):
+        return "cosmo", ("cosmo: reweighted to a population uniform in comoving volume and source-frame time "
+                         "(Planck15), the posteriors quoted in the catalog")
+    if "combined" in n:
+        return "combined", "combined: the single file of the release (GWTC-4.0 on), prior recorded in the file"
+    if "unofficial" in n:
+        return "unofficial bundle", "unofficial bundle rebuilt from the public GWTC-1 samples (build_unofficial_pe)"
+    return "other", "a file given on the command line"
+
+
 def distance_prior_desc(filename: str, recorded: str) -> str:
     """The luminosity-distance prior the samples of a release file follow: the recorded one, except for the
     cosmologically reweighted files."""
@@ -146,12 +161,16 @@ def fetch(entry: dict, cache: Path | str, data_repo: str = "zenodo", *, desc: st
     it (a file already there belongs to whichever mode fetched it, and is kept)."""
     from . import parameters_estimation as pe
 
+    from .report import note_pe_source
+
     fname = entry["filename"]
     dest = Path(cache) / "files" / fname
     if dest.exists() and dest.stat().st_size > 0:
+        note_pe_source(fname, "PE cache")
         return dest, False
     shared = pe._shared_pe_file(fname)
     if shared is not None:
+        note_pe_source(fname, "PE cache of another mode")
         return shared, False
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
@@ -163,8 +182,12 @@ def fetch(entry: dict, cache: Path | str, data_repo: str = "zenodo", *, desc: st
             pe._download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj, out_path=tmp,
                                           desc=desc or fname)
             tmp.replace(dest)
+            note_pe_source(fname, "S3 mirror")
             return dest, True
         log(f"{fname} is not on the S3 mirror: downloading it from Zenodo")
+        note_pe_source(fname, "Zenodo (not on the S3 mirror)")
+    else:
+        note_pe_source(fname, "Zenodo")
     pe._download_http_with_progress(entry["url"], tmp, desc=desc or fname)
     tmp.replace(dest)
     return dest, True

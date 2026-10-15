@@ -205,6 +205,7 @@ def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False
     extract without the sky position."""
     from . import parameters_estimation as pe
     from .pe_files import extract_is_current, fetch
+    from .report import record_pe_file
 
     (cache / "samples").mkdir(parents=True, exist_ok=True)
     (cache / "files").mkdir(parents=True, exist_ok=True)
@@ -223,6 +224,7 @@ def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False
             missing.append(r["event"])
             continue
         entry = _pick_pe_file(cands)
+        record_pe_file(r["event"], entry["filename"])
         p = _pe_extract_path(cache, r["event"])
         if p is not None and extract_is_current(p, entry["filename"]) and (not need_sky or _extract_has_sky(p)):
             out[r["event"]] = p
@@ -449,7 +451,7 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
     extracts = fetch_pe_samples(events, pe_cache if not updates else pe_cache / "_".join(updates),
                                 keep_files=keep_pe_files, prefer_catalogs=updates, need_sky=catalog is not None)
     rng = np.random.default_rng(12345)
-    labels, priors, nsamp = [], [], []
+    labels, priors, nsamp, pe_files = [], [], [], []
     with h5py.File(workdir / "inputs.h5.part", "w") as h:
         for _, r in events.iterrows():
             with h5py.File(extracts[r["event"]], "r") as f:
@@ -461,6 +463,7 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
                 m1, m2, dl = g["mass_1"][:], g["mass_2"][:], g["luminosity_distance"][:]
                 sky = {c: g[c][:] for c in _PE_SKY} if catalog else {}
                 desc = str(g.attrs.get("prior:luminosity_distance", ""))
+                pe_files.append(str(f.attrs.get("source_file", "")))
             idx = rng.permutation(len(dl))[:max_pe_samples]   # shuffled: the sampler takes the first N
             prior, desc = pe_distance_prior(dl[idx], desc, r["run"])
             gr = h.create_group(r["event"])
@@ -486,6 +489,7 @@ def prepare_inputs(workdir: Path, release: str, sensitivity_file, far_threshold:
                            catalog_subgrouping=catalog["subgrouping"], catalog_settings=json.dumps(catalog["settings"]))
     (workdir / "inputs.h5.part").replace(workdir / "inputs.h5")
     events["pe_label"], events["pe_distance_prior"], events["pe_samples"] = labels, priors, nsamp
+    events["pe_file"] = pe_files
     events.to_csv(workdir / "events.tsv", sep="\t", index=False)
     (workdir / "selection.json").write_text(json.dumps(dict(release=release, runs=list(runs), updates=list(updates),
                                                             default_runs=runs == tuple(release_runs) and not updates,
@@ -655,6 +659,12 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     use_rw = bool(rw) and (workdir / "posterior_reweighted.tsv").exists()
     post = pd.read_csv(workdir / ("posterior_reweighted.tsv" if use_rw else "posterior.tsv"), sep="\t")
     events = pd.read_csv(workdir / "events.tsv", sep="\t") if (workdir / "events.tsv").exists() else pd.DataFrame()
+    if "pe_file" in events:           # the PE files of the prepare stage, listed in the report
+        from .report import record_pe_file
+
+        for ev, f in zip(events["event"], events["pe_file"].fillna("")):
+            if f:
+                record_pe_file(ev, f, "samples extracted from it at the prepare stage")
     model = summary.get("mass_model", "plp")
     model_name = MASS_MODELS.get(model, model)
     sel_file = workdir / "selection.json"

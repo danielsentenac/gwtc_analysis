@@ -79,6 +79,7 @@ width is half of Silverman's rule, the full width over-smoothing (98% coverage).
 
 ## Outputs
 
+- The HTML report ends with the **PE files of this run**: for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `--out-report` (HTML): Λ₁.₄ and R₁.₄ of each event and jointly, against the published values, with the plot;
 - `--out-summary` (TSV): Λ₁.₄ and R₁.₄ (median and 90%); `<name>.posterior.tsv`: the Λ₁.₄ posteriors on a grid;
 - `--plots-dir`: `ns_eos.png`.

@@ -588,6 +588,7 @@ All options: [CLI reference](../cli-reference.md#hubble_constant).
 
 ## Outputs
 
+- The HTML report ends with the **PE files of this run** (`prepare` also writes the file of each event in `events.tsv`, column `pe_file`): for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `--out-report` (HTML): the H₀ posterior against the published value, the merger-rate evolution, the diagnostics and
   the corner plot of `<workdir>/corner.png`;
 - `--out-summary` (TSV): the quantiles of H₀ and of the population parameters;
