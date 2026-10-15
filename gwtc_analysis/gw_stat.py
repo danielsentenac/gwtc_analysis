@@ -1107,6 +1107,7 @@ def add_localization_area_from_s3(
     progress: bool = True,
     verbose: bool = False,
     release_tag: str | None = None,
+    client=None,
 ) -> pd.DataFrame:
     """
     Compute credible area by reading per-event skymap FITS from S3 (recursive scan); with `release_tag`, only the
@@ -1122,7 +1123,7 @@ def add_localization_area_from_s3(
         column = f"A{level}_deg2"
     out[column] = np.nan
 
-    mc = _s3_client_from_env()
+    mc = client or _s3_client_from_env()      # client: another store with the same calls (the Galaxy history)
     cat_prefix = _catalog_to_s3_prefix(catalog_key)
     prefix = f"{base_prefix}{cat_prefix}"
 
@@ -1136,7 +1137,7 @@ def add_localization_area_from_s3(
 
     it = out.iterrows()
     if progress and tqdm is not None:
-        it = tqdm(list(it), desc=f"A{int(cred*100)} from S3 {catalog_key}", total=len(out))
+        it = tqdm(list(it), desc=f"A{int(cred*100)} from {'Galaxy' if type(mc).__name__ == 'GalaxyHistoryStore' else 'S3'} {catalog_key}", total=len(out))
 
     found = ok = miss = errors = 0
     areas = [np.nan] * len(out)
@@ -1181,7 +1182,7 @@ def add_localization_area_from_s3(
                 pass
 
     print(
-        f"[gw_stat] A{int(cred*100)} S3 summary: "
+        f"[gw_stat] A{int(cred*100)} {'Galaxy' if type(mc).__name__ == 'GalaxyHistoryStore' else 'S3'} summary: "
         f"found={found} ok={ok} miss={miss} errors={errors}"
     )
 

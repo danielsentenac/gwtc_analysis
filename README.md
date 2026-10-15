@@ -213,8 +213,8 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--include-area` | `False` | Compute sky localization area Axx if skymaps are available. |
 | `--area-cred` | `0.9` | Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95. |
 | `--plots-dir` | `cat_plots` | Directory for plots (default: cat_plots). |
-| `--data-repo` | `zenodo` | Where the skymaps are read from: zenodo (the release tarballs), s3 (the MinIO mirror, faster, when it holds the maps of the selected release version; else Zenodo) or galaxy (staged collections). |
-| `--zenodo-version` | `` | With --data-repo zenodo or s3, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
+| `--data-repo` | `zenodo` | Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo. |
+| `--zenodo-version` | `` | Read an older Zenodo release version of a catalog instead of the latest, with any --data-repo (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 
 ### `rates`
 
@@ -236,7 +236,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--mass-model` | `plp` | Mass model: plp = Power Law + Peak (GWTC-3 values unless --population-posterior); mltp = Multi Peak, two peaks near 10 and 35 Msun (needs --population-posterior); fullpop4 = FullPop-4.0, all compact binaries in one distribution, split into BNS, NSBH and BBH (GWTC-4.0 medians unless --population-posterior). |
 | `--population-posterior` | `` | Samples of the population: a hubble_constant work directory of the same --mass-model, or its posterior TSV file. The BBH rate (with fullpop4, all the rates) is then computed over them. |
 | `--n-draws` | `200` | Posterior draws with --population-posterior. |
-| `--data-repo` | `zenodo` | Where the search-sensitivity injections are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its public source. |
+| `--data-repo` | `zenodo` | Where the search-sensitivity injections are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `hubble_constant`
 
@@ -296,7 +296,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--population` | `volume` | [bright] Population of the sources: volume (uniform in comoving volume and source-frame time; with injections, the mass model of the class, Power Law + Peak or uniform neutron stars, weights both the PE samples and the selection) or fullpop4 (FullPop-4.0 masses and the Madau-Dickinson rate fixed to the GWTC-4.0 spectral-siren medians, as the GWTC-4.0 reanalysis of GW170817; selection by injections with --selection auto). |
 | `--h0-range` | `[10.0, 200.0]` | [bright] Flat H0 prior range, km/s/Mpc (that of the spectral siren, needed by joint). |
 | `--inputs` | `` | [joint] Independent results to combine: hubble_constant work directories (spectral, dark or bright) or posterior TSV files (H0 samples, or an H0 grid with a p column). |
-| `--data-repo` | `zenodo` | Where the PE files and the search-sensitivity injections are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its public source. |
+| `--data-repo` | `zenodo` | Where the PE files and the search-sensitivity injections are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `galaxy_catalog`
 
@@ -362,7 +362,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `counterpart.html` | Output HTML report path. |
 | `--out-summary` | `counterpart.tsv` | Output TSV of the summary, one row per PE label. |
 | `--plots-dir` | `counterpart_plots` | Directory for the plots. |
-| `--data-repo` | `zenodo` | Where the PE file are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its public source. |
+| `--data-repo` | `zenodo` | Where the PE file are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `continuous_waves`
 
@@ -375,7 +375,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `continuous_waves.html` | Output HTML report path. |
 | `--out-summary` | `continuous_waves.tsv` | Output TSV of the summary (pulsars in <name>.pulsars.tsv, narrowband limits in <name>.narrowband.tsv, boson reach in <name>.boson_reach.tsv). |
 | `--plots-dir` | `continuous_waves_plots` | Directory for the plots. |
-| `--data-repo` | `zenodo` | Where the LVK upper-limit files are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its public source. |
+| `--data-repo` | `zenodo` | Where the LVK upper-limit files are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `area_law`
 
@@ -388,7 +388,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `area_law.html` | Output HTML report path. |
 | `--out-summary` | `area_law.tsv` | Output TSV of the comparison with the paper (scans in <name>.truncation.tsv and <name>.ringdown.tsv). |
 | `--plots-dir` | `area_law_plots` | Directory for the plots. |
-| `--data-repo` | `zenodo` | Where the GW250114 data release are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its public source. |
+| `--data-repo` | `zenodo` | Where the GW250114 data release are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `scalar_cloud`
 
@@ -413,7 +413,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--submit` | `False` | With --executor slurm: submit the scripts. |
 | `--out-report` | `scalar_cloud.html` | Output HTML report path. |
 | `--out-summary` | `scalar_cloud.tsv` | Output TSV of the fits. |
-| `--data-repo` | `zenodo` | Where the PE file are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its public source. |
+| `--data-repo` | `zenodo` | Where the PE file are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `stochastic`
 
@@ -442,7 +442,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `neutron_star_eos.html` | Output HTML report path. |
 | `--out-summary` | `neutron_star_eos.tsv` | Output TSV of Lambda_1.4 and R_1.4 (the posteriors go to <name>.posterior.tsv). |
 | `--plots-dir` | `neutron_star_eos_plots` | Directory for the plots. |
-| `--data-repo` | `zenodo` | Where the PE files and the GWTC-1 products of GW170817 are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its public source. |
+| `--data-repo` | `zenodo` | Where the PE files and the GWTC-1 products of GW170817 are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `spin_population`
 
@@ -458,7 +458,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--exclude` | `['GW231123_135430', 'GW200105_162426']` | Events left out. |
 | `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
 | `--pe-samples` | `5000` | PE samples per event. |
-| `--data-repo` | `zenodo` | Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files are the same, those of the latest Zenodo versions: a file the mirror does not have comes from Zenodo. |
+| `--data-repo` | `zenodo` | Where the PE files are downloaded from: zenodo, s3 (the MinIO mirror, faster) or galaxy (the public usegalaxy.org history). The files are the same, those of the latest Zenodo versions: a file the mirror does not have comes from Zenodo. |
 | `--max-injections` | `250000` | Random subset of the found injections (0: all). |
 | `--walkers` | `20` | emcee walkers. |
 | `--steps` | `1200` | emcee steps (the first third is burn-in). |
@@ -477,7 +477,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--exclude` | `[]` | Events left out (full or common names). |
 | `--pe-cache` | `` | PE cache (default: that of hubble_constant). |
 | `--pe-samples` | `2000` | PE samples per event. |
-| `--data-repo` | `zenodo` | Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files are the same, those of the latest Zenodo versions: a file the mirror does not have comes from Zenodo. |
+| `--data-repo` | `zenodo` | Where the PE files are downloaded from: zenodo, s3 (the MinIO mirror, faster) or galaxy (the public usegalaxy.org history). The files are the same, those of the latest Zenodo versions: a file the mirror does not have comes from Zenodo. |
 | `--workers` | `4` | Parallel PE downloads. |
 | `--keep-pe-files` | `False` | Keep the downloaded PE files (only the extracted samples are kept by default). |
 | `--fpp-threshold` | `0.01` | Flag the pairs with an FPP at most this. |
@@ -526,8 +526,8 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` | Directory for hit plots (default: sky_plots). |
-| `--data-repo` | `zenodo` | Where the skymaps are read from: zenodo (the release tarballs), s3 (the MinIO mirror, faster, when it holds the maps of the selected release version; else Zenodo) or galaxy (staged collections). |
-| `--zenodo-version` | `` | With --data-repo zenodo or s3, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
+| `--data-repo` | `zenodo` | Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo. |
+| `--zenodo-version` | `` | Read an older Zenodo release version of a catalog instead of the latest, with any --data-repo (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 
 ### `parameters_estimation`
 
@@ -568,7 +568,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--src-name` | `` | Source event name (e.g. GW170817). |
 | `--cache-dir` | `.cache_gwosc` | Cache root where unofficial_pe/<bundle>.h5 will be written. |
 | `--force` | `False` | Force rebuilding the unofficial bundle even if a cached copy already exists and is up to date. |
-| `--data-repo` | `zenodo` | Where the GWTC-1 products of GW170817 are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its public source. |
+| `--data-repo` | `zenodo` | Where the GWTC-1 products of GW170817 are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `check_catalogs`
 

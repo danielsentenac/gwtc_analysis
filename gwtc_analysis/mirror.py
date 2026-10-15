@@ -1,9 +1,10 @@
-"""The S3 mirror of the public files (other than the PE files and skymaps of the catalog releases, see pe_files).
+"""The mirrors (S3 bucket, Galaxy history) of the public files (other than the PE files and skymaps of the releases).
 
 Every public file the modes download (search-sensitivity injections, the area-law release, the PSD and skymap
 supplements, the continuous-wave limits, the GW170817 GWTC-1 products) is chosen as without the mirror: same URL,
 and for a Zenodo record resolved at run time the same (latest) version. With --data-repo s3 the file of that URL
-is downloaded from the `gwtc` bucket when the bucket holds it, under a key derived from the URL:
+is downloaded from the `gwtc` bucket when the bucket holds it, under a key derived from the URL (with
+--data-repo galaxy, from the public Galaxy history, where the dataset is named after the key):
 
     https://zenodo.org/records/<record>/files/<name>            -> public/zenodo/<record>/<name>
     https://dcc.ligo.org/public/<nnnn>/<id>/<version>/<name>    -> public/dcc/<id>/<version>/<name>
@@ -47,21 +48,25 @@ def mirror_key(url: str) -> Optional[str]:
     return None
 
 
+MIRRORS = ("s3", "galaxy")
+
+
 def _from_s3(url: str, dest: Path, log: Callable[[str], None]) -> bool:
-    """Download the mirror's copy of `url` to `dest`; False when the run does not use s3 or the bucket lacks it."""
-    if _DATA_REPO != "s3":
+    """Download the mirror's copy of `url` to `dest` (the S3 bucket or the Galaxy history, which holds the file
+    as a dataset named after its key); False when the run uses no mirror or the mirror lacks it."""
+    if _DATA_REPO not in MIRRORS:
         return False
     key = mirror_key(url)
     if key is None:
         return False
-    from .gw_stat import _s3_client_from_env
+    from .galaxy_store import repo_label, store_client
     from .parameters_estimation import _download_s3_with_progress
 
     try:
-        client = _s3_client_from_env()
+        client = store_client(_DATA_REPO)
         client.stat_object(BUCKET, key)
     except Exception:
-        log(f"{key} is not on the S3 mirror (or the mirror is unreachable): downloading it from "
+        log(f"{key} is not on the {repo_label(_DATA_REPO)} (or it is unreachable): downloading it from "
             f"{urlparse(url).netloc}")
         return False
     try:
@@ -69,23 +74,30 @@ def _from_s3(url: str, dest: Path, log: Callable[[str], None]) -> bool:
         _download_s3_with_progress(client, bucket=BUCKET, object_name=key, out_path=dest, desc=Path(key).name)
     except Exception as e:                     # a failed transfer: the public source
         Path(dest).unlink(missing_ok=True)
-        log(f"S3 mirror failed for {key} ({type(e).__name__}: {e}): downloading it from {urlparse(url).netloc}")
+        log(f"{repo_label(_DATA_REPO)} failed for {key} ({type(e).__name__}: {e}): downloading it from "
+            f"{urlparse(url).netloc}")
         return False
-    log(f"downloaded from the S3 mirror: {key}")
+    log(f"downloaded from the {repo_label(_DATA_REPO)}: {key}")
     return True
 
 
 def on_mirror(url: str) -> bool:
-    """Whether the run uses s3 and the bucket holds the file of `url`."""
-    if _DATA_REPO != "s3" or mirror_key(url) is None:
+    """Whether the run uses a mirror (s3, galaxy) and it holds the file of `url`."""
+    if _DATA_REPO not in MIRRORS or mirror_key(url) is None:
         return False
-    from .gw_stat import _s3_client_from_env
+    from .galaxy_store import store_client
 
     try:
-        _s3_client_from_env().stat_object(BUCKET, mirror_key(url))
+        store_client(_DATA_REPO).stat_object(BUCKET, mirror_key(url))
         return True
     except Exception:
         return False
+
+
+def _label() -> str:
+    from .galaxy_store import repo_label
+
+    return repo_label(_DATA_REPO)
 
 
 def _record(url: str, source: str) -> None:
@@ -101,10 +113,10 @@ def fetch_to(url: str, dest: Path, http_download: Callable[[str, Path], None], *
     dest = Path(dest)
     tmp = dest.with_name(dest.name + ".part")
     if _from_s3(url, tmp, log):
-        _record(url, "S3 mirror")
+        _record(url, _label())
     else:
         http_download(url, tmp)
-        _record(url, urlparse(url).netloc + (" (not on the S3 mirror)" if _DATA_REPO == "s3" and mirror_key(url)
+        _record(url, urlparse(url).netloc + (f" (not on the {_label()})" if _DATA_REPO in MIRRORS and mirror_key(url)
                                             else ""))
     tmp.replace(dest)
     return dest
@@ -115,14 +127,15 @@ def fetch_bytes(url: str, http_get: Callable[[str], bytes], *, log: Callable[[st
     """The content of `url`: from the S3 mirror when the run uses s3 and the bucket holds it, else `http_get(url)`."""
     import tempfile
 
-    if _DATA_REPO == "s3" and mirror_key(url):
+    if _DATA_REPO in MIRRORS and mirror_key(url):
         with tempfile.TemporaryDirectory(dir=tmp_dir) as d:
             p = Path(d) / "file"
             if _from_s3(url, p, log):
-                _record(url, "S3 mirror")
+                _record(url, _label())
                 return p.read_bytes()
     data = http_get(url)
-    _record(url, urlparse(url).netloc + (" (not on the S3 mirror)" if _DATA_REPO == "s3" and mirror_key(url) else ""))
+    _record(url, urlparse(url).netloc + (f" (not on the {_label()})" if _DATA_REPO in MIRRORS and mirror_key(url)
+                                        else ""))
     return data
 
 

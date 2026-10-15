@@ -53,8 +53,8 @@ def _parse_zenodo_versions(items: Optional[List[str]], data_repo: str,
     Zenodo listing whatever --data-repo (parameters_estimation), so the version applies to every repository."""
     if not items:
         return None
-    if data_repo not in ("zenodo", "s3") and not any_repo:
-        raise ValueError("--zenodo-version only applies with --data-repo zenodo or s3")
+    # every repository serves the selected version (a mirror that lacks it falls back to Zenodo); only collections
+    # staged by the Galaxy tool are taken as they are
     out: dict[str, str] = {}
     for it in _parse_catalogs(items):
         cat, sep, ver = it.partition("=")
@@ -78,7 +78,7 @@ def _add_zenodo_version_arg(p: argparse.ArgumentParser, help: Optional[str] = No
         default=None,
         metavar="CATALOG=VERSION",
         help=help or (
-            "With --data-repo zenodo or s3, read an older Zenodo release version of a catalog instead of the latest "
+            "Read an older Zenodo release version of a catalog instead of the latest, with any --data-repo "
             "(e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); "
             "list them with the zenodo_releases mode."
         ),
@@ -213,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cat.add_argument("--include-area", action="store_true", help="Compute sky localization area Axx if skymaps are available.")
     p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
     p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
-    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs), s3 (the MinIO mirror, faster, when it holds the maps of the selected release version; else Zenodo) or galaxy (staged collections).")
+    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo.")
     _add_zenodo_version_arg(p_cat)
 
     # ---------------------------------------------------------------------
@@ -719,10 +719,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_spin.add_argument("--exclude", nargs="*", default=list(H0_DEFAULT_EXCLUDE), help="Events left out.")
     p_spin.add_argument("--pe-cache", default=None, help="PE cache (default: that of hubble_constant).")
     p_spin.add_argument("--pe-samples", type=int, default=5000, help="PE samples per event.")
-    p_spin.add_argument("--data-repo", choices=["zenodo", "s3"], default="zenodo",
-                        help="Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files "
-                             "are the same, those of the latest Zenodo versions: a file the mirror does not have "
-                             "comes from Zenodo.")
+    p_spin.add_argument("--data-repo", choices=["zenodo", "s3", "galaxy"], default="zenodo",
+                        help="Where the PE files are downloaded from: zenodo, s3 (the MinIO mirror, faster) or galaxy (the "
+                             "public usegalaxy.org history). The files are the same, those of the latest Zenodo "
+                             "versions: a file the mirror does not have comes from Zenodo.")
     p_spin.add_argument("--max-injections", type=int, default=250000,
                         help="Random subset of the found injections (0: all).")
     p_spin.add_argument("--walkers", type=int, default=20, help="emcee walkers.")
@@ -756,10 +756,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_lens.add_argument("--exclude", nargs="*", default=[], help="Events left out (full or common names).")
     p_lens.add_argument("--pe-cache", default=None, help="PE cache (default: that of hubble_constant).")
     p_lens.add_argument("--pe-samples", type=int, default=2000, help="PE samples per event.")
-    p_lens.add_argument("--data-repo", choices=["zenodo", "s3"], default="zenodo",
-                        help="Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files "
-                             "are the same, those of the latest Zenodo versions: a file the mirror does not have "
-                             "comes from Zenodo.")
+    p_lens.add_argument("--data-repo", choices=["zenodo", "s3", "galaxy"], default="zenodo",
+                        help="Where the PE files are downloaded from: zenodo, s3 (the MinIO mirror, faster) or galaxy (the "
+                             "public usegalaxy.org history). The files are the same, those of the latest Zenodo "
+                             "versions: a file the mirror does not have comes from Zenodo.")
     p_lens.add_argument("--workers", type=int, default=4, help="Parallel PE downloads.")
     p_lens.add_argument("--keep-pe-files", action="store_true",
                         help="Keep the downloaded PE files (only the extracted samples are kept by default).")
@@ -846,7 +846,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sky.add_argument("--out-events", default="search_skymaps.tsv", help="Output TSV file (default: search_skymaps.tsv).")
     p_sky.add_argument("--out-report", default="search_skymaps.html", help="Optional output HTML report path for hits.")
     p_sky.add_argument("--plots-dir", default="sky_plots", help="Directory for hit plots (default: sky_plots).")
-    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs), s3 (the MinIO mirror, faster, when it holds the maps of the selected release version; else Zenodo) or galaxy (staged collections).")
+    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo.")
     _add_zenodo_version_arg(p_sky)
 
     # ---------------------------------------------------------------------
@@ -968,10 +968,10 @@ def build_parser() -> argparse.ArgumentParser:
                         ("neutron_star_eos", "the PE files and the GWTC-1 products of GW170817"),
                         ("build_unofficial_pe", "the GWTC-1 products of GW170817")):
         p._mode_parsers[mode].add_argument(
-            "--data-repo", choices=["zenodo", "s3"], default="zenodo",
-            help=f"Where {files} are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC), or s3 (the "
-                 "MinIO mirror, faster). The files are the same: a file the mirror does not have comes from its "
-                 "public source.")
+            "--data-repo", choices=["zenodo", "s3", "galaxy"], default="zenodo",
+            help=f"Where {files} are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the "
+                 "MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a "
+                 "file the mirror does not have comes from its public source.")
     return p
 
 
@@ -1043,7 +1043,8 @@ H0_ALL_METHODS_OPTS = ("workdir", "out_report", "out_summary", "settings")
 H0_BRIGHT_OPTS = ("event", "pe_label", "pe_file", "cache_dir", "v_recession", "v_peculiar", "redshift", "sky_radius",
                   "viewing_angle", "pe_distance_prior", "selection", "population", "h0_range", "ra", "dec", "host",
                   "counterpart_class")
-H0_BRIGHT_SHARED_OPTS = ("sensitivity_release", "sensitivity_file", "far_threshold", "snr_threshold", "pe_cache")
+H0_BRIGHT_SHARED_OPTS = ("sensitivity_release", "sensitivity_file", "far_threshold", "snr_threshold", "pe_cache",
+                         "data_repo")
 
 
 def _true_default(sp: argparse.ArgumentParser, dest: str):

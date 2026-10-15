@@ -602,12 +602,18 @@ def run_catalog_statistics(
                 df.loc[m, area_column] = tmp[area_column].values
                 continue
 
-            if data_repo == "s3":
-                # the maps of the selected Zenodo version, from the mirror when it holds them; the events it does
+            staged = data_repo == "galaxy" and (Path(f"{cat}-SKYMAPS").exists()
+                                                 or (cat == "GWTC-1" and Path("GWTC-2.1-SKYMAPS").exists()))
+            if data_repo in ("s3", "galaxy") and not staged:
+                # the maps of the selected Zenodo version, from the mirror (the S3 bucket, or the Galaxy history
+                # when no collection is staged) when it holds them; the events it does
                 # not cover (or all of them, if it fails) from Zenodo
                 from .data_repo import skymap_release_tag
 
+                from .galaxy_store import repo_label, store_client
+
                 version = (zenodo_versions or {}).get(_reg.products_catalog(cat))
+                label = repo_label(data_repo)
                 try:
                     tmp = gw.add_localization_area_from_s3(
                         df.loc[m],
@@ -619,13 +625,14 @@ def run_catalog_statistics(
                         progress=True,
                         verbose=False,
                         release_tag=skymap_release_tag(_reg.products_catalog(cat), version),
+                        client=store_client(data_repo),
                     )
                     df.loc[m, area_column] = tmp[area_column].values
                 except Exception as e:
-                    print(f"[catalog_statistics] S3 mirror failed for {cat} ({type(e).__name__}: {e}): using Zenodo")
+                    print(f"[catalog_statistics] {label} failed for {cat} ({type(e).__name__}: {e}): using Zenodo")
                 rest = m & df[area_column].isna()
                 if rest.any():
-                    print(f"[catalog_statistics] {int(rest.sum())} {cat} skymap(s) not on the S3 mirror: from Zenodo")
+                    print(f"[catalog_statistics] {int(rest.sum())} {cat} skymap(s) not on the {label}: from Zenodo")
                     tmp = gw.add_localization_area_from_zenodo(
                         df.loc[rest],
                         catalog_key=cat,

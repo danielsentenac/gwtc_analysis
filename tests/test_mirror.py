@@ -117,3 +117,12 @@ def test_s3_skymaps_of_the_selected_release_only(monkeypatch):
 
     idx = gw_stat._build_s3_skymap_index(Client(), "gwtc", "GWTC-4/", release_tag=tag)
     assert idx == {"GW230529_181500": f"GWTC-4/{tag}-GW230529_181500-Mixed_Skymap_PEDataRelease.fits.gz"}
+
+
+def test_bright_siren_takes_data_repo():
+    from gwtc_analysis.cli import _apply_settings_file, _resolve_h0_method
+
+    p = build_parser()
+    a = _apply_settings_file(p, ["hubble_constant", "--method", "bright", "--data-repo", "galaxy"])
+    _resolve_h0_method(a, p._mode_parsers["hubble_constant"])
+    assert a.data_repo == "galaxy"
