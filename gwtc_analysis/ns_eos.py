@@ -125,6 +125,7 @@ def load_event(name: str, spin_prior: str, cache_dir, pe_cache) -> dict:
     import h5py
 
     from . import hubble_constant as hc
+    from .report import record_pe_file
 
     cfg = EVENTS[name]
     if cfg["pe_event"] is None:
@@ -133,10 +134,12 @@ def load_event(name: str, spin_prior: str, cache_dir, pe_cache) -> dict:
         path = build_unofficial_pe_bundle(name, cache_dir=cache_dir, log_cb=_log)
         if path is None:
             raise ValueError(f"could not build the PE bundle of {name}")
+        record_pe_file(name, Path(path).name, "build_unofficial_pe")
     else:
         from .counterpart import _event_pe_file
 
         path = _event_pe_file(cfg["pe_event"], Path(pe_cache).expanduser() if pe_cache else hc.default_pe_cache())
+        record_pe_file(cfg["pe_event"], Path(path).name)
     label = cfg["labels"][spin_prior]
     with h5py.File(path, "r") as h:
         ps = h[label]["posterior_samples"][()]

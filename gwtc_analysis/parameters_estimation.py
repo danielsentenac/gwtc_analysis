@@ -37,7 +37,7 @@ import requests
 
 from .data_repo import resolve_zenodo_records, zenodo_catalogs
 from .pe_supplements import fill_missing_psds, fill_missing_skymaps
-from .report import options_html
+from .report import note_pe_source, options_html, record_pe_file
 from .unofficial_pe import build_unofficial_pe_bundle
 
 
@@ -238,12 +238,15 @@ def download_zenodo_pe_file(
     if out_path.exists() and out_path.stat().st_size > 0:
         if log_cb:
             log_cb(f"ℹ️ [CACHE] Using existing Zenodo PE file: {out_path}")
+        note_pe_source(fname, "output directory (downloaded earlier)")
         return out_path
     shared = _shared_pe_file(fname)
     if shared is not None:                     # already downloaded by another mode: no second copy
         if log_cb:
             log_cb(f"ℹ️ [CACHE] Using the PE file of the shared PE cache: {shared}")
+        note_pe_source(fname, "PE cache of another mode")
         return shared
+    note_pe_source(fname, "Zenodo")
 
     if log_cb:
         log_cb(f"ℹ️ [DOWNLOAD] Zenodo PE: {fname}")
@@ -373,6 +376,7 @@ def _maybe_use_unofficial_bundle(
         return None
     if log_cb:
         log_cb(f"ℹ️ [INFO] Using unofficial local PE bundle for {src_name}: {path}")
+    note_pe_source(Path(path).name, "build_unofficial_pe")
     return str(path)
 
 
@@ -497,17 +501,20 @@ def _download_pe_from_s3(
     if out_path.exists() and out_path.stat().st_size > 0:
         if log_cb:
             log_cb(f"ℹ️ [CACHE] Using existing PE file: {out_path}")
+        note_pe_source(fname, "output directory (downloaded earlier)")
         return out_path
     shared = _shared_pe_file(fname)
     if shared is not None:
         if log_cb:
             log_cb(f"ℹ️ [CACHE] Using the PE file of the shared PE cache: {shared}")
+        note_pe_source(fname, "PE cache of another mode")
         return shared
     obj = s3_objects(".cache_gwosc").get(fname)
     if obj is None:
         if log_cb:
             log_cb(f"ℹ️ [INFO] {fname} is not on the S3 mirror: downloading it from Zenodo")
         return None
+    note_pe_source(fname, "S3 mirror")
     if log_cb:
         log_cb(f"ℹ️ [DOWNLOAD] Fetching from S3: {obj}")
     outdir.mkdir(parents=True, exist_ok=True)
@@ -1213,6 +1220,11 @@ def run_parameters_estimation(
                         chosen, outdir=outdir, progress_cb=_progress if pr is not None else None,
                         log_cb=lambda m: pe_log(m, event_logs),
                     )
+                    if data_repo == "s3":
+                        from .report import _PE_SOURCES
+
+                        if _PE_SOURCES.get(chosen["filename"]) == "Zenodo":
+                            note_pe_source(chosen["filename"], "Zenodo (not on the S3 mirror)")
                 local_pe_path = str(local_path)
 
         elif data_repo == "galaxy":
@@ -1225,6 +1237,7 @@ def run_parameters_estimation(
 
             if found is not None:
                 local_pe_path = str(found)
+                note_pe_source(found.name, "staged Galaxy collection")
                 pe_log(f"ℹ️ [INFO] Galaxy mode: using staged PE file {local_pe_path}", event_logs)
             else:
                 # 2) The file of the Zenodo listing (pe_files.CATALOG), from the public usegalaxy.org history over
@@ -1261,6 +1274,7 @@ def run_parameters_estimation(
                     local_pe_path = str(download_zenodo_pe_file(
                         zchosen, outdir=outdir, progress_cb=_progress if pr is not None else None,
                         log_cb=lambda m: pe_log(m, event_logs)))
+                    note_pe_source(zchosen["filename"], "Zenodo (not in the Galaxy history)")
 
                 if local_pe_path is not None:
                     pass
@@ -1275,6 +1289,7 @@ def run_parameters_estimation(
                         progress_cb=_progress if pr is not None else None,
                         log_cb=lambda m: pe_log(m, event_logs),
                     )
+                    note_pe_source(local_path.name, "Galaxy history (usegalaxy.org)")
                     local_pe_path = str(local_path)
                 else:
                     # 3) Last resort: unofficial local bundle.
@@ -1310,6 +1325,7 @@ def run_parameters_estimation(
                     go_next_cell = False
             else:
                 local_pe_path = str(candidates[0])
+                note_pe_source(candidates[0].name, "output directory")
                 pe_log(f"ℹ️ [INFO] local mode: using PE file {local_pe_path}", event_logs)
 
         if go_next_cell and local_pe_path is not None:
@@ -1317,6 +1333,7 @@ def run_parameters_estimation(
             _progress("Read data", 25, "step 2")
             try:
                 pe_file_name = Path(local_pe_path).name
+                record_pe_file(src_name, pe_file_name)
                 local_pe_path = str(lighten_skymaps(local_pe_path, log_cb=lambda m: pe_log(m, event_logs)))
                 data = read(local_pe_path)
                 # Some official releases ship without PSDs: take them from a

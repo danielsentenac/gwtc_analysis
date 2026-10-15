@@ -168,6 +168,7 @@ def test_prepare_inputs_from_cached_extracts(tmp_path, fake_gwosc, monkeypatch):
                            cache, keep_pe_files=False)
     assert list(ev["pe_label"]) == ["C01:IMRPhenomXPHM", "C00:IMRPhenomXPHM-SpinTaylor"]
     assert list(ev["pe_distance_prior"]) == ["PowerLaw", "UniformSourceFrame"]
+    assert list(ev["pe_file"]) == [files["GW150914_095045"], files["GW230601_224134"]]
     with h5py.File(tmp_path / "work" / "inputs.h5") as h:
         assert sorted(k for k in h if not k.startswith("_")) == ["GW150914_095045", "GW230601_224134"]
         g = h["GW150914_095045"]

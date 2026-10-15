@@ -128,3 +128,23 @@ def test_staged_galaxy_files_follow_the_rule(tmp_path):
     for n in (NOCOSMO, COSMO):
         (d / n).write_bytes(b"x")
     assert pe._find_local_pe_file("GW191103_012549", [d]).name == COSMO
+
+
+def test_report_lists_the_pe_files(monkeypatch):
+    from gwtc_analysis import report
+
+    monkeypatch.setattr(report, "_PE_FILES", {})
+    monkeypatch.setattr(report, "_PE_SOURCES", {})
+    monkeypatch.setattr(report, "_RUN_OPTIONS", None)
+    assert report.options_html() == ""
+    report.record_pe_file("GW191103_012549", NOCOSMO)
+    report.note_pe_source(NOCOSMO, "Zenodo (not on the S3 mirror)")
+    report.record_pe_file("GW230529_181500", f"/cache/files/{COMBINED}")
+    report.record_pe_file("GW170817", "Unofficial-GWTC1-GW170817_PEDataRelease.h5", "build_unofficial_pe")
+    html = report.options_html()
+    assert "PE files of this run" in html and "3 event(s)" in html
+    assert "1 nocosmo" in html and "1 combined" in html and "1 unofficial bundle" in html
+    assert "Zenodo (not on the S3 mirror)" in html and "build_unofficial_pe" in html
+    assert COMBINED in html and "/cache/files" not in html
+    assert "samples already extracted from it" in html          # no source noted: an extract of the PE cache
+    assert pe_files.describe(COSMO)[0] == "cosmo" and pe_files.describe("my.h5")[0] == "other"

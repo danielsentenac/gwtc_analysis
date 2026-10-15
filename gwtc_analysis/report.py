@@ -14,10 +14,49 @@ def set_run_options(mode: str, rows: list[tuple[str, object, object, bool]]) -> 
     _RUN_OPTIONS = dict(mode=mode, rows=rows)
 
 
-def options_html() -> str:
-    """The options of the run as an HTML table (empty when the run did not come from the command line)."""
-    if not _RUN_OPTIONS:
+_PE_FILES: dict[str, str] = {}       # event -> PE file read for it
+_PE_SOURCES: dict[str, str] = {}     # PE file -> where this run took it from
+
+
+def record_pe_file(event: str, filename: str, source: Optional[str] = None) -> None:
+    """Record the PE file read for an event (and, if known, where it came from) for the report."""
+    _PE_FILES[str(event)] = Path(str(filename)).name
+    if source:
+        note_pe_source(filename, source)
+
+
+def note_pe_source(filename: str, source: str) -> None:
+    """Where this run took a PE file from: Zenodo, the S3 mirror, Galaxy, a PE cache, ..."""
+    _PE_SOURCES[Path(str(filename)).name] = source
+
+
+def pe_files_html() -> str:
+    """The PE files read by the run, with their type, as an HTML table (empty when the run read none)."""
+    if not _PE_FILES:
         return ""
+    from collections import Counter
+    from html import escape
+
+    from .pe_files import describe
+
+    kinds = Counter(describe(f)[0] for f in _PE_FILES.values())
+    body = "\n".join(
+        f"<tr><td>{escape(ev)}</td><td><code>{escape(f)}</code></td><td>{escape(describe(f)[1])}</td>"
+        f"<td>{escape(_PE_SOURCES.get(f, 'samples already extracted from it (PE cache)'))}</td></tr>"
+        for ev, f in sorted(_PE_FILES.items()))
+    count = ", ".join(f"{n} {k}" for k, n in kinds.most_common())
+    return (f"<h2>PE files of this run</h2>\n<p>{len(_PE_FILES)} event(s): {escape(count)}. The file of each event is "
+            "chosen in the Zenodo listing of its release by the rule of the mode, whatever --data-repo (see "
+            "<a href='https://danielsentenac.github.io/gwtc_analysis/data-sources/#which-pe-file-is-read'>Which PE "
+            "file is read</a>).</p>\n<table border='1' cellspacing='0' cellpadding='4'><tr><th>Event</th>"
+            f"<th>File</th><th>Type</th><th>Taken from</th></tr>\n{body}\n</table>\n")
+
+
+def options_html() -> str:
+    """The PE files and the options of the run as HTML tables (the options are left out when the run did not
+    come from the command line)."""
+    if not _RUN_OPTIONS:
+        return pe_files_html()
     from html import escape
 
     def fmt(v):
@@ -31,10 +70,11 @@ def options_html() -> str:
         f"<tr><td><code>{escape(o)}</code></td><td>{'<b>' if given else ''}{escape(fmt(v))}"
         f"{'</b>' if given else ''}</td><td>{escape(fmt(d))}</td></tr>"
         for o, v, d, given in _RUN_OPTIONS["rows"])
-    return (f"<h2>Options of this run</h2>\n<p><code>gwtc_analysis {escape(_RUN_OPTIONS['mode'])}</code>: every "
-            "option with the value used; in bold, those set on the command line or in a settings file.</p>\n"
-            "<table border='1' cellspacing='0' cellpadding='4'><tr><th>Option</th><th>Value</th><th>Default</th>"
-            f"</tr>\n{body}\n</table>\n")
+    return pe_files_html() + (
+        f"<h2>Options of this run</h2>\n<p><code>gwtc_analysis {escape(_RUN_OPTIONS['mode'])}</code>: every "
+        "option with the value used; in bold, those set on the command line or in a settings file.</p>\n"
+        "<table border='1' cellspacing='0' cellpadding='4'><tr><th>Option</th><th>Value</th><th>Default</th>"
+        f"</tr>\n{body}\n</table>\n")
 
 
 def _img_to_data_uri(path: str | Path) -> str:

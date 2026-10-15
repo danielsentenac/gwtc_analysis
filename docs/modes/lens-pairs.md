@@ -118,6 +118,7 @@ LVK results (superevent names mapped to the catalog events through their GraceDB
 
 - `lens_pairs.tsv`: every pair, ranked: the two events, the delay (days), ln 𝓑 intrinsic and sky,
   log₁₀ 𝓑_overlap, log₁₀ R, log₁₀ of the statistic and the FPP; `lens_pairs.events.tsv`: the events.
+- The HTML report ends with the **PE files of this run**: for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `lens_pairs.html`: the distribution of the statistic with the FPP threshold, the time-delay densities and R,
   and the highest-ranked pairs.
 

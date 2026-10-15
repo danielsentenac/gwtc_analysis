@@ -133,11 +133,13 @@ def _event_samples(row, cache: Path, n: int, rng, data_repo: str = "zenodo") -> 
 
     from . import hubble_constant as hc
     from .pe_files import distance_prior_desc, event_entry, extract_is_current, fetch
+    from .report import record_pe_file
 
     name = row["event"]
     out_dir = cache / "samples_spin"
     out = out_dir / f"{name}.h5"
     entry = event_entry(row, cache)
+    record_pe_file(name, entry["filename"])
     if not (out.exists() and extract_is_current(out, entry["filename"])):
         src, downloaded = fetch(entry, cache, data_repo, desc=name, log=_log)
         out_dir.mkdir(parents=True, exist_ok=True)
