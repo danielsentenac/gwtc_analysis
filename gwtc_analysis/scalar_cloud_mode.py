@@ -518,6 +518,10 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
     from .report import write_simple_html_report
 
     s = json.loads((wd / "event.json").read_text())
+    if s.get("pe_file"):
+        from .report import record_pe_file
+
+        record_pe_file(s.get("event", ""), s["pe_file"], "samples extracted from it at the prepare stage")
     event = s.get("event", "the event")
     plots = wd / "plots"
     an = sc.Analysis(wd)

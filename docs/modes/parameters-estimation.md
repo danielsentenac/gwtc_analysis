@@ -239,6 +239,7 @@ at 90% with the two LIGO detectors.*
 
 ## Outputs
 
+- The HTML report ends with the **PE files of this run**: for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `--out-report` (HTML): every product below, with the log of the run;
 - `--plots-dir`: the posterior distributions (and those of `--pe-vars`, `--pe-pairs`), the strain overlay, the
   q-transform and the matched-filter SNR of each detector, the PSDs, the sky map, the 3D sky map

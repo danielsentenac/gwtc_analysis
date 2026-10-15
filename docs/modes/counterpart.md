@@ -126,6 +126,7 @@ association, with odds between 1 and 12 in its favour depending on the waveform 
 
 ## Outputs
 
+- The HTML report ends with the **PE files of this run**: for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `--out-report` (HTML): the counterpart and host, the caveat of a candidate, the searched probability, the
   distance along the line of sight against the host redshift, the degeneracy and the constraint;
 - `--out-summary` (TSV): one row per PE label with all the quantities above;

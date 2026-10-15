@@ -149,10 +149,13 @@ def fetch_samples(events: pd.DataFrame, cache: Path, data_repo: str = "zenodo", 
     version; `data_repo` "s3" downloads it from the MinIO mirror when it has it); restartable. An extract made
     from another file (an earlier release version) is made again."""
     from .pe_files import event_entry, extract_is_current, fetch
+    from .report import record_pe_file
 
     out_dir = cache / "samples_lens"
     out = {r["event"]: out_dir / f"{r['event']}.h5" for _, r in events.iterrows()}
     entries = {r["event"]: event_entry(r, cache) for _, r in events.iterrows()}     # the PE index, built once here
+    for ev, e in entries.items():
+        record_pe_file(ev, e["filename"])
     todo = [r for _, r in events.iterrows()
             if not (out[r["event"]].exists() and extract_is_current(out[r["event"]], entries[r["event"]]["filename"]))]
     if not todo:
