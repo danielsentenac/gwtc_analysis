@@ -132,17 +132,19 @@ def select_h0_events(release: str, far_threshold: float, min_mass: float, exclud
 # ---------------------------------------------------------------------------
 
 def _pick_pe_file(cands: list[dict]) -> dict:
-    """Prefer the files with the original PE distance prior (nocosmo); GWTC-4/5 have one combined file."""
-    def score(c):
-        f = c["filename"].lower()
-        return 0 if "nocosmo" in f else 1 if "combined" in f else 2 if "mixed_cosmo" in f else 3
-    return sorted(cands, key=score)[0]
+    """The file with the samples under their recorded sampling prior (pe_files.SAMPLING): nocosmo up to GWTC-3,
+    the combined file from GWTC-4.0."""
+    from .pe_files import SAMPLING, pick
+
+    return pick(cands, SAMPLING)
 
 
 def _extract_pe(path: Path, out: Path) -> None:
     """Keep (m1, m2, D_L) and the sky position (ra, dec) of every analysis in a PESummary file, with its recorded
     priors."""
     import h5py
+
+    from .pe_files import COSMO_REWEIGHTED_PRIOR, is_cosmo_reweighted
 
     part = out.with_suffix(".part")
     with h5py.File(path, "r") as f, h5py.File(part, "w") as o:
@@ -166,6 +168,8 @@ def _extract_pe(path: Path, out: Path) -> None:
                         og.attrs[f"prior:{k}"] = v.decode() if isinstance(v, bytes) else str(v)
                     except Exception:
                         pass
+            if is_cosmo_reweighted(path.name):     # the samples no longer follow the recorded prior
+                og.attrs["prior:luminosity_distance"] = COSMO_REWEIGHTED_PRIOR
     part.replace(out)
 
 
@@ -195,18 +199,15 @@ def _extract_has_sky(path: Path) -> bool:
 
 def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False, workers: int = 3,
                      prefer_catalogs: Iterable[str] = (), need_sky: bool = False) -> dict[str, Path]:
-    """Download (once) the PE file of each event from Zenodo and extract its samples; restartable.
+    """The PE file of each event (`pe_files.SAMPLING`, latest Zenodo versions) and its extract; restartable.
 
-    With `need_sky`, an extract without the sky position is made again (from the kept PE file, else downloaded)."""
+    An extract made from another file (an earlier release version) is made again, and so is, with `need_sky`, an
+    extract without the sky position."""
     from . import parameters_estimation as pe
+    from .pe_files import extract_is_current, fetch
 
     (cache / "samples").mkdir(parents=True, exist_ok=True)
     (cache / "files").mkdir(parents=True, exist_ok=True)
-    out = {n: p for n in events["event"] if (p := _pe_extract_path(cache, n)) is not None
-           and (not need_sky or _extract_has_sky(p))}
-    todo = [r for _, r in events.iterrows() if r["event"] not in out]
-    if not todo:
-        return out
     record_ids = None
     if prefer_catalogs:       # update catalogs first (their PE files are then chosen), then the default ones
         from .data_repo import resolve_zenodo_records
@@ -214,33 +215,31 @@ def fetch_pe_samples(events: pd.DataFrame, cache: Path, keep_files: bool = False
         record_ids = [r.record_id for c in prefer_catalogs for r in resolve_zenodo_records(c, None)]
         record_ids += pe.zenodo_pe_record_ids()
     index = pe.build_zenodo_pe_index(cache_dir=str(cache / "index"), force_refresh=False, record_ids=record_ids)
-    jobs, missing = [], []
-    for r in todo:
-        cands = index.get(r["event"]) or index.get(r["common_name"])
-        for d in (-2, -1, 1, 2):
-            if cands:
-                break
-            cands = index.get(_full_name(r["gps"] + d))
-        if cands:
-            jobs.append((r["event"], _pick_pe_file(cands)))
-        else:
+    out, jobs, missing = {}, [], []
+    for _, r in events.iterrows():
+        names = [r["event"], r["common_name"]] + [_full_name(r["gps"] + d) for d in (-2, -1, 1, 2)]
+        cands = next((index[n] for n in names if n and index.get(n)), None)
+        if not cands:
             missing.append(r["event"])
+            continue
+        entry = _pick_pe_file(cands)
+        p = _pe_extract_path(cache, r["event"])
+        if p is not None and extract_is_current(p, entry["filename"]) and (not need_sky or _extract_has_sky(p)):
+            out[r["event"]] = p
+        else:
+            jobs.append((r["event"], entry))
     if missing:
         raise ValueError(f"No Zenodo PE release found for: {', '.join(missing)}")
-    _log(f"downloading the PE files of {len(jobs)} events to {cache / 'files'}")
+    if not jobs:
+        return out
+    _log(f"extracting the PE samples of {len(jobs)} events (files in {cache / 'files'})")
 
     def one(name, entry):
-        dest = cache / "files" / entry["filename"]
-        tmp = dest.with_suffix(dest.suffix + ".part")
-        downloaded = False
-        if not (dest.exists() and dest.stat().st_size > 0):
-            pe._download_http_with_progress(entry["url"], tmp, desc=name)
-            tmp.replace(dest)
-            downloaded = True
+        src, downloaded = fetch(entry, cache, "zenodo", desc=name, log=_log)
         target = cache / "samples" / f"{name}.h5"
-        _extract_pe(dest, target)
+        _extract_pe(src, target)
         if downloaded and not keep_files:   # a file already in the shared cache belongs to the mode that kept it
-            dest.unlink(missing_ok=True)
+            src.unlink(missing_ok=True)
         return name, target
 
     errors = []

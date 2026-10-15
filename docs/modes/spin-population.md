@@ -118,7 +118,7 @@ parameters are recovered inside their 90% intervals, with P(α < 0) > 0.9.
 | `--exclude` | `GW231123_135430 GW200105_162426` | Events left out. |
 | `--pe-cache` | — | PE cache (default: that of hubble_constant). |
 | `--pe-samples` | `5000` | PE samples per event. |
-| `--data-repo {zenodo,s3}` | `zenodo` | Where the PE files come from: zenodo, or s3 (the MinIO mirror, faster; it may hold an earlier version of a release). |
+| `--data-repo {zenodo,s3}` | `zenodo` | Where the PE files are downloaded from: zenodo, or s3 (the MinIO mirror, faster). The files are the same, those of the latest Zenodo versions (`nocosmo` up to GWTC-3): a file the mirror does not have comes from Zenodo ([Which PE file is read](../data-sources.md#which-pe-file-is-read)). |
 | `--max-injections` | `250000` | Random subset of the found injections (0: all). |
 | `--walkers` | `20` | emcee walkers. |
 | `--steps` | `1200` | emcee steps (the first third is burn-in). |

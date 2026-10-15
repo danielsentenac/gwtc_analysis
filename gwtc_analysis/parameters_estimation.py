@@ -351,30 +351,11 @@ def build_zenodo_pe_index(
 
 
 def choose_best_pe_file(candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """
-    Simple selection rule:
-      - prefer 'mixed_cosmo' when exists
-      - otherwise 'recombined'
-      - otherwise prefer .hdf5/.h5
-      - else first
-    """
-    if not candidates:
-        return None
+    """The file parameters_estimation reads among an event's candidates (pe_files.CATALOG): mixed_cosmo, the
+    posteriors quoted in the catalogs, up to GWTC-3; the combined file from GWTC-4.0."""
+    from .pe_files import CATALOG, pick
 
-    def low(s: str) -> str:
-        return (s or "").lower()
-
-    for c in candidates:
-        if "mixed_cosmo" in low(c.get("filename", "")):
-            return c
-    for c in candidates:
-        if "recombined" in low(c.get("filename", "")):
-            return c
-    for ext in (".hdf5", ".h5"):
-        for c in candidates:
-            if low(c.get("filename", "")).endswith(ext):
-                return c
-    return candidates[0]
+    return pick(candidates, CATALOG)
 
 
 def _maybe_use_unofficial_bundle(
@@ -498,6 +479,42 @@ def download_galaxy_pe_file(
 # ---------------------------------------------------------------------
 # S3 helpers
 # ---------------------------------------------------------------------
+
+
+def _download_pe_from_s3(
+    chosen: dict[str, Any],
+    *,
+    outdir: Path,
+    log_cb: Callable[[str], None] | None = None,
+) -> Path | None:
+    """The Zenodo file `chosen` downloaded from the S3 mirror into outdir; None when the mirror does not have it
+    (it is then downloaded from Zenodo)."""
+    from .gw_stat import _s3_client_from_env
+    from .pe_files import S3_BUCKET, s3_objects
+
+    fname = str(chosen["filename"])
+    out_path = outdir / fname
+    if out_path.exists() and out_path.stat().st_size > 0:
+        if log_cb:
+            log_cb(f"ℹ️ [CACHE] Using existing PE file: {out_path}")
+        return out_path
+    shared = _shared_pe_file(fname)
+    if shared is not None:
+        if log_cb:
+            log_cb(f"ℹ️ [CACHE] Using the PE file of the shared PE cache: {shared}")
+        return shared
+    obj = s3_objects(".cache_gwosc").get(fname)
+    if obj is None:
+        if log_cb:
+            log_cb(f"ℹ️ [INFO] {fname} is not on the S3 mirror: downloading it from Zenodo")
+        return None
+    if log_cb:
+        log_cb(f"ℹ️ [DOWNLOAD] Fetching from S3: {obj}")
+    outdir.mkdir(parents=True, exist_ok=True)
+    _download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj, out_path=out_path,
+                               desc=f"S3: {fname}")
+    return out_path
+
 
 
 def _download_s3_with_progress(
@@ -857,18 +874,16 @@ def _guess_galaxy_pe_dirs(catalog: str | None) -> list[Path]:
 
 def _find_local_pe_file(src_name: str, search_dirs: list[Path]) -> Path | None:
     """
-    Find the first PEDataRelease file matching src_name under search_dirs.
+    The PEDataRelease file of src_name under search_dirs that the parameters_estimation rule reads
+    (pe_files.CATALOG), else the first file whose name matches.
     """
-    pats = [
-        f"*{src_name}*PEDataRelease*.h5",
-        f"*{src_name}*PEDataRelease*.hdf5",
-        f"*{src_name}*.h5",
-        f"*{src_name}*.hdf5",
-    ]
     for d in search_dirs:
         if not d.exists():
             continue
-        for pat in pats:
+        hits = sorted(set(d.rglob(f"*{src_name}*PEDataRelease*.h5")) | set(d.rglob(f"*{src_name}*PEDataRelease*.hdf5")))
+        if hits:
+            return Path(choose_best_pe_file([{"filename": p.name, "path": p} for p in hits])["path"])
+        for pat in (f"*{src_name}*.h5", f"*{src_name}*.hdf5"):
             hits = sorted(d.rglob(pat))
             if hits:
                 return hits[0]
@@ -1154,7 +1169,9 @@ def run_parameters_estimation(
     pe_file_name = ""                      # name of the release file, before lighten_skymaps
 
     try:
-        if data_repo == "zenodo":
+        if data_repo in ("zenodo", "s3"):
+            # the file is chosen in the Zenodo listing (pe_files.CATALOG); s3 only downloads that same file, from the
+            # mirror when it has it
             from difflib import get_close_matches
 
             index = build_zenodo_pe_index(
@@ -1188,82 +1205,15 @@ def run_parameters_estimation(
                     pe_log(f"❌ [ERROR] {msg}", event_logs)
                     raise ValueError(msg)
             elif local_pe_path is None and chosen is not None:
-                local_path = download_zenodo_pe_file(
-                    chosen, outdir=outdir, progress_cb=_progress if pr is not None else None, log_cb=lambda m: pe_log(m, event_logs),
-                )
-                local_pe_path = str(local_path)
-
-        elif data_repo == "s3":
-            from minio import Minio  # type: ignore
-
-            credentials_env = os.environ.get("S3_CREDENTIALS")
-            if credentials_env:
-                try:
-                    credentials = json.loads(credentials_env)
-                except Exception as e:
-                    credentials = {"endpoint": "minio-dev.odahub.fr", "secure": True}
-                    pe_log(f"⚠️ [WARN] Could not parse S3_CREDENTIALS JSON: {e}", event_logs)
-            else:
-                credentials = {"endpoint": "minio-dev.odahub.fr", "secure": True}
-
-            client = Minio(
-                endpoint=credentials["endpoint"],
-                secure=credentials.get("secure", True),
-                access_key=credentials.get("access_key"),
-                secret_key=credentials.get("secret_key"),
-            )
-
-            remote_file: Optional[str] = None
-            cands: dict[str, list[str]] = {}
-            for obj in client.list_objects("gwtc", recursive=True):
-                file_name = obj.object_name
-                if (
-                    src_name in file_name
-                    and "PEDataRelease" in file_name
-                    and (file_name.endswith(".h5") or file_name.endswith(".hdf5"))
-                ):
-                    m_ev = re.search(r"GW\d{6}_\d{6}", file_name)
-                    cands.setdefault(m_ev.group(0) if m_ev else file_name, []).append(file_name)
-            if len(cands) > 1:
-                # a short name (GW190521) matching several events: ask for the full one, never pick by listing order
-                exact = [k for k in cands if k == src_name]
-                if not exact:
-                    msg = (f"❌ [ERROR] {src_name} matches several events on S3 ({', '.join(sorted(cands))}): "
-                           "give the full name")
-                    pe_log(msg, event_logs)
-                    raise ValueError(msg)
-                cands = {exact[0]: cands[exact[0]]}
-            if cands:
-                files = next(iter(cands.values()))
-                # the same rule as for Zenodo and Galaxy (mixed_cosmo first)
-                remote_file = choose_best_pe_file([{"filename": f} for f in sorted(files)])["filename"]
-                pe_log(f"ℹ️ [INFO] Found remote PE file: {remote_file}", event_logs)
-
-            if remote_file is None:
-                local_pe_path = _maybe_use_unofficial_bundle(
-                    src_name,
-                    log_cb=lambda msg: pe_log(msg, event_logs),
-                )
-                if local_pe_path is None:
-                    msg = f"❌ [ERROR] No PE file for event {src_name} found in S3 bucket 'gwtc'"
-                    pe_log(msg, event_logs)
-                    go_next_cell = False
-            else:
-                local_pe_path = remote_file  # keep same relative structure
-                local_path = Path(local_pe_path)
-                local_path.parent.mkdir(parents=True, exist_ok=True)
-
-                if local_path.is_file() and local_path.stat().st_size > 0:
-                    pe_log(f"ℹ️ [CACHE] Using existing local PE file: {local_path}", event_logs)
-                else:
-                    pe_log(f"ℹ️ [DOWNLOAD] Fetching from S3: {remote_file}", event_logs)
-                    _download_s3_with_progress(
-                        client,
-                        bucket="gwtc",
-                        object_name=remote_file,
-                        out_path=local_path,
-                        desc=f"S3: {Path(remote_file).name}",
+                local_path = None
+                if data_repo == "s3":
+                    local_path = _download_pe_from_s3(chosen, outdir=outdir, log_cb=lambda m: pe_log(m, event_logs))
+                if local_path is None:
+                    local_path = download_zenodo_pe_file(
+                        chosen, outdir=outdir, progress_cb=_progress if pr is not None else None,
+                        log_cb=lambda m: pe_log(m, event_logs),
                     )
+                local_pe_path = str(local_path)
 
         elif data_repo == "galaxy":
             from difflib import get_close_matches
@@ -1277,9 +1227,17 @@ def run_parameters_estimation(
                 local_pe_path = str(found)
                 pe_log(f"ℹ️ [INFO] Galaxy mode: using staged PE file {local_pe_path}", event_logs)
             else:
-                # 2) Fallback: resolve from the public usegalaxy.org history over HTTP.
+                # 2) The file of the Zenodo listing (pe_files.CATALOG), from the public usegalaxy.org history over
+                #    HTTP when it has it, else from Zenodo; the history's own choice only if Zenodo cannot be listed.
                 index: dict[str, Any] = {}
                 chosen = None
+                zchosen = None
+                try:
+                    zindex = build_zenodo_pe_index(cache_dir=".cache_gwosc", force_refresh=False,
+                                                   zenodo_versions=zenodo_versions)
+                    zchosen = choose_best_pe_file(zindex.get(src_name, []))
+                except Exception as e:
+                    pe_log(f"⚠️ [WARN] Zenodo listing unavailable: {type(e).__name__}: {e}", event_logs)
                 try:
                     index = build_galaxy_pe_index(cache_dir=".cache_gwosc", force_refresh=False)
                     if src_name not in index:
@@ -1288,15 +1246,25 @@ def run_parameters_estimation(
                             event_logs,
                         )
                         index = build_galaxy_pe_index(cache_dir=".cache_gwosc", force_refresh=True)
-                    chosen = choose_best_pe_file(index.get(src_name, []))
+                    cands = index.get(src_name, [])
+                    chosen = (next((c for c in cands if c["filename"] == zchosen["filename"]), None)
+                              if zchosen is not None else choose_best_pe_file(cands))
                 except Exception as e:
                     pe_log(
                         f"⚠️ [WARN] Galaxy history lookup failed ({galaxy_server_url()}): "
                         f"{type(e).__name__}: {e}",
                         event_logs,
                     )
+                if chosen is None and zchosen is not None:
+                    pe_log(f"ℹ️ [INFO] {zchosen['filename']} is not in the Galaxy history: downloading it "
+                           "from Zenodo", event_logs)
+                    local_pe_path = str(download_zenodo_pe_file(
+                        zchosen, outdir=outdir, progress_cb=_progress if pr is not None else None,
+                        log_cb=lambda m: pe_log(m, event_logs)))
 
-                if chosen is not None:
+                if local_pe_path is not None:
+                    pass
+                elif chosen is not None:
                     pe_log(
                         f"ℹ️ [INFO] Galaxy mode: fetching {chosen['name']} from {galaxy_server_url()}",
                         event_logs,
