@@ -69,10 +69,17 @@ file is read: that depends only on the mode and on the release version (below,
     with `s3` as with `zenodo`.
 
 `galaxy`
-:   Collections staged by Galaxy (`./galaxy_inputs/<CATALOG>-PE`, `-SKYMAPS`): the staged collection is the
-    input of the Galaxy tool, and the rule of the mode picks the file among its files of the event. When none
-    is staged, the file chosen in the Zenodo listing is downloaded over HTTP from the public usegalaxy.org
-    "GWTC" published history (anonymous, no API key) when the history has it, else from Zenodo.
+:   The public usegalaxy.org "GWTC" published history, used as a second mirror with the same rules as `s3`: it
+    holds the same files as the bucket, as datasets named after them (the other public files under their key,
+    `public/zenodo/…`), and is read anonymously; a file or a release version it does not hold, an unreachable
+    server and a failed transfer fall back to Zenodo or to the public source. Inside the Galaxy tool, the
+    collections staged in the working directory (`./galaxy_inputs/<CATALOG>-PE`, `-SKYMAPS`) are the input of
+    the tool and are read as they are.
+
+The history has one collection per catalog and kind, holding the files of the latest Zenodo version:
+`<CATALOG>-PE` (the `mixed_cosmo` or combined files read by `parameters_estimation`), `<CATALOG>-PE-nocosmo`
+(GWTC-2.1 and GWTC-3, for the population modes), `<CATALOG>-SKYMAPS`, and `PUBLIC-FILES`; the collections of
+earlier versions keep their version in their name (`GWTC-3-PE (v2)`).
 
 ## Zenodo release versions
 
@@ -82,9 +89,9 @@ fetched from the Zenodo API (`/api/records/<id>/versions`) and cached for one da
 `~/.cache_gwtc_analysis/zenodo`, so a new release is picked up automatically.
 
 An older version is selected with `--zenodo-version CATALOG=VERSION`, versions being numbered from the
-oldest (`v1`); `latest` is also accepted. It is taken by `catalog_statistics` and `search_skymaps` (with
-`--data-repo zenodo` or `s3`) and by `parameters_estimation` (with any `--data-repo`), and `zenodo_releases` lists the
-versions. The other modes that read PE files take no `--zenodo-version`: they read the latest versions,
+oldest (`v1`); `latest` is also accepted. It is taken by `catalog_statistics`, `search_skymaps` and
+`parameters_estimation`, with any `--data-repo` (a mirror serves the selected version or falls back to Zenodo;
+collections staged by the Galaxy tool are read as they are), and `zenodo_releases` lists the versions. The other modes that read PE files take no `--zenodo-version`: they read the latest versions,
 whatever `--data-repo`. `zenodo_releases` has one option, `--catalogs` (default `ALL`):
 
 ```bash
@@ -137,7 +144,8 @@ Two safeguards keep it so:
 
 ## S3 mirror of the public files
 
-The other public files the modes download are mirrored in the same bucket, under a key derived from their URL:
+The other public files the modes download are mirrored in the same bucket (and in the Galaxy history, as
+datasets named after the key), under a key derived from their URL:
 
 | URL | Key in the `gwtc` bucket |
 |---|---|
@@ -146,8 +154,9 @@ The other public files the modes download are mirrored in the same bucket, under
 | `https://arxiv.org/e-print/<id>` | `public/arxiv/<id>.tar.gz` |
 
 The file is chosen as without the mirror (the same URL; for the injections, the latest version of the Zenodo
-record, so a new version is a new key), and `--data-repo s3` downloads it from the bucket when the bucket holds
-it, else from its public source. The modes that read these files all take `--data-repo {zenodo,s3}`:
+record, so a new version is a new key), and `--data-repo s3` (or `galaxy`) downloads it from the mirror when the
+mirror holds it, else from its public source. The modes that read these files all take
+`--data-repo {zenodo,s3,galaxy}`:
 
 | Files | Modes | Source |
 |---|---|---|

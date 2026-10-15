@@ -131,10 +131,14 @@ def extract_is_current(path: Path, filename: str) -> bool:
 _s3_lock = threading.Lock()
 
 
-def s3_objects(cache: Path | str) -> dict[str, str]:
-    """File name -> object of the PE files on the S3 mirror, listed once a day into `cache`/index."""
-    from .gw_stat import _s3_client_from_env
+def s3_objects(cache: Path | str, data_repo: str = "s3") -> dict[str, str]:
+    """File name -> object of the PE files on a mirror (the S3 bucket, or the Galaxy history seen as one), listed
+    once a day into `cache`/index."""
+    from .galaxy_store import store_client
 
+    if data_repo == "galaxy":                 # the history listing has its own daily cache
+        return {Path(o.object_name).name: o.object_name for o in store_client("galaxy").list_objects(S3_BUCKET)
+                if "PEDataRelease" in o.object_name and o.object_name.endswith((".h5", ".hdf5"))}
     idx = Path(cache) / "index" / "s3_pe_files.json"
     with _s3_lock:
         if idx.exists() and time.time() - idx.stat().st_mtime < S3_LISTING_TTL_S:
@@ -143,7 +147,7 @@ def s3_objects(cache: Path | str) -> dict[str, str]:
             except ValueError:
                 pass
         out = {}
-        for o in _s3_client_from_env().list_objects(S3_BUCKET, recursive=True):
+        for o in store_client("s3").list_objects(S3_BUCKET, recursive=True):
             n = o.object_name
             if "PEDataRelease" in n and n.endswith((".h5", ".hdf5")):
                 out[Path(n).name] = n
@@ -176,23 +180,24 @@ def fetch(entry: dict, cache: Path | str, data_repo: Optional[str] = None, *, de
         return shared, False
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
-    if data_repo == "s3":
-        try:
-            obj = s3_objects(cache).get(fname)
-            if obj is not None:
-                from .gw_stat import _s3_client_from_env
+    if data_repo in ("s3", "galaxy"):
+        from .galaxy_store import repo_label, store_client
 
-                pe._download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj, out_path=tmp,
-                                              desc=desc or fname)
+        label = repo_label(data_repo)
+        try:
+            obj = (s3_objects(cache) if data_repo == "s3" else s3_objects(cache, "galaxy")).get(fname)
+            if obj is not None:
+                pe._download_s3_with_progress(store_client(data_repo), bucket=S3_BUCKET, object_name=obj,
+                                              out_path=tmp, desc=desc or fname)
                 tmp.replace(dest)
-                note_pe_source(fname, "S3 mirror")
+                note_pe_source(fname, label)
                 return dest, True
-            log(f"{fname} is not on the S3 mirror: downloading it from Zenodo")
-            note_pe_source(fname, "Zenodo (not on the S3 mirror)")
+            log(f"{fname} is not on the {label}: downloading it from Zenodo")
+            note_pe_source(fname, f"Zenodo (not on the {label})")
         except Exception as e:                 # the mirror unreachable or a failed transfer: Zenodo
             tmp.unlink(missing_ok=True)
-            log(f"S3 mirror failed for {fname} ({type(e).__name__}: {e}): downloading it from Zenodo")
-            note_pe_source(fname, "Zenodo (S3 mirror failed)")
+            log(f"{label} failed for {fname} ({type(e).__name__}: {e}): downloading it from Zenodo")
+            note_pe_source(fname, f"Zenodo ({label} failed)")
     else:
         note_pe_source(fname, "Zenodo")
     pe._download_http_with_progress(entry["url"], tmp, desc=desc or fname)

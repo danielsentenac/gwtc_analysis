@@ -156,10 +156,13 @@ def run_search_skymaps(
     # S3 repo
     # -------------------------
     zenodo_catalogs = list(catalogs) if data_repo == "zenodo" else []
-    if data_repo == "s3":
+    # a mirror: the S3 bucket, or the Galaxy history when no collection is staged (the Galaxy tool stages them)
+    mirror = data_repo if data_repo == "s3" or (data_repo == "galaxy" and not Path("galaxy_inputs").exists()) else None
+    if mirror:
         # the maps of the selected Zenodo version, from the mirror when it holds them, else from Zenodo
         from .data_repo import skymap_release_tag
-        from .gw_stat import _catalog_to_s3_prefix, _s3_client_from_env
+        from .galaxy_store import repo_label, store_client
+        from .gw_stat import _catalog_to_s3_prefix
 
         bucket = "gwtc"
 
@@ -182,15 +185,17 @@ def run_search_skymaps(
 
                 try:
                     tag = skymap_release_tag(catalog, (zenodo_versions or {}).get(_products_catalog(catalog))) + "-"
-                    client = _s3_client_from_env()
+                    client = store_client(mirror)
                     keys = [o.object_name for o in client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True)
                             if o.object_name.endswith((".fits", ".fits.gz"))
                             and o.object_name.rsplit("/", 1)[-1].startswith(tag)]
                 except Exception as e:             # the mirror unreachable: Zenodo
-                    print(f"[search_skymaps] S3 mirror failed for {catalog} ({type(e).__name__}: {e}): using Zenodo")
+                    print(f"[search_skymaps] {repo_label(mirror)} failed for {catalog} ({type(e).__name__}: {e}): "
+                          "using Zenodo")
                     keys = []
                 if not keys:
-                    print(f"[search_skymaps] no skymap of the selected {catalog} release on the S3 mirror: using Zenodo")
+                    print(f"[search_skymaps] no skymap of the selected {catalog} release on the {repo_label(mirror)}: "
+                          "using Zenodo")
                     zenodo_catalogs.append(catalog)
                     continue
                 for key in _one_map_per_event(keys, wf):
@@ -373,7 +378,7 @@ def run_search_skymaps(
             _write_search_skymaps_report(out_path=Path(out_report_html), rows=rows, tsv_path=out_tsv_path)
         return
 
-    if data_repo == "s3":                     # every catalog found on the mirror
+    if mirror:                                # every catalog found on the mirror
         out_tsv_path = Path(out_events_tsv)
         _write_tsv(out_tsv_path, rows)
         if out_report_html:

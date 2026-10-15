@@ -129,7 +129,7 @@ LVK results (superevent names mapped to the catalog events through their GraceDB
 | `--catalogs` | `GWTC-4` | Catalogs whose events are paired; several, or `ALL`. With an update (GWTC-4.1) its events replace those of the catalog it re-analyses. |
 | `--far-threshold` | 1 | FAR at most this, per year (the LVK lensing selection). |
 | `--min-mass` | 3 | Both source-frame masses above it: binary black holes. |
-| `--data-repo` | `zenodo` | `s3`: the MinIO mirror of the releases, much faster. The files are the same (the latest Zenodo versions, `nocosmo` up to GWTC-3): a file the mirror does not have comes from Zenodo ([Which PE file is read](../data-sources.md#which-pe-file-is-read)). |
+| `--data-repo` | `zenodo` | `s3`, the MinIO mirror of the releases (much faster), or `galaxy`, the public usegalaxy.org history. The files are the same (the latest Zenodo versions, `nocosmo` up to GWTC-3): a file the mirror does not have comes from Zenodo ([Which PE file is read](../data-sources.md#which-pe-file-is-read)). |
 | `--pe-samples` | 2000 | PE samples per event for the kernel densities. |
 | `--fpp-threshold` | 0.01 | Pairs flagged in the report. |
 | `--exclude` | — | Events left out (full or common names). |

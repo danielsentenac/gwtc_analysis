@@ -256,7 +256,7 @@ Options of `--method bright` (the others of `hubble_constant` are refused):
 | `--workdir` | `hubble_constant_bright` | the work directory |
 | `--settings FILE` | none | JSON or YAML file of option values (keys: the long option names); the command line overrides it |
 | `--out-report`, `--out-summary` | `hubble_constant_bright.html`, `.tsv` | the report and the summary |
-| `--data-repo {zenodo,s3}` | `zenodo` | where the PE file and the search-sensitivity injections are downloaded from: their public sources, or `s3`, the MinIO mirror (faster), when it holds the same file ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |
+| `--data-repo {zenodo,s3,galaxy}` | `zenodo` | where the PE file and the search-sensitivity injections are downloaded from: their public sources, or a mirror holding the same files, `s3` (the MinIO bucket, faster) or `galaxy` (the public usegalaxy.org history), else the public source ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |
 
 The report ends with all these options, the values used and their defaults.
 
