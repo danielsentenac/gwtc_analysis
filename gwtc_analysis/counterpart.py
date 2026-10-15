@@ -132,30 +132,22 @@ def sky_conditioned(samples: dict, cp: Counterpart, sky_radius_deg: float) -> tu
 # PE samples
 # ---------------------------------------------------------------------------
 def _event_pe_file(event: str, cache: Path) -> Path:
-    """The event's Zenodo PE file, downloaded once into `cache`/files."""
-    from . import hubble_constant as hc
-    from . import parameters_estimation as pe
+    """The event's PE file (`pe_files.SAMPLING`, latest Zenodo version), in `cache`/files or downloaded there."""
+    from .pe_files import SAMPLING, fetch, select
 
-    files = cache / "files"
-    local = sorted(files.glob(f"*{event}*PEDataRelease*.h*5"))
-    if local:
-        return Path(hc._pick_pe_file([dict(filename=p.name, path=p) for p in local])["path"])
-    index = pe.build_zenodo_pe_index(cache_dir=str(cache / "index"), force_refresh=False)
-    cands = index.get(event)
-    if not cands:
+    entry = select([event], cache, SAMPLING)
+    if entry is None:
         raise ValueError(f"no Zenodo PE release found for {event}")
-    entry = hc._pick_pe_file(cands)
-    files.mkdir(parents=True, exist_ok=True)
-    dest = files / entry["filename"]
-    tmp = dest.with_suffix(dest.suffix + ".part")
-    _log(f"downloading the PE file of {event} to {files}")
-    pe._download_http_with_progress(entry["url"], tmp, desc=event)
-    tmp.replace(dest)
-    return dest
+    path, downloaded = fetch(entry, cache, "zenodo", desc=event, log=_log)
+    if downloaded:
+        _log(f"downloaded the PE file of {event} to {path.parent}")
+    return path
 
 
 def _read_pe_labels(pe_file: Path, labels: Optional[Iterable[str]]) -> dict[str, dict]:
     import h5py
+
+    from .pe_files import distance_prior_desc
 
     out = {}
     with h5py.File(pe_file, "r") as h:
@@ -176,7 +168,7 @@ def _read_pe_labels(pe_file: Path, labels: Optional[Iterable[str]]) -> dict[str,
                 desc = v.decode() if isinstance(v, bytes) else str(v)
             except (KeyError, TypeError, ValueError):
                 pass
-            s["prior_desc"] = desc
+            s["prior_desc"] = distance_prior_desc(pe_file.name, desc)
             out[k] = s
     return out
 

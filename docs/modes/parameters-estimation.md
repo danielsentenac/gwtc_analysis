@@ -11,7 +11,9 @@ gwtc_analysis parameters_estimation --src-name GW150914_095045 \
 
 ## Posterior samples
 
-The event's PESummary `PEDataRelease` file is read from `--data-repo`. It holds several analyses,
+The event's PESummary `PEDataRelease` file is chosen in the Zenodo listing (the latest release version, or
+`--zenodo-version`): `*_mixed_cosmo.h5` for GWTC-2.1 and GWTC-3, the posteriors quoted in the catalogs, and
+the combined file from GWTC-4.0 ([Which PE file is read](../data-sources.md#which-pe-file-is-read)); `--data-repo` only says where it is downloaded from. It holds several analyses,
 called **labels** (`C00:Mixed`, `C00:IMRPhenomXPHM-SpinTaylor`, `C00:SEOBNRv5PHM`, …), each with its
 posterior samples, priors, PSDs, calibration envelopes and configuration. `--pe-vars` adds 1-D
 posteriors and `--pe-pairs` 2-D ones (`x:y`).
@@ -248,8 +250,8 @@ at 90% with the two LIGO detectors.*
 |---|---|---|
 | `--out-report` | `parameters_estimation.html` | Output HTML report path. |
 | `--src-name` | — | Source event name (e.g. GW231223_032836). |
-| `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where to read data from: galaxy \| zenodo \| s3. |
-| `--zenodo-version CATALOG=VERSION` | — | With --data-repo zenodo, read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
+| `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where to download the PE file from: zenodo, s3 (the MinIO mirror) or galaxy (staged collections, else the public usegalaxy.org history). The file itself is chosen in the Zenodo listing: s3 and galaxy serve it when they have it, else it comes from Zenodo. |
+| `--zenodo-version CATALOG=VERSION` | — | Read an older Zenodo release version of a catalog instead of the latest (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1), with any --data-repo. Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 | `--pe-vars` | — | Extra posterior sample variables to plot (space-separated). Example: --pe-vars chi_eff chi_p luminosity_distance. |
 | `--pe-pairs` | — | Extra 2D posterior pairs to plot as 'x:y' tokens. Example: --pe-pairs mass_1_source:mass_2_source chi_eff:chi_p. |
 | `--plots-dir` | `pe_plots` | Directory for output PE plots (default: pe_plots). |

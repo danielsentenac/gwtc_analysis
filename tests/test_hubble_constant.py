@@ -133,18 +133,31 @@ def test_detector_frame_injections(tmp_path):
     assert inj["Tobs"] == pytest.approx(2.0) and inj["ntotal"] == 1e6
 
 
-def test_prepare_inputs_from_cached_extracts(tmp_path, fake_gwosc):
+def fake_pe_index(monkeypatch, names):
+    """A Zenodo PE index with one file per event (no network): the extracts made from it are current."""
+    from gwtc_analysis import parameters_estimation as pe
+
+    files = {n: f"IGWN-test-{n}-combined_PEDataRelease.hdf5" for n in names}
+    monkeypatch.setattr(pe, "build_zenodo_pe_index", lambda **k: {
+        n: [{"record_id": "1", "filename": f, "url": f"https://zenodo.org/records/1/files/{f}"}]
+        for n, f in files.items()})
+    return files
+
+
+def test_prepare_inputs_from_cached_extracts(tmp_path, fake_gwosc, monkeypatch):
     """prepare writes inputs.h5 and events.tsv from cached PE extracts, without any download."""
     a = _write_mixture(tmp_path / "mix.hdf")
     cache = tmp_path / "pe"
     (cache / "samples").mkdir(parents=True)
     rng = np.random.default_rng(0)
+    files = fake_pe_index(monkeypatch, ("GW150914_095045", "GW230601_224134"))
     for name, lab, prior in (
         ("GW150914_095045", "C01:IMRPhenomXPHM", "PowerLaw(alpha=2, minimum=10, maximum=10000)"),
         ("GW230601_224134", "C00:IMRPhenomXPHM-SpinTaylor",
          "bilby.gw.prior.UniformSourceFrame(minimum=600.0, maximum=9000.0, cosmology='Planck15_LAL')"),
     ):
         with h5py.File(cache / "samples" / f"{name}.h5", "w") as h:
+            h.attrs["source_file"] = files[name]
             for l in (lab, "C01:Mixed"):
                 g = h.create_group(l)
                 g.create_dataset("mass_1", data=rng.uniform(30, 40, 800))
