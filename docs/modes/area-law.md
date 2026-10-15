@@ -87,6 +87,7 @@ The release is extracted (37 files) into the Zenodo cache, or `--cache-dir`.
 | `--with-imr` | off | also show the area change of the full-signal analysis, made with an **IMR** waveform (see below): a consistency check, not a test; downloads 27 MB more |
 | `--cache-dir` | the Zenodo cache | where the release is extracted |
 | `--out-report`, `--out-summary`, `--plots-dir` | `area_law.html`, `area_law.tsv`, `area_law_plots` | outputs ([above](#outputs)) |
+| `--data-repo {zenodo,s3}` | `zenodo` | where the GW250114 data release are downloaded from: their public sources, or `s3`, the MinIO mirror (faster), when it holds the same file ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |
 
 **IMR** stands for *inspiral–merger–ringdown*, the three phases of a compact-binary coalescence:
 

@@ -135,6 +135,7 @@ def test_report_lists_the_pe_files(monkeypatch):
 
     monkeypatch.setattr(report, "_PE_FILES", {})
     monkeypatch.setattr(report, "_PE_SOURCES", {})
+    monkeypatch.setattr(report, "_DATA_FILES", {})
     monkeypatch.setattr(report, "_RUN_OPTIONS", None)
     assert report.options_html() == ""
     report.record_pe_file("GW191103_012549", NOCOSMO)

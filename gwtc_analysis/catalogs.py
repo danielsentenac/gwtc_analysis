@@ -603,17 +603,40 @@ def run_catalog_statistics(
                 continue
 
             if data_repo == "s3":
-                tmp = gw.add_localization_area_from_s3(
-                    df.loc[m],
-                    catalog_key=cat,
-                    cred=area_cred,
-                    column=area_column,
-                    bucket="gwtc",
-                    base_prefix="",
-                    progress=True,
-                    verbose=False,
-                )
-                df.loc[m, area_column] = tmp[area_column].values
+                # the maps of the selected Zenodo version, from the mirror when it holds them; the events it does
+                # not cover (or all of them, if it fails) from Zenodo
+                from .data_repo import skymap_release_tag
+
+                version = (zenodo_versions or {}).get(_reg.products_catalog(cat))
+                try:
+                    tmp = gw.add_localization_area_from_s3(
+                        df.loc[m],
+                        catalog_key=cat,
+                        cred=area_cred,
+                        column=area_column,
+                        bucket="gwtc",
+                        base_prefix="",
+                        progress=True,
+                        verbose=False,
+                        release_tag=skymap_release_tag(_reg.products_catalog(cat), version),
+                    )
+                    df.loc[m, area_column] = tmp[area_column].values
+                except Exception as e:
+                    print(f"[catalog_statistics] S3 mirror failed for {cat} ({type(e).__name__}: {e}): using Zenodo")
+                rest = m & df[area_column].isna()
+                if rest.any():
+                    print(f"[catalog_statistics] {int(rest.sum())} {cat} skymap(s) not on the S3 mirror: from Zenodo")
+                    tmp = gw.add_localization_area_from_zenodo(
+                        df.loc[rest],
+                        catalog_key=cat,
+                        cred=area_cred,
+                        column=area_column,
+                        cache_dir=zenodo_cache_dir,
+                        progress=True,
+                        verbose=False,
+                        zenodo_version=version,
+                    )
+                    df.loc[rest, area_column] = tmp[area_column].values
                 continue
 
             if data_repo == "galaxy":
@@ -949,12 +972,16 @@ def _zenodo_sensitivity_file(record: str, label: str, pattern: str, tag: str = "
     runs = ("o1", "o2", "o3", "o4a", "o4b", "o4c", "o5")
     name = sorted(names, key=lambda n: (-sum(t in re.split(r"[^a-z0-9]+", n.lower()) for t in runs), n))[0]
     entry = next(f for f in latest["files"] if f.get("key") == name)
+    from . import mirror
+
     dest = zenodo_cache_dir() / f"zenodo_{record_id}_{name}"
+    url = f"https://zenodo.org/records/{record_id}/files/{name}?download=1"
     if not (dest.exists() and dest.stat().st_size > 0):
-        url = f"https://zenodo.org/records/{record_id}/files/{name}?download=1"
         print(f"[{tag}] retrieving LVK search-sensitivity injections, {label}: {url}")
-        gw._download_with_byte_progress(url, dest)
+        mirror.fetch_to(url, dest, gw._download_with_byte_progress, log=lambda m: print(f"[{tag}] {m}"))
         _check_md5(dest, entry.get("checksum"))
+    else:
+        mirror.cached(url)
     print(f"[{tag}] sensitivity injections: {label}, record {record_id}: {dest.name}")
     return dest
 

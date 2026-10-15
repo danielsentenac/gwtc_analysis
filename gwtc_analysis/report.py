@@ -30,6 +30,28 @@ def note_pe_source(filename: str, source: str) -> None:
     _PE_SOURCES[Path(str(filename)).name] = source
 
 
+_DATA_FILES: dict[str, str] = {}     # public data file (URL) -> where this run took it from
+
+
+def record_data_file(url: str, source: str) -> None:
+    """Record a public data file the run used (injections, data releases, ...) and where it came from."""
+    _DATA_FILES[str(url)] = source
+
+
+def data_files_html() -> str:
+    """The public data files used by the run, as an HTML table (empty when it used none)."""
+    if not _DATA_FILES:
+        return ""
+    from html import escape
+
+    body = "\n".join(f"<tr><td><code>{escape(u.rsplit('/', 1)[-1])}</code></td><td><a href='{escape(u)}'>"
+                      f"{escape(u)}</a></td><td>{escape(src)}</td></tr>" for u, src in sorted(_DATA_FILES.items()))
+    return ("<h2>Public data files of this run</h2>\n<p>Other public files read by the run, with the URL that "
+            "identifies them; with <code>--data-repo s3</code> a file is downloaded from the S3 mirror when it holds "
+            "the same file.</p>\n<table border='1' cellspacing='0' cellpadding='4'><tr><th>File</th><th>Source</th>"
+            f"<th>Taken from</th></tr>\n{body}\n</table>\n")
+
+
 def pe_files_html() -> str:
     """The PE files read by the run, with their type, as an HTML table (empty when the run read none)."""
     if not _PE_FILES:
@@ -56,7 +78,7 @@ def options_html() -> str:
     """The PE files and the options of the run as HTML tables (the options are left out when the run did not
     come from the command line)."""
     if not _RUN_OPTIONS:
-        return pe_files_html()
+        return pe_files_html() + data_files_html()
     from html import escape
 
     def fmt(v):
@@ -70,7 +92,7 @@ def options_html() -> str:
         f"<tr><td><code>{escape(o)}</code></td><td>{'<b>' if given else ''}{escape(fmt(v))}"
         f"{'</b>' if given else ''}</td><td>{escape(fmt(d))}</td></tr>"
         for o, v, d, given in _RUN_OPTIONS["rows"])
-    return pe_files_html() + (
+    return pe_files_html() + data_files_html() + (
         f"<h2>Options of this run</h2>\n<p><code>gwtc_analysis {escape(_RUN_OPTIONS['mode'])}</code>: every "
         "option with the value used; in bold, those set on the command line or in a settings file.</p>\n"
         "<table border='1' cellspacing='0' cellpadding='4'><tr><th>Option</th><th>Value</th><th>Default</th>"

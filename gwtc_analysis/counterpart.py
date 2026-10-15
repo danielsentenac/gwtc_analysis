@@ -138,7 +138,7 @@ def _event_pe_file(event: str, cache: Path) -> Path:
     entry = select([event], cache, SAMPLING)
     if entry is None:
         raise ValueError(f"no Zenodo PE release found for {event}")
-    path, downloaded = fetch(entry, cache, "zenodo", desc=event, log=_log)
+    path, downloaded = fetch(entry, cache, desc=event, log=_log)
     if downloaded:
         _log(f"downloaded the PE file of {event} to {path.parent}")
     return path

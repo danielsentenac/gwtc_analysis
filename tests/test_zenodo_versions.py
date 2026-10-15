@@ -137,8 +137,11 @@ def test_cli_zenodo_version_parsing():
     ])
     assert _parse_zenodo_versions(args.zenodo_version, args.data_repo) == {"GWTC-3": "v2", "GWTC-4": "latest"}
     assert _parse_zenodo_versions(None, "zenodo") is None
-    with pytest.raises(ValueError, match="only applies with --data-repo zenodo"):
-        _parse_zenodo_versions(["GWTC-3=v2"], "s3")
+    # the mirror serves the selected version, falling back to Zenodo: the version applies with s3 too
+    assert _parse_zenodo_versions(["GWTC-3=v2"], "s3") == {"GWTC-3": "v2"}
+    with pytest.raises(ValueError, match="only applies with --data-repo zenodo or s3"):
+        _parse_zenodo_versions(["GWTC-3=v2"], "galaxy")
+    assert _parse_zenodo_versions(["GWTC-3=v2"], "galaxy", any_repo=True) == {"GWTC-3": "v2"}
     with pytest.raises(ValueError, match="expected CATALOG=VERSION"):
         _parse_zenodo_versions(["v2"], "zenodo")
     with pytest.raises(ValueError, match="No Zenodo release for catalog"):
