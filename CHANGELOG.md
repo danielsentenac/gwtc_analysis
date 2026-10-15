@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.0 (unreleased)
+## 0.8.0 (2026-10-15)
 
 ### Hubble constant: one mode, four methods
 
@@ -93,6 +93,29 @@ or dark siren, formerly `--spectral-posterior`) and `counterpart` (degeneracy pl
 - `--pe-distance-prior dl2|comoving|source-frame` (`hubble_constant --method bright`, `counterpart`): the PE distance
   prior, instead of the recorded one or the catalog default.
 - `--catalogs` outside the observing runs of the injection release is refused (it was silently restricted).
+
+### Data sources
+
+- `--data-repo zenodo|s3|galaxy` in every mode that downloads files: Zenodo or the public source (LIGO DCC), the S3
+  (MinIO) mirror, or the public usegalaxy.org history. The mirrors serve the same files, those of the selected Zenodo
+  release version: a file a mirror lacks, or a failed transfer, comes from the public source.
+- `--zenodo-version` applies with any `--data-repo`.
+- The PE file depends only on the options: one rule per mode (nocosmo files up to GWTC-3 for the population and
+  H₀ modes, mixed_cosmo for `parameters_estimation`, the combined file from GWTC-4.0).
+- Every report lists the PE files and public data files it used, and ends with the options of its run, defaults
+  included.
+
+### Galaxy
+
+- The Galaxy wrapper is generated from the command line (`galaxy/gen_galaxy_wrapper.py`): 18 analyses (every mode
+  except `galaxy_catalog`, whose icarogw is not on conda; `hubble_constant` as its bright and joint methods), with
+  10 tests that pass under planemo.
+
+### FullPop-4.0
+
+- `hubble_constant --mass-model fullpop4`: FullPop-4.0 spectral and dark sirens (all compact binaries). GWTC-4.0
+  spectral siren: 74.4 (+25.4 / −18.9) km/s/Mpc against the published 72.9 (+21.9 / −18.8).
+- `rates --mass-model fullpop4`: one rate for all compact binaries, split into BNS, NSBH and BBH.
 
 ### Other changes
 
