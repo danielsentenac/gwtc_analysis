@@ -21,7 +21,7 @@ from gwtc_analysis import galaxy_catalog as gc
 from gwtc_analysis import hubble_constant as hc
 from gwtc_analysis.cli import build_parser
 
-from test_hubble_constant import FAKE_LISTS, _write_mixture  # noqa: E402
+from test_hubble_constant import FAKE_LISTS, _write_mixture, fake_pe_index  # noqa: E402
 
 ICAROGW_PYTHON = os.environ.get("GWTC_ICAROGW_PYTHON")
 
@@ -151,7 +151,7 @@ def fake_gwosc(monkeypatch):
     monkeypatch.setattr(hc.gw, "fetch_gwtc_events", lambda c: {"events": FAKE_LISTS.get(c, {})})
 
 
-def test_prepare_inputs_with_galaxy_catalog(tmp_path, fake_gwosc):
+def test_prepare_inputs_with_galaxy_catalog(tmp_path, fake_gwosc, monkeypatch):
     """With a galaxy catalog, inputs.h5 holds the sky position of the PE samples, isotropic positions for the
     injections and the catalog; extracts without the sky position are not used."""
     _write_mixture(tmp_path / "mix.hdf")
@@ -159,8 +159,10 @@ def test_prepare_inputs_with_galaxy_catalog(tmp_path, fake_gwosc):
     cache = tmp_path / "pe"
     (cache / "samples").mkdir(parents=True)
     rng = np.random.default_rng(0)
+    files = fake_pe_index(monkeypatch, ("GW150914_095045", "GW230601_224134"))
     for name in ("GW150914_095045", "GW230601_224134"):
         with h5py.File(cache / "samples" / f"{name}.h5", "w") as h:
+            h.attrs["source_file"] = files[name]
             g = h.create_group("C00:IMRPhenomXPHM-SpinTaylor")
             for k, v in (("mass_1", rng.uniform(30, 40, 500)), ("mass_2", rng.uniform(20, 30, 500)),
                          ("luminosity_distance", rng.uniform(300, 2000, 500)), ("ra", rng.uniform(0, 6.28, 500)),

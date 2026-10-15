@@ -126,49 +126,20 @@ def mass_redshift_weight(m1_det, m2_det, dl, prior):
 # ---------------------------------------------------------------------------
 # data
 # ---------------------------------------------------------------------------
-def _pe_file(row, cache: Path) -> Path:
-    """The event's PE file in `cache`/files, else downloaded from Zenodo; names rounded by +-2 s are accepted,
-    as in `hubble_constant`."""
-    from . import hubble_constant as hc
-    from . import parameters_estimation as pe
-
-    names = [row["event"]] + [hc._full_name(row["gps"] + d) for d in (-2, -1, 1, 2)]
-    files = cache / "files"
-    for nm in names:
-        local = sorted(files.glob(f"*{nm}*PEDataRelease*.h*5"))
-        if local:
-            return Path(hc._pick_pe_file([dict(filename=p.name, path=p) for p in local])["path"])
-    index = pe.build_zenodo_pe_index(cache_dir=str(cache / "index"), force_refresh=False)
-    cands = next((index[nm] for nm in names + [row.get("common_name") or ""] if nm in index), None)
-    if not cands:
-        raise ValueError(f"no Zenodo PE release found for {row['event']}")
-    entry = hc._pick_pe_file(cands)
-    files.mkdir(parents=True, exist_ok=True)
-    dest = files / entry["filename"]
-    tmp = dest.with_suffix(dest.suffix + ".part")
-    _log(f"downloading the PE file of {row['event']}")
-    pe._download_http_with_progress(entry["url"], tmp, desc=row["event"])
-    tmp.replace(dest)
-    return dest
-
-
-def _event_samples(row, cache: Path, n: int, rng, data_repo: str = "zenodo", s3_index: Optional[dict] = None) -> dict:
-    """mass_1, mass_2, luminosity_distance, chi_eff, mass_ratio and the PE distance-prior density of an event.
-    `data_repo` "s3": the PE file from the MinIO mirror of the releases (`s3_index`, as lens_pairs)."""
+def _event_samples(row, cache: Path, n: int, rng, data_repo: str = "zenodo") -> dict:
+    """mass_1, mass_2, luminosity_distance, chi_eff, mass_ratio and the PE distance-prior density of an event, from
+    its PE file (`pe_files.SAMPLING`); `data_repo` "s3" downloads it from the MinIO mirror when it has it."""
     import h5py
 
     from . import hubble_constant as hc
+    from .pe_files import distance_prior_desc, event_entry, extract_is_current, fetch
 
     name = row["event"]
     out_dir = cache / "samples_spin"
     out = out_dir / f"{name}.h5"
-    if not out.exists():
-        if data_repo == "s3":
-            from .lens_pairs import _download
-
-            src, downloaded = _download(row, cache, "s3", s3_index)
-        else:
-            src, downloaded = _pe_file(row, cache), False
+    entry = event_entry(row, cache)
+    if not (out.exists() and extract_is_current(out, entry["filename"])):
+        src, downloaded = fetch(entry, cache, data_repo, desc=name, log=_log)
         out_dir.mkdir(parents=True, exist_ok=True)
         with h5py.File(src, "r") as f:
             lab = hc._choose_label(f)
@@ -182,6 +153,7 @@ def _event_samples(row, cache: Path, n: int, rng, data_repo: str = "zenodo", s3_
                 desc = v.decode() if isinstance(v, bytes) else str(v)
             except (KeyError, TypeError, ValueError):
                 pass
+            desc = distance_prior_desc(src.name, desc)
             cols = {c: np.asarray(ps[c], float) for c in ("mass_1", "mass_2", "luminosity_distance", "chi_eff")}
         part = out.with_suffix(".part")
         with h5py.File(part, "w") as o:
@@ -189,7 +161,7 @@ def _event_samples(row, cache: Path, n: int, rng, data_repo: str = "zenodo", s3_
                 o.create_dataset(c, data=v, compression="gzip")
             o.attrs.update(label=lab, prior_desc=desc[:300], source=src.name)
         part.replace(out)
-        if downloaded:      # a file fetched here from S3 is only needed for this extraction (several GB in all)
+        if downloaded:      # a file downloaded here is only needed for this extraction (several GB in all)
             src.unlink(missing_ok=True)
     with h5py.File(out, "r") as h:
         d = {c: h[c][:] for c in ("mass_1", "mass_2", "luminosity_distance", "chi_eff")}
@@ -210,14 +182,9 @@ def prepare(release: str, far_threshold: float, snr_threshold: float, min_mass: 
     events = hc.select_h0_events(release, far_threshold, min_mass, exclude)
     _log(f"{len(events)} BBH events (release {release}, FAR <= {far_threshold:g}/yr, masses >= {min_mass:g} M_sun)")
     iso = IsoTable()
-    s3_index = None
-    if data_repo == "s3" and not all((pe_cache / "samples_spin" / f"{e}.h5").exists() for e in events["event"]):
-        from .lens_pairs import _s3_index
-
-        s3_index = _s3_index(pe_cache)
     ev = []
     for _, r in events.iterrows():
-        d = _event_samples(r, pe_cache, pe_samples, rng, data_repo, s3_index)
+        d = _event_samples(r, pe_cache, pe_samples, rng, data_repo)
         prior, _ = hc.pe_distance_prior(d["luminosity_distance"], d["prior_desc"], r["run"])
         w = mass_redshift_weight(d["mass_1"], d["mass_2"], d["luminosity_distance"], prior)
         # the isotropic reference of the population is that of the injections (magnitudes uniform up to 1): the PE

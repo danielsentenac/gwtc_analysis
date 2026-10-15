@@ -34,8 +34,6 @@ simulated unlensed events instead. A pair flagged at FPP < 1% is a candidate for
 from __future__ import annotations
 
 import itertools
-import json
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterable, Optional
@@ -145,79 +143,24 @@ def _extract(src: Path, out: Path) -> None:
     part.replace(out)
 
 
-def _s3_index(cache: Path) -> dict[str, str]:
-    """Event name -> PE object of the gwtc bucket (MinIO mirror of the Zenodo releases), cached for a day."""
-    import time
-
-    idx_file = cache / "index" / "s3_pe_objects.json"
-    if idx_file.exists() and time.time() - idx_file.stat().st_mtime < 86400:
-        return json.loads(idx_file.read_text())
-    import re
-
-    from minio import Minio
-
-    client = Minio("minio-dev.odahub.fr", secure=True)
-    out: dict[str, str] = {}
-    for o in client.list_objects("gwtc", recursive=True):
-        n = o.object_name
-        m = re.search(r"(GW\d{6}_\d{6})", n)
-        if m and "PEDataRelease" in n and n.endswith((".h5", ".hdf5")):
-            prev = out.get(m.group(1))
-            if prev is None or ("nocosmo" in n and "nocosmo" not in prev):
-                out[m.group(1)] = n
-    idx_file.parent.mkdir(parents=True, exist_ok=True)
-    tmp = idx_file.with_name(f"{idx_file.name}.{os.getpid()}.part")     # atomic: another process may read it
-    tmp.write_text(json.dumps(out))
-    tmp.replace(idx_file)
-    return out
-
-
-def _download(row, cache: Path, data_repo: str, s3_index: Optional[dict]) -> tuple[Path, bool]:
-    """The event's PE file, and whether this call downloaded it (a file already in the shared cache belongs to
-    whichever mode fetched it and is kept)."""
-    from .hubble_constant import _full_name
-
-    names = [row["event"]] + [_full_name(row["gps"] + d) for d in (-2, -1, 1, 2)]
-    if data_repo == "s3":
-        from minio import Minio
-
-        from .parameters_estimation import _download_s3_with_progress
-
-        obj = next((s3_index[n] for n in names if n in s3_index), None)
-        if obj is None:
-            raise ValueError(f"no PE file for {row['event']} on the S3 mirror")
-        dest = cache / "files" / Path(obj).name
-        if dest.exists() and dest.stat().st_size > 0:
-            return dest, False
-        tmp = dest.with_suffix(dest.suffix + ".part")
-        _download_s3_with_progress(Minio("minio-dev.odahub.fr", secure=True), bucket="gwtc", object_name=obj,
-                                   out_path=tmp, desc=row["event"])
-        tmp.replace(dest)
-        return dest, True
-    from .spin_population import _pe_file
-
-    before = set((cache / "files").glob("*")) if (cache / "files").exists() else set()
-    src = _pe_file(row, cache)
-    return src, src not in before
-
-
 def fetch_samples(events: pd.DataFrame, cache: Path, data_repo: str = "zenodo", workers: int = 4,
                   keep_files: bool = False) -> dict[str, Path]:
-    """Extract (once) the overlap parameters of each event; restartable."""
+    """Extract (once) the overlap parameters of each event from its PE file (`pe_files.SAMPLING`, latest Zenodo
+    version; `data_repo` "s3" downloads it from the MinIO mirror when it has it); restartable. An extract made
+    from another file (an earlier release version) is made again."""
+    from .pe_files import event_entry, extract_is_current, fetch
+
     out_dir = cache / "samples_lens"
     out = {r["event"]: out_dir / f"{r['event']}.h5" for _, r in events.iterrows()}
-    todo = [r for _, r in events.iterrows() if not out[r["event"]].exists()]
+    entries = {r["event"]: event_entry(r, cache) for _, r in events.iterrows()}     # the PE index, built once here
+    todo = [r for _, r in events.iterrows()
+            if not (out[r["event"]].exists() and extract_is_current(out[r["event"]], entries[r["event"]]["filename"]))]
     if not todo:
         return out
-    s3_index = _s3_index(cache) if data_repo == "s3" else None
-    if data_repo != "s3":       # the Zenodo PE index, built once here: the download threads only read it
-        from .parameters_estimation import build_zenodo_pe_index
-
-        build_zenodo_pe_index(cache_dir=str(cache / "index"), force_refresh=False)
     _log(f"extracting the PE samples of {len(todo)} events ({data_repo})")
 
     def one(r):
-        src, downloaded = _download(r, cache, data_repo, s3_index)
+        src, downloaded = fetch(entries[r["event"]], cache, data_repo, desc=r["event"], log=_log)
         _extract(src, out[r["event"]])
         if downloaded and not keep_files:
             src.unlink(missing_ok=True)
