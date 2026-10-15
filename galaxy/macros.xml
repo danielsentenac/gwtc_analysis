@@ -1,0 +1,146 @@
+<macros>
+    <token name="@TOOL_VERSION@">0.8.0</token>
+    <token name="@VERSION_SUFFIX@">0</token>
+    <token name="@PROFILE@">25.1</token>
+    <xml name="requirements">
+        <requirements>
+            <requirement type="package" version="@TOOL_VERSION@">gwtc_analysis</requirement>
+        </requirements>
+    </xml>
+    <xml name="tests">
+        <tests>
+            <test expect_num_outputs="4">
+                <conditional name="mode">
+                    <param name="mode" value="catalog_statistics"/>
+                    <param name="catalogs" value="GWTC-2.1"/>
+                    <param name="data_repo" value="zenodo"/>
+                </conditional>
+                <output name="table" ftype="tabular">
+                    <assert_contents>
+                        <has_text text="event_id"/>
+                        <has_n_lines min="40"/>
+                    </assert_contents>
+                </output>
+                <output name="report" ftype="html">
+                    <assert_contents>
+                        <has_text text="Options of this run"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="2">
+                <conditional name="mode">
+                    <param name="mode" value="event_selection"/>
+                    <param name="catalogs" value="GWTC-2.1"/>
+                    <param name="preset" value="hierarchical"/>
+                </conditional>
+                <output name="table" ftype="tabular">
+                    <assert_contents>
+                        <has_text text="event_id"/>
+                        <has_n_lines min="2"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="4">
+                <conditional name="mode">
+                    <param name="mode" value="search_skymaps"/>
+                    <param name="catalogs" value="GWTC-2.1"/>
+                    <param name="ra_deg" value="180.0"/>
+                    <param name="dec_deg" value="0.0"/>
+                    <param name="data_repo" value="galaxy"/>
+                </conditional>
+                <output name="table" ftype="tabular">
+                    <assert_contents>
+                        <has_text text="event_id"/>
+                        <has_n_lines min="2"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="2">
+                <conditional name="mode">
+                    <param name="mode" value="parameters_estimation"/>
+                    <param name="src_name" value="GW190828_063405"/>
+                    <param name="data_repo" value="galaxy"/>
+                </conditional>
+                <output name="report" ftype="html">
+                    <assert_contents>
+                        <has_text text="PE files of this run"/>
+                        <has_text text="IGWN-GWTC2p1-v2-GW190828_063405_PEDataRelease_mixed_cosmo.h5"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="4">
+                <conditional name="mode">
+                    <param name="mode" value="hubble_constant_joint"/>
+                    <param name="inputs" value="h0_fullpop4_posterior.tsv,h0_plp_posterior.tsv"/>
+                </conditional>
+                <output name="table" ftype="tabular">
+                    <assert_contents>
+                        <has_text text="joint"/>
+                        <has_n_lines n="4"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="4">
+                <conditional name="mode">
+                    <param name="mode" value="stochastic"/>
+                    <param name="spectral_posterior" value="h0_plp_posterior.tsv"/>
+                    <param name="rates" value="merger_rates.tsv"/>
+                </conditional>
+                <output name="table" ftype="tabular">
+                    <assert_contents>
+                        <has_text text="omega_25Hz_median"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="4">
+                <conditional name="mode">
+                    <param name="mode" value="hubble_constant_bright"/>
+                </conditional>
+                <output name="report" ftype="html">
+                    <assert_contents>
+                        <has_text text="Unofficial-GWTC1-GW170817_PEDataRelease.h5"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="4">
+                <conditional name="mode">
+                    <param name="mode" value="continuous_waves"/>
+                </conditional>
+                <output name="report" ftype="html">
+                    <assert_contents>
+                        <has_text text="Public data files of this run"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="4">
+                <conditional name="mode">
+                    <param name="mode" value="area_law"/>
+                </conditional>
+                <output name="table" ftype="tabular">
+                    <assert_contents>
+                        <has_n_lines min="2"/>
+                    </assert_contents>
+                </output>
+            </test>
+            <test expect_num_outputs="1">
+                <conditional name="mode">
+                    <param name="mode" value="zenodo_releases"/>
+                    <param name="catalogs" value="GWTC-3"/>
+                </conditional>
+                <output name="text">
+                    <assert_contents>
+                        <has_text text="22685054"/>
+                    </assert_contents>
+                </output>
+            </test>
+        </tests>
+    </xml>
+    <xml name="citations">
+        <citations>
+            <citation type="bibtex">@misc{GWOSCAcknowledgement, title = "{GWOSC Acknowledgement and Citation Guidance}", howpublished = "{\url{https://gwosc.org/acknowledgement/}}"}</citation>
+            <citation type="bibtex">@article{LSCVK2025O4aOpenData, author = "{LIGO Scientific Collaboration} and {Virgo Collaboration} and {KAGRA Collaboration}", title = "{Open Data from LIGO, Virgo, and KAGRA through the First Part of the Fourth Observing Run}", year = "2025", eprint = "2508.18079", archivePrefix = "arXiv", primaryClass = "gr-qc"}</citation>
+            <citation type="doi">10.3847/1538-4365/acdc9f</citation>
+            <citation type="bibtex">@article{Abbott2021OpenDataO1O2, author = "Abbott, R. and others", collaboration = "{LIGO Scientific Collaboration and Virgo Collaboration}", title = "{Open data from the first and second observing runs of Advanced LIGO and Advanced Virgo}", journal = "SoftwareX", volume = "13", pages = "100658", year = "2021", doi = "10.1016/j.softx.2021.100658"}</citation>
+        </citations>
+    </xml>
+</macros>

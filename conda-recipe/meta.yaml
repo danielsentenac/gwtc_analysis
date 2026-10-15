@@ -37,6 +37,14 @@ requirements:
     - pycbc
     - pyseobnr
     - minio
+    - lalsuite
+    - astropy-healpix
+    - reproject
+    - fsspec
+    - aiohttp
+    - bilby
+    - dynesty
+    - emcee
 
 test:
   imports:
