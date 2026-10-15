@@ -59,13 +59,14 @@ file is read: that depends only on the mode and on the release version (below,
 :   The official catalog releases on Zenodo (table above).
 
 `s3`
-:   The `gwtc` bucket of an S3/MinIO mirror at `https://minio-dev.odahub.fr`, much faster than Zenodo. It
-    serves a PE file when it holds the file of that name; a file it does not hold (another release version,
-    or the other of the `cosmo`/`nocosmo` pair) is downloaded from Zenodo, with a log line. In October
-    2026 the mirror holds GWTC-2.1 v2 (the `mixed_cosmo` files only), GWTC-3 v2 (Zenodo has v3, which fixed
-    the PSDs of GW200105), the first GWTC-4.0 PE version (`1a206db3d_721`; Zenodo's latest is
-    `38214bd95_724`) and GWTC-5.0 (latest), and no GWTC-4.1. The **skymaps** of `catalog_statistics` and
-    `search_skymaps` are read from the mirror as it is: with `s3`, they are those of the mirror's versions.
+:   The `gwtc` bucket of an S3/MinIO mirror at `https://minio-dev.odahub.fr`, much faster than Zenodo (the
+    other public files are mirrored too: [S3 mirror of the public files](#s3-mirror-of-the-public-files)). Zenodo
+    remains the reference and the fallback: a PE file is taken from the mirror when it holds the file of that
+    name, and the skymaps of `catalog_statistics` and `search_skymaps` when it holds those of the selected
+    release version (their file names carry it, e.g. `IGWN-GWTC4p0-38214bd95_724-…`); a file or a catalog the
+    mirror does not have, a mirror that cannot be reached and a failed transfer all fall back to Zenodo, with
+    a log line. Older versions kept on the mirror are thus never read by mistake, and `--zenodo-version` applies
+    with `s3` as with `zenodo`.
 
 `galaxy`
 :   Collections staged by Galaxy (`./galaxy_inputs/<CATALOG>-PE`, `-SKYMAPS`): the staged collection is the
@@ -82,7 +83,7 @@ fetched from the Zenodo API (`/api/records/<id>/versions`) and cached for one da
 
 An older version is selected with `--zenodo-version CATALOG=VERSION`, versions being numbered from the
 oldest (`v1`); `latest` is also accepted. It is taken by `catalog_statistics` and `search_skymaps` (with
-`--data-repo zenodo`) and by `parameters_estimation` (with any `--data-repo`), and `zenodo_releases` lists the
+`--data-repo zenodo` or `s3`) and by `parameters_estimation` (with any `--data-repo`), and `zenodo_releases` lists the
 versions. The other modes that read PE files take no `--zenodo-version`: they read the latest versions,
 whatever `--data-repo`. `zenodo_releases` has one option, `--catalogs` (default `ALL`):
 
@@ -117,7 +118,8 @@ the mode:
 | `parameters_estimation` | the catalog's posteriors | `*_mixed_cosmo.h5` | the combined file |
 
 `--data-repo` then only says where that file is downloaded from (above), and a result does not depend on
-what the S3 mirror or the Galaxy history hold. Every HTML report of these modes ends with the **PE files of
+what the S3 mirror or the Galaxy history hold: whenever the mirror lacks a file, or cannot be reached, or a
+transfer from it fails, the file is downloaded from Zenodo. Every HTML report of these modes ends with the **PE files of
 this run**: for each event the file read, its type and where this run took it from. GW170817 has no release file: the modes read the bundle
 rebuilt by [`build_unofficial_pe`](modes/unofficial-pe.md).
 
@@ -132,6 +134,33 @@ Two safeguards keep it so:
   its samples follow, uniform in comoving volume and source-frame time (Planck15), not with the recorded
   one. Reweighting the `nocosmo` samples of GW151226 by this prior over D_L² gives the distance quantiles of
   its `cosmo` file (5, 50 and 95%: 263, 461 and 621 Mpc against 264, 460 and 622).
+
+## S3 mirror of the public files
+
+The other public files the modes download are mirrored in the same bucket, under a key derived from their URL:
+
+| URL | Key in the `gwtc` bucket |
+|---|---|
+| `https://zenodo.org/records/<record>/files/<name>` | `public/zenodo/<record>/<name>` |
+| `https://dcc.ligo.org/public/<nnnn>/<id>/<version>/<name>` | `public/dcc/<id>/<version>/<name>` |
+| `https://arxiv.org/e-print/<id>` | `public/arxiv/<id>.tar.gz` |
+
+The file is chosen as without the mirror (the same URL; for the injections, the latest version of the Zenodo
+record, so a new version is a new key), and `--data-repo s3` downloads it from the bucket when the bucket holds
+it, else from its public source. The modes that read these files all take `--data-repo {zenodo,s3}`:
+
+| Files | Modes | Source |
+|---|---|---|
+| Search-sensitivity injections, `real` mixtures (`gwtc4` ~400 MB, `gwtc5` ~890 MB) | `rates` | Zenodo [16740128](https://zenodo.org/records/16740128), [19500052](https://zenodo.org/records/19500052) |
+| Search-sensitivity injections, `semi` mixtures (~620 MB, ~1.1 GB) | `hubble_constant` (all methods), `spin_population` | the same records |
+| GW250114 data release, and `posterior_samples_NRSur7dq4.h5` (`--with-imr`) | `area_law` | Zenodo [16877102](https://zenodo.org/records/16877102) |
+| LVK continuous-wave upper limits (known pulsars, narrowband, all-sky O4a, O3 boson clouds), and the arXiv source of 2501.01495 | `continuous_waves` | LIGO DCC G2402400, P2500416, P2100343; arXiv |
+| PSD and skymap supplements of GW230529, GW190425, GW200105 | `parameters_estimation` | Zenodo [10845779](https://zenodo.org/records/10845779); DCC P2000026, P2100143 |
+| GWTC-1 samples, PSDs, skymap and calibration envelopes of GW170817 | `build_unofficial_pe` (and `parameters_estimation`, `counterpart`, `hubble_constant --method bright`, `neutron_star_eos` through it) | LIGO DCC P1800370, P1900011, P1800381, P1900040 |
+
+The reports list these files under **Public data files of this run**, with where each one was taken from.
+Queries are not mirrored: the GWOSC event lists and strain data, the GLADE+ galaxies (VizieR), and the GRB and
+neutrino catalogs (HEASARC, GCN).
 
 ## Search-sensitivity injections
 

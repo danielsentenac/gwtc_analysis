@@ -191,6 +191,13 @@ def zenodo_skymap_tarball(
     raise ValueError(f"No skymap tarball found in the Zenodo release of {catalog_key} (version {version or 'latest'})")
 
 
+def skymap_release_tag(catalog_key: str, version: str | int | None = None) -> str:
+    """The prefix of the skymap file names of a release version (IGWN-GWTC4p0-38214bd95_724, IGWN-GWTC3p0-v3):
+    a mirror's maps are used only when their names carry it."""
+    _, filename = zenodo_skymap_tarball(catalog_key, version)
+    return re.split(r"-(?:PESky|Archived_Skymaps)", filename, maxsplit=1)[0]
+
+
 def zenodo_skymap_url(catalog_key: str, version: str | int | None = None) -> str:
     rec, filename = zenodo_skymap_tarball(catalog_key, version)
     return rec.file_url(filename)

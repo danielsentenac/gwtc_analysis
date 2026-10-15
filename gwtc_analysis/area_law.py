@@ -73,20 +73,21 @@ def pair_probability(final: np.ndarray, initial: np.ndarray, n: int = 400_000, s
 # ---------------------------------------------------------------------------
 def fetch_release(cache_dir: Optional[str | Path] = None, with_imr: bool = False) -> Path:
     """Download the release once and extract the area-law files; returns the directory holding them."""
+    from . import mirror
     from .data_repo import zenodo_cache_dir
     from .parameters_estimation import _download_http_with_progress
 
     root = Path(cache_dir).expanduser() if cache_dir else zenodo_cache_dir() / f"zenodo_{RECORD}_area_law"
     data = root / "data"
-    if not (data / "area_law_inspiral_data.hdf5").exists():
+    if (data / "area_law_inspiral_data.hdf5").exists():
+        mirror.cached(f"https://zenodo.org/records/{RECORD}/files/{ARCHIVE}")
+    else:
         root.mkdir(parents=True, exist_ok=True)
         tgz = root / ARCHIVE
         if not tgz.exists():
             _log(f"downloading {ARCHIVE} (114 MB) from Zenodo {RECORD}")
-            tmp = tgz.with_suffix(".part")
-            _download_http_with_progress(f"https://zenodo.org/records/{RECORD}/files/{ARCHIVE}?download=1", tmp,
-                                         desc=ARCHIVE)
-            tmp.replace(tgz)
+            mirror.fetch_to(f"https://zenodo.org/records/{RECORD}/files/{ARCHIVE}?download=1", tgz,
+                            lambda u, p: _download_http_with_progress(u, p, desc=ARCHIVE), log=_log)
         # extracted into a temporary directory renamed at the end: an interrupted extraction leaves no partial
         # data/ that later runs would take for a complete one
         staging = root / "data.extracting"
@@ -106,10 +107,10 @@ def fetch_release(cache_dir: Optional[str | Path] = None, with_imr: bool = False
         _log(f"extracted {len(members)} files to {data}")
     if with_imr and not (data / IMR_FILE).exists():
         _log(f"downloading {IMR_FILE} (27 MB)")
-        tmp = (data / IMR_FILE).with_suffix(".part")
-        _download_http_with_progress(f"https://zenodo.org/records/{RECORD}/files/{IMR_FILE}?download=1", tmp,
-                                     desc=IMR_FILE)
-        tmp.replace(data / IMR_FILE)
+        mirror.fetch_to(f"https://zenodo.org/records/{RECORD}/files/{IMR_FILE}?download=1", data / IMR_FILE,
+                        lambda u, p: _download_http_with_progress(u, p, desc=IMR_FILE), log=_log)
+    elif with_imr:
+        mirror.cached(f"https://zenodo.org/records/{RECORD}/files/{IMR_FILE}")
     return data
 
 

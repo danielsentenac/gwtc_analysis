@@ -233,3 +233,4 @@ All options: [CLI reference](../cli-reference.md#rates).
 | `--bbh-z-ref` | 0.2 | redshift at which the evolving BBH rate is reported (also at z = 0) |
 | `--out-rates`, `--out-events`, `--out-report` | `merger_rates.tsv`, `merger_rates_events.tsv`, `merger_rates.html` | output files ([above](#outputs)) |
 | `--plots-dir` | `rates_plots` | directory of the plots |
+| `--data-repo {zenodo,s3}` | `zenodo` | where the search-sensitivity injections are downloaded from: their public sources, or `s3`, the MinIO mirror (faster), when it holds the same file ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |

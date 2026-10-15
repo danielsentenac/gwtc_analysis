@@ -655,6 +655,7 @@ runs and with the same thresholds; these options are read by `prepare` only.
 | `--exclude` | GW231123_135430, GW200105_162426 | events left out, as in the paper (the most massive BBH, and an NSBH); with `fullpop4`, GW170817 too, which enters the [joint posterior](#joint-posterior) as the bright siren | to test the influence of one event |
 | `--sensitivity-file` | the release's file (downloaded) | a local injection file instead | offline, or with your own injections |
 | `--pe-cache`, `--keep-pe-files` | `~/.cache_gwtc_analysis/pe_catalog`, no | where the PE samples are cached; keep the full PE files after extraction | to share the cache between machines |
+| `--data-repo {zenodo,s3}` | `zenodo` | where the PE files and the search-sensitivity injections are downloaded from: their public sources, or `s3`, the MinIO mirror (faster), when it holds the same file ([S3 mirror of the public files](../data-sources.md#s3-mirror-of-the-public-files)) |
 
 The published comparison in the report is shown only for the release's own selection (all its runs and the default
 thresholds).
