@@ -15,6 +15,7 @@ else from its public source. API queries (GWOSC strain and event lists, VizieR, 
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import urlparse
@@ -106,16 +107,33 @@ def _record(url: str, source: str) -> None:
     record_data_file(re.sub(r"\?download=1$", "", url), source)
 
 
+def _with_retries(fn: Callable[[], object], url: str, *, log: Callable[[str], None] = print, tries: int = 3,
+                  pause: float = 5.0):
+    """fn() retried after a connection error or a timeout (DNS failure, reset...), after `pause` s then 3×`pause` s.
+    An HTTP error (404, 403...) is raised at once: retrying would not change it."""
+    import requests
+
+    for i in range(tries):
+        try:
+            return fn()
+        except (requests.ConnectionError, requests.Timeout) as e:
+            if i == tries - 1:
+                raise
+            wait = pause * 3 ** i
+            log(f"⚠️ [RETRY] {urlparse(url).netloc}: {type(e).__name__}, retrying in {wait:g} s")
+            time.sleep(wait)
+
+
 def fetch_to(url: str, dest: Path, http_download: Callable[[str, Path], None], *,
              log: Callable[[str], None] = print) -> Path:
     """`url` downloaded to `dest` (written whole or not at all): from the S3 mirror when the run uses s3 and the
-    bucket holds it, else by `http_download(url, path)`."""
+    bucket holds it, else by `http_download(url, path)`, retried after a network error."""
     dest = Path(dest)
     tmp = dest.with_name(dest.name + ".part")
     if _from_s3(url, tmp, log):
         _record(url, _label())
     else:
-        http_download(url, tmp)
+        _with_retries(lambda: http_download(url, tmp), url, log=log)
         _record(url, urlparse(url).netloc + (f" (not on the {_label()})" if _DATA_REPO in MIRRORS and mirror_key(url)
                                             else ""))
     tmp.replace(dest)
@@ -124,7 +142,7 @@ def fetch_to(url: str, dest: Path, http_download: Callable[[str, Path], None], *
 
 def fetch_bytes(url: str, http_get: Callable[[str], bytes], *, log: Callable[[str], None] = print,
                 tmp_dir: Optional[Path] = None) -> bytes:
-    """The content of `url`: from the S3 mirror when the run uses s3 and the bucket holds it, else `http_get(url)`."""
+    """The content of `url`: from the S3 mirror when the run uses s3 and the bucket holds it, else `http_get(url)`, retried after a network error."""
     import tempfile
 
     if _DATA_REPO in MIRRORS and mirror_key(url):
@@ -133,7 +151,7 @@ def fetch_bytes(url: str, http_get: Callable[[str], bytes], *, log: Callable[[st
             if _from_s3(url, p, log):
                 _record(url, _label())
                 return p.read_bytes()
-    data = http_get(url)
+    data = _with_retries(lambda: http_get(url), url, log=log)
     _record(url, urlparse(url).netloc + (f" (not on the {_label()})" if _DATA_REPO in MIRRORS and mirror_key(url)
                                         else ""))
     return data

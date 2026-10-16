@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import getpass
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -332,6 +334,7 @@ def _write_unofficial_pesummary_bundle(
     if out_path.exists():
         out_path.unlink()
 
+    _ensure_user()
     write_pesummary(
         MultiAnalysisSamplesDict(samples_by_label),
         outdir=str(out_path.parent),
@@ -344,6 +347,15 @@ def _write_unofficial_pesummary_bundle(
         **calibration_kwargs,
     )
     return fits_ok
+
+
+def _ensure_user() -> None:
+    """Set USER when the user name is unknown: pesummary records it via getpass.getuser(), which raises when the
+    uid has no passwd entry and no USER/LOGNAME is set (containers run with an arbitrary uid, docker run -u)."""
+    try:
+        getpass.getuser()
+    except (KeyError, OSError):
+        os.environ["USER"] = "gwtc"
 
 
 def _fit_maxl_extrinsics(

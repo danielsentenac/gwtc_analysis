@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.1 (unreleased)
+
+### Fixes
+
+- **Containers with an arbitrary uid** (`docker run -u`, Galaxy, Apptainer): building the GW170817 PE bundle
+  (`build_unofficial_pe`, and the modes run on GW170817: bright-siren `hubble_constant`, `counterpart`,
+  `neutron_star_eos`, `parameters_estimation`) failed with
+  `OSError: No username set in the environment`. pesummary records the user name with `getpass.getuser()`,
+  which raises when the uid has no passwd entry; `USER` is now set when the name is unknown.
+- **Docker image**: the caches under `HOME=/tmp` were writable by root only, so under `docker run -u` pesummary
+  stopped with `PermissionError: /tmp/.cache/pesummary` and matplotlib warned at every start. They are now
+  writable by any uid, and the image sets `USER` and `MPLCONFIGDIR`.
+- **Downloads** of public files (DCC, Zenodo, arXiv, through the mirror layer) are retried twice, after 5 s
+  and 15 s, on a connection error or a timeout, such as a DNS failure. HTTP errors (404, 403) are raised at once.
+- **Docs**: the Docker example runs as you (`-u $(id -u):$(id -g)`), so the output files belong to you.
+
 ## 0.8.0 (2026-10-15)
 
 ### Hubble constant: one mode, four methods
