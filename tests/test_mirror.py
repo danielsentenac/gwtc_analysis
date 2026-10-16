@@ -126,3 +126,47 @@ def test_bright_siren_takes_data_repo():
     a = _apply_settings_file(p, ["hubble_constant", "--method", "bright", "--data-repo", "galaxy"])
     _resolve_h0_method(a, p._mode_parsers["hubble_constant"])
     assert a.data_repo == "galaxy"
+
+
+def test_network_error_is_retried(tmp_path, monkeypatch, clean):
+    """A DNS failure or a reset (tools-iuc CI, dcc.ligo.org): retried, then the file is written whole."""
+    import requests
+
+    waits, tries = [], []
+    monkeypatch.setattr(mirror.time, "sleep", waits.append)
+
+    def flaky(u, p):
+        tries.append(u)
+        if len(tries) < 3:
+            raise requests.ConnectionError("Failed to resolve 'dcc.ligo.org'")
+        Path(p).write_bytes(b"ok")
+
+    out = mirror.fetch_to(URL, tmp_path / "a.tgz", flaky, log=lambda m: None)
+    assert out.read_bytes() == b"ok" and len(tries) == 3 and waits == [5, 15]
+    tries.clear()
+    assert mirror.fetch_bytes(URL, lambda u: flaky(u, tmp_path / "b") or b"bytes", log=lambda m: None) == b"bytes"
+
+
+def test_persistent_network_error_and_http_error_are_raised(tmp_path, monkeypatch, clean):
+    import requests
+
+    monkeypatch.setattr(mirror.time, "sleep", lambda s: None)
+    calls = []
+
+    def down(u, p):
+        calls.append(u)
+        raise requests.Timeout("read timed out")
+
+    with pytest.raises(requests.Timeout):
+        mirror.fetch_to(URL, tmp_path / "a.tgz", down, log=lambda m: None)
+    assert len(calls) == 3 and not (tmp_path / "a.tgz").exists()
+
+    calls.clear()
+
+    def missing(u, p):
+        calls.append(u)
+        raise requests.HTTPError("404 Client Error")
+
+    with pytest.raises(requests.HTTPError):
+        mirror.fetch_to(URL, tmp_path / "a.tgz", missing, log=lambda m: None)
+    assert len(calls) == 1

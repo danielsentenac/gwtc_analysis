@@ -17,8 +17,11 @@ pipelines, computing clusters).
 
 ```bash
 docker pull danielsentenac/gwtc-tool
-docker run --rm -v "$PWD":/work -w /work danielsentenac/gwtc-tool gwtc_analysis -h
+docker run --rm -u $(id -u):$(id -g) -v "$PWD":/work -w /work danielsentenac/gwtc-tool gwtc_analysis -h
 ```
+
+`-u $(id -u):$(id -g)` runs the tool as you, so the files it writes in the current directory belong to you
+rather than to root. The image works under any uid.
 
 ## From conda-forge
 

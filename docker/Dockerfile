@@ -35,10 +35,13 @@ RUN conda create -y -n gwtc python=3.10 \
 # Always use env python without "conda activate"
 ENV PATH="/opt/conda/envs/gwtc/bin:$PATH"
 
-# Galaxy/Planemo friendliness: writable runtime dirs
+# Galaxy/Planemo friendliness: writable runtime dirs, for any uid (docker run -u)
 ENV HOME=/tmp
 ENV XDG_CACHE_HOME=/tmp/.cache
-RUN mkdir -p /tmp/.cache
+ENV MPLCONFIGDIR=/tmp/.config/matplotlib
+# getpass.getuser() (used by pesummary) reads $USER before the passwd file, which has no entry for an arbitrary uid
+ENV USER=gwtc
+RUN mkdir -p /tmp/.cache /tmp/.config/matplotlib && chmod -R 1777 /tmp/.cache /tmp/.config
 
 # ---- install your package into that env ----
 WORKDIR /app
@@ -49,7 +52,8 @@ RUN pip install --no-cache-dir -U pip setuptools wheel \
  && pip install --no-cache-dir .
 
 # Smoke test (optional but recommended)
-RUN python -c "import pandas, minio, gwpy, gwosc, pesummary, ligo.skymap; import gwtc_analysis; print('deps OK')"
+RUN python -c "import pandas, minio, gwpy, gwosc, pesummary, ligo.skymap; import gwtc_analysis; print('deps OK')" \
+ && chmod -R a+rwX /tmp/.cache /tmp/.config /tmp/.astropy     # what the imports above cached as root stays usable by any uid
 
 # IMPORTANT: do not override entrypoint (Galaxy provides command)
 ENTRYPOINT []

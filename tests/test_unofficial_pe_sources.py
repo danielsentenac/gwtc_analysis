@@ -135,3 +135,25 @@ def test_bundle_cache_is_rebuilt_when_the_recipe_changes(spec, fake_dcc, monkeyp
     target.with_name(target.name + ".recipe.json").unlink()
     up.build_unofficial_pe_bundle("GW170817", cache_dir=cache)
     assert len(builds) == 3  # bundle without a recipe file (older builder): rebuilt
+
+
+def test_user_set_when_the_uid_has_no_name(monkeypatch):
+    """docker run -u <uid>: no passwd entry and no USER, which pesummary's getpass.getuser() needs."""
+    import os
+    import pwd
+
+    from gwtc_analysis import unofficial_pe
+
+    for k in ("LOGNAME", "USER", "LNAME", "USERNAME"):
+        monkeypatch.delenv(k, raising=False)
+
+    def no_entry(uid):
+        raise KeyError(f"getpwuid(): uid not found: {uid}")
+
+    monkeypatch.setattr(pwd, "getpwuid", no_entry)
+    unofficial_pe._ensure_user()
+    assert os.environ["USER"] == "gwtc"
+
+    monkeypatch.setenv("USER", "alice")
+    unofficial_pe._ensure_user()
+    assert os.environ["USER"] == "alice"
