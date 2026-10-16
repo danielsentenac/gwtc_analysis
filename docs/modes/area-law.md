@@ -35,6 +35,45 @@ significance is the paper's, \((\langle A_f\rangle - \langle A_i\rangle)/\sqrt{\
 with the remnant areas of two ringdown codes pooled in equal numbers; the report also gives the direct
 probability \(P(A_f < A_i)\) over random pairs of samples.
 
+## Method
+
+**The mode runs no parameter estimation and no ringdown fit.** Those analyses are the LVK's, run on the
+strain of GW250114. The data release of the paper gives their result as **posterior samples of
+the horizon areas**; the mode reads them and computes the test from them, in seconds once downloaded.
+
+### What the LVK analyses did
+
+| Side | Code | Data | What the release holds |
+|---|---|---|---|
+| before, \(A_i\) | **TDinf**, a time-domain inference code (emcee sampler), with the NRSur7dq4 waveform of a quasicircular binary (15 parameters) | the strain cut sharply at a time \(t_<\) before the peak, 16 times from −250 M to 0 M | for each \(t_<\), samples of \(A_1 + A_2\), from the masses and spins of the two black holes |
+| after, \(A_f\) | **ringdown** and **pyRing**, two time-domain codes that fit damped sinusoids: the Kerr quasinormal modes 220, or 220 and 221 | the strain from a time \(t_>\) after the peak, in units of the remnant mass M\(_f\) | samples of \(A_f\), from the remnant mass and spin given by the mode frequencies and damping times: from ringdown for each model at 17 start times from 6 to 20 M\(_f\); from pyRing for the 220 mode from 10.5 M\(_f\) (a reweighted file, `remnant_area_pyring_reweighted.npy`) |
+| prior | | | the prior of \((A_f - A_i)/A_i\) that these analyses imply |
+
+Neither analysis sees the merger, and neither uses the other: the test needs no model of the merger. Their one
+shared assumption is that both parts of the signal are redshifted by the same factor, since the areas are compared
+in the detector frame; the recoil kick of the remnant could break it, by at most 10% and only for large spins,
+inconsistent with GW250114 (paper, Supplement IV).
+
+### What the mode does with them
+
+1. **Download** the 114 MB archive of the release once (Zenodo 16877102) and keep the 37 files of the area law.
+2. **Pool the two ringdown codes** for the remnant area: as many samples of ringdown (220 from 10.5 M\(_f\)) as of
+   pyRing, 2000 of each, drawn without replacement with the paper's random seed.
+3. **Headline result**: \(A_i\) at \(t_< = -40\) M against the pooled \(A_f\), with the significance
+   \((\langle A_f\rangle - \langle A_i\rangle)/\sqrt{\sigma_f^2 + \sigma_i^2}\) (the paper's: it uses the means and
+   widths only, since the far tails of the samples are unreliable), and the direct probability \(P(A_f < A_i)\)
+   over 400 000 random pairs of samples.
+4. **Area change**: \((A_f - A_i)/A_i\) over 200 000 random pairs (the paper takes all the pairs), with its
+   median and 90% interval.
+5. **Scans**: the same significance for each of the 16 truncation times \(t_<\) (against the pooled \(A_f\)), and
+   for each ringdown start time \(t_>\) and model (against \(A_i\) at −40 M). pyRing is released only at 10.5 M\(_f\),
+   so the start-time scans use ringdown alone. From them: the lowest significance over the truncations, the
+   earliest truncation above 5σ, and the 220 + 221 result from 6 M\(_f\).
+6. **Units**: the areas are in \((G M_\odot/c^2)^2\) in the release, shown in km² (detector frame).
+
+Only `--with-imr` computes areas itself: from the masses and spins of the full-signal NRSur7dq4 samples, with
+the Kerr formula above, as the consistency check described in [The test](#the-test).
+
 ## Results
 
 | Result | gwtc_analysis | Published [\[79\]](../references.md#ref-79) |
