@@ -79,10 +79,11 @@ def _cached(name: str, fetch, max_age_days: float = CACHE_MAX_AGE_DAYS, refresh:
 
 def tap_query(adql: str, timeout: float = 300.0) -> pd.DataFrame:
     """A HEASARC TAP query (VOTable) as a DataFrame."""
-    import requests
     from astropy.io.votable import parse_single_table
 
-    r = requests.post(TAP_URL, data=dict(REQUEST="doQuery", LANG="ADQL", QUERY=adql), timeout=timeout)
+    from . import net
+
+    r = net.post(TAP_URL, data=dict(REQUEST="doQuery", LANG="ADQL", QUERY=adql), timeout=timeout)
     r.raise_for_status()
     t = parse_single_table(io.BytesIO(r.content)).to_table()
     df = t.to_pandas()
@@ -181,9 +182,9 @@ ICECUBE_ALERTS_START_GPS = 1244764818.0       # 2019-06-17 00:00 UTC, the start 
 
 def load_icecube_alerts(refresh: bool = False) -> pd.DataFrame:
     def fetch():
-        import requests
+        from . import net
 
-        r = requests.get(AMON_URL, timeout=120)
+        r = net.get(AMON_URL, timeout=120)
         r.raise_for_status()
         return _parse_amon(r.text)
 

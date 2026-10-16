@@ -15,8 +15,12 @@
   without it, the GW170817 runs could not fit the time, phase and polarization of the maximum-likelihood sample
   to the strain, so the waveform overlay was not coherent (the results were unchanged).
 - **Galaxy wrapper**: exports `USER`, which the container of the tools-iuc CI lacks (bright-siren test).
-- **Downloads** of public files (DCC, Zenodo, arXiv, through the mirror layer) are retried twice, after 5 s
-  and 15 s, on a connection error or a timeout, such as a DNS failure. HTTP errors (404, 403) are raised at once.
+- **Network failures are retried** (new module `net`): a connection error or a timeout (such as a DNS failure),
+  or a status sent by an overloaded or throttling server (429, 500, 502, 503, 504), is retried twice, after the
+  delay the server asks for (Retry-After, at most 60 s), else after 5 s then 15 s. Other HTTP errors (404, 403)
+  are raised at once. This covers the downloads of public files (DCC, Zenodo, arXiv) and of PE files (Zenodo,
+  Galaxy), and the Zenodo, Galaxy, AMON and HEASARC queries. The GWOSC and VizieR queries already retried.
+  In the tools-iuc CI, a DNS failure on dcc.ligo.org and a 503 from the Zenodo API each failed one test.
 - **Docs**: the Docker example runs as you (`-u $(id -u):$(id -g)`), so the output files belong to you.
 
 ## 0.8.0 (2026-10-15)

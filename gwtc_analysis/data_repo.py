@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 import requests
 
+from . import net
 from .repo_config import DEFAULT_REPO_CONFIG, ZenodoRelease
 
 ZENODO_API = "https://zenodo.org/api/records"
@@ -81,7 +82,7 @@ def _fetch_versions(record_id: str) -> list[dict[str, Any]]:
     hits: list[dict[str, Any]] = []
     page = 1
     while True:
-        r = requests.get(
+        r = net.get(
             f"{ZENODO_API}/{record_id}/versions",
             params={"size": 25, "sort": "version", "page": page},  # 25 = anonymous page limit
             headers={"User-Agent": ZENODO_USER_AGENT},
