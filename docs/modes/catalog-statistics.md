@@ -118,7 +118,7 @@ with a single detector, which localizes an event only to a large part of the sky
 
 - `--out-events` (TSV): one row per event;
 - `--plots-dir`: the primary against secondary mass diagram colored by SNR, histograms of the main
-  parameters, the fraction of each source type (BBH, BNS, NSBH), the detector networks, the cumulative
+  parameters, the fraction of each source type (`BBH`, `NS-NS`, `BH-NS`: BBH, BNS, NSBH), the detector networks, the cumulative
   distribution of the sky-localization areas and the remnants ([above](#remnants-and-energetics));
 - `--out-report`: the HTML report with the tables and plots.
 
@@ -133,7 +133,7 @@ with a single detector, which localizes an event only to a large part of the sky
 | `--include-area` | off | Compute sky localization area Axx if skymaps are available. |
 | `--area-cred` | `0.9` | Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95. |
 | `--plots-dir` | `cat_plots` | Directory for plots (default: cat_plots). |
-| `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo. |
+| `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo. With a staged Galaxy collection the maps must be there: a missing `<CAT>-SKYMAPS` directory is an error, not a fallback. |
 | `--zenodo-version CATALOG=VERSION` | — | Read an older Zenodo release version of a catalog instead of the latest, with any --data-repo (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 
 Every report ends with the options of its run, defaults included. The same table with the help text

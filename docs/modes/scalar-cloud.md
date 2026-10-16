@@ -80,8 +80,9 @@ fit (the `profile` step, which the `fit` stage still runs before its `polish` st
 cloud mode missed.
 
 **Background.** The vacuum best fit is injected into off-source GWOSC noise, within an hour of the event, and the
-same procedure is run on each segment, from the same starting points moved to the time of the injection. The
-fraction of the background with Λ at least the event's is its p-value. The starting points come from the event's
+same procedure is run on each segment: in the `background` stage from the injected vacuum parameters, in the
+`seeded` stage from the same starting points as the event, moved to the time of the injection. The p-value is
+\((k+1)/(n+1)\) for \(k\) of the \(n\) segments with Λ at least the event's. The starting points come from the event's
 own posterior: the background measures how often noise produces, in that region of the parameter space, an
 improvement as large as the event's, not how often it does so anywhere (the event's sampling searched the whole
 prior). The p-value is in that sense optimistic.

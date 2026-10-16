@@ -11,9 +11,11 @@ gwtc_analysis rates --sensitivity-release gwtc4   # GWTC-4.0 injections (O3 + O4
 
 ## What is counted
 
-- **N:** the GWOSC candidates of GWTC-2.1, GWTC-3, GWTC-4.0 and GWTC-5.0, confident and marginal
-  lists, inside the observing periods covered by the injections and with a false-alarm rate below
-  `--far-threshold` (1 per year by default). They are classified by their median source-frame masses,
+- **N:** the GWOSC candidates of GWTC-1, GWTC-2.1, GWTC-3, GWTC-4.0 and GWTC-5.0 (the confident and
+  marginal lists of GWTC-2.1 and GWTC-3, the single list of the others), inside the observing periods
+  covered by the injections and with a false-alarm rate at most `--far-threshold` (1 per year by default;
+  inclusive, the published values being rounded). GWTC-1 events count only with `--catalogs GWTC-1`, as
+  the default injections start with O3. They are classified by their median source-frame masses,
   neutron stars being below `--ns-max-mass` (2.5 M☉). Candidates without masses are left out.
 - **⟨VT⟩:** the sensitive volume-time of each population, from the LVK injections, downloaded
   automatically (`--sensitivity-release gwtc5` by default, or `gwtc4`; `--sensitivity-file` for a
@@ -270,7 +272,7 @@ All options: [CLI reference](../cli-reference.md#rates).
 | `--sensitivity-release` | `gwtc5` | LVK injections downloaded from Zenodo: `gwtc5` = O3 + O4a + O4b (~900 MB), `gwtc4` = O3 + O4a (~400 MB) |
 | `--sensitivity-file` | none | a local LVK search-sensitivity injection file (same format as the release files), read instead of downloading the `--sensitivity-release` file from Zenodo, which is then ignored; with `--catalogs GWTC-1` it must be the mixture that includes the semi-analytic O1+O2 injections |
 | `--catalogs` | the runs of the real-injection mixture (O3 onward) | catalog keys (GWTC-1 … GWTC-5, GWTC-4.1, or ALL): events and injections restricted to their observing runs (see [Selecting catalogs](#selecting-catalogs)) |
-| `--far-threshold` | 1 per year | events and injections below this false-alarm rate |
+| `--far-threshold` | 1 per year | events at or below this false-alarm rate (the published values are rounded), injections below it |
 | `--snr-threshold` | 10 | semi-analytic O1+O2 injections above this network SNR (with GWTC-1) |
 | `--ns-max-mass` | 2.5 M☉ | neutron stars below it, black holes above, for the classification and the BNS and NSBH models |
 | `--mass-model` | `plp` | `plp` (Power Law + Peak, GWTC-3 values unless `--population-posterior`), `mltp` (Multi Peak, two peaks near 10 and 35 M☉; needs `--population-posterior`) or `fullpop4` (FullPop-4.0, all compact binaries, split into BNS, NSBH and BBH; GWTC-4.0 medians unless `--population-posterior`) |

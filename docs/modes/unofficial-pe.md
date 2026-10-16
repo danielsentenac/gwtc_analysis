@@ -25,7 +25,7 @@ The files are downloaded into `~/.gwcache` the first time they are needed:
 
 The public samples carry no polarization angle, phase, coalescence time or likelihood. The builder:
 
-1. draws the polarization `psi` and the phase from their priors, sets `geocent_time` to the trigger
+1. draws the polarization `psi`, the phase and the azimuthal spin angles `phi_jl` and `phi_12` from their priors, sets `geocent_time` to the trigger
    time, and derives a synthetic ranking `log_likelihood`;
 2. for the sample ranked first (the maximum-likelihood sample used by the strain overlay), fits
    `geocent_time`, `phase` and `psi` to the GWOSC strain by maximizing the coherent network
@@ -35,7 +35,8 @@ The public samples carry no polarization angle, phase, coalescence time or likel
    and `dec` with the LAL detector delays.
 
 All other samples keep their prior-drawn extrinsic values. If the strain fit fails (it needs network
-access to GWOSC), the bundle is still built and the log warns that the overlay will not be coherent.
+access to GWOSC), the bundle is still built and the log warns that the overlay will not be coherent; the
+bundle is then marked incomplete, so the next run rebuilds it.
 
 ## Method
 

@@ -154,7 +154,7 @@ parameters are recovered inside their 90% intervals, with P(α < 0) > 0.9.
 | `--no-correlation` | off | Gaussian chi_eff model without the q slope. |
 | `--sensitivity-release {gwtc4,gwtc5}` | — | Injections and catalogs (default: gwtc4). |
 | `--sensitivity-file` | — | Local sensitivity file instead of the release. |
-| `--far-threshold` | `0.25` | Events and found injections: FAR below this. |
+| `--far-threshold` | `0.25` | Events: FAR at or below this (the published values are rounded); found injections: below it. |
 | `--snr-threshold` | `10.0` | Found semi-analytic O1+O2 injections. |
 | `--min-mass` | `3.0` | Both source-frame masses above it. |
 | `--exclude` | `GW231123_135430 GW200105_162426` | Events left out. |
