@@ -29,7 +29,7 @@ RUN conda config --set channel_priority strict \
 RUN conda create -y -n gwtc python=3.10 \
     numpy pandas matplotlib requests tqdm \
     minio \
-    gwpy gwosc pesummary ligo.skymap astropy h5py \
+    gwpy gwosc pesummary ligo.skymap astropy h5py pycbc \
  && conda clean -afy
 
 # Always use env python without "conda activate"
@@ -52,7 +52,7 @@ RUN pip install --no-cache-dir -U pip setuptools wheel \
  && pip install --no-cache-dir .
 
 # Smoke test (optional but recommended)
-RUN python -c "import pandas, minio, gwpy, gwosc, pesummary, ligo.skymap; import gwtc_analysis; print('deps OK')" \
+RUN python -c "import pandas, minio, gwpy, gwosc, pesummary, ligo.skymap, pycbc; import gwtc_analysis; print('deps OK')" \
  && chmod -R a+rwX /tmp/.cache /tmp/.config /tmp/.astropy     # what the imports above cached as root stays usable by any uid
 
 # IMPORTANT: do not override entrypoint (Galaxy provides command)

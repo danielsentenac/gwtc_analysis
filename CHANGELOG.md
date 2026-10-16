@@ -14,6 +14,9 @@
   writable by any uid, and the image sets `USER` and `MPLCONFIGDIR`.
 - **Downloads** of public files (DCC, Zenodo, arXiv, through the mirror layer) are retried twice, after 5 s
   and 15 s, on a connection error or a timeout, such as a DNS failure. HTTP errors (404, 403) are raised at once.
+- **Docker image**: now includes `pycbc`. Without it, the GW170817 runs could not fit the time, phase and
+  polarization of the maximum-likelihood sample to the strain, so the waveform overlay was not coherent
+  (the results were unchanged).
 - **Docs**: the Docker example runs as you (`-u $(id -u):$(id -g)`), so the output files belong to you.
 
 ## 0.8.0 (2026-10-15)
