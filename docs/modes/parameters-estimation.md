@@ -23,8 +23,10 @@ posteriors and `--pe-pairs` 2-D ones (`x:y`).
 The mode distinguishes **which label is read** (posteriors and metadata) from **which waveform engine
 synthesizes** the signal of the strain overlay.
 
-1. **`--pe-label` given:** that label is used for the posteriors, and as the source of the PSDs and
-   of the maximum-likelihood parameters of the overlay.
+1. **`--pe-label` given:** that label (its exact name, else the first label containing it) is used for
+   the posteriors, and as the source of the PSDs and of the maximum-likelihood parameters of the overlay
+   when it carries a PSD; otherwise the overlay falls back as in 3. With `--waveform-engine` as well, the
+   overlay uses the label matching the engine (as in 2).
 2. **Only `--waveform-engine` given:** the label whose name best matches the engine (substring
    match, no hard-coded mapping) is used for everything. `--waveform-engine IMRPhenomXPHM` selects
    `C00:IMRPhenomXPHM-SpinTaylor` if present.

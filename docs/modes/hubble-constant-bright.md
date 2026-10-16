@@ -55,7 +55,7 @@ see [Validation](#validation-mock-bright-sirens). `--selection`:
 | Value | β(H₀) | Use |
 |---|---|---|
 | `euclidean` | ∝ H₀³: GW-limited detection of nearby sources. It cancels the volume factor of the numerator, and with a \(d_L^2\) prior the posterior becomes \(\sum_i \mathcal{N}(v_H;\, H_0 d_i,\, \sigma_v)\), the LVK 2017 formula [\[27\]](../references.md#ref-27) | z < 0.05 |
-| `injections` | the found LVK sensitivity injections of the event's observing run, carried to the source frame at each trial H₀ and reweighted to the population of the event's class: Power Law + Peak for black holes (as in `rates`), uniform 1–2.5 M☉ for neutron stars; the injected isotropic spins | distant events |
+| `injections` | the found LVK sensitivity injections of the event's observing run, carried to the source frame at 77 values of H₀ (interpolated between them) and reweighted to the population of the event's class: Power Law + Peak for black holes (as in `rates`), uniform 1–2.5 M☉ for neutron stars; the injected isotropic spins | distant events |
 | `auto` (default) | `euclidean` below z = 0.05, `injections` above; `injections` with `--population fullpop4` | |
 
 **The population** (`--population`). By default the sources are uniform in comoving volume and source-frame time.

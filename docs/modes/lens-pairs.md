@@ -68,8 +68,8 @@ the spin magnitudes, the cosines of the spin tilts and the sky position.
 - Both densities keep 1 % uniform in log Δt (1.4 minutes to 27 years): where both vanish, a ratio of kernel
   tails would be arbitrary; this bounds |log₁₀ R| to about 2.
 
-**False-positive probability.** The FPP of a pair is the fraction of the pairs of the selection with a higher
-statistic: the selection is its own background, valid while almost every pair is unrelated (the expected
+**False-positive probability.** The FPP of a pair is the fraction of the pairs of the selection with a statistic at
+least its own, the pair itself included (so FPP ≥ 1/N_pairs): the selection is its own background, valid while almost every pair is unrelated (the expected
 lensed fraction is ~10⁻³). The LVK computes it on simulated unlensed events instead. With a 1 % threshold,
 unrelated events alone flag about 1 % of the pairs, so **a flagged pair is a candidate for joint analysis,
 not a detection**; a lensed pair would show as an outlier at the top of the ranking.

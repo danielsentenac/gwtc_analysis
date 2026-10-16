@@ -101,7 +101,7 @@ For each PE label:
 
 | Quantity | How |
 |---|---|
-| **Searched probability** of the counterpart's position | the credible level of the smallest sky region that contains it. From the LVK sky map of the event for this label (Zenodo archive of its catalog, ligo.skymap crossmatch); without a map (`--pe-file`, `--sky-map none`), a kernel density estimate on the PE samples' sky positions |
+| **Searched probability** of the counterpart's position | the credible level of the smallest sky region that contains it. From the LVK sky map of the event for this label (Zenodo archive of its catalog, ligo.skymap crossmatch); with `--sky-map none`, with `--pe-file` and no `--sky-map`, or when the event has no map (the GW170817 bundle), a kernel density estimate on the PE samples' sky positions; `--pe-file` with `--sky-map FILE` uses that map |
 | **Distance along its line of sight** | the PE samples within `--sky-radius` of the position (all of them when the sky was fixed to the counterpart): median and 90% interval |
 | **Distance of the host redshift** | \(d_L(z; H_0)\) for Planck (67.4) and SH0ES (73.0), with its percentile in the distance posterior: a host redshift far in the tails of the GW distance makes the association, or the cosmology, doubtful |
 | **Viewing angle** | the angle between the line of sight and the total angular momentum, θ_JN folded to 0–90° (0° face-on) |

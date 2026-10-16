@@ -143,7 +143,7 @@ All options: [CLI reference](../cli-reference.md#stochastic).
 
 ## Outputs
 
-- `--out-report` (HTML): Ω_GW(f) of each population and of the total, against the upper limits, with both high-z choices;
+- `--out-report` (HTML): Ω_GW(f) of each population and of the total, against the upper limits, with the chosen `--high-z`; the other choice is quoted as one BBH value at 25 Hz;
 - `--out-summary` (TSV): Ω_GW(25 Hz) of each population and of the total (median, 90%); `<name>.spectrum.tsv`: the
   spectra;
 - `--plots-dir`: the plots.

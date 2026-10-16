@@ -13,7 +13,9 @@ gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --
 - `--skymap-label` chooses the analysis whose skymap is used, one map per event: `Mixed`, the combined
   samples, by default. An event without a map for that label falls back to `Mixed`, then to
   `IMRPhenomXPHM_SpinTaylor`: GWTC-5.0 has no `Mixed` maps, so its events use the IMRPhenomXPHM-SpinTaylor
-  map, the only waveform run on all of them. `any` searches every map of every event.
+  map, the only waveform run on all of them; then to the other waveforms in a fixed order
+  ([Method](#method)). `any` searches every map of every event (with `--counterparts`, one map per event,
+  as `Mixed`).
 - GWTC-1 events are covered by the GWTC-2.1 skymap release; `ALL` expands to GWTC-2.1, GWTC-3,
   GWTC-4 and GWTC-5.
 - Skymaps come from `--data-repo`: the Zenodo tarballs (a given version with `--zenodo-version`), the
@@ -210,7 +212,7 @@ With `--counterparts`: `coincidences.tsv` (one row per coincident burst or neutr
 | `--skymap FILE` | — | With --counterparts: GW sky map files (FITS) to search, e.g. a GraceDB alert map. |
 | `--refresh-catalogs` | off | With --counterparts: download the external catalogs again (otherwise weekly). |
 | `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
-| `--skymap-label` | `Mixed` | Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed then IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case). 'any': every map of every event. |
+| `--skymap-label` | `Mixed` | Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed, then IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case, then the other waveforms in a fixed order). 'any': every map of every event; with `--counterparts`, `any` acts as `Mixed`. |
 | `--out-events` | `search_skymaps.tsv` (`coincidences.tsv` with `--counterparts`) | Output TSV file. |
 | `--out-report` | `search_skymaps.html` (`coincidences.html` with `--counterparts`) | Output HTML report path for hits. |
 | `--plots-dir` | `sky_plots` (`coincidence_plots` with `--counterparts`) | Directory for hit plots. |
