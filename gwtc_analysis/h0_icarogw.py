@@ -1,5 +1,5 @@
-"""icarogw sampler of the `hubble_constant` mode (spectral siren; Power Law + Peak or Multi Peak BBH mass model, or
-FullPop-4.0, the mass distribution of all compact binaries).
+"""icarogw sampler of the `hubble_constant` mode (spectral siren, and dark siren with a galaxy catalog; Power Law + Peak
+or Multi Peak BBH mass model, or FullPop-4.0, the mass distribution of all compact binaries).
 
 This file is self-contained on purpose: icarogw needs its own Python environment (Python >= 3.12,
 CPU mode through a `config.py` holding CUPY=False), which usually does not have gwtc_analysis

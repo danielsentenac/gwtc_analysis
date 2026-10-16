@@ -1,10 +1,11 @@
-"""Hubble constant from the BBH mass spectrum (spectral siren), with icarogw.
+"""Hubble constant from the mass spectrum of the compact binaries (spectral siren) and from a galaxy catalog (dark siren),
+with icarogw.
 
 Stages of `run_hubble_constant`:
 
-- ``prepare``: BBH events from the GWOSC lists (lowest FAR below a threshold, inside the observing
-  runs of the sensitivity release, both masses above a minimum); their PE samples downloaded from
-  Zenodo and reduced to (m1, m2, D_L) in the detector frame, with the density of the PE prior they
+- ``prepare``: events from the GWOSC lists (lowest FAR at most a threshold, inside the observing runs of the
+  sensitivity release, both masses above the minimum of the mass model: BBHs, or all classes with FullPop-4.0);
+  their PE samples downloaded from Zenodo or a mirror (`--data-repo`) and reduced to (m1, m2, D_L) in the detector frame, with the density of the PE prior they
   were drawn from; the found LVK injections with their draw density in the same variables. All of it
   goes to ``<workdir>/inputs.h5``.
 - ``sample``: independent icarogw + bilby/dynesty runs, one per seed (`h0_icarogw.py`, run by the
@@ -93,8 +94,8 @@ def _full_name(gps: float) -> str:
 
 def select_h0_events(release: str, far_threshold: float, min_mass: float, exclude: Iterable[str],
                      runs: Optional[Iterable[str]] = None, extra_lists: Iterable[str] = ()) -> pd.DataFrame:
-    """BBH events of the release's catalogs: lowest FAR at most the threshold, inside its runs (or `runs`), both
-    masses >= min_mass."""
+    """Events of the release's catalogs: lowest FAR at most the threshold, inside its runs (or `runs`), both
+    masses >= min_mass (BBHs with the 3 Msun of Power Law + Peak and Multi Peak, all classes with FullPop-4.0)."""
     cfg = dict(H0_SENSITIVITY_RELEASES[release])
     if runs:
         cfg["runs"] = tuple(r for r in cfg["runs"] if r in set(runs))
@@ -653,6 +654,19 @@ def _plot_h0(post: pd.DataFrame, published: Optional[dict], out_png: Path, model
     return out_png
 
 
+def _events_text(events: pd.DataFrame, ns_max: float = 3.0) -> str:
+    """'N BBH events', or with neutron stars (FullPop-4.0) the number per class, from the median source-frame masses."""
+    if events.empty:
+        return "? events"
+    if not {"mass_1_source", "mass_2_source"} <= set(events.columns):
+        return f"{len(events)} events"
+    n_ns = (events[["mass_1_source", "mass_2_source"]] < ns_max).sum(axis=1)
+    counts = {"BBH": int((n_ns == 0).sum()), "NSBH": int((n_ns == 1).sum()), "BNS": int((n_ns == 2).sum())}
+    if counts["BBH"] == len(events):
+        return f"{len(events)} BBH events"
+    return f"{len(events)} events (" + ", ".join(f"{v} {k}" for k, v in counts.items() if v) + ")"
+
+
 def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optional[Path], release: str) -> pd.DataFrame:
     summary = json.loads((workdir / "summary.json").read_text())
     rw = summary.get("reweighted")
@@ -710,8 +724,8 @@ def write_h0_report(workdir: Path, out_report_html: Path, out_summary_tsv: Optio
     paras = [
         f"H<sub>0</sub> = <b>{q[2]:.1f} (+{q[3] - q[2]:.1f} / −{q[2] - q[1]:.1f}) km/s/Mpc</b> (median, 68%); "
         f"90%: {q[0]:.1f}–{q[4]:.1f}" + (" (reweighted to all the injections)" if use_rw and rw["target_inj_fraction"] >= 1 else "")
-        + (f". Dark siren with a galaxy catalog, {len(events) or '?'} BBH events" if cat_settings else
-           f". Spectral siren with {len(events) or '?'} BBH events")
+        + (f". Dark siren with a galaxy catalog, {_events_text(events)}" if cat_settings else
+           f". Spectral siren with {_events_text(events)}")
         + (f" (runs {', '.join(selection['runs'])})" if selection.get("runs") else "") + ": the redshift comes from the "
         f"source-frame mass distribution ({model_name}, fitted together with H<sub>0</sub>)"
         + (" and from the galaxies along each line of sight" if cat_settings else "") + ", with the "

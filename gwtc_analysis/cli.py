@@ -213,7 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cat.add_argument("--include-area", action="store_true", help="Compute sky localization area Axx if skymaps are available.")
     p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
     p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
-    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo.")
+    p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo (a staged collection must hold them).")
     _add_zenodo_version_arg(p_cat)
 
     # ---------------------------------------------------------------------
@@ -841,12 +841,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_sky.add_argument("--refresh-catalogs", action="store_true",
                        help="With --counterparts: download the external catalogs again (otherwise weekly).")
     p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
-    p_sky.add_argument("--skymap-label", default="Mixed", help="Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed then "
-                       "IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case). 'any': every map of every event.")
+    p_sky.add_argument("--skymap-label", default="Mixed", help="Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed, then "
+                       "IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case, then the other waveforms in a fixed order). "
+                       "'any': every map of every event; with --counterparts, one map per event, as Mixed.")
     p_sky.add_argument("--out-events", default="search_skymaps.tsv", help="Output TSV file (default: search_skymaps.tsv).")
     p_sky.add_argument("--out-report", default="search_skymaps.html", help="Optional output HTML report path for hits.")
     p_sky.add_argument("--plots-dir", default="sky_plots", help="Directory for hit plots (default: sky_plots).")
-    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo.")
+    p_sky.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo (a staged collection must hold them).")
     _add_zenodo_version_arg(p_sky)
 
     # ---------------------------------------------------------------------

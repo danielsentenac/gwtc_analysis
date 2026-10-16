@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **hubble_constant report**: it said "N BBH events" with `--mass-model fullpop4`, which keeps neutron-star
+  binaries too; it now gives the number per class (BBH, NSBH, BNS) when the events are not all BBHs.
+- **Help texts**: `search_skymaps --skymap-label` gives the full fallback order of the maps and says that `any`
+  acts as `Mixed` with `--counterparts`; `--data-repo galaxy` says that a staged collection must hold the maps.
+- **Docstrings** of `hubble_constant`, `h0_icarogw` and `stochastic` brought up to date (dark siren,
+  FullPop-4.0, `--data-repo`, the 2025 upper limit).
+
 ## 0.8.1 (2026-10-16)
 
 ### Fixes

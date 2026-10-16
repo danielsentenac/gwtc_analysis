@@ -208,7 +208,7 @@ Copied from the paper [\[29\]](../references.md#ref-29) (Tables 3 and 6), all un
 | β | slope of the mass-ratio pairing | −4 – 12 |
 | m_min | minimum BH mass | 2 – 10 M☉ |
 | m_max | maximum BH mass of the power law | 50 – 200 M☉ |
-| δ_m | width of the low-mass turn-on | 0 – 10 M☉ |
+| δ_m | width of the low-mass turn-on | 10⁻³ – 10 M☉ |
 | μ_g | position of the Gaussian peak | 20 – 50 M☉ |
 | σ_g | width of the Gaussian peak | 0.4 – 10 M☉ |
 | λ | fraction of BBHs in the peak | 0 – 1 |
