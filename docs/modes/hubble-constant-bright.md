@@ -75,7 +75,7 @@ position are correlated through the antenna pattern. The GWTC-1 GW170817 samples
 the sky fixed to AT2017gfo and are used as they are. Other samples are restricted to those within
 `--sky-radius` of the counterpart.
 
-### What gwtc_analysis does
+### What the mode does
 
 **The mode computes the posterior above itself, on a grid of H₀, with numpy: no sampler and no icarogw.** It reads
 the released PE samples, as they are, and fixes the population; it does not fit the population with H₀.
