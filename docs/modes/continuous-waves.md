@@ -4,12 +4,64 @@ Continuous waves (CW) are long-lived, nearly monochromatic signals: from spinnin
 deformation (a "mountain", of ellipticity ε), or from clouds of ultralight bosons around spinning black holes, which
 annihilate into gravitons at twice the boson's Compton frequency. **None has been detected.** The mode gathers the
 upper limits of the LVK data releases and shows them as the papers do, with the boson mass found by
-[scalar_cloud](scalar-cloud.md) for GW190728 drawn on the boson-cloud limits.
+[scalar_cloud](scalar-cloud.md) for GW190728 drawn on the boson-cloud limits. It runs no search itself (see
+[Method](#method)).
 
 ```bash
 gwtc_analysis continuous_waves                                  # downloads 3 MB once
 gwtc_analysis continuous_waves --boson-mass 2e-13 3e-13 4e-13 --boson-label "my band"
 ```
+
+## Method
+
+**The mode runs no continuous-wave search.** It reads no strain data and reruns none of the LVK pipelines: those
+searches take months of detector data and large computing campaigns. It reads the **upper limits the LVK published**
+with each paper (data releases on the LIGO DCC), draws them as the papers do, and derives from them the few numbers
+of the [Results](#results), each compared with the paper.
+
+### What the LVK searches did
+
+| Search | Data | Pipelines | Upper limit |
+|---|---|---|---|
+| 45 known pulsars, O4a [\[105\]](../references.md#ref-105) | O4a, the two LIGO detectors | three independent **targeted** pipelines, which follow the phase of each pulsar from its radio or X-ray timing: the time-domain Bayesian method (CWInPy: a heterodyne removes the phase evolution of the source, then the amplitude is sampled), the 5n-vector method, and the time-domain \(\mathcal{F}\)/\(\mathcal{G}\)/\(\mathcal{D}\)-statistic; and the **5n-vector narrowband** pipeline for 16 of the pulsars, which lets the frequency and spin-down wander slightly around the timing values | on the strain amplitude h₀ at twice the rotation frequency (single-harmonic emission): a 95% credible upper limit from the posterior (Bayesian), 95% confidence from software injections (the other pipelines) |
+| all-sky, isolated neutron stars, O4a [\[106\]](../references.md#ref-106) | O4a, 20–2000 Hz | three **semi-coherent** all-sky pipelines, which search every sky position, frequency and spin-down: PowerFlux (templated, with a loose-coherence follow-up), FrequencyHough (templated), SOAP (a hidden Markov model, without templates) | 95% confidence, frequentist, against frequency; PowerFlux averaged over the sky positions and orientations of the population |
+| all-sky, boson clouds, O3 [\[107\]](../references.md#ref-107) | O3, the two LIGO detectors, 20–610 Hz | one **semi-coherent** search of the Band Sampled Data (BSD) framework, at several Fourier-transform lengths (a cloud's frequency rises slowly and may fluctuate); outliers found in both detectors, followed up with FrequencyHough or a hidden-Markov-model tracking | 95% confidence per 1 Hz band, from the analytic FrequencyHough sensitivity with the measured noise and the largest detection statistic (critical ratio) of each band. The paper then turns them into the **excluded black-hole and boson masses**, from the signal model, for a fixed distance (1 or 15 kpc), initial black-hole spin (0.5 or 0.9) and cloud age, and into the **largest distance** at which clouds are excluded, from a simulated population of black holes (masses with a Kroupa distribution, \(m^{-2.3}\), from 5 to 50 or 100 M☉; spins uniform from 0.2 to 0.9) |
+
+The spin-down limit is the strain a pulsar would emit if all the rotational energy it loses went into
+gravitational waves:
+\(h_0^{\rm sd} = \frac{1}{d}\left(\frac{5 G I_{zz}}{2 c^3}\frac{|\dot f_{\rm rot}|}{f_{\rm rot}}\right)^{1/2}\),
+for a distance \(d\), a moment of inertia \(I_{zz}\), a rotation frequency \(f_{\rm rot}\) and its derivative.
+An upper limit below it is the first physically meaningful one: it says that gravitational waves carry only part
+of the energy loss.
+
+### What the mode does with them
+
+1. **Download** the released files once (3 MB, listed under [Data](#data)), and the LaTeX source of the
+   known-pulsar paper on arXiv, whose results table holds what the data release lacks: the spin-down limits, the
+   distances and the ellipticity upper limits.
+2. **Known pulsars.** Join the Bayesian upper limits of the release with that table, pulsar by pulsar, at the
+   gravitational-wave frequency \(f = 2 f_{\rm rot}\). Count the pulsars below their spin-down limit, and find the
+   lowest h₀ and ellipticity upper limits. Only the Bayesian pipeline is in the release, so the count is 26, against
+   29 in the paper, where a pulsar counts if any of the three pipelines puts it below its spin-down limit. The
+   narrowband limits are divided by the same spin-down limits.
+3. **All-sky.** Draw the three curves as released (the SOAP file holds log₁₀ h₀) and find the lowest value of each.
+4. **Boson clouds.** Convert a band of boson masses into a CW frequency band, \(f = 2 m c^2 / h\); read in it the
+   O3 upper limits (the higher of the two values the release gives per 1 Hz band), the excluded black-hole masses
+   and the largest excluded distance. These are read off the LVK's exclusion curves, not recomputed.
+
+### Where scalar_cloud comes in
+
+**Only on the boson-cloud plots and paragraph, and without running.** The band drawn there by default,
+0.70–0.89–1.17 × 10⁻¹² eV (5%, 50%, 95%), is the boson mass that [scalar_cloud](scalar-cloud.md#gw190728_064510)
+found for GW190728_064510 with the superradiance prior (cloud grown before the merger, delay τ_d = 10⁶ yr), from
+the dephasing of the inspiral. It is written into the mode as a constant: `continuous_waves` neither runs
+scalar_cloud nor reads its outputs, and takes seconds. `--boson-mass LOW MID HIGH` replaces it by any band, for
+example the result of another scalar_cloud run or a boson mass from elsewhere. The known-pulsar and all-sky results
+do not depend on it.
+
+The comparison is between two independent probes of the same particle: scalar_cloud tests a cloud around a binary
+through the inspiral, this mode the continuous wave of a cloud around an isolated black hole of the Galaxy (see
+[Boson clouds and GW190728](#boson-clouds-and-gw190728)).
 
 ## Data
 
