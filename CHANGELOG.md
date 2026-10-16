@@ -11,12 +11,12 @@
   which raises when the uid has no passwd entry; `USER` is now set when the name is unknown.
 - **Docker image**: the caches under `HOME=/tmp` were writable by root only, so under `docker run -u` pesummary
   stopped with `PermissionError: /tmp/.cache/pesummary` and matplotlib warned at every start. They are now
-  writable by any uid, and the image sets `USER` and `MPLCONFIGDIR`.
+  writable by any uid, and the image sets `USER` and `MPLCONFIGDIR`. The image now also includes `pycbc`:
+  without it, the GW170817 runs could not fit the time, phase and polarization of the maximum-likelihood sample
+  to the strain, so the waveform overlay was not coherent (the results were unchanged).
+- **Galaxy wrapper**: exports `USER`, which the container of the tools-iuc CI lacks (bright-siren test).
 - **Downloads** of public files (DCC, Zenodo, arXiv, through the mirror layer) are retried twice, after 5 s
   and 15 s, on a connection error or a timeout, such as a DNS failure. HTTP errors (404, 403) are raised at once.
-- **Docker image**: now includes `pycbc`. Without it, the GW170817 runs could not fit the time, phase and
-  polarization of the maximum-likelihood sample to the strain, so the waveform overlay was not coherent
-  (the results were unchanged).
 - **Docs**: the Docker example runs as you (`-u $(id -u):$(id -g)`), so the output files belong to you.
 
 ## 0.8.0 (2026-10-15)
