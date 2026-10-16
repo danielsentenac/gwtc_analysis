@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.org/packages/source/g/gwtc_analysis/gwtc_analysis-{{ version }}.tar.gz
-  sha256: 3a1dc6fa14b62f346223f49eb2f302624ec174a1c25f8b46b4b5067899aa4a9b
+  sha256: 31c30b2697a9add5a35f328cf1adc950cd9c6f70fed63b0555c82429bb971af0
 
 build:
   noarch: python
