@@ -78,7 +78,7 @@ defaults it reproduces the catalog construction of the GWTC-4.0 dark siren [\[29
   (or `$GWTC_GALAXY_CACHE`); an entry on a band edge is kept once, by its GLADE+ number.
 - **Another catalog** (`--input-catalog`): read in chunks of 2,000,000 rows, with the columns of `--columns`.
 
-### What the mode does with them
+### What the mode does
 
 1. **Galaxy file** (`galaxies`): keep the `--glade-types`, apply `--where`, take z = `zcmb` (or `zhelio`) and
    keep z > 0 with a finite Ks magnitude; \(\sigma_z = \sqrt{e_z^2 + e_{z,\rm helio}^2}\) by default (a missing term

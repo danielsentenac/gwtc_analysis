@@ -97,7 +97,7 @@ The confident list of each catalog from the GWOSC event API (`gwosc.org/eventapi
 m₁, m₂, D_L, the redshift and χ_eff, and for m₁, m₂ and χ_eff the 90% bounds: GWOSC gives them as offsets
 from the median, and the mode turns them into absolute bounds (median + offset).
 
-### What the mode does with them
+### What the mode does
 
 1. **Order.** When GWOSC lists m₂ > m₁, the two masses and their bounds are swapped.
 2. **Cuts.** Each bound is inclusive (value ≥ min, value ≤ max). An event with a missing value fails any

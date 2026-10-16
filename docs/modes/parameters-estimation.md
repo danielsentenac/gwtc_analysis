@@ -53,7 +53,7 @@ summary statistics and plots of the stored quantities.
 | FITS sky map | the sky-map archive of the catalog on Zenodo | [3D sky map](#3d-sky-map-and-host-galaxies) |
 | Galaxies | GLADE+ on VizieR, or `--galaxies FILE` | host-galaxy candidates |
 
-### What the mode does with them
+### What the mode does
 
 1. **Read the PE file** with PESummary (`pesummary.io.read`). Sky maps finer than nside 1024 are first
    summed down to nside 1024 in a copy of the file (`<file>.nside1024.h5`), to keep the memory low. Missing

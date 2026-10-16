@@ -72,7 +72,7 @@ quantities are listed in [What it computes](#what-it-computes); this section say
   catalog, looked up only for a release file (not with `--pe-file`, nor for the GW170817 bundle).
 - **Host redshift**: from the [list](#the-list-of-known-counterparts) or the options.
 
-### What the mode does with them
+### What the mode does
 
 1. **Host redshift.** With velocities, \(v_H = v_r - v_p\), \(\sigma_v = \sqrt{\sigma_r^2 + \sigma_p^2}\) and
    \(z = v_H/c\). Its distance for each reference H₀ is \(d_L(z; H_0)\) in flat ΛCDM with Ω\(_m\) = 0.3065. The

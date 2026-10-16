@@ -34,7 +34,7 @@ for a distance \(d\), a moment of inertia \(I_{zz}\), a rotation frequency \(f_{
 An upper limit below it is the first physically meaningful one: it says that gravitational waves carry only part
 of the energy loss.
 
-### What the mode does with them
+### What the mode does
 
 1. **Download** the released files once (3 MB, listed under [Data](#data)), and the LaTeX source of the
    known-pulsar paper on arXiv, whose results table holds what the data release lacks: the spin-down limits, the

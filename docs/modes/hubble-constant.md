@@ -106,7 +106,7 @@ computed ([joint posterior](#joint-posterior)). The theory is in [Hubble constan
 | Injections | the cumulative LVK sensitivity release of `--sensitivity-release` (Zenodo 16740128 for `gwtc4`, 19500052 for `gwtc5`): the mixture of semi-analytic O1+O2 and real O3-onward injections, Cartesian spins | the found injections in \((m_{1,\text{det}}, m_{2,\text{det}}, d_L)\), with their draw density, the number generated and the analysis time |
 | Galaxy catalog (dark only) | the file built by [galaxy_catalog](galaxy-catalog.md) | icarogw's line-of-sight galaxy density per sky pixel and redshift |
 
-### What the mode does with them
+### What the mode does
 
 1. **Select the events** (`prepare`): for each event its lowest FAR over the lists, at most `--far-threshold`
    (inclusive, since GWOSC rounds the FARs); its GPS time inside the runs of the release (or of `--catalogs`); both

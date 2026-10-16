@@ -54,7 +54,7 @@ shared assumption is that both parts of the signal are redshifted by the same fa
 in the detector frame; the recoil kick of the remnant could break it, by at most 10% and only for large spins,
 inconsistent with GW250114 (paper, Supplement IV).
 
-### What the mode does with them
+### What the mode does
 
 1. **Download** the 114 MB archive of the release once (Zenodo 16877102) and keep the 37 files of the area law.
 2. **Pool the two ringdown codes** for the remnant area: as many samples of ringdown (220 from 10.5 M\(_f\)) as of

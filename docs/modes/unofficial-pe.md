@@ -49,7 +49,7 @@ step uses the strain: the fit of the time, phase and polarization of a single sa
 The four products of [Sources](#sources), downloaded once into `~/.gwcache` (from the DCC, or the mirror
 of `--data-repo`), and for the fit the GWOSC strain of H1, L1 and V1.
 
-### What the mode does with them
+### What the mode does
 
 1. **Samples.** The datasets `IMRPhenomPv2NRT_lowSpin_posterior` and `IMRPhenomPv2NRT_highSpin_posterior`
    become the labels `C02:IMRPhenomPv2_NRTidal-LowSpin` and `C02:IMRPhenomPv2_NRTidal-HighSpin`, with
