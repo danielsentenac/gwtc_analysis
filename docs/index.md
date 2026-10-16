@@ -58,13 +58,15 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
   official releases filled from the events' discovery releases. See
   [Known issues in the public releases](known-data-issues.md).
 
-![Primary masses of the confident GW events](img/mass_distribution.png){ width="49%" }
-![Primary masses corrected for selection effects](img/mass_distribution_selection_corrected.png){ width="49%" }
+![Primary masses of the confident GW events](img/mass_distribution.png)
 
-*Left: the primary masses as detected. Right: the same events divided by the sensitive volume-time ⟨VT⟩ of each
+![Primary masses corrected for selection effects](img/mass_distribution_selection_corrected.png)
+
+*Top: the primary masses as detected. Bottom: the same events divided by the sensitive volume-time ⟨VT⟩ of each
 mass, from the LVK injections, as the [rates](modes/rates.md) mode computes it: a merger rate per ln m₁. Heavy
 binaries are seen much farther, so the 35 M☉ peak of the detections is mostly a selection effect, while the
-10 M☉ peak remains. This is not a population fit: m₂ uniform in [1, m₁], no redshift evolution.*
+10 M☉ peak remains. This is not a population fit: m₂ uniform in [1, m₁], no redshift evolution. The two figures are made by the
+scripts of [`docs/scripts`](https://github.com/danielsentenac/gwtc_analysis/tree/main/docs/scripts).*
 
 ## Where to go next
 
