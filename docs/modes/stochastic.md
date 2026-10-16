@@ -47,6 +47,34 @@ events** (z_h ≈ 1, from the work directory) the fitted shape is only its prior
 the star-formation history there, joined continuously at z_h (`--high-z sfr`); `--high-z posterior` keeps
 the fitted shape up to z = 10.
 
+### What gwtc_analysis does
+
+**The mode runs no inference and reads no strain.** It reads two products of earlier runs of the package, the
+posterior of a `hubble_constant` spectral siren and the rates TSV of `rates`, and evaluates the integral above for
+draws of them.
+
+1. **Inputs.** The posterior is `posterior_reweighted.tsv` of the work directory, else `posterior.tsv`, or the TSV
+   given; the mass model is recognized from its columns. From the rates TSV: the 5%, 50% and 95% values of the BNS
+   and NSBH rates and of the BBH rate at its reference redshift (the BBH row with `z_ref` > 0).
+2. **Horizon.** \(z_h\) is the redshift (Planck15) of the largest median distance among the events of the run's
+   `inputs.h5`, else 1; it must exceed the reference redshift of the BBH rate.
+3. **BBH, per draw.** `--n-draws` rows of the posterior (fixed seed). For each: 1500 binaries drawn from its mass
+   model (\(m_1\) by inverting the cumulative distribution on a grid, \(m_2 \mid m_1 \propto m_2^\beta S(m_2)\)), their
+   mean Ajith et al. spectrum on 600 frequencies from 1 Hz to 30 kHz (zero above); a rate at the reference redshift
+   drawn from a log-normal matching the median and 90% interval of `rates`, times
+   \(\psi(z)/\psi(z_\text{ref})\) with the draw's γ, κ, z_p. With `--high-z sfr` the shape beyond \(z_h\) is that of
+   Madau & Dickinson 2014 (γ = 2.7, κ = 2.9, z_p = 1.9), scaled to be continuous at \(z_h\).
+4. **BNS and NSBH.** One mean inspiral spectrum from 20 000 binaries each, the integral for a rate of
+   1 Gpc⁻³ yr⁻¹ following the star-formation shape, then scaled by log-normal draws of the local rate, independent
+   of the BBH draws.
+5. **Integral.** Trapezoids over 400 redshifts from 0 to 10, at 120 frequencies from 5 to 3000 Hz, with H₀ and
+   \(E(z)\) of Planck15. The total is summed draw by draw; the medians and 90% bands are percentiles of the draws.
+6. **Other high-z choice.** The BBH part at 25 Hz only, with at most 100 draws, quoted in the report.
+
+The upper limits and the LVK prediction are constants of the code (2.0 × 10⁻⁹ at 25 Hz, index 2/3, drawn from 20
+to 90.6 Hz; 3.4 × 10⁻⁹ for O3; 6.3 (+5.0 / −2.2) × 10⁻¹⁰), not recomputed from search data. The numbers of
+mergers of [In numbers of mergers](#in-numbers-of-mergers) are not an output of the mode.
+
 ## Results
 
 GWTC-4.0 Power Law + Peak posterior, with the rates of the default `rates` release (`gwtc5`, O3–O4b: BBH 25.2 at

@@ -70,6 +70,53 @@ NSBH rates are upper limits (90%: 113 and 40 Gpc⁻³ yr⁻¹).
 | BBH | GWTC-3 Power Law + Peak [\[12\]](../references.md#ref-12) | isotropic, \|χ\| < 0.99 | R ∝ (1+z)^κ, reported at z = 0.2 (`--bbh-kappa`, `--bbh-z-ref`), and constant |
 | all, `--mass-model fullpop4` | FullPop-4.0 [\[29\]](../references.md#ref-29): one distribution for BNS, NSBH and BBH, split at 2.5 M☉ ([below](#fullpop-40-all-compact-binaries-in-one-model)) | isotropic, \|χ\| < 0.4 below 2.5 M☉, < 0.99 above | Madau–Dickinson, reported at z = 0 (and z = 0.2 for BBH) |
 
+## Method
+
+**The mode runs no parameter estimation and no sampler.** It counts the published candidates, computes ⟨VT⟩
+itself by reweighting the LVK injections, and takes the rate posterior in closed form, as explained in
+[Merger rates](../science/merger-rates.md) and [Selection effects](../science/selection-effects.md#reweighting-one-set-of-injections-for-every-population).
+
+### Inputs
+
+- **Candidates:** the GWOSC event lists (`eventapi/jsonfull`) of GWTC-1, GWTC-2.1 and GWTC-3 (confident and
+  marginal), GWTC-4.0 and GWTC-5.0, fetched at each run. Of each candidate only the GPS time, the published FAR and
+  the median source-frame masses are used: no PE samples are read.
+- **Injections:** the cumulative mixture file of the release, from the latest version of its Zenodo record
+  (`gwtc5`: 19500052, `gwtc4`: 16740128): `mixture-real_…cartesian_spins…hdf5`, or with GWTC-1 in `--catalogs`
+  `mixture-semi_o1_o2-real_…`. It is downloaded once into the Zenodo cache and checked against its MD5. The mode
+  reads, per injection, the source-frame masses, redshift, Cartesian spins, mixture weight \(w_i\), draw density
+  \(p_\text{draw}\) in (m₁, m₂, z, spins), the FAR of each search and, for O1–O2, the semi-analytic network SNR;
+  and the total analysis time \(T\) and number of generated injections \(N_\text{gen}\).
+
+### What the mode does with them
+
+1. **Found injections:** lowest FAR over the searches below `--far-threshold`; for O1–O2, network SNR above
+   `--snr-threshold`. With `--catalogs`, injections outside the GPS spans of the selected runs are dropped.
+2. **Events:** kept when inside the injection periods ([above](#what-is-counted)) with a published FAR at most
+   the threshold (inclusive: the published values are rounded). An event found twice within 1 s keeps its lowest
+   FAR. Classes from the median masses.
+3. **⟨VT⟩** of a population density \(p_\text{pop}\):
+   \(\langle VT\rangle = \frac{T}{N_\text{gen}} \sum_\text{found} w_i\, p_\text{pop}(m_1, m_2)\, p(\vec a_1)\, p(\vec a_2)\,
+   \frac{dV_c}{dz}\,(1+z)^{\kappa - 1} / p_\text{draw}\), with Planck15 \(dV_c/dz\) (full sky, Gpc³), \(1/(1+z)\)
+   for source-frame time, and isotropic spins of magnitude uniform up to 0.4 (neutron stars) or 0.99 (black holes).
+   The mass densities are normalized numerically. Power Law + Peak takes the GWTC-3 values α = 3.4, β = 1.1,
+   m_min = 5.1, m_max = 87, δ_m = 4.8 M☉, λ = 0.04, μ = 34, σ = 3.6 M☉; its peaks are truncated at μ + 5σ, as in
+   icarogw. The effective number \((\sum x)^2 / \sum x^2\) of the terms is written as `n_eff`.
+4. **Rate:** the 5, 50 and 95% quantiles of Gamma(N + ½) / ⟨VT⟩; the evolving BBH rate is then multiplied by
+   \((1+z_\text{ref})^\kappa\).
+5. **`--population-posterior`:** `--n-draws` rows drawn without replacement (fixed seed). For each, ⟨VT⟩ with the
+   Madau–Dickinson shape ψ(z) (normalized to 1 at z = 0) in place of \((1+z)^\kappa\), and 50 draws of
+   Gamma(N + ½) / ⟨VT⟩; all draws are pooled before taking the quantiles. The reported ⟨VT⟩ is the median over the
+   draws, `n_eff` the smallest.
+6. **`fullpop4`:** N is the number of classified events of all classes; each draw gives a total rate, multiplied
+   by the class fractions (1-D integrals on a 40 000-point grid). Without a posterior, the fixed parameters are the
+   GWTC-4.0 spectral-siren medians stored in the package (γ = 3.57, κ = 2.97, z_p = 2.59 for ψ).
+7. **Mass-distribution plot:** the same ⟨VT⟩ in 15 bins of m₁ from 1 to 100 M☉, uniform in ln m₁ inside a bin,
+   m₂ uniform in [1, m₁], no redshift evolution.
+
+Nothing about the events is recomputed: their masses and FARs are the GWOSC values, and the injections' detection
+statistics are those of the release.
+
 ## Results
 
 | Release | Candidates | BNS | NSBH | BBH at z = 0.2 | BBH at z = 0 |

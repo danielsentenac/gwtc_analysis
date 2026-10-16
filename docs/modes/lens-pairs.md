@@ -74,6 +74,39 @@ lensed fraction is ~10⁻³). The LVK computes it on simulated unlensed events i
 unrelated events alone flag about 1 % of the pairs, so **a flagged pair is a candidate for joint analysis,
 not a detection**; a lensed pair would show as an outlier at the top of the ranking.
 
+### What gwtc_analysis does
+
+**The mode computes the screen itself from the released PE samples; it runs no parameter estimation and reads no
+strain.** It uses scipy (`gaussian_kde`, at its default bandwidth), healpy and astropy's Planck18 cosmology.
+
+1. **Events.** From the GWOSC event lists (`eventapi/jsonfull`) of the catalogs: FAR ≤ `--far-threshold`, both
+   source-frame masses ≥ `--min-mass`, minus `--exclude`; an update (GWTC-4.1) replaces the entries of the catalog
+   it re-analyses. The redshift of each event is that of the GWOSC list.
+2. **Samples.** From each PE file, the first of `C00:IMRPhenomXPHM-SpinTaylor`, `C01:IMRPhenomXPHM`,
+   `C00:IMRPhenomXPHM` (else another IMRPhenomXPHM label, not `Mixed`); the columns `mass_1`, `mass_2`, `a_1`,
+   `a_2`, `cos_tilt_1`, `cos_tilt_2` (or the cosine of the tilts), `ra`, `dec`, `geocent_time`, extracted once to
+   `<pe-cache>/samples_lens/` (the PE file is then deleted unless `--keep-pe-files`). Then `--pe-samples` random
+   samples per event (`--seed`).
+3. **Delay** of a pair: the difference of the median `geocent_time` of the two events, in days.
+4. **Chirp-mass gate.** The detector-frame ln 𝓜 intervals from 0.1 to 99.9 % of the two events, widened by
+   ln 1.05, must intersect; otherwise log₁₀ 𝓑 = −30 and no density is evaluated.
+5. **Intrinsic term.** π in the unbounded coordinates is the box prior (uniform on \(m_2 \le m_1\) in 1–1000 M☉)
+   times the Jacobian, with \(u_i = a_i/0.99\) and \(c_i = \cos\theta_i\):
+   \[
+   \ln\pi = \ln\frac{2}{999^2} + 2\ln\mathcal{M} + \tfrac25\ln(1+q) - \tfrac65\ln q + \ln q(1-q)
+   + \sum_i \ln u_i(1-u_i) + \sum_i \ln\frac{1-c_i^2}{2} .
+   \]
+6. **Sky term.** Histogram of the samples at nside 64, smoothed (2° FWHM), floored at 10⁻¹² and normalized;
+   \(\ln\mathcal{B}_\text{sky} = \ln(N_\text{pix}\sum P_1P_2)\).
+7. **Lensed delays.** 200,000 draws: \(z_s\) among the event redshifts, \(z_l\) uniform in \((0, z_s)\),
+   σ from φ(σ)σ⁴ on 20–600 km/s (φ: σ* = 161 km/s, α = 2.32, β = 2.67), \(y = \sqrt{U}\); weight
+   \(z_s\,(D_lD_{ls}/D_s)^2(1+z_l)^2/E(z_l)\,\mu_-^{3/2}\), \(\mu_- = (1-y)/y\), times W(Δt) over the start–end
+   spans of the runs of the selected events. 20,000 delays are resampled by weight for the kernel in log₁₀ Δt
+   (delays floored at 10⁻³ day).
+8. **FPP** of a pair: the fraction of the pairs whose statistic is at least its own (itself included).
+
+Not recomputed: the PE posteriors and the event redshifts, taken as released.
+
 ## Validation: the O4a search of the LVK
 
 The GWTC-4.0 lensing paper [\[109\]](../references.md#ref-109) tested every pair of the 84 O4a binary black holes

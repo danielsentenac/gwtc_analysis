@@ -42,6 +42,28 @@ events multiply, with a flat prior on \(\Lambda_{1.4}\); the mass population is 
 | GW170817 | `C02:IMRPhenomPv2_NRTidal-LowSpin` ([bundle](unofficial-pe.md)) | 1.47, 1.27 |
 | GW190425 | `C01:IMRPhenomPv2_NRTidal:LowSpin` (GWTC-2.1) | 1.75, 1.56 |
 
+### What gwtc_analysis does
+
+**The mode runs no inference on strain data.** It reads the released PE samples of the two events and evaluates the
+likelihood above on a grid of \(\Lambda_{1.4}\).
+
+1. **Samples.** GW190425: the PE file of GW190425_081805 on Zenodo (kept in the PE cache). GW170817: the bundle that
+   [unofficial_pe](unofficial-pe.md) builds from the public GWTC-1 products. The analysis is the one of
+   `--spin-prior` (the `HighSpin` labels with `high`). From each sample the mode takes the source-frame masses and
+   \(\Lambda_1, \Lambda_2\), orders the stars so that \(m_1 \ge m_2\), and recomputes \(\tilde\Lambda\) from them.
+2. **Weights.** \(1/\pi(\tilde\Lambda_i \mid m_{1,i}, m_{2,i})\), the trapezoid for \(\Lambda_1, \Lambda_2\) uniform on
+   0–`--lambda-max`; samples where it vanishes are dropped, and the weights are capped at their 99.5th percentile
+   (a few samples at \(\tilde\Lambda \approx 0\) carry huge weights).
+3. **Kernel.** Gaussian, of width half Silverman's rule, \(h = 0.5 \times 1.06\,\sigma_{\tilde\Lambda}\, n^{-1/5}\),
+   reflected at 0. At each grid value the model gives \(\Lambda_1, \Lambda_2\) at the sample's masses; a sample whose
+   predicted \(\Lambda_1\) or \(\Lambda_2\) exceeds `--lambda-max` (outside the PE prior) counts zero.
+4. **Posteriors.** \(\Lambda_{1.4}\) on 1201 points from 0 to 3000; the joint ln L is the sum over the events. Each
+   posterior is normalized by trapezoids; the median and the 90% interval come from its cumulative distribution, and
+   \(R_{1.4}\) from these quantiles with the Annala et al. relation.
+
+The PE runs are not redone, and no sampler is run: the posterior is a one-dimensional grid. The published
+GW170817 value it is compared with is a constant of the code.
+
 ## Results
 
 | Analysis | Λ₁.₄, median (90%) | R₁.₄ (km) |

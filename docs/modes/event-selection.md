@@ -85,6 +85,39 @@ read from the PE samples with [parameters_estimation](parameters-estimation.md).
 
 *The shaded areas are the pair-instability gap (m₁ ≥ 50 M☉) and negative χ_eff.*
 
+## Method
+
+**The mode reads the GWOSC event lists and filters them; it runs no analysis and reads no PE samples or
+skymaps.** Every cut is made on the GWOSC medians, and the presets add their 90% bounds.
+
+### What it reads
+
+The confident list of each catalog from the GWOSC event API (`gwosc.org/eventapi/jsonfull/<list>/`, as for
+[catalog_statistics](catalog-statistics.md#method)), fetched at every run. Per event it keeps the medians of
+m₁, m₂, D_L, the redshift and χ_eff, and for m₁, m₂ and χ_eff the 90% bounds: GWOSC gives them as offsets
+from the median, and the mode turns them into absolute bounds (median + offset).
+
+### What the mode does with them
+
+1. **Order.** When GWOSC lists m₂ > m₁, the two masses and their bounds are swapped.
+2. **Cuts.** Each bound is inclusive (value ≥ min, value ≤ max). An event with a missing value fails any
+   cut on that value; without any cut or preset, every event of the lists is kept.
+3. **Presets** (combined with the cuts by a logical AND; defaults from `cli_defaults.py`):
+    - `neutron-stars`: m₂ < `--ns-max-mass` (strict); `class` is BNS when m₁ is below it too, else NSBH;
+      `m2_below_ns_max_90` when the 90% upper bound of m₂ is below it as well.
+    - `mass-gap`: the median of m₁ or of m₂ in [lo, hi] of `--mass-gap`; `gap_confident` when the whole
+      90% interval of that component is inside.
+    - `hierarchical`: m₁ ≥ `--pisn-gap-min`, or the 90% upper bound of χ_eff below 0. No upper edge of the
+      pair-instability gap is applied. `pisn_gap_confident` when the 90% lower bound of m₁ is at or above
+      the edge.
+4. **Output.** The TSV has `event_id`, `catalog_key`, the two masses, D_L and the redshift, plus χ_eff with
+   the `hierarchical` preset or a χ_eff cut, plus the columns of the preset; rows are sorted by catalog and
+   event id. The plot shows m₂ and D_L (χ_eff for `hierarchical`) against m₁ on logarithmic axes, the
+   bounds as dashed lines and the regions of the preset shaded.
+
+The medians, bounds and redshifts are GWOSC's ([Outputs](#outputs)); the mode does not compute a
+probability of belonging to a class from the PE samples.
+
 ## Examples
 
 ### Heavy binaries within 2 Gpc

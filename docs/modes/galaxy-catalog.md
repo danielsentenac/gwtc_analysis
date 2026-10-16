@@ -63,6 +63,48 @@ For each event, the dark siren needs the redshift prior along every line of sigh
 The likelihood evaluates both at every PE sample (sky pixel, redshift). This mode precomputes the in-catalog part
 as an interpolant in redshift for every HEALPix pixel, and the threshold map that sets the out-of-catalog part.
 
+## Method
+
+**The mode builds the catalog itself, with icarogw's own functions; it computes no H₀ and reads no event.** The
+`galaxies` stage runs in the gwtc_analysis environment (requests, pandas, h5py); every other stage calls
+`icarogw.catalog` (with healpy and mhealpy) in the icarogw environment, through `dark_catalog_icarogw.py`. With the
+defaults it reproduces the catalog construction of the GWTC-4.0 dark siren [\[29\]](../references.md#ref-29).
+
+### The galaxies
+
+- **GLADE+** (default): table `VII/291/gladep` of the VizieR ASU-TSV service, the columns `GLADE+`, `Type`,
+  `RAJ2000`, `DEJ2000`, `Kmag`, `zhelio`, `zcmb`, `f_zcmb`, `e_z`, `e_zhelio` of the entries with `Kmag < 99`,
+  queried in 90 declination bands of 2°. Each band is cached as CSV in `~/.cache_gwtc_analysis/galaxies/glade_kband`
+  (or `$GWTC_GALAXY_CACHE`); an entry on a band edge is kept once, by its GLADE+ number.
+- **Another catalog** (`--input-catalog`): read in chunks of 2,000,000 rows, with the columns of `--columns`.
+
+### What the mode does with them
+
+1. **Galaxy file** (`galaxies`): keep the `--glade-types`, apply `--where`, take z = `zcmb` (or `zhelio`) and
+   keep z > 0 with a finite Ks magnitude; \(\sigma_z = \sqrt{e_z^2 + e_{z,\rm helio}^2}\) by default (a missing term
+   counts as zero). A row with any non-finite column (both errors missing, for instance) is dropped. Angles go to
+   radians; the band is recorded as `K-glade+`.
+2. **Pixels** (`shard`, `pixels`, `gather`): HEALPix pixel of each galaxy (RING, `--nside`); galaxies below
+   `--zmin` are left out; one file per pixel in icarogw's layout, NaNs marked by `remove_nans_pixelated_files`.
+3. **Threshold and grid** (`prepare`): `calculate_mthr_pixelated_files` gives each pixel the `--mthr-percentile`
+   of the magnitudes in its `--nside-mthr` pixel; `get_redshift_grid_for_files` its redshift grid, by default the
+   fixed grid of `--nintegration` (N points, logarithmic from max(ZMIN, `--zmin`) to `--zcut`). The reference
+   cosmology of the construction is astropy's Planck15.
+4. **Threshold map** (`init`): a multi-order (MOC) map of the thresholds; pixels with no usable galaxy or no
+   finite threshold are left out (threshold −∞), as `initialize_icarogw_catalog` does.
+5. **In-catalog term** (`interpolate`): `calculate_interpolant_files` with the band, ε and `--ptype`: the
+   galaxy density \(dN_{\rm gal}/dz\,d\Omega\) of each pixel on the common redshift grid.
+6. **Catalog file** (`finish`): icarogw's `icarogw_catalog`, with the out-of-catalog term of each pixel,
+   `background_effective_galaxy_density` of the band's Schechter function (icarogw's `galaxy_MF`) at the
+   absolute-magnitude threshold, times \(dV_c/dz\,d\Omega\). From the per-chunk summaries, the mode repeats
+   `initialize_icarogw_catalog` and `build_from_pixelated_files` step by step without reopening every pixel file;
+   without them it calls those functions.
+7. **Summary**: the completeness, 1 − the incompleteness of icarogw's `check_differential_effective_galaxies`,
+   on 400 random filled pixels (seed 1), 120 redshifts from 0.001 to min(`--zcut`, 0.6).
+
+The Schechter parameters are icarogw's for the band ([Options](#which-galaxies)); no event, PE sample or mass
+model enters. Each step is one or more stages of the [table below](#stages).
+
 ## Stages
 
 Each stage is restartable: a finished stage or chunk leaves a marker in `<workdir>/done`.

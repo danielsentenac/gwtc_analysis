@@ -75,6 +75,38 @@ position are correlated through the antenna pattern. The GWTC-1 GW170817 samples
 the sky fixed to AT2017gfo and are used as they are. Other samples are restricted to those within
 `--sky-radius` of the counterpart.
 
+### What gwtc_analysis does
+
+**The mode computes the posterior above itself, on a grid of H₀, with numpy: no sampler and no icarogw.** It reads
+the released PE samples, as they are, and fixes the population; it does not fit the population with H₀.
+
+1. **PE samples.** GW170817 has no PE release file: the mode reads a bundle rebuilt from the public GWTC-1 files of
+   the LIGO DCC ([data sources](../data-sources.md#special-case-gw170817)), with the labels
+   `C02:IMRPhenomPv2_NRTidal-LowSpin` and `-HighSpin`. Other events read their Zenodo PE file, the one the spectral
+   siren reads. The labels are `--pe-label`, else those of the list, else all the labels of the file, LowSpin ones
+   first. From each label: \(d_L\), the sky position, the viewing angle (`theta_jn`, else `iota`), the detector-frame
+   masses and the recorded distance prior.
+2. **Host redshift.** `--redshift`, else \(z = (v_r - \langle v_p \rangle)/c\) with the two velocity errors added in
+   quadrature, else the redshift of the list. An event outside the list takes its run from the date in its name and
+   its class from the catalog masses: BNS when both are below 3 M☉, else BBH.
+3. **Sky.** When the median separation of the samples from the counterpart is below 0.1°, the sky is taken as fixed
+   and all the samples are kept; otherwise those within `--sky-radius`, and the mode stops if fewer than 200 remain.
+4. **Grid.** H₀ every 0.05 km/s/Mpc over `--h0-range` (3801 points by default); flat ΛCDM tabulated up to
+   \(z = 10\). For each label, the kernel sum above at every grid point, with the kernel width
+   \(1.06\, \mathrm{sd}(z_i)\, n^{-1/5}\) of the \(n\) samples.
+5. **Selection.** `euclidean`: \(3 \ln H_0\). `injections`: the found injections of the event's run, prepared as
+   for the spectral siren ([Method](hubble-constant.md#method)), weighted at 77 values of H₀ by the population
+   density in the detector frame and interpolated between them; \(\beta = \sum_j w_j / N_\text{gen}\). The report
+   gives the effective number of injections and warns below 50. The fixed mass models: for BBH the GWTC-3 Power
+   Law + Peak of `rates` (\(\alpha = 3.4\), \(m_\text{min} = 5.1\), \(m_\text{max} = 87\) M☉, a peak at 34 M☉);
+   for BNS uniform in 1–2.5 M☉; with `fullpop4`, the GWTC-4.0 medians written in `h0_bright.py`
+   (Madau–Dickinson \(\gamma = 3.57\), \(\kappa = 2.97\), \(z_p = 2.59\)).
+6. **Viewing angle.** With `--viewing-angle`, each sample is weighted by the Gaussian at its viewing angle, folded
+   to 0–90°.
+7. **Results.** One posterior per label, normalised on the grid: maximum a posteriori, 68.3% highest-density
+   interval, median and 90% equal-tailed interval. The first label is the result written as `p` in
+   `posterior_grid.tsv` and used by `--method joint`.
+
 ## Registered events
 
 The bright siren uses the built-in list of known counterparts (the `COUNTERPARTS` dictionary of

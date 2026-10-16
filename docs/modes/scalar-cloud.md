@@ -97,6 +97,58 @@ and of the cloud model with two priors on the field:
 The binary priors are those of the GWTC-2.1 analysis. The merger time is marginalized; the distance is sampled
 (the correction depends on the redshift, so the waveform is not simply proportional to \(1/d_L\)).
 
+## Method
+
+**The mode runs its own inference on the GWOSC strain of the event**: best fits with scipy's Nelder–Mead and nested
+sampling with bilby's dynesty, on the likelihood of bilby, with the waveform of [The model](#the-model). From the
+catalog it takes only the settings, the noise spectra and the starting points of the fits; it does not rerun the
+catalog's parameter estimation. The statistic and the priors are those of [The test](#the-test); here, what each
+stage computes.
+
+### The inputs
+
+- **PE file**: the event's file of the GWTC PE release on Zenodo (latest version, kept in the PE cache), or
+  `--pe-file`. From the analysis `--pe-label` the mode reads the segment length and start, `f_low`, `f_ref`, the
+  detectors and their noise spectra (PSDs), the maximum ln L ratio the file records, and the 2000 samples of highest
+  likelihood.
+- **GWOSC strain**: fetched with gwpy at 4096 Hz, resampled to `--sampling-frequency` and cut to the PE segment. The
+  `--n-background` off-source segments have the same length, alternately before and after the event, at least 64 s
+  from it and within an hour, inside the GWOSC data of every detector (fewer if the data have gaps).
+
+### What the mode does with them
+
+1. **`prepare`** writes these inputs into the work directory, once.
+2. **Likelihood**: bilby's `GravitationalWaveTransient` with the PE file's PSDs, from `f_low` to half the sampling
+   frequency, with no calibration model and the PSDs not re-estimated. The fits use the ln L ratio at fixed merger
+   time and vary 13 binary parameters (chirp mass, mass ratio, the six spin parameters, θ_JN, distance, phase, ψ,
+   merger time); the sky position stays that of the starting point.
+3. **`fit`** (`vacuum`, `profile`, `polish`): the vacuum fit from the best catalog sample, and from the best one in
+   the other mode of the mass ratio if there is one (up to 2500 likelihood calls); the profile on 7 values of α
+   (0.02 to 0.3) × 4 dephasings at `f_low` (0.5, 2, 8, 30 rad), the density set by bisection, the binary refitted
+   from the vacuum best fit and from starts with the chirp mass lowered by 2, 4 and 6% and the tilts at π/2; then
+   free fits from the 2 best profile points (\(10^2 \le \bar\rho_\phi \le 10^{11}\) g/cm³,
+   \(0.005 \le \alpha \le (1+q)/2\)). A cloud fit below vacuum is replaced by vacuum (Λ = 0).
+4. **`background`**: in each off-source segment, the vacuum best fit (\(\bar\rho_\phi = 0\)) is injected at the time
+   of the segment and step 3 is rerun, started from the injected parameters.
+5. **`sample`**: one dynesty run per model of `--sample-models` (1000 live points, `naccept` 60, `acceptance-walk`,
+   `dlogz` 0.1), the merger time marginalized (prior ±0.1 s around the best catalog sample). The chirp-mass prior is
+   GW190728's, 7.84–12.81 M☉ (detector frame), widened from the PE samples for another event; the distance prior
+   \(\propto d_L^2\) up to 2000 Mpc (twice the largest sample if one is beyond 1500 Mpc). The runs checkpoint every 30 min and resume. ln B is the difference of the ln Z
+   of bilby.
+6. **`seeded`**: the 25 highest-likelihood samples of the superradiance run, their merger time set by a scan of the
+   fixed-time likelihood (±20 ms in 0.25 ms steps, then ±0.3 ms in 10 µs steps), the 4 best kept as seeds; on the
+   event and on each injection, the vacuum fit, then two Nelder–Mead passes (initial steps 0.1 and 0.05, 2000 calls
+   each) from each seed moved to the time of the injection. The injections of the cloud best fit are not a stage:
+   `python -m gwtc_analysis.scalar_cloud seeded --inject cloud`.
+7. **`report`**: the `seeded` results if present, else those of `fit` and `background`. The p-value is
+   \((k+1)/(n+1)\), with \(k\) of the \(n\) background segments at Λ at least the event's.
+
+With `--executor slurm` the same steps are sbatch chains running `scalar_cloud.py` itself: `slurm/` (vacuum, an
+array of 28 profile points, polish, an array of background segments; 1 CPU and 3 GB each), `slurm_sample/` (one
+task per model, `--npool` CPUs, 4 days at most), `slurm_seeded/` (the seeds, then an array over the event and the
+injections). Locally, `--jobs` runs the profile points, segments and seeded tasks in parallel and sets the sampler
+pool.
+
 ## GW190728_064510
 
 CC-IN2P3 (`--executor slurm`): the vacuum sampling with 1000 live points, the two cloud samplings with 500 (run by hand with `python -m gwtc_analysis.scalar_cloud sample --nlive 500`;

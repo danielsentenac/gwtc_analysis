@@ -22,6 +22,57 @@ gwtc_analysis search_skymaps --catalogs GWTC-4 --ra-deg 265.0 --dec-deg -46.0 --
 The catalog skymaps are built by the LVK from the PE posterior samples; see
 Singer et al. 2016 [\[56\]](../references.md#ref-56) for the three-dimensional skymap format.
 
+## Method
+
+**The mode reads the released skymaps; it builds no skymap and runs no localization.** It computes a
+credible level from each map at a given position, or, with `--counterparts`, scores the entries of public
+burst and neutrino catalogs against each map.
+
+### What it reads
+
+| Input | Source | What is in it |
+|---|---|---|
+| GW skymaps | the skymap tarball of each catalog's Zenodo PE release (latest version, or `--zenodo-version`); with `s3` or `galaxy`, the maps of the same release on the mirror when it holds them | HEALPix FITS maps built by the LVK from the PE samples, one per event and waveform analysis, with the distance layers |
+| GWTC-1 events | the GWOSC list GWTC-1-confident | the event names kept from the GWTC-2.1 release |
+| external catalogs (`--counterparts`) | HEASARC TAP (`fermigbrst`, `swiftgrbba`, `icecubepsc`) and the GCN table of IceCube Gold and Bronze alerts | times, positions and errors ([table below](#multi-messenger-coincidences)) |
+| GW false-alarm rates (`--counterparts`) | the GWOSC confident and marginal lists | FAR and GPS time of each event |
+
+### What the mode does with them: a position
+
+1. **Download** each tarball once into `.cache_gwosc/` in the working directory, and index its maps by
+   event and waveform label, taken from the file names.
+2. **One map per event**: the `--skymap-label` map, else `Mixed`, else IMRPhenomXPHM-SpinTaylor, then the
+   other waveforms in a fixed order (IMRPhenomXPHM, IMRPhenomXPNR, NRSur7dq4, SEOBNRv5PHM, SEOBNRv4PHM),
+   else the first by name; `any` keeps every map.
+3. **Credible level** of the position: the map is read with `ligo.skymap.io.fits.read_sky_map` as a
+   single-resolution HEALPix map, and `healpy.ang2pix` gives the pixel containing (ra, dec). The pixels are
+   sorted by decreasing probability; the cumulative sum at that pixel is its greedy credible level, in
+   percent. The position is inside when this level is at or below 100 × `--prob`. The result has the
+   resolution of the pixel; nothing is interpolated.
+4. **Hits only** are plotted (Mollweide projection of `ligo.skymap`, contours at 50%, 90% and `--prob`);
+   every map searched gets a row in the TSV.
+
+### With `--counterparts`
+
+1. **External catalogs** are downloaded into `~/.cache_gwtc_analysis/coincidence/` (or
+   `$GWTC_COINCIDENCE_CACHE`) and refreshed after 7 days or with `--refresh-catalogs`. The IceCube
+   point-source events are queried per merger, over ±12 h, and their rate is taken from those 24 h; for the
+   other catalogs, the rate R is the number of entries over the span of the catalog, which also defines the
+   mergers it covers.
+2. **Errors as a Gaussian σ**: a 90% radius is divided by 2.146; the GBM 1σ error gets its 3.7° systematic in
+   quadrature (an error of 0, a position taken from a counterpart, stays 0).
+3. **GW maps** come from Zenodo only, one per event with the label and fallback above (`any` acts as
+   `Mixed` here), or from the `--skymap` files. Each is resampled to NSIDE 256 (0.23° pixels), multi-order
+   maps with `ligo.skymap.bayestar.rasterize`; the merger time is the `gps_time` of the FITS header, and the
+   FAR is that of the GWOSC event within 2 s of it.
+4. **Statistic** as in [Multi-messenger coincidences](#multi-messenger-coincidences): the smoothing is
+   `healpy.smoothing` with the counterpart's σ (none below half a pixel), and \(q\) is counted exactly over
+   all the pixels. For a burst, the line-of-sight distance follows
+   \(p(r) \propto r^2 \mathcal{N}(r; \mu, \sigma)\) with the map's `DISTMU` and `DISTSIGMA` at its pixel.
+5. **Summary** per catalog: the smallest \(p\) over N maps becomes \(1 - (1 - p_\text{min})^N\), and the
+   maps below \(p = 0.01\) are compared with the 0.01 N expected. `--prob` sets only which coincidences are
+   counted as inside the GW region and plotted.
+
 ## Example: an event seen by three detectors
 
 ```bash

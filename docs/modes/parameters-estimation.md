@@ -37,6 +37,56 @@ If the requested engine cannot be instantiated (for instance outside its paramet
 logs a warning, falls back to another engine when possible, and reports both the requested and the
 used engine in the logs and plot titles.
 
+## Method
+
+**The mode runs no parameter estimation.** The posterior samples, PSDs, sky maps, multipole SNRs and
+remnant quantities are the LVK's, read from the released PE file. The mode computes locally only what
+compares the maximum-likelihood waveform with the data (overlay, q-transform, matched-filter SNR), and
+summary statistics and plots of the stored quantities.
+
+### Inputs
+
+| Input | Source | Used for |
+|---|---|---|
+| PE file | Zenodo listing, downloaded from `--data-repo` ([Posterior samples](#posterior-samples)); for GW170817 the [build_unofficial_pe](unofficial-pe.md) bundle | posteriors, PSDs, maximum-likelihood sample, 2D sky map, stored SNRs and remnant fields |
+| Strain | GWOSC open data | overlay, q-transform, matched filter |
+| FITS sky map | the sky-map archive of the catalog on Zenodo | [3D sky map](#3d-sky-map-and-host-galaxies) |
+| Galaxies | GLADE+ on VizieR, or `--galaxies FILE` | host-galaxy candidates |
+
+### What the mode does with them
+
+1. **Read the PE file** with PESummary (`pesummary.io.read`). Sky maps finer than nside 1024 are first
+   summed down to nside 1024 in a copy of the file (`<file>.nside1024.h5`), to keep the memory low. Missing
+   PSDs and sky maps are filled in ([Missing PSDs](#missing-psds)).
+2. **Choose two labels**: one for the posteriors, and one with a PSD for the strain products
+   ([Choosing `--pe-label` and `--waveform-engine`](#choosing-pe-label-and-waveform-engine)).
+3. **Posteriors.** Histograms of `mass_1_source`, `mass_2_source`, `final_mass_source`,
+   `luminosity_distance`, `ra`, `dec` and the `--pe-vars`, with the median and the 16th–84th percentiles;
+   2D histograms of the `--pe-pairs` with their 50% and 90% highest-density regions. The
+   [multipole and precession SNRs](#higher-multipoles-and-precession) and the [remnant](#remnant-and-energetics)
+   fields are summarized as stored (median, 5th–95th percentiles); the only derived number is the radiated
+   fraction `radiated_energy / (mass_1_source + mass_2_source)`.
+4. **Strain.** For each detector of the strain label, 28 s of open data centred on the maximum-likelihood
+   `<det>_time` (else `geocent_time`), fetched with gwpy and cached in `~/.gwcache`.
+5. **Matched filter** (PyCBC), run first because it aligns the overlay
+   ([Matched-filter SNR](#matched-filter-snr)). The template is the maximum-likelihood sample projected on
+   the detector (PESummary `maxL_td_waveform`). The noise PSD is estimated from the conditioned strain
+   (Welch, median average), not taken from the PE file. A peak of |ρ| ≥ 8 within ±0.1 s of the arrival
+   time gives the time shift and phase used for the overlay.
+6. **Overlay.** The strain is whitened with the label's PSD (without one, with an ASD estimated from the
+   strain), band-passed and cropped around the GWOSC event time with gwpy. The same waveform, started at
+   20 Hz, is tapered, shifted and phase-rotated by the matched-filter values, then whitened and band-passed
+   alike. Engines are tried in the order `--waveform-engine`, the label's approximant, IMRPhenomXPHM,
+   IMRPhenomPv2.
+7. **q-transform** of the strain with gwpy (Q from 8 to 64, energy normalized to the median, colour scale
+   clipped at 25).
+8. **Stored maps and PSDs.** The PSD plot and the 2D sky map are PESummary plots of the PE file's
+   products. The 3D sky map is read with ligo.skymap, whose `crossmatch` gives the credible areas and
+   volumes and the probability of each galaxy.
+
+Nothing is resampled or reweighted: the posteriors, PSDs, sky maps, remnant fits and multipole SNRs are
+those of the release.
+
 ## Strain overlay and q-transform
 
 The strain around the event is downloaded from GWOSC, whitened with the PSD of the label, band-passed,
