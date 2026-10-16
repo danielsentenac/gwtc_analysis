@@ -189,3 +189,60 @@ def test_server_overload_is_retried(tmp_path, monkeypatch, clean):
 
     assert mirror.fetch_to(URL, tmp_path / "a.tgz", overloaded, log=lambda m: None).read_bytes() == b"ok"
     assert len(tries) == 2
+
+
+@pytest.fixture
+def backup(monkeypatch):
+    """The Galaxy history as a fake mirror holding every file; records the repositories asked."""
+    asked = []
+
+    def from_repo(repo, url, dest, log, *, otherwise):
+        asked.append(repo)
+        Path(dest).write_bytes(b"galaxy copy")
+        return True
+
+    monkeypatch.setattr(mirror, "_from_repo", from_repo)
+    monkeypatch.setattr(net.time, "sleep", lambda s: None)
+    return asked
+
+
+def _down(u, p):
+    import requests
+
+    raise requests.ConnectionError("Failed to resolve 'dcc.ligo.org'")
+
+
+DCC_URL = "https://dcc.ligo.org/public/0201/P2500416/006/uls_soap_noheader.txt"
+
+
+def test_failing_source_falls_back_on_the_galaxy_copy(tmp_path, backup, clean):
+    """--data-repo zenodo (the default): the source is retried, then the Galaxy copy is read."""
+    mirror.set_data_repo("zenodo")
+    logs = []
+    out = mirror.fetch_to(DCC_URL, tmp_path / "a.txt", _down, log=logs.append)
+    assert out.read_bytes() == b"galaxy copy" and backup == ["galaxy"]
+    assert report._DATA_FILES[DCC_URL] == "Galaxy history (dcc.ligo.org failed)"
+    assert any("trying the copy on the Galaxy history" in m for m in logs)
+    assert mirror.fetch_bytes(DCC_URL, lambda u: _down(u, None), log=lambda m: None) == b"galaxy copy"
+
+
+def test_no_fallback_for_a_missing_file_or_a_run_already_on_galaxy(tmp_path, monkeypatch, backup, clean):
+    import requests
+
+    mirror.set_data_repo("zenodo")
+
+    def missing(u, p):
+        r = requests.Response()
+        r.status_code = 404
+        raise requests.HTTPError("404 Client Error", response=r)
+
+    with pytest.raises(requests.HTTPError):
+        mirror.fetch_to(DCC_URL, tmp_path / "a.txt", missing, log=lambda m: None)
+    assert backup == []
+
+    mirror.set_data_repo("galaxy")        # the history was asked first (and lacks the file): not again
+    asked = []
+    monkeypatch.setattr(mirror, "_from_repo", lambda repo, url, dest, log, *, otherwise: asked.append(repo) and False)
+    with pytest.raises(requests.ConnectionError):
+        mirror.fetch_to(DCC_URL, tmp_path / "b.txt", _down, log=lambda m: None)
+    assert asked == ["galaxy"] and not (tmp_path / "b.txt").exists()

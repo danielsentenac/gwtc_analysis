@@ -51,13 +51,13 @@ def mirror_key(url: str) -> Optional[str]:
 
 
 MIRRORS = ("s3", "galaxy")
+BACKUP = "galaxy"     # read when a public source fails, whatever the run's --data-repo
 
 
-def _from_s3(url: str, dest: Path, log: Callable[[str], None]) -> bool:
-    """Download the mirror's copy of `url` to `dest` (the S3 bucket or the Galaxy history, which holds the file
-    as a dataset named after its key); False when the run uses no mirror or the mirror lacks it."""
-    if _DATA_REPO not in MIRRORS:
-        return False
+def _from_repo(repo: str, url: str, dest: Path, log: Callable[[str], None], *, otherwise: str) -> bool:
+    """Download the copy of `url` held by the mirror `repo` (the S3 bucket, or the Galaxy history, which holds the
+    file as a dataset named after its key) to `dest`; False when the mirror lacks it or fails (`otherwise` says
+    what happens then, for the log)."""
     key = mirror_key(url)
     if key is None:
         return False
@@ -65,22 +65,38 @@ def _from_s3(url: str, dest: Path, log: Callable[[str], None]) -> bool:
     from .parameters_estimation import _download_s3_with_progress
 
     try:
-        client = store_client(_DATA_REPO)
+        client = store_client(repo)
         client.stat_object(BUCKET, key)
     except Exception:
-        log(f"{key} is not on the {repo_label(_DATA_REPO)} (or it is unreachable): downloading it from "
-            f"{urlparse(url).netloc}")
+        log(f"{key} is not on the {repo_label(repo)} (or it is unreachable): {otherwise}")
         return False
     try:
         dest.parent.mkdir(parents=True, exist_ok=True)
         _download_s3_with_progress(client, bucket=BUCKET, object_name=key, out_path=dest, desc=Path(key).name)
-    except Exception as e:                     # a failed transfer: the public source
+    except Exception as e:                     # a failed transfer
         Path(dest).unlink(missing_ok=True)
-        log(f"{repo_label(_DATA_REPO)} failed for {key} ({type(e).__name__}: {e}): downloading it from "
-            f"{urlparse(url).netloc}")
+        log(f"{repo_label(repo)} failed for {key} ({type(e).__name__}: {e}): {otherwise}")
         return False
-    log(f"downloaded from the {repo_label(_DATA_REPO)}: {key}")
+    log(f"downloaded from the {repo_label(repo)}: {key}")
     return True
+
+
+def _from_s3(url: str, dest: Path, log: Callable[[str], None]) -> bool:
+    """Download the run's mirror copy of `url` to `dest`; False when the run uses no mirror or the mirror lacks it."""
+    if _DATA_REPO not in MIRRORS:
+        return False
+    return _from_repo(_DATA_REPO, url, dest, log, otherwise=f"downloading it from {urlparse(url).netloc}")
+
+
+def _from_backup(url: str, dest: Path, log: Callable[[str], None], error: BaseException) -> bool:
+    """After the public source of `url` failed with a transient `error` (retries exhausted): the copy in the public
+    Galaxy history, whatever --data-repo is (unless the run already tried that history first)."""
+    if _DATA_REPO == BACKUP or mirror_key(url) is None or not net.transient(error):
+        return False
+    from .galaxy_store import repo_label
+
+    log(f"⚠️ {urlparse(url).netloc} failed ({type(error).__name__}): trying the copy on the {repo_label(BACKUP)}")
+    return _from_repo(BACKUP, url, dest, log, otherwise="no copy to fall back on")
 
 
 def on_mirror(url: str) -> bool:
@@ -108,25 +124,44 @@ def _record(url: str, source: str) -> None:
     record_data_file(re.sub(r"\?download=1$", "", url), source)
 
 
+def _source(url: str) -> str:
+    """The report's source of a file downloaded from its public source."""
+    return urlparse(url).netloc + (f" (not on the {_label()})" if _DATA_REPO in MIRRORS and mirror_key(url) else "")
+
+
+def _backup_source(url: str) -> str:
+    from .galaxy_store import repo_label
+
+    return f"{repo_label(BACKUP)} ({urlparse(url).netloc} failed)"
+
+
 def fetch_to(url: str, dest: Path, http_download: Callable[[str, Path], None], *,
              log: Callable[[str], None] = print) -> Path:
-    """`url` downloaded to `dest` (written whole or not at all): from the S3 mirror when the run uses s3 and the
-    bucket holds it, else by `http_download(url, path)`, retried after a transient failure (net.retry)."""
+    """`url` downloaded to `dest` (written whole or not at all): from the run's mirror (s3, galaxy) when it holds
+    it, else by `http_download(url, path)`, retried after a transient failure (net.retry); when the source still
+    fails, from the copy in the public Galaxy history (BACKUP)."""
     dest = Path(dest)
     tmp = dest.with_name(dest.name + ".part")
     if _from_s3(url, tmp, log):
         _record(url, _label())
     else:
-        net.retry(lambda: http_download(url, tmp), url, log=log)
-        _record(url, urlparse(url).netloc + (f" (not on the {_label()})" if _DATA_REPO in MIRRORS and mirror_key(url)
-                                            else ""))
+        try:
+            net.retry(lambda: http_download(url, tmp), url, log=log)
+        except Exception as e:
+            tmp.unlink(missing_ok=True)
+            if not _from_backup(url, tmp, log, e):
+                raise
+            _record(url, _backup_source(url))
+        else:
+            _record(url, _source(url))
     tmp.replace(dest)
     return dest
 
 
 def fetch_bytes(url: str, http_get: Callable[[str], bytes], *, log: Callable[[str], None] = print,
                 tmp_dir: Optional[Path] = None) -> bytes:
-    """The content of `url`: from the S3 mirror when the run uses s3 and the bucket holds it, else `http_get(url)`, retried after a transient failure (net.retry)."""
+    """The content of `url`: from the run's mirror when it holds it, else `http_get(url)` (retried, then the Galaxy
+    copy, as in fetch_to)."""
     import tempfile
 
     if _DATA_REPO in MIRRORS and mirror_key(url):
@@ -135,9 +170,16 @@ def fetch_bytes(url: str, http_get: Callable[[str], bytes], *, log: Callable[[st
             if _from_s3(url, p, log):
                 _record(url, _label())
                 return p.read_bytes()
-    data = net.retry(lambda: http_get(url), url, log=log)
-    _record(url, urlparse(url).netloc + (f" (not on the {_label()})" if _DATA_REPO in MIRRORS and mirror_key(url)
-                                        else ""))
+    try:
+        data = net.retry(lambda: http_get(url), url, log=log)
+    except Exception as e:
+        with tempfile.TemporaryDirectory(dir=tmp_dir) as d:
+            p = Path(d) / "file"
+            if not _from_backup(url, p, log, e):
+                raise
+            _record(url, _backup_source(url))
+            return p.read_bytes()
+    _record(url, _source(url))
     return data
 
 

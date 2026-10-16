@@ -21,6 +21,10 @@
   are raised at once. This covers the downloads of public files (DCC, Zenodo, arXiv) and of PE files (Zenodo,
   Galaxy), and the Zenodo, Galaxy, AMON and HEASARC queries. The GWOSC and VizieR queries already retried.
   In the tools-iuc CI, a DNS failure on dcc.ligo.org and a 503 from the Zenodo API each failed one test.
+- **Backup of the public files**: when a public file (DCC, Zenodo, arXiv) still cannot be downloaded after the
+  retries, its copy in the public usegalaxy.org GWTC history is read instead, whatever `--data-repo` is. The
+  history now holds the 21 public files the modes use (12 from DCC, 8 from Zenodo, 1 from arXiv), each named
+  after its mirror key (`public/dcc/...`). The report lists such a file as "Galaxy history (<host> failed)".
 - **Docs**: the Docker example runs as you (`-u $(id -u):$(id -g)`), so the output files belong to you.
 
 ## 0.8.0 (2026-10-15)
