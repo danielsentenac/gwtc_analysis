@@ -29,8 +29,7 @@ def _listing_path() -> Path:
 def history_files(refresh: bool = False) -> dict[str, dict]:
     """Dataset name -> {'id', 'ext', 'size'} of the live datasets of the public GWTC history (the last one of a
     name wins: duplicates are copies)."""
-    import requests
-
+    from . import net
     from .data_repo import galaxy_contents_url
 
     p = _listing_path()
@@ -40,9 +39,9 @@ def history_files(refresh: bool = False) -> dict[str, dict]:
                 return json.loads(p.read_text())
             except ValueError:
                 pass
-        r = requests.get(galaxy_contents_url(), params={"v": "dev", "keys": "id,name,extension,file_size,deleted,"
+        r = net.get(galaxy_contents_url(), params={"v": "dev", "keys": "id,name,extension,file_size,deleted,"
                                                                           "purged,state,history_content_type"},
-                         timeout=(10, 300))
+                    timeout=(10, 300))
         r.raise_for_status()
         out = {it["name"]: {"id": it["id"], "ext": it.get("extension") or "data", "size": it.get("file_size")}
                for it in r.json()
@@ -74,9 +73,9 @@ class _Response:
     """A streamed HTTP download with the read/close/release_conn calls of a MinIO response."""
 
     def __init__(self, url: str):
-        import requests
+        from . import net
 
-        self._r = requests.get(url, stream=True, timeout=(10, 600))
+        self._r = net.get(url, stream=True, timeout=(10, 600))
         self._r.raise_for_status()
 
     def read(self, n: int = -1) -> bytes:

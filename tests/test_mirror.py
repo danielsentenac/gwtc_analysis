@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from gwtc_analysis import mirror, report
+from gwtc_analysis import mirror, net, report
 from gwtc_analysis.cli import build_parser
 
 
@@ -133,7 +133,7 @@ def test_network_error_is_retried(tmp_path, monkeypatch, clean):
     import requests
 
     waits, tries = [], []
-    monkeypatch.setattr(mirror.time, "sleep", waits.append)
+    monkeypatch.setattr(net.time, "sleep", waits.append)
 
     def flaky(u, p):
         tries.append(u)
@@ -150,7 +150,7 @@ def test_network_error_is_retried(tmp_path, monkeypatch, clean):
 def test_persistent_network_error_and_http_error_are_raised(tmp_path, monkeypatch, clean):
     import requests
 
-    monkeypatch.setattr(mirror.time, "sleep", lambda s: None)
+    monkeypatch.setattr(net.time, "sleep", lambda s: None)
     calls = []
 
     def down(u, p):
@@ -170,3 +170,22 @@ def test_persistent_network_error_and_http_error_are_raised(tmp_path, monkeypatc
     with pytest.raises(requests.HTTPError):
         mirror.fetch_to(URL, tmp_path / "a.tgz", missing, log=lambda m: None)
     assert len(calls) == 1
+
+
+def test_server_overload_is_retried(tmp_path, monkeypatch, clean):
+    """A 503 raised by the download function (raise_for_status) is transient: retried, unlike a 404."""
+    import requests
+
+    monkeypatch.setattr(net.time, "sleep", lambda s: None)
+    tries = []
+
+    def overloaded(u, p):
+        tries.append(u)
+        if len(tries) == 1:
+            r = requests.Response()
+            r.status_code = 503
+            raise requests.HTTPError("503 Server Error: Service Unavailable", response=r)
+        Path(p).write_bytes(b"ok")
+
+    assert mirror.fetch_to(URL, tmp_path / "a.tgz", overloaded, log=lambda m: None).read_bytes() == b"ok"
+    assert len(tries) == 2

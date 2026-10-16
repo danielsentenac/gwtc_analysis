@@ -163,7 +163,7 @@ def fetch(entry: dict, cache: Path | str, data_repo: Optional[str] = None, *, de
     """The file of `entry` in `cache`/files (or in a shared PE cache), else downloaded: from the S3 mirror when
     `data_repo` is s3 and it has the file, else from Zenodo. Returns the path and whether this call downloaded
     it (a file already there belongs to whichever mode fetched it, and is kept)."""
-    from . import parameters_estimation as pe
+    from . import net, parameters_estimation as pe
 
     from .mirror import data_repo as run_data_repo
     from .report import note_pe_source
@@ -200,6 +200,6 @@ def fetch(entry: dict, cache: Path | str, data_repo: Optional[str] = None, *, de
             note_pe_source(fname, f"Zenodo ({label} failed)")
     else:
         note_pe_source(fname, "Zenodo")
-    pe._download_http_with_progress(entry["url"], tmp, desc=desc or fname)
+    net.retry(lambda: pe._download_http_with_progress(entry["url"], tmp, desc=desc or fname), entry["url"], log=log)
     tmp.replace(dest)
     return dest, True

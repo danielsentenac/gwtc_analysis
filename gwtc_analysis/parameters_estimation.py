@@ -35,6 +35,7 @@ import warnings
 
 import requests
 
+from . import net
 from .data_repo import resolve_zenodo_records, zenodo_catalogs
 from .pe_supplements import fill_missing_psds, fill_missing_skymaps
 from .report import note_pe_source, options_html, record_pe_file
@@ -253,7 +254,7 @@ def download_zenodo_pe_file(
     if progress_cb:
         progress_cb("Download data", 15, f"Zenodo download: {fname}")
 
-    _download_http_with_progress(url, out_path, desc=f"Zenodo: {fname}")
+    net.retry(lambda: _download_http_with_progress(url, out_path, desc=f"Zenodo: {fname}"), url)
     return out_path
 
 
@@ -264,7 +265,7 @@ def _extract_event_id_from_filename(name: str) -> str | None:
 
 def _zenodo_record_files(record_id: int) -> list[dict[str, Any]]:
     url = f"https://zenodo.org/api/records/{record_id}"
-    r = requests.get(url, timeout=(10, 120), headers={"User-Agent": USER_AGENT})
+    r = net.get(url, timeout=(10, 120), headers={"User-Agent": USER_AGENT})
     r.raise_for_status()
     j = r.json()
     return j.get("files", []) or []
@@ -389,7 +390,7 @@ def _galaxy_history_datasets(history_id: str | None = None) -> list[dict[str, An
     """Return the live (non-deleted) datasets of a public Galaxy history."""
     from .data_repo import galaxy_contents_url
 
-    r = requests.get(
+    r = net.get(
         galaxy_contents_url(history_id),
         params={"keys": "id,name,extension,deleted,history_content_type"},
         timeout=(10, 120),
@@ -476,7 +477,7 @@ def download_galaxy_pe_file(
     if progress_cb:
         progress_cb("Download data", 15, f"Galaxy download: {fname}")
 
-    _download_http_with_progress(url, out_path, desc=f"Galaxy: {fname}")
+    net.retry(lambda: _download_http_with_progress(url, out_path, desc=f"Galaxy: {fname}"), url)
     return out_path
 
 
