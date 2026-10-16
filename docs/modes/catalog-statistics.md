@@ -26,7 +26,7 @@ product it processes further is the LVK skymap, for the sky area.
 | detectors (`--include-detectors`) | the GWOSC v2 API, `gwosc.org/api/v2/event-versions/<name>-v<N>`, one call per event | the `detectors` list of the event version |
 | skymaps (`--include-area`) | the skymap tarball of the catalog's Zenodo PE release (GWTC-1: that of GWTC-2.1), or its copy on the S3 mirror or Galaxy | HEALPix FITS maps built by the LVK from the PE samples, one per waveform analysis |
 
-### What the mode does with them
+### What the mode does
 
 1. **Fetch** the event list of each catalog, at every run (it is not cached).
 2. **Clean.** Events without median source-frame m₁ and m₂ are dropped (the report counts them per

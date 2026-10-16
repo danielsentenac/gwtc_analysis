@@ -115,7 +115,7 @@ stage computes.
   `--n-background` off-source segments have the same length, alternately before and after the event, at least 64 s
   from it and within an hour, inside the GWOSC data of every detector (fewer if the data have gaps).
 
-### What the mode does with them
+### What the mode does
 
 1. **`prepare`** writes these inputs into the work directory, once.
 2. **Likelihood**: bilby's `GravitationalWaveTransient` with the PE file's PSDs, from `f_low` to half the sampling

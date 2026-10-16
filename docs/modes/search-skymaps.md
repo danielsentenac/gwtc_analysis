@@ -37,7 +37,7 @@ burst and neutrino catalogs against each map.
 | external catalogs (`--counterparts`) | HEASARC TAP (`fermigbrst`, `swiftgrbba`, `icecubepsc`) and the GCN table of IceCube Gold and Bronze alerts | times, positions and errors ([table below](#multi-messenger-coincidences)) |
 | GW false-alarm rates (`--counterparts`) | the GWOSC confident and marginal lists | FAR and GPS time of each event |
 
-### What the mode does with them: a position
+### What the mode does: a position
 
 1. **Download** each tarball once into `.cache_gwosc/` in the working directory, and index its maps by
    event and waveform label, taken from the file names.

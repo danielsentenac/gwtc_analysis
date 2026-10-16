@@ -88,7 +88,7 @@ itself by reweighting the LVK injections, and takes the rate posterior in closed
   \(p_\text{draw}\) in (m₁, m₂, z, spins), the FAR of each search and, for O1–O2, the semi-analytic network SNR;
   and the total analysis time \(T\) and number of generated injections \(N_\text{gen}\).
 
-### What the mode does with them
+### What the mode does
 
 1. **Found injections:** lowest FAR over the searches below `--far-threshold`; for O1–O2, network SNR above
    `--snr-threshold`. With `--catalogs`, injections outside the GPS spans of the selected runs are dropped.
