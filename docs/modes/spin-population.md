@@ -51,6 +51,43 @@ draw density minus an isotropic, uniform-magnitude spin part still correlates wi
 `hubble_constant`: dividing by the full draw density with an isotropic spin population makes the
 population spins isotropic, whatever the draw.
 
+### What gwtc_analysis does
+
+**The mode runs its own hierarchical inference**: its own likelihood (the one above, not icarogw) and the emcee
+sampler. It reuses the event selection, the PE-file choice and the injection reader of `hubble_constant`.
+
+1. **Events:** the GWOSC lists of the release's catalogs (`gwtc4`: GWTC-1 to GWTC-4.0), each event with its
+   lowest published FAR at most `--far-threshold` (inclusive, the values being rounded), inside a run of the
+   release, both median masses at least `--min-mass`, and not in `--exclude`.
+2. **PE samples:** the file given by [Which PE file is read](../data-sources.md#which-pe-file-is-read), from
+   `--data-repo`. From its analysis `C00:IMRPhenomXPHM-SpinTaylor`, else `C01:IMRPhenomXPHM`, else
+   `C00:IMRPhenomXPHM`, else another IMRPhenomXPHM label, the mode keeps `mass_1`, `mass_2`,
+   `luminosity_distance`, `chi_eff` and the recorded distance prior in `<pe-cache>/samples_spin/<event>.h5`, and
+   deletes the file it downloaded. `--pe-samples` samples are then drawn without replacement (fixed seed).
+3. **Mass-redshift weight of a PE sample:**
+   \(w = p_\text{PLP}(m_1^s, m_2^s)\,\frac{dV_c}{dz}\,(1+z)^{\kappa-1} \big/ \big[(1+z)^2\,\frac{dD_L}{dz}\,\pi(D_L)\big]\),
+   κ = 2.9, z from D_L with Planck15. The PE mass prior is uniform in detector-frame masses, so only the distance
+   prior π(D_L) divides: D_L² or uniform in comoving or source-frame volume, as recorded in the file (if not
+   recorded, D_L² up to O3 and uniform in source-frame volume from O4).
+4. **Injections:** the release's mixture with semi-analytic O1+O2 injections (`gwtc4`: Zenodo 16740128,
+   `mixture-semi_o1_o2-real_o3_o4a-cartesian_spins…`), found with the lowest search FAR below `--far-threshold`,
+   or for O1–O2 a network SNR above `--snr-threshold`. π is their draw density, divided by the isotropic,
+   uniform-magnitude spin density and by the mixture weight, carried to the detector frame. Injections with
+   w > 0 are kept; with `--max-injections`, a random subset, \(N_\text{gen}\) scaled by the same fraction.
+5. **Spin factor:** \(\pi_\text{iso}\) is tabulated on 50 mass ratios (0.02 to 1) × 801 values of χ_eff and
+   interpolated bilinearly.
+6. **Likelihood:** \(\langle w f\rangle_\text{PE}\) is the mean over the samples of each event,
+   \(\langle w f\rangle_\text{inj}\) the sum over the found injections divided by \(N_\text{gen}\); a point failing
+   the effective-sample criteria gets \(\ln\mathcal{L} = -\infty\).
+7. **Priors:** uniform, μ₀ in [−1, 1], σ in [0.005, 1], α in [−5, 5].
+8. **Sampler:** emcee `EnsembleSampler`, `--walkers` started at (μ₀, σ, α) = (0.05, 0.1, 0) with a 0.01 scatter,
+   seeded; `--steps` steps, the first third discarded. The report gives the acceptance, the autocorrelation time
+   and the effective numbers at the posterior median.
+9. **Fraction with χ_eff < 0:** for 300 posterior draws, the truncated-normal probability below 0, averaged over
+   20 000 mass ratios drawn from the fixed Power Law + Peak population.
+
+The masses, redshifts and rate are not fitted, and the PE analyses are not rerun.
+
 ## Results
 
 | Parameter | Correlated model, median (90%) | Gaussian model (α = 0) |

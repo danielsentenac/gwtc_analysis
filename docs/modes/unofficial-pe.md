@@ -37,6 +37,47 @@ The public samples carry no polarization angle, phase, coalescence time or likel
 All other samples keep their prior-drawn extrinsic values. If the strain fit fails (it needs network
 access to GWOSC), the bundle is still built and the log warns that the overlay will not be coherent.
 
+## Method
+
+**The mode runs no parameter estimation.** The posterior samples are those of the two GWTC-1
+IMRPhenomPv2_NRTidal analyses of GW170817. The mode repackages them, with the public PSDs, calibration
+envelopes and skymap, into one PESummary file, and fills in the columns the public release lacks. Only one
+step uses the strain: the fit of the time, phase and polarization of a single sample.
+
+### Inputs
+
+The four products of [Sources](#sources), downloaded once into `~/.gwcache` (from the DCC, or the mirror
+of `--data-repo`), and for the fit the GWOSC strain of H1, L1 and V1.
+
+### What the mode does with them
+
+1. **Samples.** The datasets `IMRPhenomPv2NRT_lowSpin_posterior` and `IMRPhenomPv2NRT_highSpin_posterior`
+   become the labels `C02:IMRPhenomPv2_NRTidal-LowSpin` and `C02:IMRPhenomPv2_NRTidal-HighSpin`, with
+   PESummary's standard parameter names and the derived parameters PESummary can compute.
+2. **Missing columns** (see [above](#reconstructing-the-missing-parameters)): `geocent_time` is the trigger
+   time, GPS 1187008882.429464; `phase`, `phi_jl` and `phi_12` are uniform on [0, 2π) and `psi` on [0, π),
+   from a random generator seeded with the GPS time, so that rebuilds are identical. The synthetic
+   `log_likelihood` is \( -\sum_k \left((x_k - \tilde x_k)/\sigma_k\right)^2 \) over those of the masses,
+   distance, sky position, spins, inclination and tidal parameters present (median \(\tilde x_k\), standard
+   deviation \(\sigma_k\)): it ranks first the sample closest to the medians, not a likelihood maximum.
+3. **Fit of the first-ranked sample.** 256 s of strain at 4096 Hz, ending 16 s after the trigger, are
+   fetched with gwpy, tapered over 0.5 s at each end and Fourier transformed. The plus and cross
+   polarizations come from PESummary's `fd_waveform` (IMRPhenomPv2_NRTidal, 23 Hz to 2048 Hz, reference
+   frequency 20 Hz), with the sample's intrinsic parameters and sky position. The fit maximizes
+   \( \ln L = \left|\sum_d F_{+,d} Z_{+,d}(t_d) + F_{\times,d} Z_{\times,d}(t_d)\right| - \tfrac12 \sum_d \langle h_d|h_d\rangle \),
+   where \(Z_{+,d}\), \(Z_{\times,d}\) are the correlations of the data of detector \(d\) with the two
+   polarizations, weighted by the public PSD, at its arrival time \(t_d\). The grid is the geocentre time
+   within ±0.1 s of the trigger (steps of 1/16384 s) and 180 values of `psi`; the phase is maximized
+   analytically, then checked with the full waveform. The log gives the SNR
+   \(\langle d|h\rangle/\sqrt{\langle h|h\rangle}\) of each detector and \(\sqrt{2 \ln L}\) for the network.
+4. **Detector times** of every sample from `geocent_time`, `ra` and `dec` (`lal.TimeDelayFromEarthCenter`);
+   for the fitted sample, recomputed from the fitted time.
+5. **PSDs, calibration, skymap.** The same PSDs (one column per detector), calibration envelopes (as
+   released) and skymap are attached to both labels. Only the `PROB` column of the FITS skymap is kept: the
+   bundle's skymap has no distance layer.
+6. **Write** the bundle with PESummary's `write_pesummary`. A failed fit marks the bundle incomplete in its
+   recipe file, so the next run rebuilds it.
+
 ## Example
 
 ```bash

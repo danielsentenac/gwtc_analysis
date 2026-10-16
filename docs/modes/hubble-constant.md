@@ -87,6 +87,59 @@ gwtc_analysis hubble_constant --method bright                          # GW17081
 gwtc_analysis hubble_constant --method joint --inputs hubble_constant_bright h0_dark_plp
 ```
 
+## Method
+
+**The spectral and dark sirens run their own hierarchical inference: icarogw's likelihood, sampled by bilby/dynesty,
+on the public PE samples and search-sensitivity injections.** No published posterior is read; the published values
+are stored in the package and only drawn in the report for comparison. The bright siren evaluates its own likelihood
+on an H₀ grid ([bright siren](hubble-constant-bright.md#method)), and `--method joint` multiplies results already
+computed ([joint posterior](#joint-posterior)). The theory is in [Hubble constant (spectral siren)](../science/spectral-siren.md)
+(with its [step-by-step implementation](../science/spectral-siren.md#implementation-step-by-step)),
+[Selection effects](../science/selection-effects.md) and [How the redshift is obtained](../science/redshift.md).
+
+### Inputs
+
+| Input | Source | What the mode keeps |
+|---|---|---|
+| Event list | the GWOSC lists (confident and marginal) of the catalogs of the sensitivity release | name, GPS time, published FAR, source-frame masses: for the selection only |
+| PE samples | each event's PE release on Zenodo (or the `--data-repo` mirror): the file whose samples follow their sampling prior, `*_mixed_nocosmo.h5` up to GWTC-3, the `combined` file from GWTC-4.0 | from the first available of `C00:IMRPhenomXPHM-SpinTaylor`, `C01:IMRPhenomXPHM`, `C00:IMRPhenomXPHM` (else another IMRPhenomXPHM analysis, else a `HighSpin` tidal one, as for GW190425): detector-frame \(m_1, m_2\), \(d_L\), the sky position, and the recorded distance prior |
+| Injections | the cumulative LVK sensitivity release of `--sensitivity-release` (Zenodo 16740128 for `gwtc4`, 19500052 for `gwtc5`): the mixture of semi-analytic O1+O2 and real O3-onward injections, Cartesian spins | the found injections in \((m_{1,\text{det}}, m_{2,\text{det}}, d_L)\), with their draw density, the number generated and the analysis time |
+| Galaxy catalog (dark only) | the file built by [galaxy_catalog](galaxy-catalog.md) | icarogw's line-of-sight galaxy density per sky pixel and redshift |
+
+### What the mode does with them
+
+1. **Select the events** (`prepare`): for each event its lowest FAR over the lists, at most `--far-threshold`
+   (inclusive, since GWOSC rounds the FARs); its GPS time inside the runs of the release (or of `--catalogs`); both
+   source-frame masses at least the minimum mass of the model (3 M☉, none for `fullpop4`); not in `--exclude`.
+2. **Prepare the PE samples**: each file is downloaded once into the PE cache, reduced to the columns above, and
+   deleted unless `--keep-pe-files`. The samples are shuffled with a fixed seed and 5000 per event are written to
+   `inputs.h5`; the runs read the first `--pe-samples`. Each sample carries the density of its PE distance prior:
+   \(d_L^2\), or uniform in comoving volume (source-frame time or not) with the cosmology named in the file; when a
+   file records none, \(d_L^2\) up to O3 and uniform in comoving volume and source-frame time from O4. The PE mass
+   prior is uniform in the detector-frame masses, so no mass term is divided out.
+3. **Prepare the injections**: found when the semi-analytic network SNR exceeds `--snr-threshold` (O1–O2) or the
+   lowest search FAR is below `--far-threshold` (later runs), within the selected runs. The draw density is divided
+   by the isotropic spin density with magnitudes uniform up to 1 (the population spins are then the injected ones),
+   carried to the detector frame by \(1/[(1+z)^2\, dd_L/dz]\) and divided by the mixture weights. For the dark siren
+   the injections get isotropic sky positions ([why](#dark-sirens-with-a-galaxy-catalog)).
+4. **Build the likelihood** (`h0_icarogw.py`, in the icarogw environment; [details](#icarogw)): flat ΛCDM with
+   \(\Omega_m = 0.3065\) fixed, up to \(z = 20\); the mass model of `--mass-model`; the Madau–Dickinson rate
+   evolution; a scale-free rate (the local rate is marginalised, not measured); `CBC_catalog_vanilla_rate` instead
+   of `CBC_vanilla_rate` with a galaxy catalog. An injection subset is a fixed random draw, with the number
+   generated scaled by the kept fraction.
+5. **Priors**: H₀ uniform in 10–200 km/s/Mpc; the population priors of the GWTC-4.0 paper (`--sensitivity-release
+   gwtc4`) or of the GWTC-5.0 paper (`gwtc5`, wider Multi Peak widths), written in `h0_icarogw.priors`.
+6. **Sample** (`sample`): one bilby/dynesty run per seed, `acceptance-walk` with `--nlive` live points and
+   `--naccept` accepted steps, a checkpoint every 10 minutes; before the first run, a probe chooses the injection
+   subset ([details](#injection-subsets-probe-and-reweighting)).
+7. **Combine, reweight, report**: the runs are merged by bilby; the merged samples are importance-reweighted to all
+   the injections (and to `--reweight-pe-samples`) and resampled into `posterior_reweighted.tsv`, which the report
+   leads with ([stages](#stages)).
+
+**Not recomputed**: the PE samples and the injections (LVK products, used as released), the galaxy catalog (the
+[galaxy_catalog](galaxy-catalog.md) mode) and the local merger rate (the likelihood is scale-free; R(0) is the
+[rates](rates.md) mode's).
+
 ## Stages
 
 The stages (`--stages`, all by default) share one work directory (`--workdir`) and can be run separately:

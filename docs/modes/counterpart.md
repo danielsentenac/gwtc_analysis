@@ -56,6 +56,45 @@ Without `--pe-label`, the labels of the list above are used; for an event withou
 of the file, the low-spin ones first. For GW190521 the default is IMRPhenomXPHM because it is the only model with
 enough samples near the flare.
 
+## Method
+
+**The mode runs no parameter estimation: it reads the released PE samples (and the LVK sky map) of the event and
+places the counterpart in them**, with numpy, ligo.skymap for the sky map and its own flat ΛCDM distances. The
+quantities are listed in [What it computes](#what-it-computes); this section says how the code gets them.
+
+### Inputs
+
+- **PE samples**: the event's release file (the latest Zenodo version in the PE index, from Zenodo or the mirror
+  of `--data-repo`, kept in the PE cache of `hubble_constant`), or for GW170817 the bundle of
+  [build_unofficial_pe](unofficial-pe.md). Of each label, the columns `luminosity_distance`, `ra`, `dec`,
+  `theta_jn` (else `iota`), `mass_1`, `mass_2`.
+- **Sky map**: `--sky-map`, else the FITS map of the event for the label, from the Zenodo sky-map archive of its
+  catalog, looked up only for a release file (not with `--pe-file`, nor for the GW170817 bundle).
+- **Host redshift**: from the [list](#the-list-of-known-counterparts) or the options.
+
+### What the mode does with them
+
+1. **Host redshift.** With velocities, \(v_H = v_r - v_p\), \(\sigma_v = \sqrt{\sigma_r^2 + \sigma_p^2}\) and
+   \(z = v_H/c\). Its distance for each reference H₀ is \(d_L(z; H_0)\) in flat ΛCDM with Ω\(_m\) = 0.3065. The
+   uncertainty σ\(_z\) is reported, but no quantity of this mode uses it.
+2. **Fixed or free sky.** If the median separation of the samples from the position is below 0.1°, the sky is
+   fixed in the samples: no searched probability, all samples on the line of sight.
+3. **Searched probability.** From the map, ligo.skymap `crossmatch(...).searched_prob`. Otherwise, a Fisher
+   kernel on the sphere over at most 20,000 samples, its width the median angle to the \(n^{2/3}\)-th nearest
+   neighbour (500 probe samples, at least 0.05°); the level is the fraction of samples (leave-one-out) where the
+   density exceeds that at the position.
+4. **Line of sight.** The samples within `--sky-radius`; fewer than 200 skips the distance for that label. The
+   distances are the posterior as released, PE prior included. Medians and 90% intervals are the 5, 50 and 95%
+   quantiles; the "percentile" of a host distance is the fraction of samples below it.
+5. **Viewing angle** \(\min(\theta_{JN}, 180° - \theta_{JN})\). The constraint weights each sample by
+   \(\exp[-(\theta - \mu)^2/2\sigma^2]\); the effective number of samples is \((\sum w)^2/\sum w^2\).
+6. **Implied H₀** of a sample at distance \(d\): the H₀ with \(d_L(z; H_0) = d\). The degeneracy table bins the
+   viewing angle in 0–30°, 30–60° and 60–90°, unweighted.
+
+The mode does not combine events and does not compute an H₀ posterior: that is
+[`hubble_constant --method bright`](hubble-constant-bright.md). Coincidences with GRB and neutrino catalogs are
+searched by [`search_skymaps --counterparts`](search-skymaps.md#multi-messenger-coincidences), not here.
+
 ## What it computes
 
 For each PE label:

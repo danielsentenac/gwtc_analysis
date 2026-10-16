@@ -12,6 +12,48 @@ source-frame masses, distances, network SNR); with `--include-detectors`, the de
 event from the GWOSC v2 API; with `--include-area`, the sky-localization area at the credible level
 `--area-cred` (A90 by default), computed from the skymaps of `--data-repo`.
 
+## Method
+
+**The mode reads released catalog values and computes from them; it reads no strain and no PE samples.**
+Every number per event is a GWOSC median (or a 90% bound), or arithmetic on these medians; the only
+product it processes further is the LVK skymap, for the sky area.
+
+### What it reads
+
+| Input | Source | What is in it |
+|---|---|---|
+| event list | the GWOSC event API, `gwosc.org/eventapi/jsonfull/<list>/`, the confident list of each catalog (GWTC-1-confident, GWTC-2.1-confident, GWTC-3-confident, GWTC-4.0, GWTC-4.1, GWTC-5.0) | per event: name and version, GPS time, median source-frame masses (m₁, m₂, total, final, chirp), luminosity distance, redshift, χ_eff, χ_p, network matched-filter SNR, FAR, p_astro |
+| detectors (`--include-detectors`) | the GWOSC v2 API, `gwosc.org/api/v2/event-versions/<name>-v<N>`, one call per event | the `detectors` list of the event version |
+| skymaps (`--include-area`) | the skymap tarball of the catalog's Zenodo PE release (GWTC-1: that of GWTC-2.1), or its copy on the S3 mirror or Galaxy | HEALPix FITS maps built by the LVK from the PE samples, one per waveform analysis |
+
+### What the mode does with them
+
+1. **Fetch** the event list of each catalog, at every run (it is not cached).
+2. **Clean.** Events without median source-frame m₁ and m₂ are dropped (the report counts them per
+   catalog). When GWOSC lists m₂ > m₁, the two masses and their bounds are swapped. `total_mass_source`
+   is the sum of the two medians; a missing chirp mass is computed from them,
+   \((m_1 m_2)^{3/5}/(m_1 + m_2)^{1/5}\).
+3. **Source type** from the median masses with a fixed 3 M☉ threshold: both below `NS-NS`, one below
+   `BH-NS`, none `BBH` (the labels of the `binary_type` column and of the pie).
+4. **Remnants**, as in [Remnants and energetics](#remnants-and-energetics): E_rad is kept only when
+   positive, converted with 1 M☉c² = 1.7877 × 10⁵⁴ erg; the final-spin estimate is given for `BBH` only,
+   with a missing χ_eff taken as 0.
+5. **Detectors** (`--include-detectors`): the `detectors`, `n_det` and `has_V1` columns. The pie groups the
+   networks into 1 detector, H1–L1, H1/L1–V1, H1–L1–V1 and H1–L1–V1–G1; other combinations are left out.
+6. **Sky area** (`--include-area`). The tarball is downloaded once into `.cache_gwosc/` in the working
+   directory. One map per event: `Mixed`, else IMRPhenomXPHM-SpinTaylor (the GWTC-5.0 case), else the
+   other waveforms in a fixed order. The map is read with `ligo.skymap.io.read_sky_map`, its greedy credible
+   levels come from `ligo.skymap.postprocess.find_greedy_credible_levels`, and the area is the number of
+   pixels at or below `--area-cred` times 41 252.96 deg² / N_pix. With `s3` or `galaxy`, the maps of the
+   selected release version come from the mirror when it holds them, the others from Zenodo.
+7. **Report**: counts per catalog, source type and number of detectors; the loudest events (network SNR at
+   or above the 90th percentile of the selection), listed as candidates for
+   [parameters_estimation](parameters-estimation.md); the 10 largest E_rad; the 10%, 50% and 90% quantiles
+   of the area.
+
+The medians, FARs, SNRs, distances and redshifts are GWOSC's and are not recomputed; the skymaps are the
+LVK's and are not rebuilt.
+
 ## Remnants and energetics
 
 Every event with a final mass in GWOSC gets, in the TSV and the report:
