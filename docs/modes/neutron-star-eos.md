@@ -42,7 +42,7 @@ events multiply, with a flat prior on \(\Lambda_{1.4}\); the mass population is 
 | GW170817 | `C02:IMRPhenomPv2_NRTidal-LowSpin` ([bundle](unofficial-pe.md)) | 1.47, 1.27 |
 | GW190425 | `C01:IMRPhenomPv2_NRTidal:LowSpin` (GWTC-2.1) | 1.75, 1.56 |
 
-### What gwtc_analysis does
+### What the mode does
 
 **The mode runs no inference on strain data.** It reads the released PE samples of the two events and evaluates the
 likelihood above on a grid of \(\Lambda_{1.4}\).

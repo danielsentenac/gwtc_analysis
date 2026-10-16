@@ -51,7 +51,7 @@ draw density minus an isotropic, uniform-magnitude spin part still correlates wi
 `hubble_constant`: dividing by the full draw density with an isotropic spin population makes the
 population spins isotropic, whatever the draw.
 
-### What gwtc_analysis does
+### What the mode does
 
 **The mode runs its own hierarchical inference**: its own likelihood (the one above, not icarogw) and the emcee
 sampler. It reuses the event selection, the PE-file choice and the injection reader of `hubble_constant`.

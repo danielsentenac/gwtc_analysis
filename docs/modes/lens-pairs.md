@@ -74,7 +74,7 @@ lensed fraction is ~10⁻³). The LVK computes it on simulated unlensed events i
 unrelated events alone flag about 1 % of the pairs, so **a flagged pair is a candidate for joint analysis,
 not a detection**; a lensed pair would show as an outlier at the top of the ranking.
 
-### What gwtc_analysis does
+### What the mode does
 
 **The mode computes the screen itself from the released PE samples; it runs no parameter estimation and reads no
 strain.** It uses scipy (`gaussian_kde`, at its default bandwidth), healpy and astropy's Planck18 cosmology.

@@ -47,7 +47,7 @@ events** (z_h ≈ 1, from the work directory) the fitted shape is only its prior
 the star-formation history there, joined continuously at z_h (`--high-z sfr`); `--high-z posterior` keeps
 the fitted shape up to z = 10.
 
-### What gwtc_analysis does
+### What the mode does
 
 **The mode runs no inference and reads no strain.** It reads two products of earlier runs of the package, the
 posterior of a `hubble_constant` spectral siren and the rates TSV of `rates`, and evaluates the integral above for
