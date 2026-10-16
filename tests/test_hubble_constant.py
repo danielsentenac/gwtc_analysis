@@ -461,3 +461,16 @@ def test_prepare_refuses_runs_outside_the_release(tmp_path):
     with pytest.raises(ValueError, match="does not cover O4b"):
         hc.prepare_inputs(tmp_path / "work", "gwtc4", tmp_path / "mix.hdf", 0.25, 10.0, 3.0, hc.H0_DEFAULT_EXCLUDE,
                           tmp_path / "cache", False, runs=["O4b"])
+
+
+def test_events_text_counts_classes():
+    """The report says 'N BBH events' only when all are BBHs (FullPop-4.0 keeps neutron stars)."""
+    import pandas as pd
+
+    from gwtc_analysis.hubble_constant import _events_text
+
+    bbh = pd.DataFrame(dict(mass_1_source=[30.0, 10.0], mass_2_source=[20.0, 8.0]))
+    assert _events_text(bbh) == "2 BBH events"
+    mixed = pd.DataFrame(dict(mass_1_source=[30.0, 8.9, 1.5], mass_2_source=[20.0, 1.9, 1.3]))
+    assert _events_text(mixed) == "3 events (1 BBH, 1 NSBH, 1 BNS)"
+    assert _events_text(pd.DataFrame()) == "? events"

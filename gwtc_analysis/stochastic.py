@@ -1,4 +1,5 @@
-"""Predicted gravitational-wave background of the unresolved compact binaries, against the O3 upper limit.
+"""Predicted gravitational-wave background of the unresolved compact binaries, against the LVK upper limits (data
+through April 2025, and O3).
 
 The energy density of the background, per logarithmic frequency and in units of the critical density, is
 (e.g. Phinney 2001; Regimbau 2011)

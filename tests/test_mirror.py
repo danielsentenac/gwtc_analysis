@@ -151,6 +151,7 @@ def test_persistent_network_error_and_http_error_are_raised(tmp_path, monkeypatc
     import requests
 
     monkeypatch.setattr(net.time, "sleep", lambda s: None)
+    monkeypatch.setattr(mirror, "_from_backup", lambda *a, **k: False)   # no Galaxy copy: the error itself
     calls = []
 
     def down(u, p):

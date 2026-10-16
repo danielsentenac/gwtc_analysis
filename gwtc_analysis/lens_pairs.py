@@ -329,7 +329,7 @@ class DelayRatio:
         self.unlensed = gaussian_kde(u)
         dt, w = lensed_delays(z_sources, seed=seed)
         if segments:
-            w = w * window_overlap_days(dt, segments)
+            w = w * window_overlap_days(dt, segments)     # segments: the start-end span of each run, no duty cycle
             ok = w > 0
             dt, w = dt[ok], w[ok]
         rng = np.random.default_rng(seed)
