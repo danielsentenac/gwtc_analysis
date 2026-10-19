@@ -57,7 +57,10 @@ def _grid_density(h0: np.ndarray, x: np.ndarray, p: np.ndarray) -> np.ndarray:
 
 
 def read_input(path: str | Path, h0: np.ndarray) -> dict:
-    """One input of the joint posterior: dict(name, method, kind, events, density on `h0`)."""
+    """One input of the joint posterior: dict(name, method, kind, events, n_events, density on `h0`).
+
+    `events` holds the full and the common names (for the independence check), `n_events` the number of events.
+    """
     path = Path(path).expanduser()
     if path.is_dir() and (path / BRIGHT_FILE).exists():
         info = json.loads((path / BRIGHT_FILE).read_text())
@@ -68,7 +71,7 @@ def read_input(path: str | Path, h0: np.ndarray) -> dict:
         va = info.get("viewing_angle")
         kind = f"bright siren ({info['event']}, {info['label']}" + (f", viewing angle {va[0]:g} ± {va[1]:g}°" if va
                                                                     else "") + ")"
-        return dict(name=path.name, method="bright", kind=kind, events={info["event"]} | set(info.get("events", [])),
+        return dict(name=path.name, method="bright", kind=kind, events={info["event"]} | set(info.get("events", [])), n_events=1,
                     density=_grid_density(h0, g["H0"].to_numpy(float), g["p"].to_numpy(float)))
     if path.is_dir():
         post = next((path / n for n in ICAROGW_POSTERIORS if (path / n).exists()), None)
@@ -78,21 +81,22 @@ def read_input(path: str | Path, h0: np.ndarray) -> dict:
         kind = siren_kind(path)
         summ = path / "summary.json"
         model = json.loads(summ.read_text()).get("mass_model") if summ.exists() else None
-        events = set()
+        events, n_events = set(), 0
         if (path / "events.tsv").exists():
             ev = pd.read_csv(path / "events.tsv", sep="\t")
             events = set(ev["event"]) | set(ev.get("common_name", pd.Series(dtype=str)).dropna())
+            n_events = len(ev)
         return dict(name=path.name, method="dark" if kind.startswith("dark") else "spectral",
                     kind=kind + (f", {model}" if model else "") + ("" if post.name == ICAROGW_POSTERIORS[0] else
                                                                   ", not reweighted"),
-                    events=events, density=sample_density(h0, pd.read_csv(post, sep="\t")["H0"].to_numpy(float)))
+                    events=events, n_events=n_events, density=sample_density(h0, pd.read_csv(post, sep="\t")["H0"].to_numpy(float)))
     df = pd.read_csv(path, sep="\t")
     if "H0" not in df:
         raise ValueError(f"{path} has no H0 column")
     if "p" in df:
-        return dict(name=path.name, method="file", kind=f"posterior grid {path.name}", events=set(),
+        return dict(name=path.name, method="file", kind=f"posterior grid {path.name}", events=set(), n_events=0,
                     density=_grid_density(h0, df["H0"].to_numpy(float), df["p"].to_numpy(float)))
-    return dict(name=path.name, method="file", kind=f"posterior samples {path.name}", events=set(),
+    return dict(name=path.name, method="file", kind=f"posterior samples {path.name}", events=set(), n_events=0,
                 density=sample_density(h0, df["H0"].to_numpy(float)))
 
 
@@ -129,10 +133,10 @@ def run_h0_joint(
     if not np.any(joint > 0):
         raise ValueError("the posteriors do not overlap: their product is zero on the H0 grid")
     joint = _normalize(h0, joint)
-    rows = [dict(analysis=i["kind"], input=i["name"], n_events=len(i["events"]) or None,
+    rows = [dict(analysis=i["kind"], input=i["name"], n_events=i["n_events"] or None,
                  **summarize(h0, i["density"])) for i in parts]
     rows.append(dict(analysis="joint", input=" × ".join(i["name"] for i in parts),
-                     n_events=sum(len(i["events"]) for i in parts) or None, **summarize(h0, joint)))
+                     n_events=sum(i["n_events"] for i in parts) or None, **summarize(h0, joint)))
     for r in rows:
         _log(f"{r['analysis']}: H0 = {_fmt(r)}")
     table = pd.DataFrame(rows)
