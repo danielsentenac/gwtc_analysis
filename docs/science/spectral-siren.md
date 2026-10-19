@@ -359,22 +359,24 @@ reliable subset, and a `reweight` stage turns their posterior into the one with 
 ## Other mass models and published results
 
 The PLP model gives the least constraining result of the GWTC-4.0 paper [\[29\]](../references.md#ref-29). The more sharp
-features the mass spectrum has, the better it pins the redshift (spectral sirens alone unless stated):
+features the mass spectrum has, the better it pins the redshift. The table gives, for each analysis, the value
+**reproduced by gwtc_analysis**, where a run exists, and the **published value** with its source (spectral sirens
+alone unless stated; H₀ in km/s/Mpc, median and 68%):
 
-| Analysis | H₀ (km/s/Mpc, median and 68%) |
-|---|---|
-| GWTC-4.0, PLP (reproduced here) [\[29\]](../references.md#ref-29) | 105.5 (+46.4 / −35.8) |
-| GWTC-4.0 data release, PLP dark siren with GLADE+ K band (reproduced: 114.6 (+41.5 / −33.8) with 5000 PE samples, [validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8) |
-| GWTC-4.0, MLTP (power law with two peaks) [\[29\]](../references.md#ref-29) | 72.3 (+42.5 / −25.6) |
-| GWTC-4.0 data release, MLTP dark siren with GLADE+ K band (reproduced: 86.8 (+39.8 / −26.1) with 5000 PE samples, [validation](../modes/hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)) | 86.3 (+41.3 / −26.3) |
-| GWTC-4.0, FullPop-4.0 (BNS, NSBH and BBH in one mass distribution) [\[29\]](../references.md#ref-29) (reproduced: 74.4 (+25.4 / −18.9), [mass models](../modes/hubble-constant.md#mass-models)) | 72.9 (+21.9 / −18.8) |
-| GWTC-4.0, FullPop-4.0 + GW170817 [\[29\]](../references.md#ref-29) | 73.4 (+12.8 / −8.6) |
-| GWTC-5.0, spectral sirens + GW170817 + DES-Y6 galaxies (LVK 2026 [\[30\]](../references.md#ref-30)) | 71.7 (+9.4 / −7.5) |
-| GW170817 bright siren (LVK 2017 [\[27\]](../references.md#ref-27)) | 70 (+12 / −8) |
-| Planck 2018 (Planck 2020 [\[33\]](../references.md#ref-33)) | 67.4 ± 0.5 |
-| SH0ES (Riess et al. 2022 [\[34\]](../references.md#ref-34)) | 73.0 ± 1.0 |
+| Analysis | gwtc_analysis | Published value |
+|---|---|---|
+| GWTC-4.0, PLP spectral siren | **105.8 (+44.7 / −33.2)** ([above](#result)) | 105.5 (+46.4 / −35.8), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, MLTP spectral siren (power law with two peaks) | **78.6 (+38.0 / −26.5)** ([above](#result)) | 72.3 (+42.5 / −25.6), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, FullPop-4.0 spectral siren (BNS, NSBH and BBH in one mass distribution) | **74.4 (+25.4 / −18.9)** ([mass models](../modes/hubble-constant.md#mass-models)) | 72.9 (+21.9 / −18.8), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, PLP dark siren, GLADE+ K band | **114.6 (+41.5 / −33.8)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8), data release (icarogw) |
+| GWTC-4.0, MLTP dark siren, GLADE+ K band | **86.8 (+39.8 / −26.1)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)) | 86.3 (+41.3 / −26.3), data release (icarogw) |
+| GWTC-4.0, FullPop-4.0 spectral siren + GW170817 | not run | 73.4 (+12.8 / −8.6), paper [\[29\]](../references.md#ref-29) |
+| GWTC-5.0, spectral sirens + GW170817 + DES-Y6 galaxies | not run | 71.7 (+9.4 / −7.5), LVK 2026 [\[30\]](../references.md#ref-30) |
+| GW170817 bright siren (maximum a posteriori, not median) | **69.8 (+23.6 / −8.2)**, GWTC-1 PE samples ([bright siren](../modes/hubble-constant-bright.md#results)) | 70 (+12 / −8), LVK 2017 [\[27\]](../references.md#ref-27) |
+| Planck 2018 (cosmic microwave background) | not a GW measurement | 67.4 ± 0.5, Planck 2020 [\[33\]](../references.md#ref-33) |
+| SH0ES (distance ladder) | not a GW measurement | 73.0 ± 1.0, Riess et al. 2022 [\[34\]](../references.md#ref-34) |
 
-The two dark-siren rows are the icarogw values of the GWTC-4.0 data release, which gwtc_analysis reproduces. Table 1 of
+For the two dark sirens, the published values are the icarogw values of the GWTC-4.0 data release, which gwtc_analysis reproduces. Table 1 of
 the paper, which combines icarogw and gwcosmo, quotes lower values for the same models and catalog: 110.6
 (+42.5 / −34.7) for PLP and 81.6 (+41.2 / −27.6) for MLTP, 4.8 and 4.7 km/s/Mpc below the release. Those are not
 reproduced ([icarogw and gwcosmo](icarogw-gwcosmo.md)).
