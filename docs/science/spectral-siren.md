@@ -403,7 +403,11 @@ three models are compared in [mass models](../modes/hubble-constant.md#mass-mode
   values of the data release instead (above).
 - **The GWTC-5.0 combination**, 71.7 (+9.4 / −7.5): it needs the DES-Y6 galaxy catalog, which this version
   cannot use, and the `gwtc5` release is not validated against a published result.
-- **The low-mass peak of MLTP:** 9.9 M☉ here against 8.9 ± 0.5 M☉ in the paper
+- **The position of the lower mass peak in the MLTP fit.** The MLTP model describes the primary-mass
+  distribution of the BBHs with a power law and two Gaussian peaks, whose positions are fitted together with H₀.
+  The GWTC-4.0 paper finds the lower peak at 8.9 ± 0.5 M☉. The gwtc_analysis MLTP run puts it at 9.9 M☉ (median;
+  90% interval 7.4–35.2 M☉). The difference, 1 M☉, is twice the paper's uncertainty and is not explained yet. The
+  upper peak agrees: 29.8 M☉ in the gwtc_analysis run against 26.6 ± 3 M☉ in the paper
   ([below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)).
 - **The mix of codes:** the published results combine the samples of icarogw and gwcosmo; gwtc_analysis uses
   icarogw only.
