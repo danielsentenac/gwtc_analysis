@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **hubble_constant --method joint**: the number of events of a spectral or dark siren counted the events with a
+  common name twice (160 instead of 141 for the FullPop-4.0 spectral siren); it is now the number of rows of its
+  `events.tsv`. The posteriors were not affected.
+
 ## 0.8.2 (2026-10-16)
 
 ### Fixes
