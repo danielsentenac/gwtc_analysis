@@ -373,7 +373,7 @@ alone unless stated; H₀ in km/s/Mpc and mass-peak positions in M☉, median an
 | GWTC-4.0, MLTP spectral siren: position of the upper mass peak (M☉) | **29.8**, 90% interval 15.5–40.2 ([below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)) | 26.6 ± 3, paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, PLP dark siren, GLADE+ K band | **114.6 (+41.5 / −33.8)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8), data release (icarogw) |
 | GWTC-4.0, MLTP dark siren, GLADE+ K band | **86.8 (+39.8 / −26.1)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)) | 86.3 (+41.3 / −26.3), data release (icarogw) |
-| GWTC-4.0, FullPop-4.0 spectral siren + GW170817 | not run yet | 73.4 (+12.8 / −8.6), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, FullPop-4.0 spectral siren + GW170817 | **74.0 (+13.2 / −7.8)**, product of the two posteriors (`--method joint`, [below](#spectral-siren-and-gw170817)) | 73.4 (+12.8 / −8.6), paper [\[29\]](../references.md#ref-29) |
 | GWTC-5.0, spectral sirens + GW170817 + DES-Y6 galaxies | not run yet | 71.7 (+9.4 / −7.5), LVK 2026 [\[30\]](../references.md#ref-30) |
 | GW170817 bright siren (maximum a posteriori, not median) | **69.8 (+23.6 / −8.2)**, GWTC-1 PE samples ([bright siren](../modes/hubble-constant-bright.md#results)) | 70 (+12 / −8), LVK 2017 [\[27\]](../references.md#ref-27) |
 | Planck 2018 (cosmic microwave background) | not a GW measurement | 67.4 ± 0.5, Planck 2020 [\[33\]](../references.md#ref-33) |
@@ -394,6 +394,29 @@ number of PE samples per event (1500 here, not stated in the paper), and the pap
 gwcosmo samples. Its 68% interval is 31% narrower than MLTP's, against 40% in the paper. The
 three models are compared in [mass models](../modes/hubble-constant.md#mass-models).
 
+### Spectral siren and GW170817
+
+The FullPop-4.0 spectral siren combined with the GW170817 bright siren (October 2026, CC-IN2P3):
+
+```
+gwtc_analysis hubble_constant --method bright --event GW170817 --population fullpop4 --workdir h0_bright_GW170817_fp4
+gwtc_analysis hubble_constant --method joint --inputs h0_spectral_fullpop4 h0_bright_GW170817_fp4
+```
+
+| H₀ (km/s/Mpc) | Median and 68% | 90% |
+|---|---|---|
+| FullPop-4.0 spectral siren (141 events, GW170817 left out) | 74.9 (+26.5 / −20.0) | 42.7 – 126.1 |
+| GW170817 bright siren, FullPop-4.0 population, low-spin PE samples | 78.5 (+25.6 / −11.4) | 62.7 – 130.5 |
+| **Joint, gwtc_analysis** | **74.0 (+13.2 / −7.8)** | **62.4 – 100.5** |
+| Joint, GWTC-4.0 paper [\[29\]](../references.md#ref-29) | 73.4 (+12.8 / −8.6) | |
+
+The joint median is 0.6 km/s/Mpc above the paper's, with a 68% interval of nearly the same width. The difference
+follows from the two inputs, each slightly above its published value (the spectral siren and GW170817 alone: 74.4
+against 72.9, and 78.5 against 77.8). The spectral-siren row is the posterior as `--method joint` reads it, a kernel density
+estimate of the samples; it differs by 0.5 km/s/Mpc from the 74.4 quoted above from the same run. The paper fits GW170817 together with the
+population; `--method joint` multiplies the two posteriors obtained separately, an approximation that holds here to
+well within the uncertainties.
+
 ### Reproduced, with differences
 
 These results were computed by gwtc_analysis, but do not match the published values:
@@ -411,10 +434,9 @@ These results were computed by gwtc_analysis, but do not match the published val
 
 These published results can be computed with gwtc_analysis, but have not been run:
 
-- **The spectral sirens combined with GW170817**, from Table 1 of the paper: PLP 80.6 (+21.8 / −13.2),
-  MLTP 73.6 (+15.5 / −9.2), FullPop-4.0 73.4 (+12.8 / −8.6), with `hubble_constant --method joint`. Only the dark
-  sirens combined with GW170817 have been compared with the paper
-  ([hubble_constant](../modes/hubble-constant.md#mass-models)).
+- **The PLP and MLTP spectral sirens combined with GW170817**, from Table 1 of the paper: PLP 80.6 (+21.8 / −13.2),
+  MLTP 73.6 (+15.5 / −9.2), with `hubble_constant --method joint` (FullPop-4.0: [above](#spectral-siren-and-gw170817)).
+  The PLP and MLTP spectral sirens are being rerun for this.
 - **The FullPop-4.0 dark siren**, 79.6 (+20.8 / −16.3), and its combination with GW170817,
   75.4 (+12.8 / −9.1), the headline result of the paper.
 
