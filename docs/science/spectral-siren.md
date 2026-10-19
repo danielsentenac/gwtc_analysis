@@ -8,7 +8,8 @@ galaxy catalog, and how its result compares with the published LVK measurement.
 
 The mode reproduces the *Power Law + Peak* (PLP) spectral-siren measurement of the GWTC-4.0
 cosmology paper (LVK 2026 [\[29\]](../references.md#ref-29), published version v3), with the same event
-selection, PE samples, injections, population model and priors:
+selection, PE releases, injections, population model and priors (the paper does not state its number of PE
+samples per event, which moves H₀ by a few km/s/Mpc, [below](#injection-subsets-and-reweighting)):
 
 | Quantity | gwtc_analysis | GWTC-4.0 paper [\[29\]](../references.md#ref-29) |
 |---|---|---|
@@ -373,13 +374,37 @@ features the mass spectrum has, the better it pins the redshift (spectral sirens
 | Planck 2018 (Planck 2020 [\[33\]](../references.md#ref-33)) | 67.4 ± 0.5 |
 | SH0ES (Riess et al. 2022 [\[34\]](../references.md#ref-34)) | 73.0 ± 1.0 |
 
+The two dark-siren rows are the icarogw values of the GWTC-4.0 data release, which gwtc_analysis reproduces. Table 1 of
+the paper, which combines icarogw and gwcosmo, quotes lower values for the same models and catalog: 110.6
+(+42.5 / −34.7) for PLP and 81.6 (+41.2 / −27.6) for MLTP, 4.8 and 4.7 km/s/Mpc below the release. Those are not
+reproduced ([icarogw and gwcosmo](icarogw-gwcosmo.md)).
+
 gwtc_analysis implements PLP, MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`) and FullPop-4.0:
 78.6 (+38.0 / −26.5) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
 peak at 9.9 (+19.7 / −1.1) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
 high-mass one at 29.8 (+4.6 / −6.5) M☉. FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events: 74.4
 (+25.4 / −18.9) km/s/Mpc against 72.9 (+21.9 / −18.8), the same lower end (90%: 44.4 against 44.0) and a longer
-upper tail (122.9 against 111.9). The
+upper tail (122.9 against 111.9). The longer tail is not explained yet. Two differences are candidates: the
+number of PE samples per event (1500 here, not stated in the paper), and the paper's combination of the icarogw and
+gwcosmo samples. Its 68% interval is 31% narrower than MLTP's, against 40% in the paper. The
 three models are compared in [mass models](../modes/hubble-constant.md#mass-models).
+
+### Not reproduced
+
+- **The spectral sirens combined with GW170817**, from Table 1 of the paper: PLP 80.6 (+21.8 / −13.2),
+  MLTP 73.6 (+15.5 / −9.2), FullPop-4.0 73.4 (+12.8 / −8.6). `hubble_constant --method joint` can form these
+  products, but they have not been compared with the paper; only the dark sirens combined with GW170817 have
+  ([hubble_constant](../modes/hubble-constant.md#mass-models)).
+- **The FullPop-4.0 dark siren**, 79.6 (+20.8 / −16.3), and its combination with GW170817,
+  75.4 (+12.8 / −9.1), the headline result of the paper: not run.
+- **The dark sirens of the paper's Table 1** (110.6 for PLP, 81.6 for MLTP): gwtc_analysis reproduces the icarogw
+  values of the data release instead (above).
+- **The GWTC-5.0 combination**, 71.7 (+9.4 / −7.5): it needs the DES-Y6 galaxy catalog, which this version
+  cannot use, and the `gwtc5` release is not validated against a published result.
+- **The low-mass peak of MLTP:** 9.9 M☉ here against 8.9 ± 0.5 M☉ in the paper
+  ([below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)).
+- **The mix of codes:** the published results combine the samples of icarogw and gwcosmo; gwtc_analysis uses
+  icarogw only.
 
 ![H0 posterior, Multi Peak](../img/h0_posterior_mltp.png)
 
@@ -410,7 +435,8 @@ low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the 
 4. **PLP is pulled high.** In the PLP posterior α is correlated with H₀ (+0.52,
    [above](#results-in-detail)): when the power law steepens to absorb the low-mass excess, H₀ goes up.
    The paper finds the same ("a single peak is unable to fit the complex low-mass structure"), and the
-   data mildly prefer MLTP over PLP.
+   data mildly prefer MLTP over PLP (log₁₀ B = 0.46 in our runs,
+   [mass models](../modes/hubble-constant.md#mass-models)).
 
 FullPop-4.0 goes further (72.9 (+21.9 / −18.8) in the paper, 74.4 (+25.4 / −18.9) reproduced): it adds the neutron-star events (141 events) and models
 the gap between neutron stars and black holes, whose edges are further sharp features at known masses
