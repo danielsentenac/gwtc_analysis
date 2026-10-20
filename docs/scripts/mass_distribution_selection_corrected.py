@@ -120,6 +120,12 @@ fig.tight_layout(rect=(0, 0.06, 1, 1))
 out = OUT / "mass_distribution_selection_corrected.png"
 fig.savefig(out, facecolor=SURFACE)
 print("wrote", out, "| events without m1 bounds:", missing)
+# the corrected histogram, for the overlay of the fitted mass models (mass_models_plp_mltp.py)
+data = Path(__file__).resolve().parent / "data" / "mass_distribution_selection_corrected.tsv"
+data.parent.mkdir(exist_ok=True)
+np.savetxt(data, np.column_stack([edges[:-1], edges[1:], counts, rate_bins, lo90, hi90]), delimiter="\t",
+           header="m1_lo\tm1_hi\tevents\trate\trate_lo90\trate_hi90", comments="", fmt="%.6g")
+print("wrote", data)
 for c, n, v, r, ne in zip(centers, counts, vt, rate_bins, neff):
     if n:
         print(f"m1 ~ {c:6.1f}: N = {n:3d}  <VT> = {v:9.3g} Gpc3 yr  n_eff = {ne:7.0f}  dR/dln m1 = {r:8.3g}")
