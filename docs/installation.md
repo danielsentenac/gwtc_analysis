@@ -1,7 +1,7 @@
 # Installation
 
 `gwtc_analysis` runs on Linux and macOS with Python 3.10 or later. It is distributed as a **Python
-package on conda-forge and on PyPI**, and as a **Docker image**:
+package on conda-forge and on PyPI**, and as a **Docker image**; each release is archived on **Zenodo**:
 
 | Distribution | Where | Install |
 |---|---|---|
@@ -9,6 +9,7 @@ package on conda-forge and on PyPI**, and as a **Docker image**:
 | PyPI package `gwtc_analysis` | [pypi.org/project/gwtc_analysis](https://pypi.org/project/gwtc_analysis/) | `pip install gwtc_analysis` |
 | Docker image `gwtc-tool` | [Docker Hub](https://hub.docker.com/r/danielsentenac/gwtc-tool/) | `docker pull danielsentenac/gwtc-tool` |
 | Source | [GitHub](https://github.com/danielsentenac/gwtc_analysis) | `pip install -e .` |
+| Archived release (citable) | [Zenodo, DOI 10.5281/zenodo.23077807](https://doi.org/10.5281/zenodo.23077807) (all versions; the latest is opened) | download the zip of a version, unpack it, then `pip install .` in its folder |
 
 The Docker image is the recommended choice for reproducibility and for workflow systems (CI
 pipelines, computing clusters).
