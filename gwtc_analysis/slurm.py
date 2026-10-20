@@ -3,8 +3,7 @@
 Used by the modes whose heavy steps run on a cluster (`galaxy_catalog`, `hubble_constant` with
 ``executor="slurm"``). The steps run a self-contained runner script with the Python interpreter of the analysis
 environment; the runner is copied next to the scripts, so the jobs do not need gwtc_analysis installed.
-On CC-IN2P3, every job must give its time limit, CPU count and memory, and jobs using /sps declare
-``--licenses=sps``.
+Clusters often require each job to state its time limit, CPU count and memory (pass them as Slurm options).
 """
 from __future__ import annotations
 

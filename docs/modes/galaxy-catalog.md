@@ -31,15 +31,15 @@ gwtc_analysis hubble_constant --method dark --workdir h0_dark_plp --stages sampl
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --npool 4
 ```
 
-**On a Slurm cluster** ([when and how](../cluster.md)): download the galaxies, then the icarogw stages as batch jobs (about 45 min on CC-IN2P3):
+**On a Slurm cluster** ([when and how](../cluster.md)): download the galaxies, then the icarogw stages as batch jobs (about 45 min with 32 array tasks):
 
 ```bash
-gwtc_analysis galaxy_catalog --workdir /sps/.../glade_k --stages galaxies
-gwtc_analysis galaxy_catalog --workdir /sps/.../glade_k --stages shard pixels gather prepare init interpolate finish summary \
-    --executor slurm --jobs 32 --icarogw-python /sps/.../venv/bin/python \
-    --slurm-option=--partition=htc --slurm-option=--licenses=sps --slurm-option=--mem=4G \
+gwtc_analysis galaxy_catalog --workdir /path/to/glade_k --stages galaxies
+gwtc_analysis galaxy_catalog --workdir /path/to/glade_k --stages shard pixels gather prepare init interpolate finish summary \
+    --executor slurm --jobs 32 --icarogw-python /path/to/icarogw-env/bin/python \
+    --slurm-option=--partition=<partition> --slurm-option=--mem=4G \
     --slurm-option=--cpus-per-task=1 --slurm-option=--time=06:00:00 --slurm-assembly-option=--mem=16G --submit
-gwtc_analysis galaxy_catalog --workdir /sps/.../glade_k --stages report        # when the jobs have finished
+gwtc_analysis galaxy_catalog --workdir /path/to/glade_k --stages report        # when the jobs have finished
 ```
 
 **Another catalog** (DES, Rubin, …): give the file and map its columns ([details](#deeper-catalogs-and-clusters)):
@@ -143,7 +143,7 @@ with the labels of its Figure 3 (13.3, 13.5, 13.6, 13.7) to their rounding.
 gives H₀ = 114.6 (+41.5 / −33.8) km/s/Mpc against 115.4 (+40.1 / −33.8) in the GWTC-4.0 release
 ([hubble_constant](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)), and with Multi Peak
 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3)
-([hubble_constant](hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)). Built on CC-IN2P3 in about
+([hubble_constant](hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)). Built on a Slurm cluster in about
 45 min: 505,575 galaxies enter the in-catalog term, 94% of the sky has a threshold, median threshold Ks = 13.5;
 luminosity-weighted completeness 0.71 at z = 0.04, 0.25 at 0.08, 0.04 at 0.13.
 
@@ -160,12 +160,12 @@ Rubin: billions) never need to fit in memory, and run on a cluster:
 - **Batch jobs.** `--executor slurm` writes one sbatch script per stage in `<workdir>/slurm` (array jobs of `--jobs`
   tasks for `pixels`, `prepare` and `interpolate`) and `submit.sh`, which chains them with `afterok`
   dependencies; `--submit` runs it. The runner is copied next to the scripts, so the jobs only need the icarogw
-  environment. On CC-IN2P3, every job must give its time limit, CPU count and memory, and jobs reading or writing
-  `/sps` declare `--licenses=sps`.
+  environment. Clusters often require each job to state its time limit, CPU count and memory, or a licence for a
+  shared file system: give them with `--slurm-option`.
 - **Redshift grid.** The default is one logarithmic grid (`--nintegration logspace:ZMIN:N`), icarogw's fixed-grid
   path. icarogw's adaptive grid (an integer: points per galaxy) refines around every galaxy over ±`numsigma` σ: with
   the spectroscopic redshifts of GLADE+ (σ_z down to 1.5 × 10⁻⁴), the merged grid grows to tens of thousands of
-  redshifts, and its serial merge (`init`) slowed to a few pixels per second on CC-IN2P3 before it was stopped. The
+  redshifts, and its serial merge (`init`) slowed to a few pixels per second before it was stopped. The
   grid must resolve the narrowest galaxy redshift probabilities: N points from ZMIN to `--zcut` give a relative step
   ln(zcut/ZMIN)/N (0.17% for the default).
 - **Memory of the result.** The catalog file holds the interpolants on (redshifts × sky pixels); the likelihood
@@ -258,8 +258,8 @@ options given on the command line override it. The resolved options of each invo
 
 ```json
 {"glade-sigmaz": "measurement", "ptype": "gaussian_nocom", "jobs": 32, "executor": "slurm",
- "icarogw-python": "/sps/.../venv/bin/python",
- "slurm-option": ["--partition=htc", "--mem=4G", "--cpus-per-task=1", "--time=06:00:00", "--licenses=sps"]}
+ "icarogw-python": "/path/to/icarogw-env/bin/python",
+ "slurm-option": ["--partition=<partition>", "--mem=4G", "--cpus-per-task=1", "--time=06:00:00"]}
 ```
 
 ```bash

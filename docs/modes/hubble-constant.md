@@ -68,16 +68,15 @@ gwtc_analysis hubble_constant --method dark --workdir h0_dark_plp --stages sampl
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --parallel 2 --npool 2
 ```
 
-**On a Slurm cluster** (CC-IN2P3, for instance): the same commands with `--executor slurm`, which writes the
+**On a Slurm cluster**: the same commands with `--executor slurm`, which writes the
 sampling stages as a chain of batch jobs ([details](#on-a-slurm-cluster); when to use a cluster:
 [Running on a cluster](../cluster.md)):
 
 ```bash
-gwtc_analysis hubble_constant --method dark --workdir /sps/.../h0_dark_plp --stages sample combine reweight \
-    --seeds 1 2 3 4 5 6 7 8 --npool 8 --icarogw-python /sps/.../venv/bin/python --executor slurm \
-    --slurm-option=--partition=htc --slurm-option=--mem=16G --slurm-option=--time=3-00:00:00 \
-    --slurm-option=--licenses=sps --submit
-gwtc_analysis hubble_constant --method dark --workdir /sps/.../h0_dark_plp --stages report   # when the jobs have finished
+gwtc_analysis hubble_constant --method dark --workdir /path/to/h0_dark_plp --stages sample combine reweight \
+    --seeds 1 2 3 4 5 6 7 8 --npool 8 --icarogw-python /path/to/icarogw-env/bin/python --executor slurm \
+    --slurm-option=--partition=<partition> --slurm-option=--mem=16G --slurm-option=--time=3-00:00:00 --submit
+gwtc_analysis hubble_constant --method dark --workdir /path/to/h0_dark_plp --stages report   # when the jobs have finished
 ```
 
 **Step 3, optional: the bright siren and the joint posterior**, in seconds ([bright siren](hubble-constant-bright.md),
@@ -274,7 +273,7 @@ Practical points:
 
 ### Validation: GWTC-4.0, Power Law + Peak, GLADE+ K band
 
-The GWTC-4.0 dark siren reproduced on CC-IN2P3, with the [galaxy_catalog](galaxy-catalog.md)
+The GWTC-4.0 dark siren reproduced on a Slurm cluster, with the [galaxy_catalog](galaxy-catalog.md)
 defaults (GLADE+ Ks, nside 64, ε = 1), the paper's 137 BBH events, and the Slurm chain (8 seeds of 100 live
 points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injections and then to 5000 PE samples:
 
@@ -635,8 +634,8 @@ so the sampling can run on another machine that has icarogw (a computing cluster
 | `reweight`, `reweight_merge` | the reweighting to all the injections in `--reweight-jobs` chunks, then the merge; both do nothing when the runs already used all the injections |
 
 The runner is copied next to the scripts, so the jobs only need the icarogw environment; the `--cpus-per-task` of
-each job is set from `--npool` (1 for the single jobs). On CC-IN2P3, every job must give its time limit, CPU count
-and memory, and jobs using `/sps` declare `--licenses=sps`. The `prepare` stage runs where the PE files are
+each job is set from `--npool` (1 for the single jobs). Clusters often require each job to state its
+time limit, CPU count and memory, or a licence for a shared file system: give them with `--slurm-option`. The `prepare` stage runs where the PE files are
 (`inputs.h5` can then be copied), and `report` anywhere with access to the work directory.
 
 **A run that does not finish.** Nested sampling occasionally enters a slow tail. To finish the chain without it,

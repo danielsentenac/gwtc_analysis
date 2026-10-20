@@ -3,10 +3,12 @@
 Most modes run in seconds to minutes on a laptop. Three modes have stages that take hundreds of CPU-hours. For
 those stages, gwtc_analysis writes Slurm batch jobs itself and can submit them: `hubble_constant` (spectral and
 dark sirens), `galaxy_catalog` and `scalar_cloud`. The other modes have no batch executor and run on one machine.
+On clusters that use HTCondor instead of Slurm, such as the LIGO and IGWN clusters, the jobs are written by hand
+from the same commands ([below](#clusters-without-slurm-htcondor)).
 
 ## When to use a cluster
 
-Measured costs of the heavy stages (CC-IN2P3, `htc` partition):
+Measured costs of the heavy stages, on a Slurm cluster:
 
 | Task | Cost | Where |
 |---|---|---|
@@ -35,8 +37,8 @@ You choose:
 - **the size of the split:** the seeds (`--seeds`), the CPUs of each sampling job (`--npool`), and the number of
   chunks (`--jobs`, `--reweight-jobs`);
 - **the cluster options**, passed through unchanged as `#SBATCH` lines (`--slurm-option`, repeatable): partition,
-  memory, time limit, licences. On CC-IN2P3, every job must give its time limit, CPU count and memory, and jobs
-  using `/sps` declare `--licenses=sps`;
+  memory, time limit, licences. Clusters often require each job to state its time limit, CPU count and memory, or
+  a licence for a shared file system;
 - **the environment** of the jobs: `--icarogw-python` (or `--python` for `scalar_cloud`), and `--slurm-env-setup`
   for shell lines run first in each job (module loads, conda activation).
 
@@ -68,13 +70,12 @@ evaluation fast. The reweighting then corrects both subsets. For a comparison wi
 the PE samples in memory: give its jobs more memory (24 GB per chunk was enough for 137 events).
 
 ```bash
-gwtc_analysis hubble_constant --method spectral --workdir /sps/.../h0_spectral_plp --stages prepare
-gwtc_analysis hubble_constant --method spectral --workdir /sps/.../h0_spectral_plp \
+gwtc_analysis hubble_constant --method spectral --workdir /path/to/h0_spectral_plp --stages prepare
+gwtc_analysis hubble_constant --method spectral --workdir /path/to/h0_spectral_plp \
     --stages sample combine reweight --seeds 1 2 3 4 5 6 7 8 --npool 8 --reweight-pe-samples 5000 \
-    --icarogw-python /sps/.../venv/bin/python --executor slurm \
-    --slurm-option=--partition=htc --slurm-option=--mem=24G --slurm-option=--time=3-00:00:00 \
-    --slurm-option=--licenses=sps --submit
-gwtc_analysis hubble_constant --method spectral --workdir /sps/.../h0_spectral_plp --stages report   # afterwards
+    --icarogw-python /path/to/icarogw-env/bin/python --executor slurm \
+    --slurm-option=--partition=<partition> --slurm-option=--mem=24G --slurm-option=--time=3-00:00:00 --submit
+gwtc_analysis hubble_constant --method spectral --workdir /path/to/h0_spectral_plp --stages report   # afterwards
 ```
 
 **`galaxy_catalog`**, scripts in `<workdir>/slurm` ([details](modes/galaxy-catalog.md#deeper-catalogs-and-clusters)):
@@ -93,3 +94,57 @@ stage or chunk leaves a marker, so a resubmitted chain skips the work already do
 
 `--stages sample` and `--stages seeded` are submitted separately; `seeded` starts from the superradiance sampling,
 so it is submitted once that sampling has finished.
+
+## Clusters without Slurm (HTCondor)
+
+gwtc_analysis writes Slurm jobs only. The LIGO and IGWN clusters (the LDAS clusters at Caltech and the
+observatories, the IGWN computing grid) use HTCondor instead
+([IGWN computing guide](https://computing.docs.ligo.org/guide/htcondor/)). Two ways to run there:
+
+- **One HTCondor job running the local executor:** the same command with `--executor local`, `--seeds`,
+  `--parallel` and `--npool`, in a job with `request_cpus` = `--parallel` × `--npool`. This is simple, but the whole
+  computation must fit in one job on one machine.
+- **One HTCondor job per task, chained by a DAG**, like the Slurm chain. Run the command once with
+  `--executor slurm` and without `--submit`: this writes the scripts (no Slurm is needed) with the exact runner
+  commands, which the HTCondor submit files then call. For `hubble_constant`, the runner is
+  `<workdir>/slurm/h0_icarogw.py`. A fixed `--inj-fraction` replaces the `probe` and `plan` jobs (the probe chose 0.1 for
+  Power Law + Peak and Multi Peak, 0.5 for FullPop-4.0).
+
+Every IGWN job must give an `accounting_group` tag, or it is rejected
+([accounting](https://computing.docs.ligo.org/guide/htcondor/accounting/)). An example for a spectral siren, on a
+cluster with a shared file system:
+
+```
+# run.sub: one job per seed
+universe         = vanilla
+executable       = /path/to/icarogw-env/bin/python
+arguments        = /path/to/h0_spectral_plp/slurm/h0_icarogw.py run --workdir /path/to/h0_spectral_plp --seed $(seed) --mass-model plp --prior-set gwtc4 --nlive 100 --npool 8 --naccept 60 --pe-samples 1500 --inj-fraction 0.1
+environment      = "HDF5_USE_FILE_LOCKING=FALSE LD_LIBRARY_PATH=/path/to/icarogw-env/lib"
+request_cpus     = 8
+request_memory   = 16 GB
+accounting_group = <your accounting tag>
+log              = logs/h0.log
+output           = logs/run_$(seed).out
+error            = logs/run_$(seed).err
+queue seed in (1 2 3 4 5 6 7 8)
+```
+
+`combine.sub` and `merge.sub` are the same with 1 CPU and the `combine` and `reweight-merge` commands. `reweight.sub`
+runs `reweight --chunk $(chunk) --nchunks 16 --target-inj-fraction 1.0 --target-pe-samples 5000 --skip-if-done`, with
+`request_memory = 24 GB` and `queue chunk from seq 0 15 |`. The DAG chains them:
+
+```
+# h0.dag, submitted with: condor_submit_dag h0.dag
+JOB run run.sub
+JOB combine combine.sub
+JOB reweight reweight.sub
+JOB merge merge.sub
+PARENT run CHILD combine
+PARENT combine CHILD reweight
+PARENT reweight CHILD merge
+```
+
+Then run `--stages report` as on Slurm. The `galaxy_catalog` and `scalar_cloud` chains translate the same way: one
+submit file per script in `<workdir>/slurm`, with an array becoming a `queue` over its chunks. On the IGWN grid
+without a shared file system, the input and output files must also be transferred with the jobs; these examples
+do not cover that.
