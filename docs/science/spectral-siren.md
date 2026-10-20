@@ -361,7 +361,40 @@ posterior of the runs, sample by sample, to other Monte Carlo settings (weights
 | B | MLTP | 1500 | 89.1 (+39.0 / −28.1) | 78.5 (+38.7 / −26.7) | −10.6 |
 
 The 10% subset shifts H₀ up by 13 km/s/Mpc for PLP (about 0.35σ) and 11 for MLTP, the same in both sets of runs
-and for any number of PE samples; the reweighting removes the shift.
+and for any number of PE samples.
+
+**How the reweighting removes the shift.** The runs do not sample the posterior we want, but a neighbouring one:
+
+1. **What the runs sample.** With 10% of the injections, the sampler explores
+   \(P_\text{runs}(\theta) \propto \mathcal{L}_\text{10\%}(\theta)\, \pi(\theta)\), where θ is H₀ and the population
+   parameters. Nested sampling needs some \(10^5\)–\(10^6\) likelihood evaluations, each about 4–5 times faster with
+   the subset ([probe](../modes/hubble-constant.md#injection-subsets-probe-and-reweighting)).
+2. **What the reweighting computes.** For each of the posterior samples \(\theta_i\) (about 2000), the likelihood
+   is evaluated once more, exactly, with all the injections: \(\mathcal{L}_\text{all}(\theta_i)\). That is 2000
+   slow evaluations instead of \(10^5\)–\(10^6\).
+3. **Why the weighted samples are the right posterior.** Each sample gets the weight
+   \(w_i = \mathcal{L}_\text{all}(\theta_i) / \mathcal{L}_\text{10\%}(\theta_i)\). The samples are distributed as
+   \(\mathcal{L}_\text{10\%}\, \pi\); multiplied by \(w\), they are distributed as \(\mathcal{L}_\text{all}\, \pi\),
+   the posterior with all the injections (importance sampling). Nothing is fitted or tuned: the weights are the
+   ratio of the two likelihoods, and the medians and intervals are computed from the weighted samples.
+4. **What the weights do here.** The subset's noise makes \(\ln \mathcal{L}\) too high at large H₀, by about 0.9
+   per 100 km/s/Mpc. The weights undo exactly that tilt (runs A, PLP, all the injections, 1500 PE samples):
+
+    | H₀ of the sample (km/s/Mpc) | 40–70 | 70–100 | 100–130 | 130–160 | 160–200 |
+    |---|---|---|---|---|---|
+    | samples | 110 | 340 | 475 | 438 | 429 |
+    | mean weight (average 1) | 2.05 | 1.31 | 1.00 | 0.86 | 0.61 |
+
+    A sample near 55 km/s/Mpc now counts three times as much as one near 180: the median moves from 128.0 to 114.6.
+    For MLTP the weights go from 1.47 (40–70) to 0.69 (160–200), and the median from 94.3 to 83.7.
+5. **When it works.** The runs must already have samples wherever the target posterior lies: a shift of
+   13 km/s/Mpc is small against a width of 40, so the weights stay moderate. The effective sample size
+   \((\sum w)^2/\sum w^2\) measures it: 71% of the samples here (1275 of 1798). Below about 10%, a few samples
+   would carry all the weight, and the runs must be redone with more injections; the probe chooses the subset to
+   avoid that.
+
+The same weights, with the likelihood evaluated with 5000 PE samples per event instead of 1500, correct the PE
+subset too (below).
 
 **PE samples: 1500 against 3000 and 5000** (all the injections; H₀ in km/s/Mpc, median and 68%):
 
