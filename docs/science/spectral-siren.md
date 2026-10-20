@@ -497,6 +497,25 @@ These published results cannot be computed with gwtc_analysis as it is:
 Only the primary-mass model changes: the events, PE samples, injections, secondary-mass power law,
 low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the same.
 
+The two figures below show what the models have to describe: the primary masses of the confident events as
+detected, then corrected for selection effects.
+
+![Primary masses of the confident GW events](../img/mass_distribution.png)
+
+![Primary masses corrected for selection effects](../img/mass_distribution_selection_corrected.png)
+
+*Top: the primary masses as detected, with two peaks near 10 and 35 M☉. Bottom: the same events divided by the
+sensitive volume-time ⟨VT⟩ of each mass, from the LVK injections: a merger rate per ln m₁. Heavy binaries are seen
+much farther, so the 35 M☉ peak of the detections is mostly a selection effect, and the 10 M☉ peak becomes the
+strongest BBH feature. These figures use the events of GWTC-1 to GWTC-5.0 and are not population fits (m₂ uniform
+in [1, m₁], no redshift evolution); the H₀ fits use the 137 BBHs of GWTC-4.0 and fit the population together with
+H₀. Made by the scripts of [`docs/scripts`](https://github.com/danielsentenac/gwtc_analysis/tree/main/docs/scripts).*
+
+The corrected spectrum explains the difference between the models. PLP has a single Gaussian, whose prior
+(μ_g between 20 and 50 M☉) places it on the bump near 30 M☉ (the 35 M☉ peak of the detections, moved down once the
+selection is modelled): the 10 M☉ peak can only be absorbed by the power law. MLTP has a Gaussian for each peak, and
+the 10 M☉ one is narrow and populated by many events: a sharper ruler for the redshift.
+
 | | PLP | MLTP (Multi Peak) |
 |---|---|---|
 | \(p(m_1)\) | \((1-\lambda)\,\mathcal{P} + \lambda\, \mathcal{G}(\mu_g, \sigma_g)\) | \((1-\lambda_g)\,\mathcal{P} + \lambda_g \left[\lambda_\text{low}\, \mathcal{G}(\mu_\text{low}, \sigma_\text{low}) + (1-\lambda_\text{low})\, \mathcal{G}(\mu_\text{high}, \sigma_\text{high})\right]\) |

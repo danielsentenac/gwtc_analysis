@@ -177,7 +177,7 @@ which features the fit can use, and on which events. The three models of the GWT
 | Gap between neutron stars and black holes | none | none | a dip whose edges, smoothings and depth are fitted: the data decide whether the gap is empty, shallow or absent |
 | Secondary mass | a power law in \(q = m_2/m_1\), conditioned on \(m_1\) | the same | the same one-dimensional density as \(m_1\), times a pairing function \(q^\beta\), with one slope when \(m_2\) is below the break and another above (neutron-star companions can pair differently from black-hole ones) |
 | Mass parameters | 8 | 11 | 19 |
-| Features found [\[29\]](../references.md#ref-29) | one peak, at 28 M☉ | peaks at 8.9 and 26.6 M☉ | the same peaks, and a shallow dip between 2.3 and 7.2 M☉ |
+| Features found [\[29\]](../references.md#ref-29) | one peak, at 28 M☉ | two peaks, near 9 and 27 M☉ | peaks at 8.9 and 26.6 M☉ (quoted for MLTP and FullPop-4.0 together), and a shallow dip between 2.3 and 7.2 M☉ |
 | icarogw | `massprior_PowerLawPeak` + `m1m2_conditioned_lowpass` | `massprior_MultiPeak` + `m1m2_conditioned_lowpass` | `m1m2_paired_massratio_bplmulti_dip` |
 
 All three share the Madau–Dickinson merger-rate evolution, the H₀ prior and the treatment of the PE samples and
@@ -188,7 +188,14 @@ letting them differ changes nothing significant).
 the spectrum: its power law steepens to absorb the low-mass excess, which pulls H₀ up. MLTP adds that peak, a narrow
 ruler populated by many light BBHs ([why Multi Peak is tighter](../science/spectral-siren.md#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)).
 FullPop-4.0 adds further scales at known masses, the neutron-star range and the edges of the gap: with only four
-more events, its 68% interval is about 30–40% narrower than MLTP's (40% in the paper, 31% in our runs), with a similar median.
+more events, its 68% interval is about 30–40% narrower than MLTP's (40% in the paper, 33% in our runs), with a similar median.
+
+![Primary masses corrected for selection effects](../img/mass_distribution_selection_corrected.png)
+
+*The primary masses of the confident events of GWTC-1 to GWTC-5.0, divided by the sensitive volume-time ⟨VT⟩ of
+each mass: once the selection is removed, the peak near 10 M☉ is the strongest BBH feature, which PLP's single
+Gaussian (prior 20–50 M☉) cannot reach. Not a population fit; the detected distribution and the explanation are in
+[why Multi Peak is tighter](../science/spectral-siren.md#why-the-multi-peak-model-gives-a-tighter-and-lower-h0).*
 
 | GWTC-4.0, H₀ (km/s/Mpc, median and 68%) [\[29\]](../references.md#ref-29) | PLP | MLTP | FullPop-4.0 |
 |---|---|---|---|
