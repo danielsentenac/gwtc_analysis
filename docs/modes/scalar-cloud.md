@@ -144,7 +144,7 @@ stage computes.
 7. **`report`**: the `seeded` results if present, else those of `fit` and `background`. The p-value is
    \((k+1)/(n+1)\), with \(k\) of the \(n\) background segments at Λ at least the event's.
 
-With `--executor slurm` the same steps are sbatch chains running `scalar_cloud.py` itself: `slurm/` (vacuum, an
+With `--executor slurm` ([Running on a cluster](../cluster.md)) the same steps are sbatch chains running `scalar_cloud.py` itself: `slurm/` (vacuum, an
 array of 28 profile points, polish, an array of background segments; 1 CPU and 3 GB each), `slurm_sample/` (one
 task per model, `--npool` CPUs, 4 days at most), `slurm_seeded/` (the seeds, then an array over the event and the
 injections). Locally, `--jobs` runs the profile points, segments and seeded tasks in parallel and sets the sampler

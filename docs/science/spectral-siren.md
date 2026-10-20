@@ -9,32 +9,34 @@ galaxy catalog, and how its result compares with the published LVK measurement.
 The mode reproduces the *Power Law + Peak* (PLP) spectral-siren measurement of the GWTC-4.0
 cosmology paper (LVK 2026 [\[29\]](../references.md#ref-29), published version v3), with the same event
 selection, PE releases, injections, population model and priors (the paper does not state its number of PE
-samples per event, which moves H₀ by a few km/s/Mpc, [below](#injection-subsets-and-reweighting)):
+samples per event; the runs below use all 5000 of the releases, [below](#injection-subsets-and-reweighting)):
 
 | Quantity | gwtc_analysis | GWTC-4.0 paper [\[29\]](../references.md#ref-29) |
 |---|---|---|
-| **PLP**, H₀ (km/s/Mpc, median and 68%) | **105.8 (+44.7 / −33.2)** | 105.5 (+46.4 / −35.8) |
-| PLP, H₀ 90% interval | 54.4 – 175.7 | 50.5 – 176.1 |
-| PLP, position of the mass peak μ_g (M☉) | 28.7 (+3.8 / −4.6) | 28.3 (+4.1 / −4.4) |
-| **MLTP**, H₀ (km/s/Mpc, median and 68%) | **78.6 (+38.0 / −26.5)** | 72.3 (+42.5 / −25.6) |
-| MLTP, H₀ 90% interval | 40.2 – 150.6 | 34.2 – 154.1 |
+| **PLP**, H₀ (km/s/Mpc, median and 68%) | **107.6 (+45.6 / −35.2)** | 105.5 (+46.4 / −35.8) |
+| PLP, H₀ 90% interval | 57.0 – 178.4 | 50.5 – 176.1 |
+| PLP, position of the mass peak μ_g (M☉) | 28.4 (+3.9 / −4.3) | 28.3 (+4.1 / −4.4) |
+| **MLTP**, H₀ (km/s/Mpc, median and 68%) | **81.6 (+41.0 / −26.0)** | 72.3 (+42.5 / −25.6) |
+| MLTP, H₀ 90% interval | 41.4 – 159.7 | 34.2 – 154.1 |
 | BBH events | 137 | 137 |
 
-Both results use the paper's 137 events and all the found injections, as in the paper. They were
-sampled with a 10% subset of the injections and 136 events (10 runs of 100 live points each), then
-**reweighted** to all the injections and the 137th event
-([below](#injection-subsets-and-reweighting)); the reweighting keeps an effective sample size of 68%
-(PLP) and 66% (MLTP) of the samples. The PLP median agrees with the paper to 0.3 km/s/Mpc, the MLTP
-one to 6 km/s/Mpc (0.2σ), and the 90% intervals nearly coincide. The remaining differences are of the
-size of the Monte Carlo effects of the number of PE samples (below).
+Both results come from the paper's 137 events, 8 runs of 100 live points each (seeds 1–8), sampled with a 10% subset of the injections and 1500 PE samples
+per event, then **reweighted** to all the found injections, as in the paper, and to all the 5000 PE samples
+of each event ([below](#injection-subsets-and-reweighting)). The reweighting keeps an effective sample size
+of 68% (PLP) and 67% (MLTP) of the samples. The PLP median is 2.1 km/s/Mpc above the paper's (0.05σ) and the
+90% intervals nearly coincide. The MLTP median is 9.3 km/s/Mpc above the paper's (0.3σ), with a 68%
+interval of the same width ([differences](#reproduced-with-differences)). With 1500 PE samples per event the
+results move by several km/s/Mpc, depending on which samples are kept
+([comparison](#injection-subsets-and-reweighting)).
 
 !!! note "Versions of the paper"
     The first two arXiv versions of the paper (v1 and v2, 2025) quoted PLP 112.7 (+51.0 / −35.9)
     km/s/Mpc, 90%: 57.6–186.7, with the peak at 28.6 (+3.9 / −4.9) M☉, MLTP 77.1 (+40.8 / −26.3) and
     FullPop-4.0 76.4 (+23.0 / −18.1); our PLP result agrees with those to about 0.15σ. The published
     version (v3, August 2026) revised all the spectral-siren values to those quoted here. The paper does
-    not describe the changes between versions. Our runs with 10% of the injections alone happened to
-    land near the v1–v2 value; with all the injections, as the paper uses, the result matches v3.
+    not describe the changes between versions. Our PLP posterior with fewer injections or fewer PE
+    samples lands near the v1–v2 value (114.6 with all the injections and 1500 PE samples); with all the
+    injections and all the PE samples it matches v3.
 
 ![H0 posterior](../img/h0_posterior.png)
 
@@ -249,7 +251,8 @@ set by the data.
 2. **PE samples.** From the Zenodo PE releases (33 GB for 159 events): `C01:IMRPhenomXPHM`
    (Pratten et al. 2021 [\[51\]](../references.md#ref-51)) for O1–O3 and
    `C00:IMRPhenomXPHM-SpinTaylor` (Colleoni et al. 2024 [\[52\]](../references.md#ref-52)) for O4a,
-   reduced to \((m_{1,\text{det}}, m_{2,\text{det}}, D_L)\), 1500 samples per event in the runs.
+   reduced to \((m_{1,\text{det}}, m_{2,\text{det}}, D_L)\), 1500 samples per event in the runs, all 5000
+   after the reweighting.
 3. **PE priors,** read from each file (above).
 4. **Injections.** The GWTC-4.0 mixture of semi-analytic O1+O2 and real O3+O4a injections
    ([Zenodo 16740128](https://zenodo.org/records/16740128)); found when the semi-analytic SNR exceeds
@@ -259,33 +262,34 @@ set by the data.
    the spin part is divided out (the population spins are then the injected, isotropic ones, as in
    the PE prior), and the mixture weights applied. The runs use a random 10% subset, with
    \(N_\text{gen}\) scaled by the same factor, and their posterior is then reweighted to all the
-   injections ([below](#injection-subsets-and-reweighting)).
+   injections and all the PE samples ([below](#injection-subsets-and-reweighting)).
 5. **Likelihood.** icarogw 2.0.3 (Mastrogiovanni et al. 2024 [\[57\]](../references.md#ref-57)):
    `CBC_vanilla_rate(FlatLambdaCDM_wrap, m1m2_conditioned_lowpass(massprior_PowerLawPeak), rateevolution_Madau, scale_free=True)`
    in `hierarchical_likelihood`.
 6. **Sampling.** bilby (Ashton et al. 2019 [\[58\]](../references.md#ref-58)) with the dynesty nested
-   sampler (Speagle 2020 [\[60\]](../references.md#ref-60)): 10 independent runs of 100 live points,
-   seeds 1–10.
+   sampler (Speagle 2020 [\[60\]](../references.md#ref-60)): 8 independent runs of 100 live points,
+   seeds 1–8, 4–5 h each for PLP and 7–10 h for MLTP on 8 cores.
 7. **Combination.** The runs are merged, weighted by their evidence (bilby `ResultList.combine`). Their
    evidences agree to within their errors, so all found the same posterior.
 
 ## Results in detail
 
-Posterior of the population parameters (median and 90% interval):
+Posterior of the PLP population parameters, reweighted to all the injections and 5000 PE samples (median
+and 90% interval):
 
 | Parameter | Value |
 |---|---|
-| α | 3.90 (3.18 – 5.76) |
-| β | 1.53 (0.21 – 3.45) |
-| m_min | 5.32 (4.31 – 5.97) M☉ |
-| m_max | 99.7 (63.1 – 189.9) M☉ |
-| δ_m | 3.29 (1.02 – 6.00) M☉ |
-| μ_g | 27.8 (21.1 – 33.7) M☉ |
-| σ_g | 5.7 (0.8 – 9.5) M☉ |
-| λ | 0.042 (0.015 – 0.103) |
-| γ | 3.24 (2.40 – 4.30) |
-| κ | 2.9 (0.3 – 5.7), not measured |
-| z_p | 2.9 (1.6 – 3.9), not measured |
+| α | 3.84 (3.15 – 4.95) |
+| β | 1.53 (0.30 – 3.46) |
+| m_min | 5.18 (4.14 – 5.90) M☉ |
+| m_max | 100 (64 – 188) M☉ |
+| δ_m | 3.83 (1.45 – 6.43) M☉ |
+| μ_g | 28.4 (21.8 – 34.4) M☉ |
+| σ_g | 5.6 (1.4 – 9.4) M☉ |
+| λ | 0.039 (0.014 – 0.093) |
+| γ | 3.38 (2.55 – 4.49) |
+| κ | 3.0 (0.2 – 5.7), not measured |
+| z_p | 2.8 (1.4 – 3.9), not measured |
 
 ![Corner plot of the PLP posterior](../img/plp_corner.png)
 
@@ -293,12 +297,15 @@ Posterior of the population parameters (median and 90% interval):
 
 | Parameter | Correlation | Why |
 |---|---|---|
-| μ_g | −0.81 | a higher H₀ gives larger redshifts, so lighter source masses and a lower peak |
-| α | +0.52 | a steeper power law partly offsets the lighter source masses of a higher H₀ |
-| γ | −0.24 | a slower rate growth partly offsets the larger redshifts of a higher H₀ |
-| z_p | +0.21 | |
+| μ_g | −0.80 | a higher H₀ gives larger redshifts, so lighter source masses and a lower peak |
+| α | +0.51 | a steeper power law partly offsets the lighter source masses of a higher H₀ |
+| λ | +0.37 | |
+| δ_m | −0.33 | |
+| γ | −0.27 | a slower rate growth partly offsets the larger redshifts of a higher H₀ |
+| σ_g | +0.20 | |
+| z_p | +0.16 | |
 | m_max | +0.15 | |
-| κ | −0.06 | |
+| κ | −0.05 | |
 
 The mass peak dominates the H₀ information; the power-law slope contributes, the redshift evolution
 little.
@@ -308,48 +315,68 @@ trial population and H₀, the model predicts the distance distribution of the *
 \(\propto \frac{dV_c}{dz} (1+z)^{\gamma-1} P_\text{det}\, \frac{dz}{dD_L}\) at low redshift. With γ = 0
 (a constant rate per comoving volume) it predicts too few distant events, many O3 and O4a BBHs being at
 z ≈ 0.5–1; with a large γ, most mergers would be beyond the horizon, which the selection term
-penalizes. The result, γ = 3.2 (2.4–4.3), is close to the low-redshift slope of the cosmic star-formation
+penalizes. The result, γ = 3.4 (2.6–4.5), is close to the low-redshift slope of the cosmic star-formation
 rate, about 2.7. BBHs are detected only up to z ≈ 1–1.5, so only the rising part of the rate is seen:
 z_p and κ stay at their priors.
 
-**m_max** has only a lower bound (about 63 M☉): an analysis that fixes it, or the other shape
+**m_max** has only a lower bound (about 64 M☉): an analysis that fixes it, or the other shape
 parameters, gives a much too narrow and biased H₀.
 
 ## Numerical stability
 
 The per-event and selection sums are Monte Carlo estimates, checked by their effective sample sizes
 ([Selection effects](selection-effects.md#the-effective-number-of-injections)): icarogw requires at
-least 4N effective injections (544 here) and, in this analysis, at least 10 effective PE samples per
+least 4N effective injections (548 here) and, in this analysis, at least 10 effective PE samples per
 event. Over the posterior of the runs with 10% of the injections, the effective number of injections
-stays above 3 800 (PLP) and 2 950 (MLTP), well above the threshold. The smallest per-event value of
-effective PE samples has a median of 27 (PLP) and 48 (MLTP) but approaches 10 at some posterior draws,
-for the lightest BBHs (GW190924 and some O4a events).
+stays above 2 790 (PLP) and 3 170 (MLTP), well above the threshold. The smallest per-event value of
+effective PE samples has a median of 37 (PLP) and 34 (MLTP) but approaches 10 at some posterior draws,
+for the lightest BBHs (GW190924, GW231114 and other O4a events).
 
 ### Injection subsets and reweighting
 
 A subset of the injections estimates the detectable fraction \(\xi\) without bias, but not the
 posterior: the likelihood contains \(-N \ln \xi\) with N = 137, and the Monte Carlo noise of that term,
-which varies smoothly across parameter space, tilts a broad posterior. The effect was measured by
-reweighting the PLP posterior of the runs (136 events), sample by sample, to other Monte Carlo settings (weights
-\(\exp(\ln \mathcal{L}_\text{new} - \ln \mathcal{L}_\text{runs})\)):
+which varies smoothly across parameter space, tilts a broad posterior. The same holds for the PE samples of
+each event, of which the runs use 1500 of the 5000 in each release. The effect is measured by reweighting the
+posterior of the runs, sample by sample, to other Monte Carlo settings (weights
+\(\exp(\ln \mathcal{L}_\text{new} - \ln \mathcal{L}_\text{runs})\)), on two independent sets of runs, both with
+100 live points per run, 10% of the injections and 1500 PE samples per event:
 
-| Monte Carlo settings | H₀ (68%) | 90% | μ_g | Effective sample size |
-|---|---|---|---|---|
-| runs: 10% of the injections, 1500 PE samples per event | 119.3 (+46.1 / −34.9) | 62.9 – 186.1 | 27.7 | – |
-| **all the injections, 1500 PE** | **106.5 (+45.0 / −34.0)** | **54.3 – 176.9** | **28.6** | 2564 of 3582 |
-| 10% of the injections, 3000 PE | 125.1 (+44.9 / −38.0) | 65.4 – 188.0 | 27.2 | 3483 |
-| all the injections, 3000 PE | 111.4 (+44.9 / −36.2) | 55.4 – 179.4 | 28.1 | 2742 |
-| paper [\[29\]](../references.md#ref-29) | 105.5 (+46.4 / −35.8) | 50.5 – 176.1 | 28.3 | – |
+- **runs A**, those of the [result](#result): 8 runs, the paper's 137 events;
+- **runs B**: 10 runs, 136 events (GW191127 added afterwards by reweighting), prepared separately.
 
-- The 10% subset alone shifts H₀ up by 13 km/s/Mpc, about 0.35σ; with all the injections the result
-  matches the paper.
-- The number of PE samples per event matters too: 3000 instead of 1500 raises H₀ by about
-  5 km/s/Mpc. The paper does not state its number, so agreement within a few km/s/Mpc is what can be
-  expected, and the 1 km/s/Mpc agreement at 1500 is partly chance.
-- For MLTP, the reweighting to all the injections moves H₀ from 89.1 (+39.0 / −28.1) to
-  78.5 (+38.7 / −26.7).
-- Adding the 137th event (GW191127, by reweighting too) moves H₀ to 105.8 (+44.7 / −33.2) for PLP and
-  78.6 (+38.0 / −26.5) for MLTP.
+**Injections: 10% against all** (H₀ in km/s/Mpc, median and 68%):
+
+| Runs | Model | PE samples per event | 10% of the injections (the runs) | All the injections | Shift |
+|---|---|---|---|---|---|
+| A | PLP | 1500 | 128.0 (+42.4 / −39.1) | 114.6 (+43.0 / −39.4) | −13.4 |
+| A | MLTP | 1500 | 94.3 (+43.9 / −29.6) | 83.7 (+44.7 / −27.0) | −10.6 |
+| B | PLP | 1500 | 119.3 (+46.1 / −34.9) | 106.5 (+45.0 / −34.0) | −12.8 |
+| B | PLP | 3000 | 125.1 (+44.9 / −38.0) | 111.4 (+44.9 / −36.2) | −13.7 |
+| B | MLTP | 1500 | 89.1 (+39.0 / −28.1) | 78.5 (+38.7 / −26.7) | −10.6 |
+
+The 10% subset shifts H₀ up by 13 km/s/Mpc for PLP (about 0.35σ) and 11 for MLTP, the same in both sets of runs
+and for any number of PE samples; the reweighting removes the shift.
+
+**PE samples: 1500 against 3000 and 5000** (all the injections; H₀ in km/s/Mpc, median and 68%):
+
+| Runs | PE samples per event | PLP, H₀ | PLP, 90% | PLP, μ_g (M☉) | MLTP, H₀ | Effective sample size (PLP, MLTP) |
+|---|---|---|---|---|---|---|
+| A | 1500 | 114.6 (+43.0 / −39.4) | 58.3 – 181.6 | 27.8 | 83.7 (+44.7 / −27.0) | 71%, 66% |
+| A | **5000 (the result)** | **107.6 (+45.6 / −35.2)** | **57.0 – 178.4** | **28.4** | **81.6 (+41.0 / −26.0)** | 68%, 67% |
+| B | 1500 | 106.5 (+45.0 / −34.0) | 54.3 – 176.9 | 28.6 | 78.5 (+38.7 / −26.7) | 72%, 67% |
+| B | 3000 | 111.4 (+44.9 / −36.2) | 55.4 – 179.4 | 28.1 | – | 77% |
+| B + GW191127 | 1500 | 105.8 (+44.7 / −33.2) | 54.4 – 175.7 | 28.7 | 78.6 (+38.0 / −26.5) | 68%, 66% |
+| paper [\[29\]](../references.md#ref-29) | not stated | 105.5 (+46.4 / −35.8) | 50.5 – 176.1 | 28.3 | 72.3 (+42.5 / −25.6) | – |
+
+- With 1500 PE samples per event, the two sets of runs differ by 8 km/s/Mpc for PLP (114.6 against 106.5) and
+  5 for MLTP, with the same settings otherwise; within each set the runs agree to a few km/s/Mpc (PLP medians
+  126–135 for the 8 runs of A, with 10% of the injections), so the difference comes from the 1500 samples kept
+  for each event.
+- The shift from more PE samples has either sign: 1500 → 5000 lowers H₀ by 7.0 km/s/Mpc (PLP) and 2.1 (MLTP) in
+  runs A; 1500 → 3000 raises it by 4.9 in runs B. With all 5000 samples there is no choice left; the dark sirens
+  behave the same way ([hubble_constant](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)).
+- The 0.3 km/s/Mpc agreement of runs B with the paper at 1500 PE samples was partly chance.
 
 This is why `hubble_constant` chooses its strategy automatically (`--inj-fraction auto`, the default):
 a short probe measures the speed and accuracy of each subset, the runs sample with the fastest
@@ -365,15 +392,17 @@ alone unless stated; H₀ in km/s/Mpc and mass-peak positions in M☉, median an
 
 | Analysis | gwtc_analysis | Published value |
 |---|---|---|
-| GWTC-4.0, PLP spectral siren | **105.8 (+44.7 / −33.2)** ([above](#result)) | 105.5 (+46.4 / −35.8), paper [\[29\]](../references.md#ref-29) |
-| GWTC-4.0, MLTP spectral siren (power law with two peaks) | **78.6 (+38.0 / −26.5)** ([above](#result)) | 72.3 (+42.5 / −25.6), paper [\[29\]](../references.md#ref-29) |
-| GWTC-4.0, FullPop-4.0 spectral siren (BNS, NSBH and BBH in one mass distribution) | **74.4 (+25.4 / −18.9)** ([mass models](../modes/hubble-constant.md#mass-models)) | 72.9 (+21.9 / −18.8), paper [\[29\]](../references.md#ref-29) |
-| GWTC-4.0, PLP spectral siren: position of the mass peak μ_g (M☉) | **28.7 (+3.8 / −4.6)** ([above](#result)) | 28.3 (+4.1 / −4.4), paper [\[29\]](../references.md#ref-29) |
-| GWTC-4.0, MLTP spectral siren: position of the lower mass peak (M☉) | **9.9**, 90% interval 7.4–35.2 ([below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)) | 8.9 ± 0.5, paper [\[29\]](../references.md#ref-29); 1 M☉ apart, not explained yet ([differences](#reproduced-with-differences)) |
-| GWTC-4.0, MLTP spectral siren: position of the upper mass peak (M☉) | **29.8**, 90% interval 15.5–40.2 ([below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)) | 26.6 ± 3, paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, PLP spectral siren | **107.6 (+45.6 / −35.2)** ([above](#result)) | 105.5 (+46.4 / −35.8), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, MLTP spectral siren (power law with two peaks) | **81.6 (+41.0 / −26.0)** ([above](#result)) | 72.3 (+42.5 / −25.6), paper [\[29\]](../references.md#ref-29); 9.3 apart ([differences](#reproduced-with-differences)) |
+| GWTC-4.0, FullPop-4.0 spectral siren (BNS, NSBH and BBH in one mass distribution) | **75.1 (+25.8 / −19.2)** ([mass models](../modes/hubble-constant.md#mass-models)) | 72.9 (+21.9 / −18.8), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, PLP spectral siren: position of the mass peak μ_g (M☉) | **28.4 (+3.9 / −4.3)** ([above](#result)) | 28.3 (+4.1 / −4.4), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, FullPop-4.0 spectral siren: position of the lower BBH mass peak (M☉) | **8.95 (+0.55 / −0.65)**, 90%: 7.6 – 26.8, the upper end from the 3% of samples where the two peaks swap ([below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)) | 8.9 (+0.5 / −0.5), 90%: 8.1 – 9.9, paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, FullPop-4.0 spectral siren: position of the upper BBH mass peak (M☉) | **26.7 (+3.5 / −3.4)**, 90%: 20.5 – 32.9 | 26.6 (+2.9 / −2.8), 90%: 21.8 – 31.4, paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, PLP dark siren, GLADE+ K band | **114.6 (+41.5 / −33.8)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8), data release (icarogw) |
 | GWTC-4.0, MLTP dark siren, GLADE+ K band | **86.8 (+39.8 / −26.1)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)) | 86.3 (+41.3 / −26.3), data release (icarogw) |
-| GWTC-4.0, FullPop-4.0 spectral siren + GW170817 | **74.0 (+13.2 / −7.8)**, product of the two posteriors (`--method joint`, [below](#spectral-siren-and-gw170817)) | 73.4 (+12.8 / −8.6), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, PLP spectral siren + GW170817 | **80.2 (+22.5 / −12.1)**, product of the two posteriors (`--method joint`, [below](#spectral-siren-and-gw170817)) | 80.6 (+21.8 / −13.2), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, MLTP spectral siren + GW170817 | **75.4 (+17.5 / −9.1)**, product of the two posteriors ([below](#spectral-siren-and-gw170817)) | 73.6 (+15.5 / −9.2), paper [\[29\]](../references.md#ref-29) |
+| GWTC-4.0, FullPop-4.0 spectral siren + GW170817 | **74.1 (+13.4 / −8.0)**, product of the two posteriors ([below](#spectral-siren-and-gw170817)) | 73.4 (+12.8 / −8.6), paper [\[29\]](../references.md#ref-29) |
 | GWTC-5.0, spectral sirens + GW170817 + DES-Y6 galaxies | not run yet | 71.7 (+9.4 / −7.5), LVK 2026 [\[30\]](../references.md#ref-30) |
 | GW170817 bright siren (maximum a posteriori, not median) | **69.8 (+23.6 / −8.2)**, GWTC-1 PE samples ([bright siren](../modes/hubble-constant-bright.md#results)) | 70 (+12 / −8), LVK 2017 [\[27\]](../references.md#ref-27) |
 | Planck 2018 (cosmic microwave background) | not a GW measurement | 67.4 ± 0.5, Planck 2020 [\[33\]](../references.md#ref-33) |
@@ -387,33 +416,47 @@ compute those, as it uses icarogw only ([icarogw and gwcosmo](icarogw-gwcosmo.md
 gwtc_analysis implements PLP, MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`) and FullPop-4.0:
 78.6 (+38.0 / −26.5) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
 peak at 9.9 (+19.7 / −1.1) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
-high-mass one at 29.8 (+4.6 / −6.5) M☉. FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events: 74.4
-(+25.4 / −18.9) km/s/Mpc against 72.9 (+21.9 / −18.8), the same lower end (90%: 44.4 against 44.0) and a longer
-upper tail (122.9 against 111.9). The longer tail is not explained yet. Two differences are candidates: the
-number of PE samples per event (1500 here, not stated in the paper), and the paper's combination of the icarogw and
-gwcosmo samples. Its 68% interval is 31% narrower than MLTP's, against 40% in the paper. The
+high-mass one at 29.6 (+4.9 / −7.1) M☉. FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events: 75.1
+(+25.8 / −19.2) km/s/Mpc against 72.9 (+21.9 / −18.8), the same lower end (90%: 44.6 against 44.0) and a longer
+upper tail (125.3 against 111.9). The longer tail is not explained yet. The number of PE samples is not the cause:
+1500 and 5000 per event give 74.4 and 75.1, with upper bounds 122.9 and 125.3
+([comparison](../modes/hubble-constant.md#mass-models)); the paper's combination of the icarogw and gwcosmo
+samples remains a candidate. Its 68% interval is 33% narrower than MLTP's, against 40% in the paper. The
 three models are compared in [mass models](../modes/hubble-constant.md#mass-models).
 
 ### Spectral siren and GW170817
 
-The FullPop-4.0 spectral siren combined with the GW170817 bright siren (October 2026, CC-IN2P3):
+The spectral sirens combined with the GW170817 bright siren:
 
 ```
 gwtc_analysis hubble_constant --method bright --event GW170817 --population fullpop4 --workdir h0_bright_GW170817_fp4
 gwtc_analysis hubble_constant --method joint --inputs h0_spectral_fullpop4 h0_bright_GW170817_fp4
 ```
 
+and the same with `h0_spectral_plp` or `h0_spectral_mltp` (the runs of the [result](#result)) in place of
+`h0_spectral_fullpop4`. The GW170817 posterior is the same in the three joints: the paper also uses the FullPop-4.0
+population for GW170817 with every mass model.
+
+| H₀ (km/s/Mpc), median and 68% | PLP | MLTP | FullPop-4.0 |
+|---|---|---|---|
+| **Joint, gwtc_analysis** | **80.2 (+22.5 / −12.1)**, 90%: 63.6 – 124.5 | **75.4 (+17.5 / −9.1)**, 90%: 62.4 – 109.3 | **74.1 (+13.4 / −8.0)**, 90%: 62.3 – 100.9 |
+| Joint, GWTC-4.0 paper [\[29\]](../references.md#ref-29) | 80.6 (+21.8 / −13.2) | 73.6 (+15.5 / −9.2) | 73.4 (+12.8 / −8.6) |
+
+GW170817 dominates the three joints, so they agree with the paper better than the spectral sirens alone: the MLTP
+spectral siren is 9.3 km/s/Mpc above the paper's, its joint 1.8. The FullPop-4.0 joint in detail:
+
 | H₀ (km/s/Mpc) | Median and 68% | 90% |
 |---|---|---|
-| FullPop-4.0 spectral siren (141 events, GW170817 left out) | 74.9 (+26.5 / −20.0) | 42.7 – 126.1 |
+| FullPop-4.0 spectral siren (141 events, GW170817 left out) | 75.3 (+27.4 / −20.0) | 43.5 – 128.2 |
 | GW170817 bright siren, FullPop-4.0 population, low-spin PE samples | 78.5 (+25.6 / −11.4) | 62.7 – 130.5 |
-| **Joint, gwtc_analysis** | **74.0 (+13.2 / −7.8)** | **62.4 – 100.5** |
+| **Joint, gwtc_analysis** | **74.1 (+13.4 / −8.0)** | **62.3 – 100.9** |
 | Joint, GWTC-4.0 paper [\[29\]](../references.md#ref-29) | 73.4 (+12.8 / −8.6) | |
 
-The joint median is 0.6 km/s/Mpc above the paper's, with a 68% interval of nearly the same width. The difference
-follows from the two inputs, each slightly above its published value (the spectral siren and GW170817 alone: 74.4
+The joint median is 0.7 km/s/Mpc above the paper's, with a 68% interval of nearly the same width. The difference
+follows from the two inputs, each slightly above its published value (the spectral siren and GW170817 alone: 75.1
 against 72.9, and 78.5 against 77.8). The spectral-siren row is the posterior as `--method joint` reads it, a kernel density
-estimate of the samples; it differs by 0.5 km/s/Mpc from the 74.4 quoted above from the same run. The paper fits GW170817 together with the
+estimate of the samples; it differs by 0.2 km/s/Mpc from the 75.1 quoted above from the same run. With 1500 PE samples
+per event instead of 5000, the joint is 74.0 (+13.2 / −7.8), 90%: 62.4 – 100.5. The paper fits GW170817 together with the
 population; `--method joint` multiplies the two posteriors obtained separately, an approximation that holds here to
 well within the uncertainties.
 
@@ -421,24 +464,21 @@ well within the uncertainties.
 
 These results were computed by gwtc_analysis, but do not match the published values:
 
-- **The position of the lower mass peak in the MLTP fit.** The MLTP model describes the primary-mass
-  distribution of the BBHs with a power law and two Gaussian peaks, whose positions are fitted together with H₀.
-  The GWTC-4.0 paper finds the lower peak at 8.9 ± 0.5 M☉. The gwtc_analysis MLTP run puts it at 9.9 M☉ (median;
-  90% interval 7.4–35.2 M☉). The difference, 1 M☉, is twice the paper's uncertainty and is not explained yet. The
-  upper peak agrees within the paper's uncertainty: 29.8 M☉ in the gwtc_analysis run against 26.6 ± 3 M☉ in the paper
-  ([below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)).
-- **The upper tail of the FullPop-4.0 H₀ posterior:** the 90% upper bound is 122.9 km/s/Mpc against 111.9 in
-  the paper, while the median is only 1.5 km/s/Mpc higher and the lower bound the same (above).
+- **The MLTP spectral siren:** 81.6 (+41.0 / −26.0) km/s/Mpc against 72.3 (+42.5 / −25.6) in the paper, 9.3 km/s/Mpc
+  (0.3σ) apart, with intervals of the same width (90%: 41.4–159.7 against 34.2–154.1). The PLP run, with the same
+  events, PE samples, injections and settings, agrees to 2.1 km/s/Mpc, so the difference is specific to the
+  Multi Peak model. Its posterior is bimodal in the peak parameters (label switching, [below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)),
+  which 100 live points per run may sample unevenly, and the paper combines icarogw and gwcosmo samples. Not
+  explained yet. Runs B gave 78.6 with 1500 PE samples ([comparison](#injection-subsets-and-reweighting)).
+- **The upper tail of the FullPop-4.0 H₀ posterior:** the 90% upper bound is 125.3 km/s/Mpc against 111.9 in
+  the paper, while the median is only 2.2 km/s/Mpc higher and the lower bound the same (above).
 
 ### Not run yet
 
 These published results can be computed with gwtc_analysis, but have not been run:
 
-- **The PLP and MLTP spectral sirens combined with GW170817**, from Table 1 of the paper: PLP 80.6 (+21.8 / −13.2),
-  MLTP 73.6 (+15.5 / −9.2), with `hubble_constant --method joint` (FullPop-4.0: [above](#spectral-siren-and-gw170817)).
-  The PLP and MLTP spectral sirens are being rerun for this.
 - **The FullPop-4.0 dark siren**, 79.6 (+20.8 / −16.3), and its combination with GW170817,
-  75.4 (+12.8 / −9.1), the headline result of the paper.
+  75.4 (+12.8 / −9.1), the headline result of the paper. A run with the GLADE+ K-band catalog is in progress.
 
 ### Out of reach of this version
 
@@ -462,8 +502,20 @@ low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the 
 | \(p(m_1)\) | \((1-\lambda)\,\mathcal{P} + \lambda\, \mathcal{G}(\mu_g, \sigma_g)\) | \((1-\lambda_g)\,\mathcal{P} + \lambda_g \left[\lambda_\text{low}\, \mathcal{G}(\mu_\text{low}, \sigma_\text{low}) + (1-\lambda_\text{low})\, \mathcal{G}(\mu_\text{high}, \sigma_\text{high})\right]\) |
 | Peak priors | μ_g ∈ U(20, 50), σ_g ∈ U(0.4, 10) M☉ | μ_low, μ_high ∈ U(5, 100); σ_low ∈ U(0.4, 5); σ_high ∈ U(0.4, 10) M☉; λ_low ∈ U(0, 1) |
 | Mass parameters | 8 | 11 |
-| Peaks found [\[29\]](../references.md#ref-29) | one, at 28.3 M☉ | 8.9 ± 0.5 M☉ and 26.6 ± 3 M☉ |
-| Peaks found, gwtc_analysis (reweighted, medians and 90%) | one, at 28.7 M☉ | 9.9 (7.4–35.2) M☉, σ 0.8 M☉; 29.8 (15.5–40.2) M☉, σ 6.7 M☉ |
+| Peaks found [\[29\]](../references.md#ref-29) | one, at 28.3 M☉ | 8.9 (+0.5 / −0.5) M☉ and 26.6 (+2.9 / −2.8) M☉, quoted for MLTP and FullPop-4.0 together |
+| Peaks found, gwtc_analysis (medians and 90%) | one, at 28.4 M☉ | 10.1 (7.0–35.4) M☉, σ 1.0 M☉; 29.6 (11.5–45.0) M☉, σ 6.7 M☉ |
+
+The paper's peak values are those of FullPop-4.0, as it states for the dark sirens ("values from the FULLPOP-4.0
+mass model"; the GW170817 reanalysis also uses μ_low = 8.98 M☉ from the FullPop-4.0 spectral siren). The FullPop-4.0
+run of gwtc_analysis reproduces them: 8.95 (+0.55 / −0.65) and 26.7 (+3.5 / −3.4) M☉
+([table](#other-mass-models-and-published-results)). The MLTP run places its lower peak about 1 M☉ higher, with a
+long upper tail:
+
+- in 18% of the samples the two Gaussians swap roles (label switching), and in 27% neither sits below
+  15 M☉; this tail, not the position of the peak, makes the MLTP intervals wide;
+- the lower peak moves with H₀, as a source-frame mass should (correlation −0.46 over the samples where it is
+  below 15 M☉): 10.2 M☉ for H₀ between 40 and 60 km/s/Mpc, 9.7 between 65 and 75, 8.3 above 120. Restricting
+  the samples to the paper's H₀ therefore does not bring the MLTP peak down to 8.9.
 
 1. **The BBH mass spectrum has a peak near 9–10 M☉,** its strongest feature once selection effects are
    removed ([Merger rates](merger-rates.md#selection-corrected-mass-distribution)). PLP cannot represent
@@ -471,18 +523,18 @@ low-mass smoothing, Madau–Dickinson redshift evolution and H₀ prior are the 
    low-mass excess.
 2. **A sharp feature gives a sharp redshift.** The spectral siren measures the shift of a feature by
    \(1+z\); the precision grows as the feature narrows relative to its position and as more events
-   populate it. The 9 M☉ peak has σ/μ ≈ 6%, the 28 M☉ bump ≈ 20%, and light BBHs are numerous.
+   populate it. The 9–10 M☉ peak has σ/μ ≈ 10%, the 28 M☉ bump ≈ 20%, and light BBHs are numerous.
    In the run the two Gaussians sometimes swap roles (label switching): the lower peak's 90% interval
    reaches 35 M☉ when its Gaussian takes the upper feature. The medians describe the dominant mode.
 3. **Two rulers at different distances.** Light BBHs are detected nearby, heavy ones far away: the two
    peaks anchor the distance–redshift relation over two redshift ranges.
-4. **PLP is pulled high.** In the PLP posterior α is correlated with H₀ (+0.52,
+4. **PLP is pulled high.** In the PLP posterior α is correlated with H₀ (+0.51,
    [above](#results-in-detail)): when the power law steepens to absorb the low-mass excess, H₀ goes up.
-   The paper finds the same ("a single peak is unable to fit the complex low-mass structure"), and the
-   data mildly prefer MLTP over PLP (log₁₀ B = 0.46 in our runs,
-   [mass models](../modes/hubble-constant.md#mass-models)).
+   The paper finds the same ("a single peak is unable to fit the complex low-mass structure"). The
+   evidences barely separate the two models: log₁₀ B (MLTP over PLP) = 0.08 in runs A and 0.46 in runs B,
+   both with 10% of the injections and 1500 PE samples ([runs](#injection-subsets-and-reweighting)) ([mass models](../modes/hubble-constant.md#mass-models)).
 
-FullPop-4.0 goes further (72.9 (+21.9 / −18.8) in the paper, 74.4 (+25.4 / −18.9) reproduced): it adds the neutron-star events (141 events) and models
+FullPop-4.0 goes further (72.9 (+21.9 / −18.8) in the paper, 75.1 (+25.8 / −19.2) reproduced): it adds the neutron-star events (141 events) and models
 the gap between neutron stars and black holes, whose edges are further sharp features at known masses
 ([mass models](../modes/hubble-constant.md#mass-models)).
 
@@ -491,8 +543,8 @@ the gap between neutron stars and black holes, whose edges are further sharp fea
 - **One code:** the published results mix the samples of icarogw and gwcosmo, while `gwtc_analysis`
   uses icarogw only ([icarogw and gwcosmo](icarogw-gwcosmo.md)).
 
-- **Monte Carlo approximations:** 1500 PE samples per event and 100 live points per run; the number
-  of PE samples moves H₀ by about 5 km/s/Mpc. The injection subset of the runs is corrected by the
-  reweighting.
+- **Monte Carlo approximations:** 1500 PE samples per event and 100 live points per run; with 1500 PE
+  samples, the choice of the samples moves H₀ by up to about 8 km/s/Mpc. The injection subset and the PE
+  subset of the runs are corrected by the reweighting (all the injections, all 5000 PE samples).
 - **Prior dependence** of the upper part of the H₀ interval.
 - **`gwtc5` release** (O1–O4b) not yet validated against a published result.

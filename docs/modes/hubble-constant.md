@@ -25,10 +25,10 @@ three choices:
 | **The mass model** | `--mass-model plp` (Power Law + Peak), `mltp` (Multi Peak) or `fullpop4` (FullPop-4.0, all compact binaries) ([mass models](#mass-models)) | `plp` |
 
 The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#ref-29): spectral siren
-105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8) for PLP; dark siren with GLADE+
+107.6 (+45.6 / −35.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8) for PLP; dark siren with GLADE+
 114.6 (+41.5 / −33.8) against 115.4 (+40.1 / −33.8), with 5000 PE samples per event ([validation](#validation-gwtc-40-power-law-peak-glade-k-band));
 with Multi Peak, 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3) ([validation](#validation-gwtc-40-multi-peak-glade-k-band)).
-With FullPop-4.0, the paper's fiducial model (141 events, every compact binary), the spectral siren gives 74.4 (+25.4 / −18.9) against the
+With FullPop-4.0, the paper's fiducial model (141 events, every compact binary), the spectral siren gives 75.1 (+25.8 / −19.2) against the
 published 72.9 (+21.9 / −18.8) ([mass models](#mass-models)).
 
 ## Quick start
@@ -69,7 +69,8 @@ gwtc_analysis hubble_constant --method dark --workdir h0_dark_plp --stages sampl
 ```
 
 **On a Slurm cluster** (CC-IN2P3, for instance): the same commands with `--executor slurm`, which writes the
-sampling stages as a chain of batch jobs ([details](#on-a-slurm-cluster)):
+sampling stages as a chain of batch jobs ([details](#on-a-slurm-cluster); when to use a cluster:
+[Running on a cluster](../cluster.md)):
 
 ```bash
 gwtc_analysis hubble_constant --method dark --workdir /sps/.../h0_dark_plp --stages sample combine reweight \
@@ -196,19 +197,28 @@ more events, its 68% interval is about 30–40% narrower than MLTP's (40% in the
 | Dark siren, GLADE+ K band (Table 1) | 110.6 (+42.5 / −34.7) | 81.6 (+41.2 / −27.6) | 79.6 (+20.8 / −16.3) |
 | Spectral siren + GW170817 | 80.6 (+21.8 / −13.2) | 73.6 (+15.5 / −9.2) | 73.4 (+12.8 / −8.6) |
 | Dark siren + GW170817 | 82.5 (+22.6 / −14.2) | 75.4 (+16.6 / −10.0) | **75.4 (+12.8 / −9.1)**, the paper's headline |
-| gwtc_analysis, spectral siren | 105.8 (+44.7 / −33.2) | 78.6 (+38.0 / −26.5) | 74.4 (+25.4 / −18.9) |
+| gwtc_analysis, spectral siren | 107.6 (+45.6 / −35.2) | 81.6 (+41.0 / −26.0) | 75.1 (+25.8 / −19.2) |
+| gwtc_analysis, spectral siren + GW170817 | 80.2 (+22.5 / −12.1) | 75.4 (+17.5 / −9.1) | 74.1 (+13.4 / −8.0) |
 
-FullPop-4.0 run (CC-IN2P3, October 2026): the 141 events of the paper (137 BBH, GW190425, GW190814, GW200115,
-GW230529; GW170817 kept for the bright siren), the priors of Table 5, nested sampling with 100 live points, 7 seeds
-combined (the eighth, on a slow node, was stopped: the seven agreed, medians 73.6–77.4), reweighted to all the
-injections and 1500 PE samples per event (effective sample size 88%). The 90% interval is 44.4–122.9 against
-44.0–111.9: the median is 1.5 higher, the lower bound the same, the upper tail longer.
+FullPop-4.0 run: the 141 events of the paper (137 BBH, GW190425, GW190814, GW200115, GW230529; GW170817 kept for
+the bright siren), the priors of Table 5, nested sampling with 100 live points, 50% of the injections and 1500 PE
+samples per event, 7 seeds combined (the eighth, on a slow node, was stopped: the seven agreed, medians 73.6–77.4),
+reweighted to all the injections and then to all 5000 PE samples:
+
+| PE samples per event (all the injections) | H₀ (km/s/Mpc, median and 68%) | 90% | Effective sample size |
+|---|---|---|---|
+| 1500 | 74.4 (+25.4 / −18.9) | 44.4 – 122.9 | 88% |
+| **5000** | **75.1 (+25.8 / −19.2)** | **44.6 – 125.3** | 83% |
+| GWTC-4.0 paper [\[29\]](../references.md#ref-29) | 72.9 (+21.9 / −18.8) | 44.0 – 111.9 | – |
+
+Unlike PLP (−7.0 km/s/Mpc from 1500 to 5000 PE samples), FullPop-4.0 barely moves (+0.7). The median is 2.2 above the paper's,
+the lower bound the same, the upper tail longer, with either number of PE samples.
 
 The dark-siren rows of the paper combine icarogw and gwcosmo; the data-release values reproduced above
 ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)) are icarogw's alone.
 
 **Caveats.** The models use different events, so no Bayes factor compares FullPop-4.0 with the BBH-only models
-(between those two, MLTP is mildly preferred, log₁₀ B = 0.46). FullPop-4.0's extra precision rests on a handful of
+(between those two, the evidences barely differ, log₁₀ B = 0.08 to 0.46 depending on the runs). FullPop-4.0's extra precision rests on a handful of
 nearby events with a possible neutron star, and on how well they fix the low-mass end, including the PE analysis of
 each: GW190425 has tidal-waveform runs only, and its high-spin one is used, as in the paper.
 
@@ -264,7 +274,7 @@ Practical points:
 
 ### Validation: GWTC-4.0, Power Law + Peak, GLADE+ K band
 
-The GWTC-4.0 dark siren reproduced on CC-IN2P3 (October 2026), with the [galaxy_catalog](galaxy-catalog.md)
+The GWTC-4.0 dark siren reproduced on CC-IN2P3, with the [galaxy_catalog](galaxy-catalog.md)
 defaults (GLADE+ Ks, nside 64, ε = 1), the paper's 137 BBH events, and the Slurm chain (8 seeds of 100 live
 points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injections and then to 5000 PE samples:
 
@@ -313,7 +323,7 @@ points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injection
 
 ### Validation: GWTC-4.0, Multi Peak, GLADE+ K band
 
-The same chain with `--mass-model mltp` (October 2026), on the same catalog, events and injections:
+The same chain with `--mass-model mltp`, on the same catalog, events and injections:
 
 | | H₀ (km/s/Mpc, median and 68%) | 90% |
 |---|---|---|
@@ -329,7 +339,7 @@ The same chain with `--mass-model mltp` (October 2026), on the same catalog, eve
   is the one the samples reproduce.
 - The two corrections go the same way as for Power Law + Peak: all the injections lower H₀ by 6 km/s/Mpc, 5000 PE
   samples by 3 more.
-- Against the spectral siren of the same model (78.6 (+38.0 / −26.5), [Hubble constant (spectral
+- Against the spectral siren of the same model (81.6 (+41.0 / −26.0), [Hubble constant (spectral
   siren)](../science/spectral-siren.md)), the catalog moves the median up and leaves the width almost unchanged,
   as in the release (76.5 and 86.3).
 - Timing: the runs took 15–25 h each, about twice the Power Law + Peak runs (15 parameters instead of 12); the
@@ -487,7 +497,8 @@ all the injections, effective sample size 2564 of 3582. For MLTP it gives 78.5 (
 89.1 with the subset, effective sample size 2592 of 3862. The runner's `reweight --target-inputs`
 also reweights to a likelihood with other inputs: adding the 137th event of the paper (GW191127) this
 way gives 105.8 (+44.7 / −33.2) for PLP and 78.6 (+38.0 / −26.5) for MLTP, with effective sample sizes
-of 68% and 66%. A numeric `--inj-fraction` bypasses the probe; `--inj-fraction 1` samples with all the
+of 68% and 66%. An independent set of runs (137 events, reweighted to all 5000 PE samples too) gives 107.6 and
+81.6 ([comparison](../science/spectral-siren.md#injection-subsets-and-reweighting)). A numeric `--inj-fraction` bypasses the probe; `--inj-fraction 1` samples with all the
 injections, as the paper does, and needs no reweighting.
 
 ### Seeds
@@ -656,7 +667,7 @@ The report leads with the H₀ posterior, compared with the published value of t
 
 ![H0 posterior of the Power Law + Peak reproduction](../img/h0_posterior.png)
 
-*GWTC-4.0, Power Law + Peak: 10 runs with 10% of the injections, reweighted to all of them; the
+*GWTC-4.0, Power Law + Peak: 8 runs with 10% of the injections and 1500 PE samples per event, reweighted to all the injections and 5000 PE samples; the
 published result (orange line, 90% band) and the Planck and SH0ES values for comparison. Details in
 [Hubble constant (spectral siren)](../science/spectral-siren.md).*
 

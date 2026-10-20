@@ -31,7 +31,7 @@ gwtc_analysis hubble_constant --method dark --workdir h0_dark_plp --stages sampl
     --icarogw-python ~/.conda/envs/icarogw/bin/python --seeds 1 2 3 4 --npool 4
 ```
 
-**On a Slurm cluster**: download the galaxies, then the icarogw stages as batch jobs (about 45 min on CC-IN2P3):
+**On a Slurm cluster** ([when and how](../cluster.md)): download the galaxies, then the icarogw stages as batch jobs (about 45 min on CC-IN2P3):
 
 ```bash
 gwtc_analysis galaxy_catalog --workdir /sps/.../glade_k --stages galaxies
