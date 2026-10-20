@@ -516,6 +516,22 @@ The corrected spectrum explains the difference between the models. PLP has a sin
 selection is modelled): the 10 M☉ peak can only be absorbed by the power law. MLTP has a Gaussian for each peak, and
 the 10 M☉ one is narrow and populated by many events: a sharper ruler for the redshift.
 
+The fitted models show it:
+
+![Fitted Power Law + Peak and Multi Peak models over the selection-corrected masses](../img/mass_models_plp_mltp.png)
+
+*The fitted primary-mass models of the two spectral sirens (the runs of the [result](#result)): 20 posterior draws
+and the 90% band of each, over the selection-corrected masses of the figure above. The fits carry no rate (the
+likelihood is scale-free), so each curve is scaled to the rate of the histogram between 7 and 100 M☉. Made by
+`docs/scripts/mass_models_fit.py` (icarogw's models evaluated on the posterior samples) and
+`docs/scripts/mass_models_plp_mltp.py`.*
+
+Every PLP draw has the same shape at low mass: a hump near 7 M☉ made by the smoothing of the power law above
+m_min (m_min ≈ 5 M☉, δ_m ≈ 4 M☉), then a steep fall (α ≈ 3.8) that passes below the 10–12 M☉ bins; its Gaussian sits
+on the bump near 30 M☉. The MLTP draws put a narrow peak at 9–10 M☉ (σ ≈ 1 M☉), on the highest bin of the
+corrected spectrum, and their second Gaussian on the 30 M☉ bump. A narrow peak at a fixed source-frame mass is
+what the spectral siren measures best: its detector-frame position fixes \((1+z)\) for the many light BBHs.
+
 | | PLP | MLTP (Multi Peak) |
 |---|---|---|
 | \(p(m_1)\) | \((1-\lambda)\,\mathcal{P} + \lambda\, \mathcal{G}(\mu_g, \sigma_g)\) | \((1-\lambda_g)\,\mathcal{P} + \lambda_g \left[\lambda_\text{low}\, \mathcal{G}(\mu_\text{low}, \sigma_\text{low}) + (1-\lambda_\text{low})\, \mathcal{G}(\mu_\text{high}, \sigma_\text{high})\right]\) |
