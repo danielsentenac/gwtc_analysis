@@ -615,7 +615,7 @@ quote the paper's values), not on a fresh reading of the paper.
 
 | Test | Origin |
 |---|---|
-| 1. Best-fit gain Λ (11.4) | partly the paper: it reports a median likelihood gain over its posterior and the cloud mode; Λ, the best fits and the seeded fits are `gwtc_analysis`'s |
+| 1. Best-fit gain 𝒟 (11.4) | partly the paper: it reports a median likelihood gain over its posterior and the cloud mode; 𝒟, the best fits and the seeded fits are `gwtc_analysis`'s |
 | 2. Background (11.5) | added by `gwtc_analysis` |
 | 3. Sensitivity injections (11.6) | added by `gwtc_analysis` |
 | 4. Bayes factor (11.7) | the paper: its actual claim |
@@ -703,22 +703,23 @@ So the cloud model has **two extra parameters**, ρ̄_φ and α, on top of the ~
   the evidence** Z = ∫ L × prior. "Live points" set its resolution; more is slower and more accurate.
 - **Chirp mass** 𝓜: the mass combination that controls the inspiral speed; the best-measured mass.
 
-### 11.4 Test 1: does the cloud fit better? (the statistic Λ)
+### 11.4 Test 1: does the cloud fit better? (the statistic 𝒟)
 
-**Origin: partly the paper.** The paper reports the **median** likelihood gain over its posterior samples (Δln L ≈ 3.7, Supplemental Material, Fig. 8 inset) and a cloud posterior at a lower chirp mass (Fig. 8); it gives no best fit. The statistic Λ = 2Δln L between best fits and the seeded best-fit procedure are `gwtc_analysis`'s.
+**Origin: partly the paper.** The paper reports the **median** likelihood gain over its posterior samples (Δln L ≈ 3.7, Supplemental Material, Fig. 8 inset) and a cloud posterior at a lower chirp mass (Fig. 8); it gives no best fit. The deviance 𝒟 = 2Δln L between best fits and the seeded best-fit procedure are `gwtc_analysis`'s.
 
-  Λ = 2 (ln L_cloud − ln L_vacuum) at the two best fits
+  𝒟 = 2 (ln L_cloud − ln L_vacuum) at the two best fits
 
-**Its name: the likelihood-ratio test statistic** (Neyman–Pearson), also called the *deviance* in
-statistics and *TS* in gamma-ray astronomy. "LR" is the likelihood ratio L̂_cloud / L̂_vacuum, and Λ is
-twice its logarithm. The terms to look up for what follows: *nested models*, *Wilks' theorem* (Λ ~ χ²_k
+**Its name: the deviance 𝒟**, the likelihood-ratio test statistic (Neyman–Pearson), called *TS* in
+gamma-ray astronomy. "LR" is the likelihood ratio L̂_cloud / L̂_vacuum, and 𝒟 is twice its logarithm.
+Earlier versions of the mode called it Λ; the result files keep the key `Lambda`. In population
+analyses Λ means the hyperparameters, p_pop(θ | Λ), which is why the statistic was renamed. The terms to look up for what follows: *nested models*, *Wilks' theorem* (𝒟 ~ χ²_k
 under the null hypothesis, k the number of extra parameters), *Chernoff's boundary case* (a parameter at
 the edge of its range), *Davies' problem* or the *look-elsewhere effect* (a parameter undefined under the
 null), and the *empirical (Monte Carlo) p-value* used as the remedy (Test 2).
 
-**Λ is always ≥ 0**: the cloud model contains the vacuum one (ρ̄_φ = 0), so it can always do at least as
-well. Two extra parameters will always absorb some noise. So a positive Λ means nothing by itself: you
-need to know **what Λ noise alone gives** (Test 2). The usual χ² rule doesn't apply either, because
+**𝒟 is always ≥ 0**: the cloud model contains the vacuum one (ρ̄_φ = 0), so it can always do at least as
+well. Two extra parameters will always absorb some noise. So a positive 𝒟 means nothing by itself: you
+need to know **what 𝒟 noise alone gives** (Test 2). The usual χ² rule doesn't apply either, because
 ρ̄_φ = 0 sits at the edge of its range and α does nothing when ρ̄_φ = 0.
 
 **The difficulty: finding the cloud best fit.** The likelihood has two separate peaks:
@@ -731,7 +732,7 @@ need to know **what Λ noise alone gives** (Test 2). The usual χ² rule doesn't
   in the bulk of that posterior: a fit finds the highest point, the posterior weighs the volume.
 
 An optimizer started at the vacuum best fit stays on the vacuum peak. The first version of the mode did
-that (the `profile` step: a grid of α and of dephasings around the vacuum fit) and found only Λ = 0.96:
+that (the `profile` step: a grid of α and of dephasings around the vacuum fit) and found only 𝒟 = 0.96:
 it missed the cloud peak. The current version takes its starting points from the **nested sampling with
 the superradiance prior**, which explores the whole space and does find the cloud peak:
 
@@ -740,25 +741,25 @@ the superradiance prior**, which explores the whole space and does find the clou
    a fine scan;
 3. keep the 4 best as **seeds**, and run two Nelder–Mead passes from each with all the parameters free.
 
-This is the `seeded` stage. It gives **Λ = 8.98** for GW190728:
+This is the `seeded` stage. It gives **𝒟 = 8.98** for GW190728:
 
 | | ln L ratio | |
 |---|---|---|
 | vacuum best fit | 91.81 | 𝓜 = 10.07 M_☉ (detector frame), q = 0.55 |
 | cloud best fit | 96.30 | 𝓜 = 10.11 M_☉, ρ̄_φ = 5.8 × 10⁶ g/cm³, α = 0.19 (m_φ ≈ 1.1 × 10⁻¹² eV) |
 
-### 11.5 Test 2: how often does noise give such a Λ? (the background)
+### 11.5 Test 2: how often does noise give such a 𝒟? (the background)
 
 **Origin: added by gwtc_analysis.** Not in the paper: no published value to compare with.
 
 1. Take 150 stretches of real detector noise, **off-source**: within an hour of the event, at least
    64 s away from it, with the same length.
 2. In each, **inject** the vacuum best fit: a pure vacuum signal, by construction without a cloud.
-3. Run **exactly the same procedure** (vacuum fit, seeded cloud fits) and compute Λ.
-4. The p-value is (k + 1)/(n + 1), with k of the n segments giving Λ ≥ 8.98.
+3. Run **exactly the same procedure** (vacuum fit, seeded cloud fits) and compute 𝒟.
+4. The p-value is (k + 1)/(n + 1), with k of the n segments giving 𝒟 ≥ 8.98.
 
-Result: 2 of 151 (the event and one segment with a loud noise transient, Λ = 112), so **p ≈ 0.013**
-(0.007 without that segment). 147 of 150 segments give Λ < 4.1. So the event's Λ is unusual for pure
+Result: 2 of 151 (the event and one segment with a loud noise transient, 𝒟 = 112), so **p ≈ 0.013**
+(0.007 without that segment). 147 of 150 segments give 𝒟 < 4.1. So the event's 𝒟 is unusual for pure
 noise around a vacuum signal, at about the 1% level.
 
 **Caveat:** the seeds come from the event's own posterior. The background therefore asks how often
@@ -771,8 +772,8 @@ in that sense optimistic.
 
 The reverse check: inject the **cloud** best fit into the same 150 noise segments and rerun.
 
-Result: Λ ≈ 25 (5–95%: 9.9–44), with ρ̄_φ and α recovered without bias. Only 4.7% of these injections
-give Λ ≤ 8.98.
+Result: 𝒟 ≈ 25 (5–95%: 9.9–44), with ρ̄_φ and α recovered without bias. Only 4.7% of these injections
+give 𝒟 ≤ 8.98.
 
 So the event sits **between two distributions**: above what noise gives around vacuum (p ≈ 0.01), and
 below what this cloud would give (≈ 5%). A weaker cloud, or a noise fluctuation on a vacuum signal,
@@ -783,7 +784,7 @@ fits both better than the best-fit cloud.
 **Origin: the paper.** Its Bayes factors, priors (SM Eqs. 9–10) and sampler settings.
 
 Nested sampling computes the evidence Z of each model, and the Bayes factor B = Z_cloud / Z_vacuum.
-Unlike Λ, the evidence **penalizes extra parameters**: it averages the likelihood over the prior, so a
+Unlike 𝒟, the evidence **penalizes extra parameters**: it averages the likelihood over the prior, so a
 model that fits better only in a tiny corner of a wide prior is penalized (Occam's razor). That's why the
 Bayes factor depends on the prior on (ρ̄_φ, α). Two priors are used:
 
@@ -814,9 +815,9 @@ ln L of the samplings, read from the CC-IN2P3 work directory):
 |---|---|---|
 | median Δln L, superradiance | 4.20 | ≈ 3.7 (SM, Fig. 8 inset) |
 | median Δln L, agnostic | 4.05 | |
-| Δln L between best fits (Λ/2) | 4.49 | not given |
+| Δln L between best fits (𝒟/2) | 4.49 | not given |
 
-The paper reports no best fit, no Λ, no background and no p-value.
+The paper reports no best fit, no 𝒟, no background and no p-value.
 
 Chirp-mass posteriors (detector frame, median and 90%):
 
@@ -862,10 +863,10 @@ open question.
 | Stage | What it does | Cost (GW190728) |
 |---|---|---|
 | `prepare` | download the PE file and the strain (event + 150 off-source segments), store the settings, PSDs, best samples | once |
-| `fit` | vacuum best fit, then the first cloud fits (`profile` grid + `polish`): the old Λ = 0.96 | ~2 CPU-h |
+| `fit` | vacuum best fit, then the first cloud fits (`profile` grid + `polish`): the old 𝒟 = 0.96 | ~2 CPU-h |
 | `background` | Test 2 with those first fits | ~2 CPU-h per segment |
 | `sample` | nested sampling: vacuum, agnostic, superradiance → Bayes factors and the seeds | ~1 day on 64 CPUs each (cluster) |
-| `seeded` | cloud fits from the 4 seeds, on the event and the 150 segments → Λ = 8.98 and its p-value | ~1 CPU-h per segment |
+| `seeded` | cloud fits from the 4 seeds, on the event and the 150 segments → 𝒟 = 8.98 and its p-value | ~1 CPU-h per segment |
 | `report` | HTML report, TSV, plots | seconds |
 
 The default run (`prepare fit report`) works on a laptop but gives only the first, incomplete result.
@@ -874,13 +875,13 @@ run by hand: `python -m gwtc_analysis.scalar_cloud seeded --inject cloud`.
 
 ### 11.11 The bottom line
 
-- The cloud model fits GW190728 better than vacuum (Λ ≈ 9), more than noise usually allows
+- The cloud model fits GW190728 better than vacuum (𝒟 ≈ 9), more than noise usually allows
   (p ≈ 0.01, optimistic).
   This frequentist check is the mode's own: the paper has no background or p-value.
 - But the Bayes factor is weak (ln B ≈ 1.3 with the physical prior, ≈ −0.8 to +1.9 with the agnostic one,
   depending on its upper end).
 - The gain comes from a narrow band around 30 Hz in one detector, not from the whole inspiral.
-- And Λ is a screening statistic: eccentricity, waveform errors, calibration or a noise feature at low
+- And 𝒟 is a screening statistic: eccentricity, waveform errors, calibration or a noise feature at low
   frequency could also make vacuum fit the inspiral worse. The claim rests on the Bayes factor under a
   physical prior.
 
@@ -1080,12 +1081,12 @@ knowledge rather than checked against the paper itself, so check them before quo
 | superradiance window 0.02 x^(1/9) ≤ α/(1+q) ≤ 0.11 x^(1/15) | arXiv:2510.17967, Supplemental Material Eq. 9 (code: `superradiance_window()`) |
 | saturation density 1.3 × 10⁸ g/cm³ … | arXiv:2510.17967, Supplemental Material Eq. 10 (code: `superradiance_density_max()`) |
 | cloud mass ρ̄_φ r_φ³ < 0.1 M | the paper's agnostic prior; code: `cloud_mass_fraction()` |
-| Λ = 2(ln L_cloud − ln L_vacuum), background p = (k+1)/(n+1) | choices of `gwtc_analysis` (`scalar_cloud.py`, `scalar_cloud_mode.py`), not the paper's |
+| 𝒟 = 2(ln L_cloud − ln L_vacuum), background p = (k+1)/(n+1) | choices of `gwtc_analysis` (`scalar_cloud.py`, `scalar_cloud_mode.py`), not the paper's |
 | ln L ≈ SNR²/2 at the best fit | property of the matched-filter likelihood for a well-fitting template |
 | evidence Z = ∫ L π, nested sampling | Skilling 2006, *Bayesian Analysis* 1, 833; dynesty: Speagle 2020, *MNRAS* 493, 3132; bilby: Ashton et al. 2019, *ApJS* 241, 27 (from memory) |
 | sampler settings (1000 live points, naccept 60, dlogz 0.1) | the paper's, as recorded in `SAMPLER_SETTINGS` |
 | IMRPhenomXPHM | Pratten et al. 2021, *Phys. Rev. D* 103, 104056 (from memory) |
-| GW190728 results (Λ = 8.98, ln B, ρ̄_φ, band table) | runs of this mode, as reported in `docs/modes/scalar-cloud.md` |
+| GW190728 results (𝒟 = 8.98, ln B, ρ̄_φ, band table) | runs of this mode, as reported in `docs/modes/scalar-cloud.md` |
 | paper's ln B = 3.5 and 0.4, ρ̄_φ ≈ 0.7 × 10⁸ | arXiv:2510.17967, as quoted in `docs/modes/scalar-cloud.md` |
 | m_φ ≈ 6.5 × 10⁻¹³ eV for α = 0.1, M = 20 M_☉ | m_φ = α ħc³/(GM); code: `scalar_mass_ev()` |
 | r_φ ≈ 800 km, cloud mass ~10⁻⁴ M for the best fit | computed in this session from the formulas above |
