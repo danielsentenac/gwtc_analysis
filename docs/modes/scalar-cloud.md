@@ -29,17 +29,17 @@ that analysis and adds a frequentist check around it.
 | the agnostic prior: α ≤ (1+q)/2, cloud mass below 0.1 M, uniform density | section on the GWTC-3 events |
 | the superradiance prior for a delay \(\tau_d\) | SM Eqs. 9–10 |
 | the binary priors of GWTC-2.1, nested sampling with dynesty in bilby (1000 live points, naccept 60, dlogz 0.1) | analysis settings of the paper, as recorded in `scalar_cloud.py` |
-| the Bayes factors, the density and α posteriors | ln B ≈ 3.5 and 0.4; SM Fig. 5 |
+| the Bayes factors, the density and α posteriors | ln B ≈ 3.5 (superradiance) and 0.4 (agnostic); Fig. 3 (GW190728), SM Fig. 5 (all events) |
 | the median likelihood gain over the posterior and the chirp-mass posteriors | SM, Fig. 8 and its inset |
 
 **Done only in gwtc_analysis, and why:**
 
 | Element | Why |
 |---|---|
-| best fits of both models and the statistic Λ = 2 Δln L | a Bayes factor costs about a day on 64 CPUs per run; a best fit costs about an hour, so Λ can be computed on the event *and* on 150 noise segments |
+| best fits of both models and the **likelihood-ratio statistic** Λ = 2 Δln L ([below](#the-test)) | a Bayes factor costs about a day on 64 CPUs per run; a best fit costs about an hour, so Λ can be computed on the event *and* on 150 noise segments |
 | fits started from the samples of the superradiance sampling (`seeded`) | the cloud mode is separate from the vacuum one: fits started from the vacuum best fit miss it (Λ = 0.96 instead of 8.98) |
 | the background: the vacuum best fit injected into 150 off-source segments, p-value | the Bayes factor says which model the data prefer *given the priors*; it does not say how often noise alone produces such a preference. The background measures that, independently of the prior on the cloud |
-| the sensitivity: the cloud best fit injected into the same segments | tells whether the event's Λ is what a real cloud of that kind would give (it is lower: 4.7% of injections at or below it) |
+| the sensitivity (an injection–recovery test): the cloud best fit injected into the same segments | tells whether the event's Λ is what a real cloud of that kind would give (it is lower: 4.7% of injections at or below it) |
 | the gain by detector and frequency band | a cloud dephases the whole low-frequency inspiral; a gain concentrated in a narrow band of one detector points to noise rather than to the effect |
 | the agnostic Bayes factor against the upper end of the density prior | the paper does not give that upper end, and the agnostic Bayes factor depends on it |
 | the boson mass in continuous waves | connects the result to the [continuous_waves](continuous-waves.md) mode |
@@ -73,7 +73,8 @@ I = \sum_{\ell, m > 0} \pi^2 \beta^{\frac14 + \frac{\ell}{2}}
 \left[\frac{Y_{\ell m}(\pi/2, 0)}{\Gamma(\ell + 3/2)}\right]^2 ,
 \]
 
-with \(\bar\rho_\phi\) the mean density of the field within \(r_\phi\), \(v = (M\Omega)^{1/3}\),
+with \(\bar\rho_\phi\) "the average mass density of scalars in the region \(r \lesssim r_\phi\)" (the paper,
+after its Eq. 2; the code takes the cloud mass as \(\bar\rho_\phi r_\phi^3\), without a \(4\pi/3\)), \(v = (M\Omega)^{1/3}\),
 \(\beta = \alpha^2/v^2\), \(q_2 = m_2/M\), and the sum up to \(\ell = 4\) (the \(\ell = 2\) term dominates). Against
 the gravitational-wave loss \(\dot L_\text{GW} = \frac{32}{5}\eta^2 M v^7\) the orbit shrinks faster by the factor
 \(1 + \delta\), \(\delta = \frac{5\pi}{8}\,\bar\rho_\phi M^2 I/(\eta^2 v^{11})\), which grows as about
@@ -102,21 +103,28 @@ dephase the (2, 2) mode by about 1.6 rad at 20 Hz and 0.13 rad at 30 Hz.
 
 ## The test
 
-**Best fit.** The vacuum model is fitted from the catalog's best samples (Nelder–Mead in coordinates whitened by
+**Best fit.** The vacuum model is fitted from the catalog's best samples (Nelder–Mead, the downhill-simplex
+optimizer, in coordinates whitened by
 the covariance of the 2000 highest-likelihood samples: the likelihood is too narrow for a plain optimizer). The cloud
 model has a separate mode, which fits started from the vacuum best fit do not reach: they stay within a few tenths of
 ln L of vacuum. (In the paper, the cloud posterior sits at a lower chirp mass than the vacuum one, its Fig. 8: a
 lower chirp mass slows the inspiral, the cloud speeds it up.) The cloud fits therefore start from the 4 best samples of
 the nested sampling of the event with the superradiance prior (the merger time of each set by a scan of the
 fixed-time likelihood, the sampling marginalizes it), and are run twice with the binary and the cloud free. The
-statistic is
+statistic is the **likelihood-ratio test statistic** (Neyman–Pearson; the same quantity is called the *deviance* in
+statistics and *TS* in gamma-ray astronomy):
 
 \[
-\Lambda = 2\,(\ln L_\text{cloud} - \ln L_\text{vacuum}) \;\ge\; 0 .
+\Lambda = 2\,(\ln \hat L_\text{cloud} - \ln \hat L_\text{vacuum}) \;\ge\; 0 ,
 \]
 
-The cloud model contains vacuum, so Λ is positive even without a cloud, and its distribution is not the textbook
-χ² with two degrees of freedom: the density sits at the edge of its range, and α does nothing when it vanishes.
+with \(\ln \hat L\) the log-likelihood ratio of bilby (signal against pure noise) at each model's best fit, at fixed
+merger time; the noise term cancels in the difference. The cloud model contains vacuum (it is *nested*), so Λ is
+positive even without a cloud. For nested models, **Wilks' theorem** would make Λ follow a χ² distribution with two
+degrees of freedom (the two extra parameters, \(\bar\rho_\phi\) and α) in noise around a vacuum signal. Two of its
+conditions fail here: the vacuum value \(\bar\rho_\phi = 0\) is on the **boundary** of the parameter space
+(Chernoff 1954), and α is **not identifiable** when \(\bar\rho_\phi = 0\) (Davies 1977; in particle physics, the
+*look-elsewhere effect*). So the distribution of Λ is not assumed: it is measured on noise, below.
 A first version stopped at a profile of the cloud on a grid of α and of the dephasing at 20 Hz from the vacuum best
 fit (the `profile` step, which the `fit` stage still runs before its `polish` step): Λ = 0.96 for GW190728, the
 cloud mode missed.
@@ -124,13 +132,24 @@ cloud mode missed.
 **Background.** The vacuum best fit is injected into off-source GWOSC noise, within an hour of the event, and the
 same procedure is run on each segment: in the `background` stage from the injected vacuum parameters, in the
 `seeded` stage from the same starting points as the event, moved to the time of the injection. The p-value is
-\((k+1)/(n+1)\) for \(k\) of the \(n\) segments with Λ at least the event's. The starting points come from the event's
+\((k+1)/(n+1)\) for \(k\) of the \(n\) segments with Λ at least the event's: an **empirical (Monte Carlo)
+p-value**, the event counted as one of the trials (e.g. Davison & Hinkley 1997), as the off-source background of GW
+searches gives their false-alarm rates. The starting points come from the event's
 own posterior: the background measures how often noise produces, in that region of the parameter space, an
 improvement as large as the event's, not how often it does so anywhere (the event's sampling searched the whole
 prior). The p-value is in that sense optimistic.
 
-**Bayes factor.** Nested sampling (bilby, dynesty, acceptance-walk, naccept 60, dlogz 0.1) of the vacuum model
-and of the cloud model with two priors on the field:
+**Bayes factor.** The Bayes factor is the ratio of the **evidences** of the two models, \(B = Z_\text{cloud} /
+Z_\text{vacuum}\), with \(Z = \int L(\theta)\,\pi(\theta)\,d\theta\) the likelihood averaged over the prior π. ln B > 0
+favours the cloud; on the usual scale (Kass & Raftery 1995), ln B of 1–3 is positive evidence, 3–5 strong. Unlike Λ,
+the evidence penalizes the prior volume the extra parameters open (the *Occam factor*): roughly
+\(\ln B \approx \Lambda/2 + \ln(\text{posterior volume} / \text{prior volume})\) (Laplace approximation), so it
+depends on the prior on the cloud. The evidences come from **nested sampling** (Skilling 2006) with dynesty in bilby:
+`nlive` live points explore the prior, `naccept` 60 accepted steps of the `acceptance-walk` move replace each one,
+and the run stops when the remaining evidence is below `dlogz` 0.1 in ln Z. The cloud model is sampled with two
+priors on the field. The **superradiance** prior keeps only clouds that a spinning black hole can grow by
+superradiance (it amplifies the field's bound waves while the horizon rotates faster than them, losing spin) before
+the merger, and that have not yet decayed by annihilation into gravitons:
 
 | Prior | α | \(\bar\rho_\phi\) |
 |---|---|---|
@@ -207,15 +226,15 @@ best fit (`scalar_cloud.py seeded --inject cloud`).
 
 | Result | Here | Roy et al. |
 |---|---|---|
-| Λ | **8.98** | not used |
+| Λ, likelihood-ratio statistic | **8.98** | not used |
 | ln L cloud − ln L vacuum, best fits | 4.49 (Λ/2) | not given |
-| ln L cloud − ln L vacuum, posterior medians (time-marginalized ln L of the samplings) | 4.20 superradiance, 4.05 agnostic | ≈ 3.7 (Supplemental Material, Fig. 8 inset) |
+| ln L cloud − ln L vacuum, posterior medians (time-marginalized ln L of the samplings, lower than the fixed-time best fits above) | 4.20 superradiance, 4.05 agnostic | ≈ 3.7 (Supplemental Material, Fig. 8 inset) |
 | chirp mass (detector frame), posterior median and 90% | vacuum 10.14 (10.05–10.24), superradiance 9.89 (9.73–10.18), agnostic 9.88 (9.72–10.12) M☉ | vacuum 10.14 (+0.10/−0.09), cloud 9.69 (+0.27/−0.28) M☉ (Fig. 8) |
 | background | 2 of 151 at Λ ≥ 8.98 (the event and one segment with a loud transient, Λ = 112), p = 0.013; 0.007 without that segment; 147 of 150 below 4.1 | none (the paper's statistic is the Bayes factor) |
 | injections of the cloud best fit (sensitivity) | Λ = 25 (5–95%: 9.9–44); 4.7% at or below the event's 8.98 | none |
-| ln B, superradiance prior (τ_d = 10⁶ yr) | **1.34 ± 0.30** | 3.5 |
+| ln B, superradiance prior (τ_d = 10⁶ yr); ± the statistical uncertainty of the nested-sampling evidences | **1.34 ± 0.30** | 3.5 |
 | ln B, agnostic prior (\(\bar\rho_\phi \le 10^9\) g/cm³) | **−0.82 ± 0.31** | 0.4 (upper end of the prior not given) |
-| \(\bar\rho_\phi\), agnostic (90%) | 3.2 (0.9–5.9) × 10⁷ g/cm³ | ≈ 0.7 × 10⁸ |
+| \(\bar\rho_\phi\), agnostic (90%) | 3.2 (0.9–5.9) × 10⁷ g/cm³ | ≈ 0.7 × 10⁸ (read off Fig. 3, not stated in the text) |
 | \(\bar\rho_\phi\), superradiance | (0.18 ± 0.08) × 10⁸ g/cm³ | |
 
 The agnostic Bayes factor depends on the upper end of the uniform prior on \(\bar\rho_\phi\), which the paper does not
@@ -270,9 +289,8 @@ vacuum signal, fits both better than the best-fit cloud.
 
 **Against the paper.** The paper's statistic is the Bayes factor: it gives no best fit, no background and no
 p-value, so Λ, the background and the injections have no published counterpart. What can be compared: a cloud mode
-with a density of 10⁷ g/cm³ and α of a few 0.1; a likelihood gain of 4.49 between the best fits, against a median of
-3.7 over the paper's posterior (a median over samples lies below the maximum: consistent, but not the same quantity);
-a median likelihood gain over the posterior of 4.2 (superradiance) and 4.05 (agnostic), against the paper's 3.7; an
+with a density of 10⁷ g/cm³ and α of a few 0.1; a median likelihood gain over the posterior of 4.2 (superradiance)
+and 4.05 (agnostic), against the paper's 3.7 (the best-fit gain, 4.49, is a maximum, not comparable); an
 agnostic Bayes factor that matches theirs for a prior up to about \(3 \times 10^8\) g/cm³; but a smaller Bayes
 factor with the superradiance prior (1.3 against 3.5) and a density 2 to 4 times lower. The chirp-mass shift is
 reproduced in the posteriors, smaller: the vacuum posterior, 10.14 M☉ (detector frame), is the paper's exactly
@@ -314,8 +332,9 @@ GW190517 constraint. The tension concerns the boson, not the fit, and the mode d
 - The torque is Newtonian and valid for \(\beta \ll 1\); close to the merger the model is extrapolated, and the
   correction is switched off there.
 - A large Λ means that the vacuum model fits the inspiral worse than usual. Eccentricity, waveform systematics,
-  calibration or a noise feature at low frequency can do the same: Λ is a screening statistic, the Bayes factor
-  under a physical prior the actual claim.
+  calibration or a noise feature at low frequency can do the same: Λ is a ranking statistic, as in a search, and
+  its p-value says only that vacuum fits unusually badly; the Bayes factor under a physical prior is the actual
+  claim.
 - This likelihood gives ln L = 89.6 at the catalog's best sample of GW190728, against 96.8 in the PE file: the phases
   agree in every detector, the difference comes from the noise-spectrum, window and calibration handling. Both
   models use the same likelihood, so the comparison is not affected.
