@@ -581,7 +581,7 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
         if seeded_f.exists():
             paras.append(f"The cloud fits start from the {len(res['fits'])} best samples (at fixed merger time) of "
                          "the nested sampling of the event with the superradiance prior: fits started from the vacuum "
-                         "best fit stay in its mode, a few ln L units below the cloud mode at a lower chirp mass. The "
+                         "best fit stay in its mode, a few ln L units below the cloud mode found by the sampling. The "
                          "same starting points, moved to the time of each injection, are used on the background, which "
                          "therefore does not include the event's search of the parameter space: its p-value is "
                          "optimistic.")
