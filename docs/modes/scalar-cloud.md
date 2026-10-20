@@ -15,6 +15,47 @@ gwtc_analysis scalar_cloud --stages seeded --executor slurm --submit ...   # onc
 gwtc_analysis scalar_cloud --stages report                     # once the jobs are done
 ```
 
+## What comes from the paper, what is added here
+
+The paper's claim is a **Bayes factor**: nested sampling of the event with the vacuum and the cloud models, under
+an agnostic and a superradiance prior. It reports no best fit, no background and no p-value. The mode reproduces
+that analysis and adds a frequentist check around it.
+
+**Reproduced from the paper** (same model, priors and settings, compared in [GW190728_064510](#gw190728_064510)):
+
+| Element | Source in the paper |
+|---|---|
+| the IMRPhenomXPHM_Scalar waveform: torque, dephasing, end of the correction at \(M f_c = 0.018\) | Eq. 2; Supplemental Material (SM) Eq. 6 |
+| the agnostic prior: α ≤ (1+q)/2, cloud mass below 0.1 M, uniform density | section on the GWTC-3 events |
+| the superradiance prior for a delay \(\tau_d\) | SM Eqs. 9–10 |
+| the binary priors of GWTC-2.1, nested sampling with dynesty in bilby (1000 live points, naccept 60, dlogz 0.1) | analysis settings of the paper, as recorded in `scalar_cloud.py` |
+| the Bayes factors, the density and α posteriors | ln B ≈ 3.5 and 0.4; SM Fig. 5 |
+| the median likelihood gain over the posterior and the chirp-mass posteriors | SM, Fig. 8 and its inset |
+
+**Done only in gwtc_analysis, and why:**
+
+| Element | Why |
+|---|---|
+| best fits of both models and the statistic Λ = 2 Δln L | a Bayes factor costs about a day on 64 CPUs per run; a best fit costs about an hour, so Λ can be computed on the event *and* on 150 noise segments |
+| fits started from the samples of the superradiance sampling (`seeded`) | the cloud mode is separate from the vacuum one: fits started from the vacuum best fit miss it (Λ = 0.96 instead of 8.98) |
+| the background: the vacuum best fit injected into 150 off-source segments, p-value | the Bayes factor says which model the data prefer *given the priors*; it does not say how often noise alone produces such a preference. The background measures that, independently of the prior on the cloud |
+| the sensitivity: the cloud best fit injected into the same segments | tells whether the event's Λ is what a real cloud of that kind would give (it is lower: 4.7% of injections at or below it) |
+| the gain by detector and frequency band | a cloud dephases the whole low-frequency inspiral; a gain concentrated in a narrow band of one detector points to noise rather than to the effect |
+| the agnostic Bayes factor against the upper end of the density prior | the paper does not give that upper end, and the agnostic Bayes factor depends on it |
+| the boson mass in continuous waves | connects the result to the [continuous_waves](continuous-waves.md) mode |
+
+**Implementation choices of gwtc_analysis**, where the paper does otherwise or does not say:
+
+- the correction is applied to each mode in the J frame, not in the co-precessing frame (identical for aligned
+  spins);
+- \(1/(1+\delta)\) is kept, not linearised;
+- the agnostic upper end of the density is \(10^9\) g/cm³ (not given in the paper);
+- the likelihood has no calibration model and uses the PSDs of the PE file;
+- the two cloud samplings of GW190728 used 500 live points instead of 1000 (cost).
+
+These are the likely causes of the remaining differences (a superradiance Bayes factor of 1.3 against 3.5, a
+density 2 to 4 times lower, a chirp-mass shift of 2.5% against 4.4%): see [Against the paper](#gw190728_064510).
+
 ## The model
 
 An ultralight boson of mass \(m_\phi\) around a binary of total mass \(M\) forms a bound structure of radius
