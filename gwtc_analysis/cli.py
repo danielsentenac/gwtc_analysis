@@ -376,7 +376,7 @@ def build_parser() -> argparse.ArgumentParser:
                            "sbatch scripts in <workdir>/slurm (probe, plan, one array task per seed, combine, reweight); "
                            "run the report stage afterwards.")
     p_h0.add_argument("--slurm-option", action="append", default=[], metavar="OPT",
-                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=16G).")
+                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=<partition> --slurm-option=--mem=16G).")
     p_h0.add_argument("--slurm-env-setup", default="", help="Shell lines run first in each Slurm job.")
     p_h0.add_argument("--submit", action="store_true", help="With --executor slurm: submit the scripts.")
     p_h0.add_argument("--settings", default=None, metavar="FILE",
@@ -428,7 +428,7 @@ def build_parser() -> argparse.ArgumentParser:
             "line-of-sight catalog by its pixelated pipeline. The defaults are those of the GWTC-4.0 cosmology\n"
             "analysis (nside 64, median apparent-magnitude threshold in nside-32 pixels, luminosity weighting).\n"
             "The chunked stages run --jobs chunks in parallel (--executor local) or as Slurm array jobs\n"
-            "(--executor slurm, e.g. on CC-IN2P3), which deeper catalogs (DES, Rubin) need.\n"
+            "(--executor slurm), which deeper catalogs (DES, Rubin) need.\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -488,7 +488,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_gc.add_argument("--executor", choices=("local", "slurm"), default="local",
                       help="local: parallel processes; slurm: write sbatch array scripts chained by dependencies.")
     p_gc.add_argument("--slurm-option", action="append", default=[], metavar="OPT",
-                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=8G).")
+                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=<partition> --slurm-option=--mem=8G).")
     p_gc.add_argument("--slurm-assembly-option", action="append", default=[], metavar="OPT",
                       help="Extra #SBATCH option of the init, finish and summary jobs, which hold the whole catalog in "
                            "memory (e.g. --slurm-assembly-option=--mem=16G); repeatable.")
@@ -632,7 +632,7 @@ def build_parser() -> argparse.ArgumentParser:
                            "afterwards.")
     p_sc.add_argument("--python", default=None, help="With --executor slurm: Python of the jobs (default: this one).")
     p_sc.add_argument("--slurm-option", action="append", default=[], metavar="OPT",
-                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc).")
+                      help="Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=<partition>).")
     p_sc.add_argument("--slurm-env-setup", default="", help="Shell lines run first in each Slurm job.")
     p_sc.add_argument("--submit", action="store_true", help="With --executor slurm: submit the scripts.")
     p_sc.add_argument("--out-report", default="scalar_cloud.html", help="Output HTML report path.")

@@ -270,7 +270,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--reweight-pe-samples` | `` | PE samples per event of the reweighting target (default: those of the runs). |
 | `--icarogw-python` | `` | Python interpreter of the icarogw environment (default: the current one). |
 | `--executor` | `local` | local: runs on this machine; slurm: the sample, combine and reweight stages as a chain of sbatch scripts in <workdir>/slurm (probe, plan, one array task per seed, combine, reweight); run the report stage afterwards. |
-| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=16G). |
+| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=<partition> --slurm-option=--mem=16G). |
 | `--slurm-env-setup` | `` | Shell lines run first in each Slurm job. |
 | `--submit` | `False` | With --executor slurm: submit the scripts. |
 | `--settings` | `` | JSON (or YAML) file of option values, keys as the long option names (e.g. pe-samples, neff-pe); options given on the command line override it. |
@@ -331,7 +331,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--nshards` | `1024` | Shard files of the pixelation (by pixel range). |
 | `--jobs` | `4` | Chunks of the chunked stages (parallel processes or array jobs). |
 | `--executor` | `local` | local: parallel processes; slurm: write sbatch array scripts chained by dependencies. |
-| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc --slurm-option=--mem=8G). |
+| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=<partition> --slurm-option=--mem=8G). |
 | `--slurm-assembly-option` | `[]` | Extra #SBATCH option of the init, finish and summary jobs, which hold the whole catalog in memory (e.g. --slurm-assembly-option=--mem=16G); repeatable. |
 | `--slurm-env-setup` | `` | Shell lines run first in each Slurm job (e.g. 'source /path/conda.sh; conda activate icarogw'). |
 | `--submit` | `False` | With --executor slurm: submit the scripts. |
@@ -408,7 +408,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--npool` | `32` | With --executor slurm: CPUs of each sampling job. |
 | `--executor` | `local` | slurm: the fit, background, sample and seeded stages as sbatch scripts in <workdir>/slurm, <workdir>/slurm_sample and <workdir>/slurm_seeded; run the report stage afterwards. |
 | `--python` | `` | With --executor slurm: Python of the jobs (default: this one). |
-| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=htc). |
+| `--slurm-option` | `[]` | Extra #SBATCH option, repeatable (e.g. --slurm-option=--partition=<partition>). |
 | `--slurm-env-setup` | `` | Shell lines run first in each Slurm job. |
 | `--submit` | `False` | With --executor slurm: submit the scripts. |
 | `--out-report` | `scalar_cloud.html` | Output HTML report path. |

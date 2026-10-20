@@ -14,7 +14,7 @@ Stages of `run_galaxy_catalog` (each restartable; the icarogw part runs in the i
 The chunked stages (``pixels``, ``prepare``, ``interpolate``) run ``jobs`` chunks: as parallel processes with
 ``executor="local"``, or as Slurm array jobs with ``executor="slurm"`` (scripts written to <workdir>/slurm, chained
 with ``afterok`` dependencies and submitted with ``submit=True``): the way to build catalogs deeper than GLADE+
-(DES, Rubin) on a cluster such as CC-IN2P3.
+(DES, Rubin) on a cluster.
 
 The defaults are those of the GWTC-4.0 cosmology analysis (arXiv:2509.04348, Sections 2.2 and 3.2): GLADE+ K band,
 HEALPix nside 64 for the catalog, apparent-magnitude threshold at the median in nside-32 pixels, luminosity

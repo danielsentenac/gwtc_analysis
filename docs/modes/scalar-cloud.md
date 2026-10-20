@@ -10,7 +10,7 @@ tentative evidence for a scalar environment.
 gwtc_analysis scalar_cloud                                     # GW190728: prepare, first best fit, report (laptop, ~2 h)
 # the headline result (Λ = 8.98) needs the samplings, then the fits seeded from them:
 gwtc_analysis scalar_cloud --stages sample --executor slurm --submit \
-    --python /path/to/env/bin/python --slurm-option=--partition=htc --slurm-option=--licenses=sps
+    --python /path/to/env/bin/python --slurm-option=--partition=<partition>
 gwtc_analysis scalar_cloud --stages seeded --executor slurm --submit ...   # once the superradiance sampling is done
 gwtc_analysis scalar_cloud --stages report                     # once the jobs are done
 ```
@@ -152,7 +152,7 @@ pool.
 
 ## GW190728_064510
 
-CC-IN2P3 (`--executor slurm`): the vacuum sampling with 1000 live points, the two cloud samplings with 500 (run by hand with `python -m gwtc_analysis.scalar_cloud sample --nlive 500`;
+On a Slurm cluster (`--executor slurm`): the vacuum sampling with 1000 live points, the two cloud samplings with 500 (run by hand with `python -m gwtc_analysis.scalar_cloud sample --nlive 500`;
 the mode's own samplings use the paper's 1000) (64 CPUs with `--npool 64`; the default is 32,
 about a day each), 151 jobs of about an hour for the event and the background, 150 for the injections of the cloud
 best fit (`scalar_cloud.py seeded --inject cloud`).
