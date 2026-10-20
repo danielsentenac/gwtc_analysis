@@ -10,7 +10,9 @@ measures the two from different parts of the signal:
   which give the remnant mass and spin through the Kerr spectrum alone, with no merger model.
 
 The release (Zenodo 16877102, LVK 2025, arXiv:2509.08054) provides both, in detector-frame masses: the
-redshift cancels in (A_f - A_i) / A_i. The significance is the paper's Gaussian one,
+redshift cancels in (A_f - A_i) / A_i. The time windows are the paper's: samples exist only for the
+truncations and ringdown start times it analysed, and the reference ones (REFERENCE_CUT, REFERENCE_START,
+OVERTONE_START) are its headline choices. The significance is the paper's Gaussian one,
 (<A_f> - <A_i>) / sqrt(sigma_f^2 + sigma_i^2), with the remnant areas of the two ringdown codes pooled; the
 direct probability P(A_f < A_i) over random pairs of samples is given alongside.
 

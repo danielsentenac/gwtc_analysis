@@ -49,6 +49,38 @@ the horizon areas**; the mode reads them and computes the test from them, in sec
 | after, \(A_f\) | **ringdown** and **pyRing**, two time-domain codes that fit damped sinusoids: the Kerr quasinormal modes 220, or 220 and 221 | the strain from a time \(t_>\) after the peak, in units of the remnant mass M\(_f\) | samples of \(A_f\), from the remnant mass and spin given by the mode frequencies and damping times: from ringdown for each model at 17 start times from 6 to 20 M\(_f\); from pyRing for the 220 mode from 10.5 M\(_f\) (a reweighted file, `remnant_area_pyring_reweighted.npy`) |
 | prior | | | the prior of \((A_f - A_i)/A_i\) that these analyses imply |
 
+### The time windows are the paper's
+
+**Every time window is set by the LVK analyses, not by the mode.** The release holds samples only for the
+windows the paper analysed, and the mode has no option to change them: another window, such as
+\(t_< = -60\) M, would need a new parameter estimation on the strain. Times are in units of \(GM/c^3\)
+(about 0.35 ms for the detector-frame total mass of GW250114, about 70 M\(_\odot\)) before the peak, and
+of \(GM_f/c^3\) after it.
+
+| Window | Values in the release | Reference of the paper (used by the mode) |
+|---|---|---|
+| \(t_<\), inspiral truncation | −250, −200, −150, −100, −75, −50, −45, −40, −35, −30, −25, −20, −15, −10, −5, 0 M | −40 M, the headline result |
+| \(t_>\), ringdown start, ringdown code (220 and 220 + 221) | 6, 7, 8, 9, 9.5, 10, 10.5, 11, 12, …, 20 M\(_f\) | 10.5 M\(_f\) for the 220 mode; 6 M\(_f\) for 220 + 221 |
+| \(t_>\), pyRing | 10.5 M\(_f\) (220 only) | 10.5 M\(_f\), pooled with ringdown |
+
+The ranges follow the limits of each description of the signal:
+
+- \(t_<\) stops at the peak (0 M): later, the inspiral data would contain the ringdown, and the two areas
+  would no longer be independent. Earlier than −250 M (about 88 ms), too little of the signal is left: its
+  loudest cycles are the last ones. The truncations are dense near the peak (every 5 M from −50 M), where
+  the significance changes fastest.
+- \(t_>\) starts at 6 M\(_f\): just after the peak the signal is not yet a sum of a few quasinormal modes,
+  and even 220 + 221 is considered valid only from about 6 M\(_f\), the 220 mode alone later. After about
+  20 M\(_f\) the ringdown, damped in about 12 M\(_f\), has decayed too much to measure \(A_f\).
+- With the reference windows, the data from −40 M to +10.5 M\(_f\), the merger, are used by neither
+  analysis.
+
+The constants `REFERENCE_CUT`, `REFERENCE_START` and `OVERTONE_START` of `area_law.py` hold the
+paper's reference windows; the scans run over all the released ones. See the paper
+[\[79\]](../references.md#ref-79) for the reasons of its choices.
+
+### Independence of the two sides
+
 Neither analysis sees the merger, and neither uses the other: the test needs no model of the merger. Their one
 shared assumption is that both parts of the signal are redshifted by the same factor, since the areas are compared
 in the detector frame; the recoil kick of the remnant could break it, by at most 10% and only for large spins,
@@ -59,7 +91,7 @@ inconsistent with GW250114 (paper, Supplement IV).
 1. **Download** the 114 MB archive of the release once (Zenodo 16877102) and keep the 37 files of the area law.
 2. **Pool the two ringdown codes** for the remnant area: as many samples of ringdown (220 from 10.5 M\(_f\)) as of
    pyRing, 2000 of each, drawn without replacement with the paper's random seed.
-3. **Headline result**: \(A_i\) at \(t_< = -40\) M against the pooled \(A_f\), with the significance
+3. **Headline result**: \(A_i\) at \(t_< = -40\) M (the paper's reference window) against the pooled \(A_f\), with the significance
    \((\langle A_f\rangle - \langle A_i\rangle)/\sqrt{\sigma_f^2 + \sigma_i^2}\) (the paper's: it uses the means and
    widths only, since the far tails of the samples are unreliable), and the direct probability \(P(A_f < A_i)\)
    over 400 000 random pairs of samples.
