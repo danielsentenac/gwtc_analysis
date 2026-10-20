@@ -82,20 +82,38 @@ updated to these bundles therefore rejects gwosc.org. The same certificate cover
 other GWOSC host names, so other GWOSC clients using the same bundle fail in the same way. dcc.ligo.org, also
 certified by InCommon, chains to a root still in the bundle and is not affected.
 
-**Workaround.** Point Python to a CA store that still contains the emSign roots, such as Fedora's
-(`/etc/pki/tls/certs/ca-bundle.crt`), for the conda environment that runs gwtc_analysis:
+**Who is affected.** Tested with gwosc 0.8.1, gwpy 3.0.13 and astropy 7.2.0:
+
+| Client | certifi 2026.10.18 | system store through `REQUESTS_CA_BUNDLE` / `SSL_CERT_FILE` | certifi 2026.2.25 |
+|---|---|---|---|
+| gwosc package: event API, data URLs (`event_gps`, `get_urls`) | fails | works | works |
+| gwpy `TimeSeries.fetch_open_data` (download through astropy) | fails | **fails** | works |
+| gwtc_analysis: event lists, catalogs, PE files (requests, urllib) | fails | works | works |
+| gwtc_analysis: strain data (`parameters_estimation` overlay, `scalar_cloud`, `build_unofficial_pe`, through gwpy) | fails | **fails** | works |
+
+astropy, which downloads the files for gwpy, takes its CA file from `certifi.where()` whenever certifi is
+installed and ignores the environment variables.
+
+**Workaround.** Keep the previous CA bundles in the conda environment that runs gwtc_analysis; this fixes every
+client above:
+
+```bash
+conda install -n <env> -c conda-forge certifi=2026.2.25 ca-certificates=2026.2.25
+```
+
+A later `conda update` brings the new bundles back, so repeat it after updating, until gwosc.org changes its
+certificate chain. With pip: `pip install "certifi==2026.2.25"`.
+
+The environment variables alone are a partial workaround (no gwpy downloads): they point requests and urllib to
+a store that still contains the emSign roots, such as Fedora's:
 
 ```bash
 conda env config vars set -n <env> REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt \
-    SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt
-conda activate <env>        # the variables apply from the next activation
+    SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt     # undo: conda env config vars unset -n <env> ...
 ```
 
-`conda env config vars unset -n <env> REQUESTS_CA_BUNDLE SSL_CERT_FILE` removes them. Other systems keep their
-store elsewhere (`/etc/ssl/certs/ca-certificates.crt` on Debian and Ubuntu); check that it contains the emSign
-roots (`grep -c emSign <file>`). The other workaround is to keep the previous bundles:
-`conda install -n <env> certifi=2026.2.25 ca-certificates=2026.2.25`, until a later update brings the new ones
-back. Turning certificate verification off would also hide the error, but removes the check that the data come
-from GWOSC; the tool does not do it.
+Other systems keep their store elsewhere (`/etc/ssl/certs/ca-certificates.crt` on Debian and Ubuntu); check that
+it contains the emSign roots (`grep -c emSign <file>`). Turning certificate verification off would also hide the
+error, but removes the check that the data come from GWOSC; the tool does not do it.
 
 The lasting fix is on the server side: a certificate chain ending at a root still in the standard bundles.
