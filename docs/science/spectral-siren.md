@@ -518,7 +518,7 @@ the 10 M☉ one is narrow and populated by many events: a sharper ruler for the 
 
 The fitted models show it:
 
-![Fitted Power Law + Peak and Multi Peak models over the selection-corrected masses](../img/mass_models_plp_mltp.png)
+![Fitted Power Law + Peak, Multi Peak and FullPop-4.0 models over the selection-corrected masses](../img/mass_models.png)
 
 *The fitted primary-mass models of the three spectral sirens (PLP and MLTP: the runs of the [result](#result);
 FullPop-4.0: 141 events, with the neutron stars): each model at the
@@ -526,7 +526,7 @@ posterior median of its parameters, with the 90% band of the posterior at each m
 masses of the figure above. The fits carry no rate (the
 likelihood is scale-free), so each curve is scaled to the rate of the histogram between 7 and 100 M☉. Made by
 `docs/scripts/mass_models_fit.py` (icarogw's models evaluated on the posterior samples) and
-`docs/scripts/mass_models_plp_mltp.py`.*
+`docs/scripts/mass_models_plot.py`.*
 
 The PLP fit has a hump near 8 M☉ made by the smoothing of its power law above m_min (m_min ≈ 5 M☉,
 δ_m ≈ 4 M☉), then a steep fall (α ≈ 3.8) that passes below the 10–12 M☉ bins; its Gaussian sits on the bump near

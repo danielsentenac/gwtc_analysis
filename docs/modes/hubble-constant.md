@@ -190,7 +190,7 @@ ruler populated by many light BBHs ([why Multi Peak is tighter](../science/spect
 FullPop-4.0 adds further scales at known masses, the neutron-star range and the edges of the gap: with only four
 more events, its 68% interval is about 30–40% narrower than MLTP's (40% in the paper, 33% in our runs), with a similar median.
 
-![Fitted Power Law + Peak and Multi Peak models over the selection-corrected masses](../img/mass_models_plp_mltp.png)
+![Fitted Power Law + Peak, Multi Peak and FullPop-4.0 models over the selection-corrected masses](../img/mass_models.png)
 
 *The fitted primary-mass models of the GWTC-4.0 spectral sirens (each at the posterior median of its parameters,
 with its 90% band), over the

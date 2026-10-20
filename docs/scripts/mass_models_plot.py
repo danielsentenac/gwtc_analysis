@@ -2,11 +2,11 @@
 
 Reads docs/scripts/data/mass_distribution_selection_corrected.tsv (written by
 mass_distribution_selection_corrected.py) and docs/scripts/data/mass_models_fit.tsv (written by mass_models_fit.py
-from the hubble_constant runs), and writes docs/img/mass_models_plp_mltp.png. The models are fitted without their
+from the hubble_constant runs), and writes docs/img/mass_models.png. The models are fitted without their
 rate (scale-free likelihood): each curve is scaled to the rate of the histogram between 7 and 100 M_sun. Each
 model is drawn at the posterior median of its parameters, with the 90% band of the posterior at each mass.
 Run from anywhere:
-    python docs/scripts/mass_models_plp_mltp.py
+    python docs/scripts/mass_models_plot.py
 """
 from pathlib import Path
 
@@ -16,7 +16,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE.parent / "img" / "mass_models_plp_mltp.png"
+OUT = HERE.parent / "img" / "mass_models.png"
 SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
 BARS = "#c9c7c1"
 MODELS = (("plp", "Power Law + Peak", "#eb6834", "-"), ("mltp", "Multi Peak", "#2a78d6", "-"),
