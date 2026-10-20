@@ -1,0 +1,1830 @@
+<title>gwtc_analysis Explained</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..750&family=JetBrains+Mono:wght@400..600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..650;1,8..60,400&display=swap">
+<style>
+/* Layout: masthead with a chirp trace, sticky contents rail on the left, one reading column. */
+:root{
+  --paper:#f7f8fa; --sheet:#ffffff; --ink:#15171c; --ink2:#4a505c; --rule:#dfe2e8;
+  --accent:#2d4bb3; --accent-soft:#e8ecf8; --memo:#8a5a00; --ok:#1f7a4d; --memo-bg:#fbf1dc; --code-bg:#f0f2f6;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0f1116; --sheet:#151820; --ink:#e7e9ee; --ink2:#a3a9b6; --rule:#2a2f3a;
+  --accent:#8ea6ff; --accent-soft:#1c2440; --memo:#f0c36a; --ok:#6fd3a0; --memo-bg:#2e2512; --code-bg:#1d212b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f1116; --sheet:#151820; --ink:#e7e9ee; --ink2:#a3a9b6; --rule:#2a2f3a;
+  --accent:#8ea6ff; --accent-soft:#1c2440; --memo:#f0c36a; --ok:#6fd3a0; --memo-bg:#2e2512; --code-bg:#1d212b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:17px/1.62 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;padding-block:32px 80px}
+header.mast{display:grid;gap:14px;padding-block:8px 28px;border-bottom:1px solid var(--rule);margin-bottom:28px}
+.eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,5vw,48px)/1.05 var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.lede{max-width:68ch;color:var(--ink2);margin:0}
+.lede code{font-size:.82em}
+.chirp{width:100%;height:56px;display:block}
+.chirp polyline{stroke:var(--accent);stroke-width:1.4}
+.chirp .axis{stroke:var(--rule);stroke-width:1}
+.chirp .peak{stroke:var(--ink2);stroke-width:1;stroke-dasharray:3 3;opacity:.6}
+.chirp-cap{display:flex;justify-content:space-between;font:12px/1 var(--f-mono);color:var(--ink2)}
+.grid{display:grid;grid-template-columns:250px minmax(0,1fr);gap:48px;align-items:start}
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100vh - 32px);overflow:auto;
+  font:14px/1.35 var(--f-display);padding-right:4px}
+nav.toc .grp{font:600 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin:18px 0 8px}
+nav.toc .grp:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+nav.toc a{display:flex;gap:10px;padding:5px 8px;border-radius:6px;color:var(--ink);text-decoration:none}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);outline:none}
+nav.toc .tn{font:500 12px/1.6 var(--f-mono);color:var(--accent);min-width:1.6em}
+main{min-width:0;max-width:760px}
+section{padding-block:6px 26px;border-bottom:1px solid var(--rule);margin-bottom:26px}
+section:last-child{border-bottom:0}
+h2{display:flex;gap:14px;align-items:baseline;font:700 clamp(23px,3vw,29px)/1.2 var(--f-display);margin:8px 0 14px;
+  text-wrap:balance;scroll-margin-top:16px}
+h2 .num{font:600 15px/1 var(--f-mono);color:var(--accent);border:1px solid var(--accent);border-radius:999px;
+  padding:5px 9px;flex:none;transform:translateY(-3px)}
+h3{font:650 19px/1.3 var(--f-display);margin:28px 0 8px;text-wrap:balance}
+p,ul,ol{margin:0 0 14px}
+main ul,main ol{padding-left:1.3em}
+li{margin:3px 0}
+a{color:var(--accent)}
+strong{font-weight:650}
+code{font:.84em/1.4 var(--f-mono);background:var(--code-bg);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code-bg);border:1px solid var(--rule);border-radius:8px;padding:14px 16px;overflow-x:auto;margin:0 0 16px}
+pre code{background:none;padding:0;font-size:13.5px;overflow-wrap:normal}
+.scroll{overflow-x:auto;margin:4px 0 18px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
+table{border-collapse:collapse;width:100%;font:14.5px/1.45 var(--f-body);font-variant-numeric:tabular-nums}
+th{font:600 12px/1.3 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);text-align:left;
+  background:var(--code-bg)}
+th,td{padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.memo{font:500 11px/1 var(--f-mono);letter-spacing:.04em;color:var(--memo);background:var(--memo-bg);
+  padding:3px 6px;border-radius:999px;white-space:nowrap}
+.origin{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:baseline;font-size:15px;color:var(--ink2);
+  border-left:3px solid var(--o);padding:6px 0 6px 12px;background:var(--sheet);border-radius:0 6px 6px 0}
+.origin .badge{font:600 11px/1.4 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--o);
+  border:1px solid var(--o);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.o-paper{--o:var(--ok)} .o-partly{--o:var(--memo)} .o-added{--o:var(--accent)}
+footer{font:13px/1.5 var(--f-mono);color:var(--ink2);margin-top:12px}
+@media (max-width:900px){
+  .grid{grid-template-columns:minmax(0,1fr);gap:20px}
+  nav.toc{position:static;max-height:none;border:1px solid var(--rule);border-radius:10px;padding:14px;background:var(--sheet)}
+  body{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+html{scroll-behavior:smooth}
+</style>
+<div class="wrap">
+<header class="mast">
+  <span class="eyebrow">GWOSC · gwtc_analysis · physics notes</span>
+  <h1>gwtc_analysis explained</h1>
+  <div class="lede"><p>Notes on the physics behind several modes of
+<code>gwtc_analysis</code>: the bright-siren (counterpart) analysis
+(<code>counterpart.py</code>, <code>h0_bright.py</code>, sections 1–6),
+the area-law test (<code>area_law.py</code>, sections 7–10) and the
+scalar-cloud test (<code>scalar_cloud.py</code>,
+<code>scalar_cloud_mode.py</code>, section 11), with the sources of the
+formulas in section 12.</p></div>
+  <div><svg class="chirp" viewBox="0 0 640 70" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="35.0" x2="640" y2="35.0" class="axis"/><line x1="550.4" y1="0" x2="550.4" y2="70" class="peak"/><polyline fill="none" points="0.0,30.8 0.7,31.2 1.4,31.6 2.1,32.0 2.8,32.5 3.6,33.0 4.3,33.5 5.0,34.0 5.7,34.5 6.4,35.1 7.1,35.6 7.8,36.1 8.5,36.6 9.3,37.1 10.0,37.6 10.7,38.1 11.4,38.5 12.1,39.0 12.8,39.4 13.5,39.7 14.2,40.0 14.9,40.3 15.7,40.5 16.4,40.7 17.1,40.9 17.8,41.0 18.5,41.0 19.2,41.0 19.9,41.0 20.6,40.9 21.4,40.7 22.1,40.5 22.8,40.3 23.5,40.0 24.2,39.7 24.9,39.4 25.6,39.0 26.3,38.6 27.1,38.1 27.8,37.6 28.5,37.1 29.2,36.6 29.9,36.1 30.6,35.5 31.3,35.0 32.0,34.4 32.7,33.9 33.5,33.4 34.2,32.9 34.9,32.4 35.6,31.9 36.3,31.4 37.0,31.0 37.7,30.6 38.4,30.2 39.2,29.9 39.9,29.6 40.6,29.4 41.3,29.2 42.0,29.1 42.7,29.0 43.4,28.9 44.1,28.9 44.8,29.0 45.6,29.1 46.3,29.2 47.0,29.5 47.7,29.7 48.4,30.0 49.1,30.3 49.8,30.7 50.5,31.1 51.3,31.6 52.0,32.0 52.7,32.5 53.4,33.1 54.1,33.6 54.8,34.2 55.5,34.7 56.2,35.3 57.0,35.8 57.7,36.4 58.4,36.9 59.1,37.5 59.8,38.0 60.5,38.5 61.2,38.9 61.9,39.3 62.6,39.7 63.4,40.1 64.1,40.4 64.8,40.6 65.5,40.8 66.2,41.0 66.9,41.1 67.6,41.1 68.3,41.2 69.1,41.1 69.8,41.0 70.5,40.8 71.2,40.6 71.9,40.4 72.6,40.1 73.3,39.7 74.0,39.4 74.7,38.9 75.5,38.5 76.2,38.0 76.9,37.5 77.6,36.9 78.3,36.4 79.0,35.8 79.7,35.2 80.4,34.6 81.2,34.1 81.9,33.5 82.6,32.9 83.3,32.4 84.0,31.9 84.7,31.4 85.4,30.9 86.1,30.5 86.9,30.1 87.6,29.8 88.3,29.5 89.0,29.2 89.7,29.0 90.4,28.9 91.1,28.8 91.8,28.8 92.5,28.8 93.3,28.9 94.0,29.0 94.7,29.2 95.4,29.4 96.1,29.7 96.8,30.0 97.5,30.4 98.2,30.8 99.0,31.3 99.7,31.8 100.4,32.3 101.1,32.9 101.8,33.4 102.5,34.0 103.2,34.6 103.9,35.2 104.6,35.8 105.4,36.4 106.1,37.0 106.8,37.5 107.5,38.1 108.2,38.6 108.9,39.1 109.6,39.5 110.3,39.9 111.1,40.3 111.8,40.6 112.5,40.8 113.2,41.0 113.9,41.2 114.6,41.3 115.3,41.3 116.0,41.3 116.8,41.2 117.5,41.1 118.2,40.9 118.9,40.6 119.6,40.3 120.3,40.0 121.0,39.6 121.7,39.1 122.4,38.6 123.2,38.1 123.9,37.6 124.6,37.0 125.3,36.4 126.0,35.8 126.7,35.2 127.4,34.6 128.1,33.9 128.9,33.3 129.6,32.7 130.3,32.2 131.0,31.6 131.7,31.1 132.4,30.6 133.1,30.2 133.8,29.8 134.5,29.5 135.3,29.2 136.0,28.9 136.7,28.8 137.4,28.7 138.1,28.6 138.8,28.6 139.5,28.7 140.2,28.8 141.0,29.0 141.7,29.2 142.4,29.6 143.1,29.9 143.8,30.3 144.5,30.8 145.2,31.3 145.9,31.8 146.7,32.4 147.4,33.0 148.1,33.6 148.8,34.2 149.5,34.8 150.2,35.5 150.9,36.1 151.6,36.7 152.3,37.3 153.1,37.9 153.8,38.5 154.5,39.0 155.2,39.5 155.9,39.9 156.6,40.3 157.3,40.7 158.0,41.0 158.8,41.2 159.5,41.4 160.2,41.5 160.9,41.5 161.6,41.5 162.3,41.4 163.0,41.2 163.7,41.0 164.4,40.7 165.2,40.4 165.9,40.0 166.6,39.5 167.3,39.0 168.0,38.5 168.7,37.9 169.4,37.3 170.1,36.7 170.9,36.0 171.6,35.4 172.3,34.7 173.0,34.1 173.7,33.4 174.4,32.8 175.1,32.2 175.8,31.6 176.6,31.0 177.3,30.5 178.0,30.0 178.7,29.6 179.4,29.3 180.1,29.0 180.8,28.7 181.5,28.6 182.2,28.5 183.0,28.4 183.7,28.4 184.4,28.6 185.1,28.7 185.8,29.0 186.5,29.3 187.2,29.6 187.9,30.0 188.7,30.5 189.4,31.0 190.1,31.6 190.8,32.2 191.5,32.8 192.2,33.5 192.9,34.2 193.6,34.8 194.3,35.5 195.1,36.2 195.8,36.9 196.5,37.5 197.2,38.2 197.9,38.7 198.6,39.3 199.3,39.8 200.0,40.3 200.8,40.7 201.5,41.0 202.2,41.3 202.9,41.5 203.6,41.6 204.3,41.7 205.0,41.7 205.7,41.6 206.5,41.4 207.2,41.2 207.9,40.9 208.6,40.5 209.3,40.1 210.0,39.6 210.7,39.1 211.4,38.5 212.1,37.9 212.9,37.2 213.6,36.6 214.3,35.9 215.0,35.2 215.7,34.4 216.4,33.7 217.1,33.0 217.8,32.4 218.6,31.7 219.3,31.1 220.0,30.5 220.7,30.0 221.4,29.6 222.1,29.2 222.8,28.8 223.5,28.6 224.2,28.4 225.0,28.3 225.7,28.2 226.4,28.3 227.1,28.4 227.8,28.6 228.5,28.8 229.2,29.2 229.9,29.6 230.7,30.1 231.4,30.6 232.1,31.2 232.8,31.8 233.5,32.5 234.2,33.2 234.9,33.9 235.6,34.6 236.4,35.4 237.1,36.1 237.8,36.8 238.5,37.5 239.2,38.2 239.9,38.9 240.6,39.4 241.3,40.0 242.0,40.5 242.8,40.9 243.5,41.3 244.2,41.5 244.9,41.7 245.6,41.9 246.3,41.9 247.0,41.8 247.7,41.7 248.5,41.5 249.2,41.2 249.9,40.9 250.6,40.4 251.3,39.9 252.0,39.3 252.7,38.7 253.4,38.1 254.1,37.4 254.9,36.6 255.6,35.9 256.3,35.1 257.0,34.3 257.7,33.6 258.4,32.8 259.1,32.1 259.8,31.4 260.6,30.7 261.3,30.2 262.0,29.6 262.7,29.2 263.4,28.8 264.1,28.4 264.8,28.2 265.5,28.1 266.3,28.0 267.0,28.0 267.7,28.1 268.4,28.3 269.1,28.6 269.8,29.0 270.5,29.4 271.2,30.0 271.9,30.5 272.7,31.2 273.4,31.9 274.1,32.6 274.8,33.4 275.5,34.2 276.2,35.0 276.9,35.8 277.6,36.6 278.4,37.4 279.1,38.1 279.8,38.8 280.5,39.5 281.2,40.1 281.9,40.6 282.6,41.1 283.3,41.5 284.0,41.8 284.8,42.0 285.5,42.1 286.2,42.1 286.9,42.1 287.6,41.9 288.3,41.6 289.0,41.3 289.7,40.9 290.5,40.3 291.2,39.7 291.9,39.1 292.6,38.4 293.3,37.6 294.0,36.8 294.7,36.0 295.4,35.2 296.2,34.3 296.9,33.5 297.6,32.7 298.3,31.9 299.0,31.1 299.7,30.4 300.4,29.8 301.1,29.3 301.8,28.8 302.6,28.4 303.3,28.1 304.0,27.9 304.7,27.8 305.4,27.7 306.1,27.8 306.8,28.0 307.5,28.3 308.3,28.7 309.0,29.2 309.7,29.8 310.4,30.4 311.1,31.1 311.8,31.9 312.5,32.7 313.2,33.6 313.9,34.4 314.7,35.3 315.4,36.2 316.1,37.1 316.8,37.9 317.5,38.7 318.2,39.4 318.9,40.1 319.6,40.7 320.4,41.3 321.1,41.7 321.8,42.0 322.5,42.3 323.2,42.4 323.9,42.4 324.6,42.3 325.3,42.1 326.1,41.8 326.8,41.4 327.5,40.9 328.2,40.3 328.9,39.6 329.6,38.8 330.3,38.0 331.0,37.1 331.7,36.2 332.5,35.3 333.2,34.4 333.9,33.5 334.6,32.6 335.3,31.7 336.0,30.9 336.7,30.1 337.4,29.5 338.2,28.9 338.9,28.4 339.6,28.0 340.3,27.7 341.0,27.5 341.7,27.4 342.4,27.5 343.1,27.7 343.8,28.0 344.6,28.4 345.3,28.9 346.0,29.5 346.7,30.3 347.4,31.0 348.1,31.9 348.8,32.8 349.5,33.7 350.3,34.7 351.0,35.7 351.7,36.7 352.4,37.6 353.1,38.5 353.8,39.3 354.5,40.1 355.2,40.8 356.0,41.4 356.7,41.9 357.4,42.3 358.1,42.6 358.8,42.7 359.5,42.7 360.2,42.6 360.9,42.3 361.6,41.9 362.4,41.4 363.1,40.8 363.8,40.1 364.5,39.3 365.2,38.4 365.9,37.5 366.6,36.5 367.3,35.5 368.1,34.4 368.8,33.4 369.5,32.4 370.2,31.5 370.9,30.6 371.6,29.7 372.3,29.0 373.0,28.4 373.7,27.9 374.5,27.5 375.2,27.2 375.9,27.1 376.6,27.1 377.3,27.3 378.0,27.6 378.7,28.1 379.4,28.6 380.2,29.3 380.9,30.1 381.6,31.0 382.3,32.0 383.0,33.0 383.7,34.1 384.4,35.2 385.1,36.3 385.9,37.3 386.6,38.4 387.3,39.3 388.0,40.2 388.7,41.0 389.4,41.7 390.1,42.3 390.8,42.7 391.5,42.9 392.3,43.1 393.0,43.0 393.7,42.8 394.4,42.5 395.1,42.0 395.8,41.4 396.5,40.6 397.2,39.7 398.0,38.8 398.7,37.7 399.4,36.6 400.1,35.5 400.8,34.3 401.5,33.2 402.2,32.0 402.9,31.0 403.6,30.0 404.4,29.1 405.1,28.3 405.8,27.7 406.5,27.2 407.2,26.9 407.9,26.7 408.6,26.7 409.3,26.9 410.1,27.3 410.8,27.8 411.5,28.5 412.2,29.3 412.9,30.2 413.6,31.3 414.3,32.4 415.0,33.6 415.8,34.8 416.5,36.1 417.2,37.3 417.9,38.5 418.6,39.6 419.3,40.6 420.0,41.5 420.7,42.2 421.4,42.8 422.2,43.2 422.9,43.5 423.6,43.5 424.3,43.4 425.0,43.0 425.7,42.5 426.4,41.8 427.1,40.9 427.9,39.9 428.6,38.8 429.3,37.6 430.0,36.3 430.7,35.0 431.4,33.7 432.1,32.4 432.8,31.2 433.5,30.0 434.3,29.0 435.0,28.1 435.7,27.3 436.4,26.8 437.1,26.4 437.8,26.3 438.5,26.3 439.2,26.6 440.0,27.1 440.7,27.8 441.4,28.7 442.1,29.7 442.8,30.9 443.5,32.2 444.2,33.6 444.9,35.0 445.7,36.4 446.4,37.8 447.1,39.1 447.8,40.4 448.5,41.5 449.2,42.4 449.9,43.1 450.6,43.7 451.3,44.0 452.1,44.0 452.8,43.8 453.5,43.4 454.2,42.8 454.9,41.9 455.6,40.8 456.3,39.6 457.0,38.2 457.8,36.7 458.5,35.2 459.2,33.6 459.9,32.1 460.6,30.7 461.3,29.4 462.0,28.2 462.7,27.2 463.4,26.4 464.2,25.9 464.9,25.7 465.6,25.7 466.3,26.0 467.0,26.6 467.7,27.5 468.4,28.5 469.1,29.8 469.9,31.3 470.6,32.8 471.3,34.5 472.0,36.2 472.7,37.9 473.4,39.4 474.1,40.9 474.8,42.2 475.6,43.2 476.3,44.0 477.0,44.5 477.7,44.7 478.4,44.5 479.1,44.1 479.8,43.3 480.5,42.3 481.2,40.9 482.0,39.4 482.7,37.7 483.4,35.9 484.1,34.1 484.8,32.2 485.5,30.5 486.2,28.9 486.9,27.5 487.7,26.3 488.4,25.5 489.1,25.0 489.8,24.9 490.5,25.2 491.2,25.8 491.9,26.8 492.6,28.2 493.3,29.8 494.1,31.6 494.8,33.6 495.5,35.6 496.2,37.7 496.9,39.6 497.6,41.4 498.3,43.0 499.0,44.2 499.8,45.0 500.5,45.5 501.2,45.5 501.9,45.0 502.6,44.1 503.3,42.8 504.0,41.1 504.7,39.1 505.5,37.0 506.2,34.7 506.9,32.3 507.6,30.1 508.3,28.1 509.0,26.4 509.7,25.1 510.4,24.3 511.1,23.9 511.9,24.2 512.6,24.9 513.3,26.2 514.0,28.0 514.7,30.2 515.4,32.6 516.1,35.2 516.8,37.9 517.6,40.4 518.3,42.7 519.0,44.5 519.7,45.9 520.4,46.6 521.1,46.7 521.8,46.0 522.5,44.7 523.2,42.8 524.0,40.3 524.7,37.5 525.4,34.4 526.1,31.3 526.8,28.4 527.5,25.9 528.2,24.0 528.9,22.8 529.7,22.5 530.4,23.0 531.1,24.5 531.8,26.8 532.5,29.8 533.2,33.2 533.9,36.9 534.6,40.6 535.4,43.8 536.1,46.4 536.8,48.1 537.5,48.6 538.2,47.8 538.9,45.8 539.6,42.7 540.3,38.7 541.0,34.2 541.8,29.6 542.5,25.4 543.2,22.1 543.9,20.3 544.6,20.2 545.3,22.0 546.0,25.6 546.7,30.7 547.5,36.8 548.2,42.9 548.9,48.1 549.6,51.5 550.3,52.0 551.0,25.9 551.7,19.9 552.4,20.5 553.1,27.0 553.9,36.2 554.6,44.1 555.3,47.7 556.0,45.7 556.7,39.6 557.4,32.1 558.1,26.4 558.8,24.7 559.6,27.4 560.3,32.9 561.0,38.8 561.7,42.7 562.4,43.1 563.1,40.1 563.8,35.3 564.5,30.8 565.3,28.4 566.0,28.9 566.7,31.8 567.4,35.8 568.1,39.1 568.8,40.5 569.5,39.5 570.2,36.7 570.9,33.5 571.7,31.2 572.4,30.6 573.1,31.9 573.8,34.3 574.5,36.8 575.2,38.4 575.9,38.4 576.6,37.1 577.4,35.0 578.1,33.1 578.8,32.1 579.5,32.4 580.2,33.8 580.9,35.5 581.6,36.9 582.3,37.4 583.0,36.9 583.8,35.6 584.5,34.3 585.2,33.3 585.9,33.1 586.6,33.7 587.3,34.8 588.0,35.9 588.7,36.5 589.5,36.4 590.2,35.8 590.9,34.9 591.6,34.1 592.3,33.8 593.0,33.9 593.7,34.5 594.4,35.3 595.2,35.8 595.9,36.0 596.6,35.8 597.3,35.2 598.0,34.6 598.7,34.3 599.4,34.2 600.1,34.5 600.8,34.9 601.6,35.4 602.3,35.6 603.0,35.6 603.7,35.3 604.4,34.9 605.1,34.6 605.8,34.5 606.5,34.5 607.3,34.8 608.0,35.1 608.7,35.4 609.4,35.4 610.1,35.3 610.8,35.1 611.5,34.8 612.2,34.7 612.9,34.7 613.7,34.8 614.4,35.0 615.1,35.2 615.8,35.3 616.5,35.3 617.2,35.1 617.9,35.0 618.6,34.8 619.4,34.8 620.1,34.8 620.8,34.9 621.5,35.1 622.2,35.2 622.9,35.2 623.6,35.1 624.3,35.0 625.1,34.9 625.8,34.9 626.5,34.9 627.2,34.9 627.9,35.0 628.6,35.1 629.3,35.1 630.0,35.1 630.7,35.1 631.5,35.0 632.2,34.9 632.9,34.9 633.6,34.9 634.3,35.0 635.0,35.0 635.7,35.1 636.4,35.1 637.2,35.1 637.9,35.0 638.6,35.0 639.3,34.9 640.0,34.9"/></svg><div class="chirp-cap"><span>inspiral</span><span>peak · ringdown</span></div></div>
+</header>
+<div class="grid">
+<nav class="toc" aria-label="Contents"><p class="grp">Bright sirens</p><ol><li><a href="#s1"><span class="tn">1</span>Viewing angle vs
+inclination</a></li><li><a href="#s2"><span class="tn">2</span>Recession velocity</a></li><li><a href="#s3"><span class="tn">3</span>The CMB frame</a></li><li><a href="#s4"><span class="tn">4</span>How Planck corrects
+for its own motion</a></li><li><a href="#s5"><span class="tn">5</span>The chain of
+motions (Milky Way, Local Group)</a></li><li><a href="#s6"><span class="tn">6</span>NED</a></li></ol><p class="grp">Area law</p><ol><li><a href="#s7"><span class="tn">7</span>The area-law mode
+(area_law.py)</a></li><li><a href="#s8"><span class="tn">8</span>The M unit (t = −40 M, 10.5
+M_f…)</a></li><li><a href="#s9"><span class="tn">9</span>What σ (sigma) means in
+the results</a></li><li><a href="#s10"><span class="tn">10</span>The time windows
+of the area-law test</a></li></ol><p class="grp">Scalar cloud</p><ol><li><a href="#s11"><span class="tn">11</span>The
+scalar_cloud mode, explained step by step</a></li></ol><p class="grp">References</p><ol><li><a href="#s12"><span class="tn">12</span>Sources of the
+formulas and numbers</a></li></ol></nav>
+<main><section><h2 id="s1"><span class="num">1</span><span class="h2t">Viewing angle vs
+inclination</span></h2>
+<p>They describe the same geometry. The viewing angle is a
+<strong>folded</strong> version of the inclination
+(<code>counterpart.py</code>, <code>viewing_angle()</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> viewing_angle(samples: <span class="bu">dict</span>) <span class="op">-&gt;</span> Optional[np.ndarray]:</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> k <span class="kw">in</span> (<span class="st">&quot;theta_jn&quot;</span>, <span class="st">&quot;iota&quot;</span>):</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> k <span class="kw">in</span> samples:</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>            th <span class="op">=</span> np.degrees(np.asarray(samples[k], <span class="bu">float</span>))</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> np.minimum(th, <span class="dv">180</span> <span class="op">-</span> th)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="va">None</span></span></code></pre></div>
+<p><strong>Inclination</strong> is the raw parameter-estimation sample,
+from 0 to 180°. The posterior files provide one of two parameters:</p>
+<ul>
+<li><code>theta_jn</code>: the angle between the <strong>total</strong>
+angular momentum J and the line of sight. Used first.</li>
+<li><code>iota</code>: the angle between the <strong>orbital</strong>
+angular momentum L and the line of sight, at the reference frequency.
+Used only if <code>theta_jn</code> is missing.</li>
+</ul>
+<p>For low-spin binary neutron stars like GW170817, J and L point almost
+the same way, so the two are nearly equal. When spins precess, they
+differ.</p>
+<p><strong>Viewing angle</strong> is <code>min(θ, 180° − θ)</code>, from
+0 to 90° (0 = face-on, 90 = edge-on). Folding drops the difference
+between seeing the binary from above (θ near 0°) and from below (θ near
+180°). That difference matters for the gravitational-wave polarization,
+but not for:</p>
+<ul>
+<li>the distance–inclination degeneracy, since the signal amplitude
+depends on |cos θ|;</li>
+<li>electromagnetic constraints such as a jet opening angle, quoted
+relative to the jet axis on either side.</li>
+</ul>
+<p>So <code>--viewing-angle MEAN SIGMA</code> takes a value from 0 to
+90° (checked in <code>h0_bright.py</code>). It is compared with the
+folded samples, which become weights in
+<code>viewing_angle_weights()</code>.</p>
+<p>The "distance–inclination degeneracy" wording (plot titles,
+<code>distance_inclination_{event}.png</code>, notes) is the standard
+name from the literature; the plotted axis is the folded viewing
+angle.</p>
+</section><section><h2 id="s2"><span class="num">2</span><span class="h2t">Recession velocity</span></h2>
+<p>The <strong>recession velocity</strong> is how fast the host galaxy
+appears to move away from us, measured from the redshift of its
+spectrum: v_r ≈ c·z. In the code it is the CMB-frame velocity of the
+host (<code>Counterpart.v_recession</code>).</p>
+<p>It is the sum of two parts:</p>
+<ul>
+<li><strong>Hubble flow</strong> (v_H): the part due to the expansion of
+the universe. Only this part follows Hubble's law, v_H = H0 · d.</li>
+<li><strong>Peculiar velocity</strong> (v_p): the galaxy's own motion
+through space, caused by the gravity of nearby structure (groups,
+clusters).</li>
+</ul>
+<p>For a distant host the peculiar velocity is negligible. For a nearby
+host it is not: NGC 4993, the host of GW170817, is about 40 Mpc away, so
+its peculiar velocity is roughly 10% of its total velocity.
+<code>hubble_flow_redshift()</code> removes it, adding the uncertainties
+in quadrature:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>vh, sv <span class="op">=</span> vr <span class="op">-</span> vp, <span class="bu">float</span>(np.hypot(sr, sp))</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">return</span> vh <span class="op">/</span> C_KMS, sv <span class="op">/</span> C_KMS, ...</span></code></pre></div>
+<p>With the values registered for NGC 4993, which match the GW170817
+standard-siren H0 paper (Abbott et al. 2017, Nature):</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v_r (recession, CMB frame)</td>
+<td>3327 ± 72 km/s</td>
+</tr>
+<tr>
+<td>⟨v_p⟩ (peculiar)</td>
+<td>310 ± 150 km/s</td>
+</tr>
+<tr>
+<td>v_H = v_r − v_p</td>
+<td>3017 ± 166 km/s, so z_H ≈ 0.01006</td>
+</tr>
+</tbody>
+</table></div>
+<p>This Hubble-flow redshift is combined with the gravitational-wave
+distance to give H0. The peculiar-velocity uncertainty (±150 km/s) is a
+large part of the redshift error, more than the measured velocity's (±72
+km/s).</p>
+<p><strong>CLI options</strong></p>
+<ul>
+<li><code>--v-recession V SIGMA</code> and
+<code>--v-peculiar V SIGMA</code> override the registered values, in
+km/s.</li>
+<li><code>--redshift Z SIGMA</code> skips the velocity correction and
+uses the given redshift directly. Use it for a distant host with a
+spectroscopic redshift, where the peculiar velocity doesn't matter.</li>
+<li><code>--v-peculiar</code> on its own fails if the host is registered
+by its redshift, because there is no recession velocity to subtract it
+from.</li>
+</ul>
+</section><section><h2 id="s3"><span class="num">3</span><span class="h2t">The CMB frame</span></h2>
+<h3 id="definition">Definition</h3>
+<p>The <strong>CMB frame</strong> is the reference frame where the
+cosmic microwave background looks the same in every direction, apart
+from its tiny intrinsic fluctuations. It is the closest thing to a
+cosmic rest frame: an observer at rest there is moving only with the
+expansion of the universe.</p>
+<p>We are not at rest in it. The Sun moves at about <strong>370
+km/s</strong> relative to the CMB, toward galactic (l, b) ≈ (264°, 48°),
+in Crater/Leo. We see this as the <strong>CMB dipole</strong>: the CMB
+is about 3.4 mK hotter in that direction and colder in the opposite
+one.</p>
+<h3 id="it-is-a-state-of-motion-not-a-place">It is a state of motion,
+not a place</h3>
+<p>The CMB frame is defined at every point in the universe. At any
+location it is the frame of a <strong>comoving observer</strong>: one
+with no velocity of their own, only carried along by the expansion.</p>
+<p>Why the CMB looks the same in all directions to such an observer:</p>
+<ul>
+<li>The CMB fills the whole universe almost uniformly. It was released
+everywhere at once, about 380,000 years after the Big Bang (z ≈ 1100),
+when the universe became transparent.</li>
+<li>Wherever you are, you receive photons from a sphere around you, the
+<em>last-scattering surface</em>. Each observer has their own sphere.
+The early universe was very nearly uniform (the cosmological principle),
+so every such sphere looks nearly identical: 2.725 K in every direction,
+with fluctuations of about 10⁻⁵.</li>
+</ul>
+<p>When you move, the Doppler effect changes this. Photons from ahead
+are blueshifted and those from behind redshifted, so T(θ) ≈ T₀ (1 +
+(v/c) cos θ). For v ≈ 370 km/s, v/c ≈ 1.23 × 10⁻³ and ΔT ≈ 3.4 mK. That
+is the measured dipole.</p>
+<p>Analogy: rain on a windless day falls vertically and evenly when you
+stand still. Run, and it seems to come from the front and hits you
+harder. The rain hasn't changed, only your motion through it.</p>
+<p>An observer at rest in the CMB frame at our position would move at
+about 370 km/s <em>relative to the Sun</em>, in the direction opposite
+to the apex. For that observer the dipole would vanish.</p>
+<h3 id="for-galaxy-velocities">For galaxy velocities</h3>
+<ul>
+<li>Each galaxy has its own local CMB frame. Its <strong>peculiar
+velocity</strong> is its motion relative to it.</li>
+<li>A galaxy with no peculiar velocity moves only with the Hubble
+flow.</li>
+<li>A <strong>CMB-frame recession velocity</strong> is the cz we would
+measure if we were comoving observers ourselves, so our own 370 km/s is
+removed.</li>
+<li>Subtracting the galaxy's peculiar velocity (v_H = v_r − v_p) then
+leaves only the Hubble flow, which is what H0 relates to distance.</li>
+</ul>
+<p>The code uses the CMB frame because Hubble's law describes motion
+relative to the cosmic rest frame, and because the peculiar velocity it
+subtracts (from velocity-field reconstructions) is also given in that
+frame. v_H = v_r − v_p only makes sense if both are in the same frame.
+<strong>If you pass <code>--v-recession</code> yourself, give a
+CMB-frame value</strong>: a heliocentric velocity biases H0 by a few
+hundred km/s.</p>
+<h3 id="where-to-find-cmb-frame-velocities">Where to find CMB-frame
+velocities</h3>
+<p>Catalogs and tools:</p>
+<ul>
+<li><strong>NED</strong> (see section 6): each galaxy's "Velocity
+corrections" table has a "CMB" row, and its velocity-correction
+calculator converts a heliocentric velocity to every frame.</li>
+<li><strong>HyperLEDA</strong> (leda.univ-lyon1.fr): the
+<code>v3k</code> parameter is the velocity relative to the CMB.</li>
+<li><strong>Cosmicflows-4 / Extragalactic Distance Database</strong>
+(edd.ifa.hawaii.edu): CMB-frame velocities plus measured and
+reconstructed peculiar velocities, useful for
+<code>--v-peculiar</code>.</li>
+<li><strong>Group catalogs</strong> (2MRS groups of Crook et al. 2007,
+Tully 2015): CMB-frame velocities averaged over a galaxy's group.</li>
+</ul>
+<p>To compute it yourself, use the Planck 2018 dipole: 369.82 ± 0.11
+km/s toward galactic (l, b) = (264.02°, 48.25°). To first order:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> astropy.coordinates <span class="im">import</span> SkyCoord</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> astropy.units <span class="im">as</span> u, numpy <span class="im">as</span> np</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>gal <span class="op">=</span> SkyCoord(<span class="fl">197.4487</span><span class="op">*</span>u.deg, <span class="op">-</span><span class="fl">23.3839</span><span class="op">*</span>u.deg)              <span class="co"># NGC 4993</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>apex <span class="op">=</span> SkyCoord(l<span class="op">=</span><span class="fl">264.021</span><span class="op">*</span>u.deg, b<span class="op">=</span><span class="fl">48.253</span><span class="op">*</span>u.deg, frame<span class="op">=</span><span class="st">&quot;galactic&quot;</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>v_helio <span class="op">=</span> <span class="fl">2930.0</span>                                            <span class="co"># km/s, from the spectrum</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>v_cmb <span class="op">=</span> v_helio <span class="op">+</span> <span class="fl">369.82</span> <span class="op">*</span> np.cos(gal.separation(apex))</span></code></pre></div>
+<p>For NGC 4993 this gives cos ≈ 0.84 and <strong>v_CMB ≈ 3241
+km/s</strong> for the galaxy itself. The registered 3327 ± 72 km/s is,
+as far as I recall, the CMB-frame velocity of <strong>NGC 4993's galaxy
+group</strong> from the GW170817 H0 paper; averaging over the group
+reduces the effect of the galaxy's own motion within it (check the
+paper's references for the exact source). The value passed to
+<code>--v-recession</code> and the <code>--v-peculiar</code> subtracted
+from it should be in the same frame and describe the same object, either
+the galaxy or its group.</p>
+</section><section><h2 id="s4"><span class="num">4</span><span class="h2t">How Planck corrects
+for its own motion</span></h2>
+<p><strong>Planck's motion around the Sun (orbital dipole).</strong>
+Planck orbited L2, so it moved with the Earth around the Sun at about 30
+km/s. This adds a dipole of about 270 μK whose direction turns over the
+year. The orbit is known to cm/s, so the signal is predicted exactly.
+Planck used it as its <strong>main absolute calibrator</strong>,
+converting detector output into kelvin (2015 and 2018 analyses, for both
+LFI and HFI).</p>
+<p><strong>The Sun's motion relative to the CMB (solar dipole).</strong>
+The 370 km/s dipole (about 3.36 mK) is fitted from the maps, and the
+standard maps are released with it subtracted. Its amplitude and
+direction are the values used for the CMB-frame correction.</p>
+<p><strong>Subtler effects.</strong> Moving at v/c ≈ 10⁻³ also:</p>
+<ul>
+<li><strong>aberrates</strong> the sky slightly, pushing apparent
+positions toward the apex;</li>
+<li><strong>Doppler-boosts</strong> the small-scale fluctuations, making
+them look slightly brighter and smaller in that direction;</li>
+<li>adds a small kinematic quadrupole, of order (v/c)²,
+frequency-dependent and corrected in the processing.</li>
+</ul>
+<p>In 2013 Planck measured the aberration and boosting in the
+fluctuations themselves and found v ≈ 384 ± 78 km/s in the same
+direction: an independent check that the dipole comes from our
+motion.</p>
+<p><strong>Open question.</strong> The kinematic reading of the dipole
+is an assumption; an intrinsic CMB dipole would look the same. Counts of
+distant quasars and radio sources should show the same dipole, but some
+studies (e.g. Secrest et al. 2021) find an amplitude about twice as
+large. This tension is not resolved. At about 40 Mpc, everyone uses the
+standard kinematic interpretation.</p>
+</section><section><h2 id="s5"><span class="num">5</span><span class="h2t">The chain of
+motions (Milky Way, Local Group)</span></h2>
+<p>Our 370 km/s relative to the CMB is the vector sum of several nested
+motions:</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Motion</th>
+<th>Speed</th>
+<th>Direction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Earth around the Sun</td>
+<td>~30 km/s</td>
+<td>changes over the year (Planck's calibrator)</td>
+</tr>
+<tr>
+<td>Sun relative to its local stars (Local Standard of Rest)</td>
+<td>~20 km/s</td>
+<td>roughly toward Hercules</td>
+</tr>
+<tr>
+<td>Sun around the Galactic centre</td>
+<td>~230–250 km/s</td>
+<td>l = 90°, the direction of Galactic rotation</td>
+</tr>
+<tr>
+<td>Milky Way relative to the Local Group barycentre</td>
+<td>~80–120 km/s</td>
+<td>roughly toward M31</td>
+</tr>
+<tr>
+<td><strong>Local Group relative to the CMB</strong></td>
+<td><strong>~620 km/s</strong></td>
+<td>(l, b) ≈ (272°, 30°)</td>
+</tr>
+</tbody>
+</table></div>
+<p>These don't simply add up. The Sun's rotation around the Galaxy
+(toward l = 90°) points roughly <em>against</em> the Local Group's
+motion (toward l ≈ 272°), so it cancels part of the 620 km/s, leaving
+the ~370 km/s of the Sun relative to the CMB.</p>
+<p><strong>No separate Milky Way correction is needed.</strong> The CMB
+dipole is measured directly from the Sun's position (once Planck's
+orbital motion is removed), so it already includes all of these motions.
+A single heliocentric → CMB correction covers them. The intermediate
+frames are still used, and NED lists them all: heliocentric, LSR,
+Galactocentric (GSR), Local Group and CMB.</p>
+<p><strong>Why the Local Group moves at 620 km/s.</strong> It is the
+gravity of large-scale structure:</p>
+<ul>
+<li>the pull of the Great Attractor / Norma cluster region, near the
+centre of the Laniakea supercluster;</li>
+<li>the pull of the more distant Shapley supercluster;</li>
+<li>a push away from the underdense Local Void.</li>
+</ul>
+<p>NGC 4993's 310 km/s peculiar velocity has the same origin; both
+numbers come from the same velocity-field reconstructions of the local
+universe.</p>
+</section><section><h2 id="s6"><span class="num">6</span><span class="h2t">NED</span></h2>
+<p><strong>NED</strong>, the <strong>NASA/IPAC Extragalactic
+Database</strong> (<a
+href="https://ned.ipac.caltech.edu">https://ned.ipac.caltech.edu</a>),
+is run by IPAC at Caltech, funded by NASA, and public since 1990. It
+brings together the published data on objects <strong>outside the Milky
+Way</strong>: galaxies, quasars, clusters, radio and X-ray sources.</p>
+<p>For each object it collects and cross-matches data from thousands of
+catalogs and papers:</p>
+<ul>
+<li><strong>Names and positions</strong>: all aliases (NGC 4993, ESO
+508-G018, PGC 45657…) resolved to one object.</li>
+<li><strong>Redshifts and velocities</strong>: the measured heliocentric
+redshift, plus a <strong>"Velocity corrections"</strong> table
+converting it to the LSR, Galactocentric, Local Group and
+<strong>CMB</strong> frames. This is where to look up a
+<code>--v-recession</code> value.</li>
+<li><strong>Redshift-independent distances</strong>: Cepheids, tip of
+the red giant branch, Tully–Fisher, surface-brightness fluctuations,
+supernovae… Useful to compare with a gravitational-wave distance.</li>
+<li><strong>Photometry</strong> from radio to gamma rays, images,
+morphology, Galactic extinction along the line of sight, and the
+bibliography for the object.</li>
+</ul>
+<p>Useful tools:</p>
+<ul>
+<li><p><strong>Object search</strong> by name or by position (cone
+search).</p></li>
+<li><p>A <strong>velocity-correction calculator</strong>: coordinates
+and a heliocentric velocity in, each frame out.</p></li>
+<li><p>A <strong>cosmology calculator</strong> (distances, lookback
+time).</p></li>
+<li><p>An API, also reachable from Python with
+<code>astroquery.ipac.ned</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> astroquery.ipac.ned <span class="im">import</span> Ned</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>t <span class="op">=</span> Ned.query_object(<span class="st">&quot;NGC 4993&quot;</span>)   <span class="co"># position, redshift, velocity, type...</span></span></code></pre></div></li>
+</ul>
+<p>Related databases:</p>
+<ul>
+<li><strong>SIMBAD</strong> (CDS, Strasbourg): objects inside and
+outside the Galaxy, strongest on stars. NED covers extragalactic objects
+only.</li>
+<li><strong>HyperLEDA</strong> (Lyon): homogenized galaxy parameters,
+such as the <code>v3k</code> CMB velocity.</li>
+</ul>
+<p>Positions and redshifts are commonly checked in both NED and
+SIMBAD.</p>
+</section><section><h2 id="s7"><span class="num">7</span><span class="h2t">The area-law mode
+(<code>area_law.py</code>)</span></h2>
+<p>The area-law mode does <strong>not</strong> compute the remnant mass
+itself. The LVK release for GW250114 (Zenodo 16877102, arXiv:2509.08054)
+already provides <strong>area samples</strong>, computed by the
+collaboration for each time window. <code>area_law.py</code> loads them,
+pools the two ringdown codes, compares the areas and scans over the
+windows. <code>kerr_area()</code> is only used for the optional
+full-signal (<code>--with-imr</code>) consistency check.</p>
+<p><strong>Which steps come from the paper.</strong> Almost everything:
+the pooling, the Gaussian significance and the scans.
+<code>gwtc_analysis</code> adds the direct probability P(A_f &lt; A_i),
+and approximates the area-change distribution with random pairs. Each
+step below is marked.</p>
+<h3 id="70-the-physics">7.0 The physics</h3>
+<p>The horizon area of a Kerr black hole of mass M and spin χ is A =
+8πM²[1 + √(1 − χ²)]. Hawking's area law requires A_f ≥ A_i = A₁ +
+A₂.</p>
+<p>For this to be a real test, the two areas must come from
+<strong>separate parts of the signal</strong>:</p>
+<ul>
+<li><strong>A_i, from the inspiral</strong>: parameter estimation
+(NRSur7dq4) on data <strong>truncated at t&lt;</strong> before the peak
+gives m₁, m₂, χ₁, χ₂. There are 16 truncations, from −250 M to 0 M (M =
+GM_total/c³ with the detector-frame total mass; see section 8).</li>
+<li><strong>A_f, from the ringdown</strong>: data <strong>starting at
+t&gt;</strong> after the peak are fit with damped sinusoids, the
+quasinormal modes. In Kerr, a mode's frequency and damping time depend
+only on (M_f, χ_f), so the fit gives the remnant mass and spin without
+any merger model. Ringdown times are in units of M_f, the remnant's
+mass. Two models are fit:
+<ul>
+<li><strong>220</strong>: the fundamental mode;</li>
+<li><strong>220 + 221</strong>: adding the first overtone, which decays
+fast and is only valid from about 6 M_f.</li>
+</ul></li>
+</ul>
+<p>The full-signal fit is not a test: its remnant comes from
+numerical-relativity fits, which obey the law by construction.</p>
+<h3 id="71-pooling-the-two-ringdown-codes-pooled_remnant">7.1 Pooling
+the two ringdown codes (<code>pooled_remnant</code>)</h3>
+<p class="origin o-paper"><span class="badge">the paper</span> Pooling in equal numbers, with
+the paper's seed 250114.</p>
+<p>Two independent ringdown codes analysed the data:</p>
+<ul>
+<li><strong><code>ringdown</code></strong>: provided at many start times
+and for both models;</li>
+<li><strong>pyRing</strong>: provided only at 10.5 M_f, with the 220
+mode.</li>
+</ul>
+<p>The code takes n = min(N_ringdown, N_pyRing) = 2000 samples from each
+code, drawn <strong>without replacement</strong> with the paper's seed
+250114, and concatenates them into 4000 samples. Equal numbers give the
+two codes equal weight, so neither dominates just because it has more
+samples. The fixed seed reproduces the paper's exact subsample.</p>
+<h3 id="72-headline-result">7.2 Headline result</h3>
+<p class="origin o-partly"><span class="badge">partly the paper</span> The Gaussian significance
+S and its 4.4σ are the paper's; the direct probability P(A_f &lt; A_i)
+is added by <code>gwtc_analysis</code>.</p>
+<p>A_i at t&lt; = −40 M is compared with the pooled A_f at 10.5 M_f, in
+two ways.</p>
+<p><strong>Gaussian significance</strong>: S = (⟨A_f⟩ − ⟨A_i⟩) / √(σ_f²
++ σ_i²). If both areas are Gaussian and independent, A_f − A_i is
+Gaussian with mean ⟨A_f⟩ − ⟨A_i⟩ and width √(σ_f² + σ_i²); S says how
+many widths the difference lies above 0. Only the means and standard
+deviations are used, because with a few thousand samples the far tails
+are poorly sampled. At 4.4σ the one-sided tail is about 5 × 10⁻⁶, so a
+few thousand samples hold essentially none of it.</p>
+<p><strong>Direct probability</strong>: P(A_f &lt; A_i). The code draws
+400,000 random pairs (one A_f, one A_i, <strong>with</strong>
+replacement) and counts the fraction where the law is violated. This
+measures the tails directly, with no Gaussian assumption. Its resolution
+is about 1/400,000 ≈ 2.5 × 10⁻⁶, close to the Gaussian 4.4σ level, so it
+is reported alongside S rather than replacing it.</p>
+<h3 id="73-relative-area-change">7.3 Relative area change</h3>
+<p class="origin o-partly"><span class="badge">partly the paper</span> The distribution of (A_f −
+A_i)/A_i is the paper's; drawing 200,000 random pairs instead of all the
+pairs is an approximation of <code>gwtc_analysis</code>.</p>
+<p>The code computes (A_f − A_i)/A_i over 200,000 random pairs and
+reports the median and the 5–95% interval. The paper uses every possible
+pair (N_f × N_i); random pairs give nearly the same percentiles for much
+less computation. The histogram is plotted against the prior on this
+ratio implied by the PE priors (<code>area_change_prior.dat</code>), to
+show that the data, not the prior, drive the result.</p>
+<p>Both areas are in detector-frame masses, so the (1+z)² factor cancels
+in the ratio and in S.</p>
+<h3 id="74-the-two-scans">7.4 The two scans</h3>
+<p class="origin o-paper"><span class="badge">the paper</span> Both scans and the three numbers
+drawn from them (section 7.5).</p>
+<p><strong>Scan over the inspiral truncation</strong>: A_f is fixed
+(pooled, 10.5 M_f) and A_i varies over the 16 values of t&lt;. A later
+truncation keeps more of the inspiral, so A_i is measured more precisely
+and S rises.</p>
+<p><strong>Scan over the ringdown start</strong>: A_i is fixed at −40 M,
+and A_f varies with t&gt; for each model.</p>
+<ul>
+<li>These scans use the <code>ringdown</code> code alone, since pyRing
+only has 10.5 M_f. So the 220 value at 10.5 M_f in this scan differs
+slightly from the pooled headline.</li>
+<li>A later start loses signal (the ringdown decays exponentially), so
+A_f widens and S falls.</li>
+<li>An earlier start with 220 alone risks bias from overtones that
+haven't decayed yet. That's why 220 + 221 is used from 6 M_f.</li>
+</ul>
+<h3 id="75-summary-numbers-compared-with-the-paper">7.5 Summary numbers,
+compared with the paper</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>How it's computed</th>
+<th>Published</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Headline</td>
+<td>S at −40 M vs the pooled A_f</td>
+<td>4.4σ</td>
+</tr>
+<tr>
+<td>Minimum over the truncations</td>
+<td>min of S in the truncation scan</td>
+<td>3.4σ</td>
+</tr>
+<tr>
+<td>Earliest truncation above 5σ</td>
+<td>the most negative t&lt; with S ≥ 5</td>
+<td>−10 M</td>
+</tr>
+<tr>
+<td>Overtone</td>
+<td>S of 220 + 221 at 6 M_f vs A_i at −40 M</td>
+<td>3.6σ</td>
+</tr>
+</tbody>
+</table></div>
+<p>The "earliest truncation above 5σ" is the first t&lt; that reaches
+5σ; the code doesn't check that every later truncation stays above
+it.</p>
+<p><strong>Outputs</strong>:</p>
+<ul>
+<li><code>area_law.tsv</code>: the comparison table above;</li>
+<li><code>area_law.truncation.tsv</code> and
+<code>area_law.ringdown.tsv</code>: the two scans;</li>
+<li>two plots (the area distributions with the ratio, and the
+significance scans) and an HTML report.</li>
+</ul>
+</section><section><h2 id="s8"><span class="num">8</span><span class="h2t">The M unit (t = −40 M, 10.5
+M_f…)</span></h2>
+<h3 id="81-what-m-is">8.1 What M is</h3>
+<p>In GR it's common to set G = c = 1, so a mass can be expressed as a
+time or a length:</p>
+<ul>
+<li><strong>as a time</strong>: GM/c³ ≈ <strong>4.93 μs per solar
+mass</strong>;</li>
+<li><strong>as a length</strong>: GM/c² ≈ <strong>1.477 km per solar
+mass</strong>. This is the <code>MSUN_KM</code> constant in
+<code>area_law.py</code>, which converts areas to km².</li>
+</ul>
+<p>So "1 M" means GM/c³ for the binary's total mass M, and <strong>t =
+−40 M means 40 × GM/c³ before the peak</strong>. The peak, t = 0, is the
+time of maximum strain amplitude, around the merger.</p>
+<h3 id="82-g--c--1-does-not-mean-g-equals-c">8.2 "G = c = 1" does not
+mean G equals c</h3>
+<p>G and c don't even have the same dimensions (G = 6.674 × 10⁻¹¹ m³
+kg⁻¹ s⁻², c = 2.998 × 10⁸ m s⁻¹). "G = c = 1" is a <strong>choice of
+units</strong>: the units of length, time and mass are picked so that
+each constant has the numerical value 1. Each constant then becomes a
+conversion factor:</p>
+<ol type="1">
+<li><strong>c = 1 links time and length.</strong> Time is measured in
+meters, the distance light travels in that time: 1 s ↔︎ 299,792,458 m.
+Speeds become dimensionless, and light has speed 1.</li>
+<li><strong>G = 1 links mass and length.</strong> The factor G/c²
+converts a mass into a length: 1 kg ↔︎ G/c² = 7.42 × 10⁻²⁸ m. For the
+Sun: 1.989 × 10³⁰ kg × 7.42 × 10⁻²⁸ m/kg ≈ <strong>1477 m</strong>.
+Dividing that length by c gives a time: 1477 m / c ≈ <strong>4.93
+μs</strong>.</li>
+</ol>
+<p>With G, c and a mass M, the only time you can build is GM/c³, and the
+only length GM/c². Writing "40 M" means 40 × GM/c³: in SI, nothing is
+set to 1, it's just dimensional analysis.</p>
+<p>Analogy: "the town is 2 hours away" uses a speed to express a
+distance as a time; nobody concludes that hours equal kilometers.
+(Imperfect, since c is a true universal constant, but the logic of a
+constant as a conversion factor is the same.)</p>
+<p>Setting G = c = 1 fixes two of the three base units. The third is
+fixed by the problem: lengths and times are expressed in units of the
+binary's mass M.</p>
+<h3 id="83-what-493-μs-corresponds-to">8.3 What 4.93 μs corresponds
+to</h3>
+<p>It isn't a physical event on its own: it is the <strong>natural time
+scale of gravity for one solar mass</strong>, the time light takes to
+cross the gravitational radius GM/c² ≈ 1.477 km. Strong-gravity
+processes around a mass M happen on simple multiples of GM/c³:</p>
+<ul>
+<li><strong>Black hole size</strong>: the Schwarzschild radius is 2GM/c²
+≈ 2.95 km per solar mass; light crosses it in ≈ 9.9 μs.</li>
+<li><strong>Orbits</strong>: Kepler's law T = 2π√(r³/GM), with r = n ×
+GM/c², gives T = 2π n^{3/2} × GM/c³.</li>
+</ul>
+<p>For a non-spinning black hole:</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Process</th>
+<th>In units of M</th>
+<th>For 1 M_☉</th>
+<th>For GW250114 (~70 M_☉)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Light crossing GM/c²</td>
+<td>1 M</td>
+<td>4.93 μs</td>
+<td>≈ 0.35 ms</td>
+</tr>
+<tr>
+<td>Orbit at the ISCO (r = 6M)</td>
+<td>2π·6^{3/2} ≈ 92 M</td>
+<td>0.45 ms</td>
+<td>≈ 32 ms, so f_GW ≈ 63 Hz</td>
+</tr>
+<tr>
+<td>220 ringdown period</td>
+<td>2π/0.374 ≈ 16.8 M_f</td>
+<td>83 μs, so f ≈ 12 kHz</td>
+<td>≈ 4 ms, so f ≈ 250 Hz*</td>
+</tr>
+<tr>
+<td>220 damping time</td>
+<td>≈ 11.2 M_f</td>
+<td>55 μs</td>
+<td>≈ 4 ms</td>
+</tr>
+</tbody>
+</table></div>
+<p>* For GW250114's spinning remnant (χ_f ≈ 0.7), the 220 frequency is
+higher in units of M_f, about 0.53/M_f instead of 0.374/M_f. Approximate
+values from memory; the remnant rings around 250 Hz.</p>
+<ul>
+<li><strong>ISCO</strong> is the innermost stable circular orbit. The
+gravitational-wave frequency is twice the orbital frequency, so
+f_GW,ISCO ≈ 4400 Hz × (M_☉/M).</li>
+<li><strong>Everything scales linearly with mass</strong>: a 10 M_☉
+black hole rings at about 1.2 kHz, a 100 M_☉ one at about 120 Hz, a 10⁶
+M_☉ one at about 0.01 Hz (the LISA band). This is why LIGO and Virgo,
+sensitive to tens to hundreds of Hz, see stellar-mass black-hole
+mergers.</li>
+</ul>
+<h3 id="84-in-seconds-for-gw250114">8.4 In seconds for GW250114</h3>
+<p>M is the <strong>detector-frame</strong> total mass: about 66 M_☉ in
+the source frame, times (1 + z) with z ≈ 0.09, so about 70 M_☉
+(approximate values from memory of the paper). M_f is a few percent
+smaller, since about 5% of the mass is radiated as gravitational
+waves.</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Time</th>
+<th>In ms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 M</td>
+<td>≈ 0.35 ms</td>
+</tr>
+<tr>
+<td>−40 M (headline truncation)</td>
+<td>≈ 14 ms before the peak</td>
+</tr>
+<tr>
+<td>−250 M (earliest truncation)</td>
+<td>≈ 88 ms before the peak</td>
+</tr>
+<tr>
+<td>1 M_f</td>
+<td>≈ 0.33 ms</td>
+</tr>
+<tr>
+<td>10.5 M_f (220 start)</td>
+<td>≈ 3.5 ms after the peak</td>
+</tr>
+<tr>
+<td>6 M_f (220 + 221 start)</td>
+<td>≈ 2 ms after the peak</td>
+</tr>
+</tbody>
+</table></div>
+<p>40 M ≈ 14 ms is less than half an ISCO orbit period (~32 ms): t&lt; =
+−40 M cuts the data in the very last cycles before the merger.</p>
+<h3 id="85-why-use-m-instead-of-seconds">8.5 Why use M instead of
+seconds</h3>
+<p><strong>Vacuum GR has no built-in scale.</strong> For a given mass
+ratio and spins, a binary of 10 M_☉ and one of 100 M_☉ produce the
+<strong>same waveform shape</strong>; the heavier one is just stretched
+by a factor of 10 in time. In units of M, the waveform depends only on
+the mass ratio and spins:</p>
+<ul>
+<li>Numerical-relativity simulations, and surrogates like NRSur7dq4, are
+computed with M = 1 and rescaled to the physical mass.</li>
+<li>Times in M mean the same thing for every event: −40 M is always at
+the same stage of the late inspiral, whatever the mass.</li>
+<li>The ringdown scales with M_f. The 220 damping time is about 12 M_f
+for this remnant's spin (value from memory; it depends on the spin), so
+starting at 10.5 M_f means about one damping time after the peak. By
+then the overtones, which decay several times faster, have mostly died
+out. That's why the 220 + 221 model is needed to start as early as 6
+M_f.</li>
+</ul>
+</section><section><h2 id="s9"><span class="num">9</span><span class="h2t">What σ (sigma) means in
+the results</span></h2>
+<p>In <code>gwtc_analysis</code>, σ is always a <strong>standard
+deviation</strong>, but it's used in two ways.</p>
+<h3 id="91-σ-as-a-width-the-uncertainty-of-one-measurement">9.1 σ as a
+width: the uncertainty of one measurement</h3>
+<p>σ_f and σ_i in the area-law formula are the standard deviations of
+the posterior samples (<code>final.std()</code> and
+<code>initial.std()</code> in <code>gaussian_significance</code>):</p>
+<p>σ = √( (1/N) Σ (A_k − ⟨A⟩)² )</p>
+<p>The samples are draws from the <strong>Bayesian posterior</strong>,
+the probability distribution of the parameter given the data. σ measures
+the width of that distribution, so it is the measurement uncertainty: a
+small σ means the data pin the parameter down tightly.</p>
+<p>For a Gaussian distribution:</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Range</th>
+<th>Probability inside</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>±1σ</td>
+<td>68.3%</td>
+</tr>
+<tr>
+<td>±1.645σ</td>
+<td>90%</td>
+</tr>
+<tr>
+<td>±2σ</td>
+<td>95.4%</td>
+</tr>
+<tr>
+<td>±3σ</td>
+<td>99.7%</td>
+</tr>
+</tbody>
+</table></div>
+<p>GW papers, and most outputs of <code>gwtc_analysis</code>, quote the
+<strong>median with a 90% credible interval</strong> instead: the 5th to
+95th percentiles of the samples, like <code>ratio_q</code> in the
+area-law mode or <code>viewing_angle_low_90</code>/<code>high_90</code>
+in the counterpart mode. These intervals use no Gaussian assumption, so
+they stay correct for skewed posteriors such as distances and spins. For
+a Gaussian, the 90% interval is ±1.645σ.</p>
+<h3
+id="92-44σ-as-a-significance-how-far-a-result-is-from-a-hypothesis">9.2
+"4.4σ" as a significance: how far a result is from a hypothesis</h3>
+<p>S = (⟨A_f⟩ − ⟨A_i⟩) / √(σ_f² + σ_i²)</p>
+<p>The difference A_f − A_i has its own width √(σ_f² + σ_i²), because
+the two uncertainties are independent and add in quadrature. S counts
+how many of these widths separate the measured difference from 0, the
+boundary of a violation of the area law.</p>
+<p>The value is turned into a probability using the one-sided tail of a
+Gaussian, P(A_f &lt; A_i):</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Significance</th>
+<th>One-sided probability of being wrong</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1σ</td>
+<td>0.16</td>
+<td></td>
+</tr>
+<tr>
+<td>3σ</td>
+<td>1.3 × 10⁻³</td>
+<td></td>
+</tr>
+<tr>
+<td>3.4σ</td>
+<td>3.4 × 10⁻⁴</td>
+<td>minimum over the truncations</td>
+</tr>
+<tr>
+<td>3.6σ</td>
+<td>1.6 × 10⁻⁴</td>
+<td>220 + 221 from 6 M_f</td>
+</tr>
+<tr>
+<td><strong>4.4σ</strong></td>
+<td><strong>5.4 × 10⁻⁶</strong></td>
+<td>headline result</td>
+</tr>
+<tr>
+<td>5σ</td>
+<td>2.9 × 10⁻⁷</td>
+<td>the usual "discovery" threshold</td>
+</tr>
+</tbody>
+</table></div>
+<p>So "4.4σ" means that, if the distributions were Gaussian, the
+probability that A_f &lt; A_i would be about 5 in a million. It is
+one-sided because only one direction violates the law.</p>
+<h3 id="93-caveats">9.3 Caveats</h3>
+<ul>
+<li>The conversion assumes Gaussian distributions. Real posteriors have
+non-Gaussian tails, which is why the code also gives the direct P(A_f
+&lt; A_i) from random pairs of samples.</li>
+<li>A Bayesian σ is not the same as the <strong>detection
+significance</strong> of a GW search, which is a false-alarm rate
+measured on background noise. The 4.4σ here is about a physical law, not
+about whether the event is real.</li>
+</ul>
+</section><section><h2 id="s10"><span class="num">10</span><span class="h2t">The time windows
+of the area-law test</span></h2>
+<p>The windows are <strong>set by the paper's analyses</strong>, not by
+<code>gwtc_analysis</code>: the release holds samples only for the
+windows the LVK analysed, and the code has no option to change them.
+Another value, e.g. t&lt; = −60 M, would need a new PE run on the strain
+data.</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Window</th>
+<th>Values in the release</th>
+<th>Paper's reference (constant in <code>area_law.py</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>t&lt;</strong> (inspiral)</td>
+<td>−250, −200, −150, −100, −75, −50, −45, −40, −35, −30, −25, −20, −15,
+−10, −5, 0 M</td>
+<td>−40 M (<code>REFERENCE_CUT</code>)</td>
+</tr>
+<tr>
+<td><strong>t&gt;</strong> (ringdown code, 220 and 220 + 221)</td>
+<td>6, 7, 8, 9, 9.5, 10, 10.5, 11, 12, …, 20 M_f</td>
+<td>10.5 M_f for 220 (<code>REFERENCE_START</code>), 6 M_f for 220 + 221
+(<code>OVERTONE_START</code>)</td>
+</tr>
+<tr>
+<td><strong>pyRing</strong></td>
+<td>only 220 at 10.5 M_f</td>
+<td>pooled with the ringdown code at 10.5 M_f</td>
+</tr>
+</tbody>
+</table></div>
+<p>The scans already compute every released combination: every t&lt;
+against the reference A_f, and every t&gt; and model against the
+reference A_i.</p>
+<h3 id="inspiral-truncation-t-from-250-m-to-0-m">Inspiral truncation:
+t&lt; from −250 M to 0 M</h3>
+<ul>
+<li><strong>Upper end, 0 M (the peak):</strong> the latest truncation
+the test allows. After the peak, the data would include the ringdown,
+used to measure A_f, and the two measurements would no longer be
+independent.</li>
+<li><strong>Lower end, −250 M (≈ 88 ms before the peak):</strong>
+truncating earlier throws away the loud last cycles. Most of the
+signal-to-noise ratio is in those final cycles, since the amplitude
+grows toward the merger. With less data, A_i gets wide and the test
+loses power: only ≈ 3.4σ at −250 M.</li>
+<li><strong>Spacing:</strong> coarse at the far end (every 50 M), dense
+near the peak (every 5 M from −50 M). The question is how close to the
+merger the inspiral-only description can be pushed, and the significance
+changes fastest there.</li>
+</ul>
+<h3 id="ringdown-start-t-from-6-m_f-to-20-m_f">Ringdown start: t&gt;
+from 6 M_f to 20 M_f</h3>
+<ul>
+<li><strong>Lower end, 6 M_f:</strong> just after the peak, the signal
+is not yet a sum of a few quasinormal modes. The merger is strongly
+nonlinear, and many overtones contribute. Even 220 + 221 is only
+considered reliable from about 6 M_f, and 220 alone needs a later start:
+hence 10.5 M_f for the 220 headline.</li>
+<li><strong>Upper end, 20 M_f (≈ 7 ms):</strong> the ringdown decays
+exponentially, with a damping time of about 12 M_f. Between 10.5 and 20
+M_f the amplitude falls by roughly e^(−9.5/12) ≈ 0.45, so A_f gets wide
+and the significance drops to about 1.5σ. Later starts would add
+little.</li>
+<li><strong>Spacing:</strong> steps of 1 M_f, plus 9.5 and 10.5 around
+the reference start.</li>
+</ul>
+<h3 id="the-gap-between-the-two-windows">The gap between the two
+windows</h3>
+<p>With the headline choice, the data between −40 M and +10.5 M_f (about
+14 ms before the peak and 3.5 ms after it) are used by
+<strong>neither</strong> measurement. That stretch is the merger itself,
+where neither description (inspiral or quasinormal modes) is valid, and
+skipping it makes A_i and A_f truly independent.</p>
+<p>The trade-off shows in the two panels of the scan plot: pushing
+either window toward the peak adds signal and raises the significance,
+but moves into the region where the model (inspiral-only, or a few
+quasinormal modes) is less trustworthy.</p>
+<h3 id="what-the-plot-shows">What the plot shows</h3>
+<p>In <code>area_law_scans_GW250114.png</code>, the <strong>lines and
+dots are computed</strong> by <code>gwtc_analysis</code> from the
+release samples; the <strong>orange markers are the published
+values</strong> (the <code>PUBLISHED</code> dict): the 4.4σ diamonds,
+the 3.4σ dashed line, the 3.6σ square. The blue dot at 10.5 M_f in the
+right panel is slightly below the diamond because the start-time scan
+uses the ringdown code alone, while the published 4.4σ pools it with
+pyRing.</p>
+<p>The exact reasons for the paper's reference choices (−40 M, 10.5 M_f)
+are given in the paper; the account above is the general reasoning
+behind such choices.</p>
+</section><section><h2 id="s11"><span class="num">11</span><span class="h2t">The
+scalar_cloud mode, explained step by step</span></h2>
+<p>This section explains in plain terms what <code>scalar_cloud</code>
+does and how it reproduces the paper of Roy, Vicente, Aurrekoetxea,
+Clough &amp; Ferreira (arXiv:2510.17967). The detailed reference is
+<code>docs/modes/scalar-cloud.md</code>; the code is
+<code>scalar_cloud.py</code> (physics, fits, sampling) and
+<code>scalar_cloud_mode.py</code> (stages, plots, report).</p>
+<h3 id="111-the-question">11.1 The question</h3>
+<p><strong>Does the signal of GW190728_064510 look as if the two black
+holes merged inside a cloud of an ultralight scalar field?</strong> The
+paper reports tentative evidence for it. The mode refits the public
+strain data with two models and compares them:</p>
+<ul>
+<li><strong>vacuum</strong>: the standard catalog waveform,
+IMRPhenomXPHM (two black holes in empty space);</li>
+<li><strong>cloud</strong>: the same waveform, modified by the effect of
+a scalar cloud on the inspiral (IMRPhenomXPHM_Scalar, the paper's
+model).</li>
+</ul>
+<p>Unlike <code>area_law</code>, this mode <strong>runs its own
+inference</strong> on the strain: it does not just read results from a
+release. That's why it is expensive and needs a cluster for the full
+result.</p>
+<p><strong>Which tests come from the paper.</strong> The paper's claim
+rests on the Bayes factor. <code>gwtc_analysis</code> reproduces it and
+adds a frequentist check: how often noise alone gives such a gain, and
+what a real cloud would give. This attribution is based on the code and
+<code>docs/modes/scalar-cloud.md</code> (which quote the paper's
+values), not on a fresh reading of the paper.</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Origin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Best-fit gain Λ (11.4)</td>
+<td>partly the paper: it reports a median likelihood gain over its
+posterior and the cloud mode; Λ, the best fits and the seeded fits are
+<code>gwtc_analysis</code>'s</td>
+</tr>
+<tr>
+<td>2. Background (11.5)</td>
+<td>added by <code>gwtc_analysis</code></td>
+</tr>
+<tr>
+<td>3. Sensitivity injections (11.6)</td>
+<td>added by <code>gwtc_analysis</code></td>
+</tr>
+<tr>
+<td>4. Bayes factor (11.7)</td>
+<td>the paper: its actual claim</td>
+</tr>
+<tr>
+<td>Band analysis (11.9)</td>
+<td>added by <code>gwtc_analysis</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="112-the-physics-in-four-steps">11.2 The physics in four
+steps</h3>
+<p><strong>1. An ultralight boson.</strong> Some extensions of the
+Standard Model predict very light particles (axion-like), with masses
+around 10⁻¹³–10⁻¹¹ eV. Such a light particle has a quantum wavelength of
+kilometres, comparable to the size of a stellar-mass black hole. The
+ratio of the two is the key parameter:</p>
+<p>α = G M m_φ / (ħ c) (black-hole size / boson wavelength)</p>
+<p>For M = 20 M_☉, α = 0.1 corresponds to m_φ ≈ 6.5 × 10⁻¹³ eV.</p>
+<p><strong>2. A cloud around the binary.</strong> The field forms a
+bound structure, like an atom's electron cloud around the nucleus
+("gravitational atom"), of radius</p>
+<p>r_φ = GM / (c² α²)</p>
+<p>The paper and the code write it r_φ = M/α², in units where G = c = 1:
+there M stands for the length GM/c² (section 8), and α is dimensionless,
+so r_φ is a length. In SI the formula is the <strong>Bohr radius of a
+gravitational atom</strong>: replacing α by its definition,</p>
+<p>r_φ = ħ² / (G M m_φ²) = λ̄_φ / α, with λ̄_φ = ħ/(m_φ c) the boson's
+reduced Compton wavelength,</p>
+<p>the same as the hydrogen Bohr radius a₀ = ħ²/(m_e k e²) with the
+electric coupling k e² replaced by the gravitational one G M m_φ. For α
+= 0.19 and M ≈ 20 M_☉: GM/c² ≈ 29.5 km, so r_φ ≈ 29.5 km / 0.036 ≈ 28
+GM/c² ≈ 820 km. The cloud is described by its mean density ρ̄_φ (g/cm³).
+The best fit for GW190728 has ρ̄_φ ≈ 6 × 10⁶ g/cm³: very dense, but the
+cloud is so small that its total mass is only about 10⁻⁴ of the binary's
+mass.</p>
+<p><strong>The notation ρ̄_φ.</strong> ρ is the density, the subscript φ
+says it's the density of the scalar field φ (not of ordinary matter),
+and the <strong>bar means "mean"</strong>: ρ̄_φ is the mean density of
+the field inside the radius r_φ. A bound cloud's density varies with
+distance, like the electron density of an atom, peaking near the centre
+and falling off outside r_φ. The model doesn't use the profile in
+detail: it describes the cloud by this single number, and the torque
+formula is written in terms of it. The docs use the same notation
+(<code>\bar\rho_\phi</code>), which as far as I know follows the paper.
+In the code the parameter has no bar: <code>rho_phi</code> in the
+sampling parameters, <code>rho_cgs</code> / <code>rho</code> in the
+functions, in g/cm³.</p>
+<p>"Mean" is meant loosely. The code computes the cloud mass as ρ̄_φ r_φ³
+(<code>cloud_mass_fraction()</code> in <code>scalar_cloud.py</code>),
+without the 4π/3 of a sphere's volume, so ρ̄_φ works as a density scale
+for the cloud rather than an exact volume average. That doesn't change
+the fit, since ρ̄_φ is just the amplitude of the torque. It matters when
+comparing the cloud mass, or the 0.1 M cap of the agnostic prior, with
+other papers. A factor 4π/3 ≈ 4.2 would also be the size of the "2 to 4
+times lower density" difference with the paper (section 11.8); how the
+paper normalizes it hasn't been checked, so this is only a
+possibility.</p>
+<p>How would such a cloud form? A <strong>spinning</strong> black hole
+can amplify waves of a bosonic field and transfer its spin to them
+(<strong>superradiance</strong>), growing a cloud spontaneously when α
+is around 0.1. This motivates the "superradiance" prior below.</p>
+<p><strong>3. The binary loses energy to the cloud.</strong> As the two
+black holes orbit inside the cloud, they stir the field and kick part of
+it out (<strong>ionization</strong>, like ionizing an atom). This
+removes orbital angular momentum, on top of what gravitational waves
+remove. The ratio of the two losses is δ:</p>
+<p>δ = (cloud loss) / (GW loss), which grows as about v^(−13.5)</p>
+<p>v is the orbital velocity (v = (πGMf/c³)^(1/3) for GW frequency f).
+Since δ grows hugely when v is small, <strong>the effect is strongest at
+low frequency</strong>, early in the observed inspiral, when the orbit
+is wide and slow. Near the merger the GW loss dominates and the cloud
+doesn't matter.</p>
+<p><strong>4. The signal gets a phase shift.</strong> With the extra
+loss, the binary spirals in faster: it spends less time at each
+frequency. The waveform's phase then differs from vacuum by ΔΨ(f), the
+<strong>dephasing</strong>. The model fixes ΔΨ = 0 at the end of the
+inspiral (M f_c = 0.018), so the merger and ringdown are unchanged, and
+the difference grows toward low frequencies. Each mode (ℓ, m) of the
+waveform is multiplied by e^{i ΔΨ_ℓm}. With ρ̄_φ = 0, the cloud waveform
+is exactly the vacuum one (tested in the code).</p>
+<p>Example: ρ̄_φ = 10⁶ g/cm³ and α = 0.1 dephase GW190728 by about 1.6
+rad at 20 Hz and 0.13 rad at 30 Hz. The best fit has 38 rad at 20
+Hz.</p>
+<p>So the cloud model has <strong>two extra parameters</strong>, ρ̄_φ and
+α, on top of the ~15 binary parameters.</p>
+<h3 id="113-background-notions-used-below">11.3 Background notions used
+below</h3>
+<ul>
+<li><strong>Likelihood L</strong>: how well a waveform matches the data,
+given the noise. The code uses the <strong>log-likelihood ratio</strong>
+ln L (signal against noise only); ln L ≈ SNR²/2 for the best template.
+For GW190728, ln L ≈ 92, i.e. SNR ≈ 13.5.</li>
+<li><strong>PSD</strong> (power spectral density): the noise level of
+each detector against frequency, taken from the PE file. It weights each
+frequency in the likelihood.</li>
+<li><strong>Best fit</strong> (maximum likelihood): the parameters that
+maximize L. Found with a local optimizer, Nelder–Mead (scipy).</li>
+<li><strong>Nested sampling</strong> (bilby + dynesty): explores the
+whole prior to give the posterior samples <strong>and the
+evidence</strong> Z = ∫ L × prior. "Live points" set its resolution;
+more is slower and more accurate.</li>
+<li><strong>Chirp mass</strong> 𝓜: the mass combination that controls
+the inspiral speed; the best-measured mass.</li>
+</ul>
+<h3 id="114-test-1-does-the-cloud-fit-better-the-statistic-λ">11.4 Test
+1: does the cloud fit better? (the statistic Λ)</h3>
+<p class="origin o-partly"><span class="badge">partly the paper</span> The paper reports the
+<strong>median</strong> likelihood gain over its posterior samples (Δln
+L ≈ 3.7, Supplemental Material, Fig. 8 inset) and a cloud posterior at a
+lower chirp mass (Fig. 8); it gives no best fit. The statistic Λ = 2Δln
+L between best fits and the seeded best-fit procedure are
+<code>gwtc_analysis</code>'s.</p>
+<p>Λ = 2 (ln L_cloud − ln L_vacuum) at the two best fits</p>
+<p><strong>Λ is always ≥ 0</strong>: the cloud model contains the vacuum
+one (ρ̄_φ = 0), so it can always do at least as well. Two extra
+parameters will always absorb some noise. So a positive Λ means nothing
+by itself: you need to know <strong>what Λ noise alone gives</strong>
+(Test 2). The usual χ² rule doesn't apply either, because ρ̄_φ = 0 sits
+at the edge of its range and α does nothing when ρ̄_φ = 0.</p>
+<p><strong>The difficulty: finding the cloud best fit.</strong> The
+likelihood has two separate peaks:</p>
+<ul>
+<li>the vacuum peak;</li>
+<li>a cloud peak. The cloud posterior sits at a <strong>lower chirp
+mass</strong>: 9.69 against 10.14 M_☉ in the paper (Fig. 8), 9.89
+against 10.14 M_☉ in the mode's samplings (detector frame). A lower
+chirp mass makes the inspiral slower, the cloud makes it faster, so the
+two compensate and the waveform still matches the data near the merger
+while changing at low frequency. The mode's cloud <em>best fit</em>
+(10.11 M_☉) is not in the bulk of that posterior: a fit finds the
+highest point, the posterior weighs the volume.</li>
+</ul>
+<p>An optimizer started at the vacuum best fit stays on the vacuum peak.
+The first version of the mode did that (the <code>profile</code> step: a
+grid of α and of dephasings around the vacuum fit) and found only Λ =
+0.96: it missed the cloud peak. The current version takes its starting
+points from the <strong>nested sampling with the superradiance
+prior</strong>, which explores the whole space and does find the cloud
+peak:</p>
+<ol type="1">
+<li>take the 25 highest-likelihood samples of that sampling;</li>
+<li>for each, adjust the merger time (the sampling marginalizes over it,
+the fits need a fixed one) with a fine scan;</li>
+<li>keep the 4 best as <strong>seeds</strong>, and run two Nelder–Mead
+passes from each with all the parameters free.</li>
+</ol>
+<p>This is the <code>seeded</code> stage. It gives <strong>Λ =
+8.98</strong> for GW190728:</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>ln L ratio</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>vacuum best fit</td>
+<td>91.81</td>
+<td>𝓜 = 10.07 M_☉ (detector frame), q = 0.55</td>
+</tr>
+<tr>
+<td>cloud best fit</td>
+<td>96.30</td>
+<td>𝓜 = 10.11 M_☉, ρ̄_φ = 5.8 × 10⁶ g/cm³, α = 0.19 (m_φ ≈ 1.1 × 10⁻¹²
+eV)</td>
+</tr>
+</tbody>
+</table></div>
+<h3
+id="115-test-2-how-often-does-noise-give-such-a-λ-the-background">11.5
+Test 2: how often does noise give such a Λ? (the background)</h3>
+<p class="origin o-added"><span class="badge">added by gwtc_analysis</span> Not in the paper: no
+published value to compare with.</p>
+<ol type="1">
+<li>Take 150 stretches of real detector noise,
+<strong>off-source</strong>: within an hour of the event, at least 64 s
+away from it, with the same length.</li>
+<li>In each, <strong>inject</strong> the vacuum best fit: a pure vacuum
+signal, by construction without a cloud.</li>
+<li>Run <strong>exactly the same procedure</strong> (vacuum fit, seeded
+cloud fits) and compute Λ.</li>
+<li>The p-value is (k + 1)/(n + 1), with k of the n segments giving Λ ≥
+8.98.</li>
+</ol>
+<p>Result: 2 of 151 (the event and one segment with a loud noise
+transient, Λ = 112), so <strong>p ≈ 0.013</strong> (0.007 without that
+segment). 147 of 150 segments give Λ &lt; 4.1. So the event's Λ is
+unusual for pure noise around a vacuum signal, at about the 1%
+level.</p>
+<p><strong>Caveat:</strong> the seeds come from the event's own
+posterior. The background therefore asks how often noise produces such
+an improvement <strong>in that region of parameter space</strong>, not
+anywhere. The p-value is in that sense optimistic.</p>
+<h3 id="116-test-3-what-would-a-real-cloud-give-sensitivity">11.6 Test
+3: what would a real cloud give? (sensitivity)</h3>
+<p class="origin o-added"><span class="badge">added by gwtc_analysis</span> Not in the paper: no
+published value to compare with.</p>
+<p>The reverse check: inject the <strong>cloud</strong> best fit into
+the same 150 noise segments and rerun.</p>
+<p>Result: Λ ≈ 25 (5–95%: 9.9–44), with ρ̄_φ and α recovered without
+bias. Only 4.7% of these injections give Λ ≤ 8.98.</p>
+<p>So the event sits <strong>between two distributions</strong>: above
+what noise gives around vacuum (p ≈ 0.01), and below what this cloud
+would give (≈ 5%). A weaker cloud, or a noise fluctuation on a vacuum
+signal, fits both better than the best-fit cloud.</p>
+<h3 id="117-test-4-the-bayes-factor-the-papers-actual-claim">11.7 Test
+4: the Bayes factor (the paper's actual claim)</h3>
+<p class="origin o-paper"><span class="badge">the paper</span> Its Bayes factors, priors (SM
+Eqs. 9–10) and sampler settings.</p>
+<p>Nested sampling computes the evidence Z of each model, and the Bayes
+factor B = Z_cloud / Z_vacuum. Unlike Λ, the evidence <strong>penalizes
+extra parameters</strong>: it averages the likelihood over the prior, so
+a model that fits better only in a tiny corner of a wide prior is
+penalized (Occam's razor). That's why the Bayes factor depends on the
+prior on (ρ̄_φ, α). Two priors are used:</p>
+<ul>
+<li><strong>agnostic</strong>: α uniform, ρ̄_φ uniform up to 10⁹ g/cm³.
+The paper doesn't give the upper end, and the result depends on it
+strongly.</li>
+<li><strong>superradiance</strong>: only clouds that could have grown by
+superradiance before the merger (taking τ_d = 10⁶ yr between black-hole
+formation and merger) and not have decayed, with ρ̄_φ below the
+saturation density. This physical prior is much narrower, so it
+penalizes the cloud less.</li>
+</ul>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>here</th>
+<th>paper</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ln B, superradiance</td>
+<td><strong>1.34 ± 0.30</strong></td>
+<td>3.5</td>
+</tr>
+<tr>
+<td>ln B, agnostic (ρ̄_φ ≤ 10⁹)</td>
+<td><strong>−0.82 ± 0.31</strong></td>
+<td>0.4</td>
+</tr>
+</tbody>
+</table></div>
+<p>ln B &gt; 0 favours the cloud; ln B ≈ 1 is weak, ln B ≈ 3 moderate.
+The agnostic value rises as the upper end of the prior is lowered: −0.82
+at 10⁹, 0.34 at 3 × 10⁸, 1.90 at 5 × 10⁷ g/cm³. <strong>The paper's 0.4
+matches an upper end near 3 × 10⁸ g/cm³.</strong></p>
+<h3 id="118-what-is-reproduced-and-what-is-not">11.8 What is reproduced,
+and what is not</h3>
+<p><strong>Reproduced:</strong> a cloud mode with ρ̄_φ ~ 10⁷ g/cm³ and α
+of a few 0.1; the agnostic Bayes factor, for a prior up to about 3 × 10⁸
+g/cm³; the vacuum chirp-mass posterior exactly (10.14 M_☉, detector
+frame).</p>
+<p>The likelihood gain, compared like for like (difference of the
+posterior medians of the time-marginalized ln L of the samplings, read
+from the CC-IN2P3 work directory):</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>gwtc_analysis</th>
+<th>paper</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>median Δln L, superradiance</td>
+<td>4.20</td>
+<td>≈ 3.7 (SM, Fig. 8 inset)</td>
+</tr>
+<tr>
+<td>median Δln L, agnostic</td>
+<td>4.05</td>
+<td></td>
+</tr>
+<tr>
+<td>Δln L between best fits (Λ/2)</td>
+<td>4.49</td>
+<td>not given</td>
+</tr>
+</tbody>
+</table></div>
+<p>The paper reports no best fit, no Λ, no background and no
+p-value.</p>
+<p>Chirp-mass posteriors (detector frame, median and 90%):</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>gwtc_analysis</th>
+<th>paper (Fig. 8)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>vacuum</td>
+<td>10.14 (10.05–10.24)</td>
+<td>10.14 (+0.10/−0.09)</td>
+</tr>
+<tr>
+<td>cloud, superradiance</td>
+<td>9.89 (9.73–10.18)</td>
+<td>9.69 (+0.27/−0.28)</td>
+</tr>
+<tr>
+<td>cloud, agnostic</td>
+<td>9.88 (9.72–10.12)</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p>The identical vacuum value places the paper's numbers in the detector
+frame. The shift is reproduced, smaller: 2.5% here against 4.4% in the
+paper.</p>
+<p><strong>Not reproduced:</strong> a smaller superradiance Bayes factor
+(1.3 against 3.5), a density 2 to 4 times lower, and only part of the
+chirp-mass shift (2.5% against 4.4%). The three go together: a weaker
+cloud needs less chirp-mass compensation. Possible causes:</p>
+<ul>
+<li>the frame where the correction is applied: here each mode in the
+<strong>J frame</strong> (fixed to the total angular momentum), in the
+paper the <strong>co-precessing frame</strong> (following the orbital
+plane). They're identical for aligned spins, and differ when the spins
+precess;</li>
+<li>the likelihood: this one gives ln L = 89.6 at the catalog's best
+sample against 96.8 in the PE file (different PSD, window and
+calibration handling; it affects both models equally);</li>
+<li>the cloud samplings were run with 500 live points instead of the
+paper's 1000;</li>
+<li>the normalisation of the torque, which sets which density gives a
+given dephasing.</li>
+</ul>
+<h3 id="119-where-the-improvement-comes-from-a-warning-sign">11.9 Where
+the improvement comes from (a warning sign)</h3>
+<p class="origin o-added"><span class="badge">added by gwtc_analysis</span> A diagnostic of the
+mode, not in the paper.</p>
+<p>If a cloud were really there, the gain in ln L should
+<strong>accumulate over the low-frequency inspiral</strong>, where the
+dephasing grows. The code splits the gain by detector and frequency
+band:</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>20–30 Hz</th>
+<th>30–35 Hz</th>
+<th>35–60 Hz</th>
+<th>&gt; 60 Hz</th>
+<th>total</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>all detectors</td>
+<td>+1.45</td>
+<td><strong>+5.17</strong></td>
+<td>−0.57</td>
+<td>−1.56</td>
+<td>+4.49</td>
+</tr>
+</tbody>
+</table></div>
+<p>The gain sits almost entirely <strong>in a few bins between 29.8 and
+31.9 Hz, mostly in the L1 detector</strong>. The PSDs have no line
+there. A noise-free cloud signal would spread the gain more evenly, and
+give some in H1 and below 30 Hz too. So whether the data around 30 Hz
+hold a noise fluctuation or a real effect is the open question.</p>
+<h3 id="1110-the-stages-of-the-mode">11.10 The stages of the mode</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What it does</th>
+<th>Cost (GW190728)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prepare</code></td>
+<td>download the PE file and the strain (event + 150 off-source
+segments), store the settings, PSDs, best samples</td>
+<td>once</td>
+</tr>
+<tr>
+<td><code>fit</code></td>
+<td>vacuum best fit, then the first cloud fits (<code>profile</code>
+grid + <code>polish</code>): the old Λ = 0.96</td>
+<td>~2 CPU-h</td>
+</tr>
+<tr>
+<td><code>background</code></td>
+<td>Test 2 with those first fits</td>
+<td>~2 CPU-h per segment</td>
+</tr>
+<tr>
+<td><code>sample</code></td>
+<td>nested sampling: vacuum, agnostic, superradiance → Bayes factors and
+the seeds</td>
+<td>~1 day on 64 CPUs each (cluster)</td>
+</tr>
+<tr>
+<td><code>seeded</code></td>
+<td>cloud fits from the 4 seeds, on the event and the 150 segments → Λ =
+8.98 and its p-value</td>
+<td>~1 CPU-h per segment</td>
+</tr>
+<tr>
+<td><code>report</code></td>
+<td>HTML report, TSV, plots</td>
+<td>seconds</td>
+</tr>
+</tbody>
+</table></div>
+<p>The default run (<code>prepare fit report</code>) works on a laptop
+but gives only the first, incomplete result. The headline needs
+<code>sample</code>, then <code>seeded</code>, on a Slurm cluster. The
+sensitivity injections (Test 3) are run by hand:
+<code>python -m gwtc_analysis.scalar_cloud seeded --inject cloud</code>.</p>
+<h3 id="1111-the-bottom-line">11.11 The bottom line</h3>
+<ul>
+<li>The cloud model fits GW190728 better than vacuum (Λ ≈ 9), more than
+noise usually allows (p ≈ 0.01, optimistic). This frequentist check is
+the mode's own: the paper has no background or p-value.</li>
+<li>But the Bayes factor is weak (ln B ≈ 1.3 with the physical prior, ≈
+−0.8 to +1.9 with the agnostic one, depending on its upper end).</li>
+<li>The gain comes from a narrow band around 30 Hz in one detector, not
+from the whole inspiral.</li>
+<li>And Λ is a screening statistic: eccentricity, waveform errors,
+calibration or a noise feature at low frequency could also make vacuum
+fit the inspiral worse. The claim rests on the Bayes factor under a
+physical prior.</li>
+</ul>
+<p>Same boson elsewhere: the posterior mass m_φ ≈ 0.7–0.9 × 10⁻¹² eV
+would make an isolated spinning black hole's cloud emit a continuous
+wave at 2 m_φ c²/h ≈ 340–570 Hz, inside the band of the LVK all-sky
+search for boson clouds (see the <code>continuous_waves</code>
+mode).</p>
+</section><section><h2 id="s12"><span class="num">12</span><span class="h2t">Sources of the
+formulas and numbers</span></h2>
+<p>For each formula or number used in this file: where it comes from.
+"Code" means the formula is implemented in <code>gwtc_analysis</code>,
+with the file. References marked <strong><span class="memo">from memory</span></strong> were
+cited from my knowledge rather than checked against the paper itself, so
+check them before quoting them.</p>
+<h3 id="sections-1-viewing-angle-and-2-recession-velocity">Sections 1
+(viewing angle) and 2 (recession velocity)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Formula / number</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>viewing angle = min(θ, 180° − θ), <code>theta_jn</code> before
+<code>iota</code></td>
+<td>code: <code>counterpart.py</code>, <code>viewing_angle()</code></td>
+</tr>
+<tr>
+<td><code>theta_jn</code> (J to line of sight), <code>iota</code> (L to
+line of sight)</td>
+<td>parameter conventions of LALSuite / bilby, used in the GWTC PE
+files</td>
+</tr>
+<tr>
+<td>v_H = v_r − ⟨v_p⟩, σ added in quadrature</td>
+<td>code: <code>counterpart.py</code>,
+<code>hubble_flow_redshift()</code>; method of Abbott et al. 2017,
+<em>Nature</em> 551, 85 (GW170817 standard siren)</td>
+</tr>
+<tr>
+<td>NGC 4993: v_r = 3327 ± 72 km/s, v_p = 310 ± 150 km/s</td>
+<td>registered in <code>counterpart.py</code>; values of Abbott et al.
+2017 (above)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-3-cmb-frame">Section 3 (CMB frame)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Formula / number</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>solar dipole 369.82 ± 0.11 km/s toward (l, b) = (264.021°,
+48.253°)</td>
+<td>Planck Collaboration 2018 results I, <em>A&amp;A</em> 641, A1 (2020)
+<span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>T(θ) ≈ T₀ (1 + (v/c) cos θ), dipole ≈ 3.36 mK</td>
+<td>first-order Doppler effect; classic derivation in Peebles &amp;
+Wilkinson 1968, <em>Phys. Rev.</em> 174, 2168 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>v_CMB ≈ v_helio + v_☉ cos(angle to apex)</td>
+<td>first-order projection of the solar velocity; NED's velocity
+calculator applies the same correction</td>
+</tr>
+<tr>
+<td>NGC 4993 v_CMB ≈ 3241 km/s</td>
+<td>computed in this session with astropy, assuming v_helio = 2930 km/s
+(heliocentric value from memory; check NED)</td>
+</tr>
+<tr>
+<td>T₀ = 2.725 K</td>
+<td>Fixsen 2009, <em>ApJ</em> 707, 916 (COBE/FIRAS) <span class="memo">from memory</span></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="sections-4-planck-and-5-chain-of-motions">Sections 4 (Planck)
+and 5 (chain of motions)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Formula / number</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>orbital dipole as Planck's absolute calibrator</td>
+<td>Planck 2015 and 2018 results, HFI and LFI calibration papers (from
+memory)</td>
+</tr>
+<tr>
+<td>aberration and Doppler boosting, v ≈ 384 ± 78 km/s</td>
+<td>Planck Collaboration 2013 results XXVII, <em>A&amp;A</em> 571, A27
+(2014) <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>quasar dipole about twice the CMB one</td>
+<td>Secrest et al. 2021, <em>ApJL</em> 908, L51 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>Local Group ≈ 620 km/s toward (l, b) ≈ (272°, 30°)</td>
+<td>Kogut et al. 1993, <em>ApJ</em> 419, 1 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>Sun relative to the LSR, ~20 km/s</td>
+<td>Schönrich, Binney &amp; Dehnen 2010, <em>MNRAS</em> 403, 1829 (from
+memory)</td>
+</tr>
+<tr>
+<td>Sun around the Galactic centre, ~230–250 km/s</td>
+<td>range of recent measurements (e.g. Gaia, GRAVITY); not a single
+source</td>
+</tr>
+<tr>
+<td>Laniakea, Great Attractor</td>
+<td>Tully et al. 2014, <em>Nature</em> 513, 71 <span class="memo">from memory</span></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-7-area-law-and-section-10-windows">Section 7 (area law)
+and section 10 (windows)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Formula / number</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A = 8π (GM/c²)² [1 + √(1 − χ²)]</td>
+<td>horizon area of the Kerr metric (Kerr 1963); code:
+<code>area_law.py</code>, <code>kerr_area()</code></td>
+</tr>
+<tr>
+<td>area theorem A_f ≥ A_1 + A_2</td>
+<td>Hawking 1971, <em>Phys. Rev. Lett.</em> 26, 1344</td>
+</tr>
+<tr>
+<td>S = (⟨A_f⟩ − ⟨A_i⟩)/√(σ_f² + σ_i²), pooling, seed 250114</td>
+<td>LVK, GW250114 discovery paper, arXiv:2509.08054, and its release
+(Zenodo 16877102); code: <code>area_law.py</code></td>
+</tr>
+<tr>
+<td>P(A_f &lt; A_i) over random pairs, ratio over 200,000 pairs</td>
+<td>code: <code>area_law.py</code> (choices of
+<code>gwtc_analysis</code>, not the paper's)</td>
+</tr>
+<tr>
+<td>published 4.4σ, 3.4σ, −10 M, 3.6σ; the windows −250…0 M, 6…20
+M_f</td>
+<td>arXiv:2509.08054; the windows as listed in the release files</td>
+</tr>
+<tr>
+<td>NRSur7dq4</td>
+<td>Varma et al. 2019, <em>Phys. Rev. Research</em> 1, 033015 (from
+memory)</td>
+</tr>
+<tr>
+<td><code>ringdown</code> code</td>
+<td>Isi &amp; Farr 2021, arXiv:2107.05609 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>pyRing</td>
+<td>Carullo, Del Pozzo &amp; Veitch 2019, <em>Phys. Rev. D</em> 99,
+123029 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>GW150914 area-law test</td>
+<td>Isi et al. 2021, <em>Phys. Rev. Lett.</em> 127, 011103</td>
+</tr>
+<tr>
+<td>GW250114 masses (~66 M_☉ source, z ≈ 0.09)</td>
+<td>from memory of arXiv:2509.08054; can be computed from the release
+samples</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-8-m-unit">Section 8 (M unit)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Formula / number</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>G = 6.674 × 10⁻¹¹ m³ kg⁻¹ s⁻², c = 299,792,458 m/s</td>
+<td>CODATA 2018 (c is exact by definition of the metre)</td>
+</tr>
+<tr>
+<td>GM_☉/c² = 1.4766 km, GM_☉/c³ = 4.925 μs</td>
+<td>IAU 2015 Resolution B3, nominal GM_☉ = 1.3271244 × 10²⁰ m³ s⁻²;
+code: <code>MSUN_KM</code> in <code>area_law.py</code></td>
+</tr>
+<tr>
+<td>Schwarzschild radius 2GM/c²</td>
+<td>Schwarzschild 1916</td>
+</tr>
+<tr>
+<td>ISCO at r = 6 GM/c², f_GW ≈ 4400 Hz (M_☉/M)</td>
+<td>Bardeen, Press &amp; Teukolsky 1972, <em>ApJ</em> 178, 347 (from
+memory)</td>
+</tr>
+<tr>
+<td>220 mode, Schwarzschild: M ω = 0.3737 − 0.0890 i (period 16.8 M,
+damping 11.2 M)</td>
+<td>Leaver 1985, <em>Proc. R. Soc. A</em> 402, 285; tables in Berti,
+Cardoso &amp; Starinets 2009, <em>CQG</em> 26, 163001 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>220 for χ ≈ 0.7: M_f ω ≈ 0.53, τ ≈ 12 M_f</td>
+<td>same tables / fits of Berti, Cardoso &amp; Will 2006, <em>Phys. Rev.
+D</em> 73, 064030 (approximate, from memory)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-9-σ">Section 9 (σ)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Formula / number</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>σ = sample standard deviation</td>
+<td>code: <code>area_law.py</code>, <code>gaussian_significance()</code>
+(<code>numpy.std</code>)</td>
+</tr>
+<tr>
+<td>tail probabilities (5.4 × 10⁻⁶ at 4.4σ, etc.)</td>
+<td>computed in this session with <code>scipy.stats.norm.sf</code></td>
+</tr>
+<tr>
+<td>5σ discovery convention</td>
+<td>convention of particle physics, also used in GW astronomy</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-11-scalar-cloud">Section 11 (scalar cloud)</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Formula / number</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>model, α = GMm_φ/(ħc), r_φ = GM/(c²α²) (M/α² with G = c = 1)</td>
+<td>Roy, Vicente, Aurrekoetxea, Clough &amp; Ferreira, arXiv:2510.17967;
+code: <code>scalar_cloud.py</code></td>
+</tr>
+<tr>
+<td>torque L̇_φ = 4π ρ̄_φ M³ I/v⁴ and the sum I(v, α, q)</td>
+<td>arXiv:2510.17967, Eq. 2 and Eq. 6 of its Supplemental Material (as
+cited in <code>docs/modes/scalar-cloud.md</code>); code:
+<code>torque_integral()</code></td>
+</tr>
+<tr>
+<td>GW loss L̇_GW = (32/5) η² M v⁷</td>
+<td>quadrupole formula for a circular orbit, Peters 1964, <em>Phys.
+Rev.</em> 136, B1224</td>
+</tr>
+<tr>
+<td>δ = (5π/8) ρ̄_φ M² I/(η² v¹¹), ~ v^(−13.5)</td>
+<td>ratio of the two losses above; code:
+<code>dephasing_22()</code></td>
+</tr>
+<tr>
+<td>ΔΨ₂₂(f) = 2π ∫ (f′ − f) Δ(dt/df) df′</td>
+<td>stationary-phase approximation of an inspiral (e.g. Cutler &amp;
+Flanagan 1994, <em>Phys. Rev. D</em> 49, 2658, from memory), as used in
+the paper; code: <code>dephasing_22()</code></td>
+</tr>
+<tr>
+<td>M f_c = 0.018, end of the inspiral</td>
+<td>end of the inspiral region of IMRPhenomX (code comment
+<code>MF_INSPIRAL_END</code>)</td>
+</tr>
+<tr>
+<td>(ℓ, m) modes: (</td>
+<td>m</td>
+</tr>
+<tr>
+<td>ionization of gravitational atoms</td>
+<td>Baumann, Bertone, Stout &amp; Tomaselli 2022, <em>Phys. Rev.
+Lett.</em> 128, 221102 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>superradiance</td>
+<td>Brito, Cardoso &amp; Pani, <em>Superradiance</em>, Lect. Notes Phys.
+906 (2015); Arvanitaki &amp; Dubovsky 2011, <em>Phys. Rev. D</em> 83,
+044026 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>superradiance window 0.02 x^(1/9) ≤ α/(1+q) ≤ 0.11 x^(1/15)</td>
+<td>arXiv:2510.17967, Supplemental Material Eq. 9 (code:
+<code>superradiance_window()</code>)</td>
+</tr>
+<tr>
+<td>saturation density 1.3 × 10⁸ g/cm³ …</td>
+<td>arXiv:2510.17967, Supplemental Material Eq. 10 (code:
+<code>superradiance_density_max()</code>)</td>
+</tr>
+<tr>
+<td>cloud mass ρ̄_φ r_φ³ &lt; 0.1 M</td>
+<td>the paper's agnostic prior; code:
+<code>cloud_mass_fraction()</code></td>
+</tr>
+<tr>
+<td>Λ = 2(ln L_cloud − ln L_vacuum), background p = (k+1)/(n+1)</td>
+<td>choices of <code>gwtc_analysis</code> (<code>scalar_cloud.py</code>,
+<code>scalar_cloud_mode.py</code>), not the paper's</td>
+</tr>
+<tr>
+<td>ln L ≈ SNR²/2 at the best fit</td>
+<td>property of the matched-filter likelihood for a well-fitting
+template</td>
+</tr>
+<tr>
+<td>evidence Z = ∫ L π, nested sampling</td>
+<td>Skilling 2006, <em>Bayesian Analysis</em> 1, 833; dynesty: Speagle
+2020, <em>MNRAS</em> 493, 3132; bilby: Ashton et al. 2019, <em>ApJS</em>
+241, 27 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>sampler settings (1000 live points, naccept 60, dlogz 0.1)</td>
+<td>the paper's, as recorded in <code>SAMPLER_SETTINGS</code></td>
+</tr>
+<tr>
+<td>IMRPhenomXPHM</td>
+<td>Pratten et al. 2021, <em>Phys. Rev. D</em> 103, 104056 (from
+memory)</td>
+</tr>
+<tr>
+<td>GW190728 results (Λ = 8.98, ln B, ρ̄_φ, band table)</td>
+<td>runs of this mode, as reported in
+<code>docs/modes/scalar-cloud.md</code></td>
+</tr>
+<tr>
+<td>paper's ln B = 3.5 and 0.4, ρ̄_φ ≈ 0.7 × 10⁸</td>
+<td>arXiv:2510.17967, as quoted in
+<code>docs/modes/scalar-cloud.md</code></td>
+</tr>
+<tr>
+<td>m_φ ≈ 6.5 × 10⁻¹³ eV for α = 0.1, M = 20 M_☉</td>
+<td>m_φ = α ħc³/(GM); code: <code>scalar_mass_ev()</code></td>
+</tr>
+<tr>
+<td>r_φ ≈ 800 km, cloud mass ~10⁻⁴ M for the best fit</td>
+<td>computed in this session from the formulas above</td>
+</tr>
+<tr>
+<td>continuous wave at 2 m_φ c²/h</td>
+<td>boson annihilation into gravitons (Arvanitaki &amp; Dubovsky 2011,
+above); LVK O3 all-sky boson search band 20–610 Hz as quoted in the
+docs</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>docs/references.md</code> holds the project's own reference
+list: [79] GW250114, [80] Hawking 1971, [81] Isi et al. 2021, [100] Roy
+et al.</p>
+</section>
+<footer>Generated from <code>gwtc_analysis/gwtc_explained.md</code>. Items tagged <span class="memo">from memory</span> were cited without checking the paper.</footer>
+</main>
+</div>
+</div>
