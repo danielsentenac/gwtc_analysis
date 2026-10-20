@@ -709,6 +709,13 @@ So the cloud model has **two extra parameters**, ρ̄_φ and α, on top of the ~
 
   Λ = 2 (ln L_cloud − ln L_vacuum) at the two best fits
 
+**Its name: the likelihood-ratio test statistic** (Neyman–Pearson), also called the *deviance* in
+statistics and *TS* in gamma-ray astronomy. "LR" is the likelihood ratio L̂_cloud / L̂_vacuum, and Λ is
+twice its logarithm. The terms to look up for what follows: *nested models*, *Wilks' theorem* (Λ ~ χ²_k
+under the null hypothesis, k the number of extra parameters), *Chernoff's boundary case* (a parameter at
+the edge of its range), *Davies' problem* or the *look-elsewhere effect* (a parameter undefined under the
+null), and the *empirical (Monte Carlo) p-value* used as the remedy (Test 2).
+
 **Λ is always ≥ 0**: the cloud model contains the vacuum one (ρ̄_φ = 0), so it can always do at least as
 well. Two extra parameters will always absorb some noise. So a positive Λ means nothing by itself: you
 need to know **what Λ noise alone gives** (Test 2). The usual χ² rule doesn't apply either, because

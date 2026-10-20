@@ -31,7 +31,9 @@ The full-signal PE cannot test the law: its remnant comes from fits to numerical
 which obey it by construction. `--with-imr` shows it only as a consistency check.
 
 The masses are detector-frame on both sides, so the redshift cancels in \((A_f - A_i)/A_i\). The
-significance is the paper's, \((\langle A_f\rangle - \langle A_i\rangle)/\sqrt{\sigma_f^2 + \sigma_i^2}\),
+significance is the paper's, \((\langle A_f\rangle - \langle A_i\rangle)/\sqrt{\sigma_f^2 + \sigma_i^2}\)
+(a *z-score*: the difference of the means in units of its standard deviation, read as a one-sided Gaussian tail
+probability, 4.4σ ≈ 5 × 10⁻⁶),
 with the remnant areas of two ringdown codes pooled in equal numbers; the report also gives the direct
 probability \(P(A_f < A_i)\) over random pairs of samples.
 
