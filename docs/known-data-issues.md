@@ -2,7 +2,8 @@
 
 Working with the releases exposed a few events whose files lack products that the release
 descriptions announce. `gwtc_analysis` works around them, and this page records what is missing,
-where it can be found, and how the tool handles it.
+where it can be found, and how the tool handles it. The last section is an access problem: recent CA bundles
+reject the certificate of gwosc.org.
 
 ## Missing PSDs and calibration envelopes
 
@@ -60,3 +61,41 @@ The GWTC-3 PE release v3 (September 2026) fixed the GW200105 PSDs, but neither t
 the GWOSC GWTC-3 page says what changed. Because the tool uses the latest version of each release by
 default and can select any older one ([Zenodo release versions](data-sources.md#zenodo-release-versions)),
 results can always be traced to a given version.
+
+## gwosc.org certificate rejected by recent CA bundles
+
+**Symptom.** Every request to gwosc.org fails before any data is read:
+
+```
+requests.exceptions.SSLError: HTTPSConnectionPool(host='gwosc.org', port=443): ...
+[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate
+```
+
+Zenodo, the S3 mirror and dcc.ligo.org still work.
+
+**Cause.** gwosc.org answers only over HTTPS, and the client checks that the server is really gwosc.org by
+following its certificate up to a root certification authority it trusts. The certificate of gwosc.org (valid
+from September 2026 to April 2027) chains through *InCommon Intermediate CA - OVG3C* to the **emSign** roots of
+eMudhra. The CA bundles `certifi` 2026.10.18 and conda-forge `ca-certificates` 2026.10.18, which Python's
+`requests` uses, no longer contain any emSign root; the previous versions (2026.2.25) did. An environment
+updated to these bundles therefore rejects gwosc.org. The same certificate covers `datafind.gwosc.org` and the
+other GWOSC host names, so other GWOSC clients using the same bundle fail in the same way. dcc.ligo.org, also
+certified by InCommon, chains to a root still in the bundle and is not affected.
+
+**Workaround.** Point Python to a CA store that still contains the emSign roots, such as Fedora's
+(`/etc/pki/tls/certs/ca-bundle.crt`), for the conda environment that runs gwtc_analysis:
+
+```bash
+conda env config vars set -n <env> REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt \
+    SSL_CERT_FILE=/etc/pki/tls/certs/ca-bundle.crt
+conda activate <env>        # the variables apply from the next activation
+```
+
+`conda env config vars unset -n <env> REQUESTS_CA_BUNDLE SSL_CERT_FILE` removes them. Other systems keep their
+store elsewhere (`/etc/ssl/certs/ca-certificates.crt` on Debian and Ubuntu); check that it contains the emSign
+roots (`grep -c emSign <file>`). The other workaround is to keep the previous bundles:
+`conda install -n <env> certifi=2026.2.25 ca-certificates=2026.2.25`, until a later update brings the new ones
+back. Turning certificate verification off would also hide the error, but removes the check that the data come
+from GWOSC; the tool does not do it.
+
+The lasting fix is on the server side: a certificate chain ending at a root still in the standard bundles.
