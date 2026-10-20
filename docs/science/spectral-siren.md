@@ -293,6 +293,11 @@ and 90% interval):
 
 ![Corner plot of the PLP posterior](../img/plp_corner.png)
 
+*H₀ and the five population parameters most correlated with it (table below), with all the injections and 5000 PE
+samples per event: 68% and 90% regions, and the median and 90% interval of each parameter. The other parameters
+(β, m_min, m_max, σ_g, κ, z_p) are in the table above. Made by `docs/scripts/plp_corner.py` from the weights of the
+reweighting stage.*
+
 **Correlations with H₀** (correlation coefficients over the posterior):
 
 | Parameter | Correlation | Why |
