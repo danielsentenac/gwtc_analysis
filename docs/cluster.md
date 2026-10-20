@@ -3,12 +3,13 @@
 Most modes run in seconds to minutes on a laptop. Three modes have stages that take hundreds of CPU-hours. For
 those stages, gwtc_analysis writes Slurm batch jobs itself and can submit them: `hubble_constant` (spectral and
 dark sirens), `galaxy_catalog` and `scalar_cloud`. The other modes have no batch executor and run on one machine.
-On clusters that use HTCondor instead of Slurm, such as the LIGO and IGWN clusters, the jobs are written by hand
+Slurm clusters include the Virgo computing centre, CC-IN2P3 ([documentation](https://doc.cc.in2p3.fr/)). On
+clusters that use HTCondor instead of Slurm, such as the LIGO and IGWN clusters, the jobs are written by hand
 from the same commands ([below](#clusters-without-slurm-htcondor)).
 
 ## When to use a cluster
 
-Measured costs of the heavy stages, on a Slurm cluster:
+Measured costs of the heavy stages, on a Slurm cluster (CC-IN2P3):
 
 | Task | Cost | Where |
 |---|---|---|
