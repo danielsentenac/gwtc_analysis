@@ -520,7 +520,8 @@ The fitted models show it:
 
 ![Fitted Power Law + Peak and Multi Peak models over the selection-corrected masses](../img/mass_models_plp_mltp.png)
 
-*The fitted primary-mass models of the two spectral sirens (the runs of the [result](#result)): each model at the
+*The fitted primary-mass models of the three spectral sirens (PLP and MLTP: the runs of the [result](#result);
+FullPop-4.0: 141 events, with the neutron stars): each model at the
 posterior median of its parameters, with the 90% band of the posterior at each mass, over the selection-corrected
 masses of the figure above. The fits carry no rate (the
 likelihood is scale-free), so each curve is scaled to the rate of the histogram between 7 and 100 M☉. Made by
@@ -572,7 +573,9 @@ long upper tail:
 
 FullPop-4.0 goes further (72.9 (+21.9 / −18.8) in the paper, 75.1 (+25.8 / −19.2) reproduced): it adds the neutron-star events (141 events) and models
 the gap between neutron stars and black holes, whose edges are further sharp features at known masses
-([mass models](../modes/hubble-constant.md#mass-models)).
+([mass models](../modes/hubble-constant.md#mass-models)). In the figure above (dashed), it follows the neutron-star
+bins, drops into the dip of the gap (edges at 2.3 and 7.2 M☉, posterior medians, as in the paper; depth 0.57), and
+has the sharpest peak of the three at 9 M☉; above, it agrees with MLTP.
 
 ## Limitations
 

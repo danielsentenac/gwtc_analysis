@@ -197,7 +197,8 @@ with its 90% band), over the
 primary masses of the confident events of GWTC-1 to GWTC-5.0 divided by the sensitive volume-time ⟨VT⟩ of each mass
 (not a population fit). Once the selection is removed, the peak near 10 M☉ is the strongest BBH feature: MLTP puts a
 narrow Gaussian on it, while PLP's single Gaussian (prior 20–50 M☉) stays on the 30 M☉ bump and its power law
-only approximates the low-mass excess with its smoothed lower edge. Each curve is scaled to the rate of the
+only approximates the low-mass excess with its smoothed lower edge. FullPop-4.0 (dashed) adds the neutron stars
+and the dip of the gap between them and the black holes, and sharpens the 9 M☉ peak. Each curve is scaled to the rate of the
 histogram between 7 and 100 M☉ (the fits are scale-free). Details in
 [why Multi Peak is tighter](../science/spectral-siren.md#why-the-multi-peak-model-gives-a-tighter-and-lower-h0).*
 
