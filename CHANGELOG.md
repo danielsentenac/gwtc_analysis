@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changes
+
+- **scalar_cloud**: the best-fit statistic is renamed the **deviance** 𝒟 (the likelihood-ratio test statistic),
+  formerly Λ, which the population analyses use for their hyperparameters. Only the text changes: the result
+  files keep the key `Lambda`.
+
 ### Fixes
 
 - **hubble_constant --method joint**: the number of events of a spectral or dark siren counted the events with a

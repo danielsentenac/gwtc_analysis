@@ -481,7 +481,7 @@ def profile_point(an: Analysis, vacuum: dict, i: int, alpha: float | None = None
 
 
 def polish(an: Analysis, points: list[dict], vacuum: dict) -> dict:
-    """Free fit (binary and cloud) from the best profile points; the statistic Lambda = 2 (ln L_cloud - ln L_vac)."""
+    """Free fit (binary and cloud) from the best profile points; the deviance D = 2 (ln L_cloud - ln L_vac), stored as "Lambda"."""
     best = None
     for pt in sorted(points, key=lambda d: -d["log_likelihood_ratio"])[:N_POLISH]:
         p, l = an.fit(pt["params"], rho=pt["rho"], alpha=pt["alpha"], free_cloud=True, maxfev=POLISH_MAXFEV)
@@ -714,7 +714,7 @@ def main(argv=None) -> int:
         res = polish(an, points, vac)
         res.update(vacuum=vac, profile=points)
         _dump(wd / "scalar.json", res)
-        _log(f"Lambda = {res['Lambda']:.2f} (ln L {res['vacuum_log_likelihood_ratio']:.2f} -> "
+        _log(f"deviance D = {res['Lambda']:.2f} (ln L {res['vacuum_log_likelihood_ratio']:.2f} -> "
              f"{res['log_likelihood_ratio']:.2f})")
     elif args.cmd == "extra":
         an = Analysis(wd)
@@ -748,7 +748,7 @@ def main(argv=None) -> int:
         res = seeded_statistic(an, st, seeds, shift)
         res.update(segment=name, time_shift=shift, injection_model=args.inject)
         _dump(wd / ("seeded" if args.inject == "vacuum" else "seeded_cloud") / f"{name}.json", res)
-        _log(f"seeded {name}: Lambda = {res['Lambda']:.2f}")
+        _log(f"seeded {name}: deviance D = {res['Lambda']:.2f}")
     elif args.cmd == "background":
         k = f"{args.task:03d}"
         starts = json.loads((wd / "offsource" / "starts.json").read_text())
@@ -761,7 +761,7 @@ def main(argv=None) -> int:
         res = statistic(an, [st])
         res.update(segment=k, segment_start=starts[args.task], injection=st)
         _dump(wd / "background" / f"inj_{k}.json", res)
-        _log(f"background {k}: Lambda = {res['Lambda']:.2f}")
+        _log(f"background {k}: deviance D = {res['Lambda']:.2f}")
     _log(f"{args.cmd} done in {time.time() - t:.0f} s")
     return 0
 

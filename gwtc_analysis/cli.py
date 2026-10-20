@@ -600,11 +600,11 @@ def build_parser() -> argparse.ArgumentParser:
             "Stages:\n"
             "  prepare   : the PE file's settings, noise spectra and top samples; GWOSC strain of the event and of\n"
             "              --n-background off-source segments within an hour of it;\n"
-            "  fit       : vacuum best fit, profile over (alpha, rho) and free cloud fit: Lambda = 2 (lnL_cloud - lnL_vac);\n"
+            "  fit       : vacuum best fit, profile over (alpha, rho) and free cloud fit: deviance D = 2 (lnL_cloud - lnL_vac);\n"
             "  background: the same procedure on the vacuum best fit injected into the off-source segments (p-value);\n"
             "  sample    : nested sampling (bilby, dynesty, the paper's settings) of vacuum, agnostic and superradiance\n"
             "              priors, hence the Bayes factor (a cluster job);\n"
-            "  seeded    : Lambda with the cloud fits started from the best samples of the superradiance sampling\n"
+            "  seeded    : D with the cloud fits started from the best samples of the superradiance sampling\n"
             "              (the cloud mode, missed from vacuum), on the event and on the background (after sample);\n"
             "  report    : HTML report with the whitened strain, the fits, the background and the evidences.\n"
         ),
