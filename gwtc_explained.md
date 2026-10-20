@@ -654,7 +654,8 @@ only about 10⁻⁴ of the binary's mass.
 radius r_φ. A bound cloud's density varies with distance, like the electron density of an atom, peaking
 near the centre and falling off outside r_φ. The model doesn't use the profile in detail: it describes
 the cloud by this single number, and the torque formula is written in terms of it. The docs use the same
-notation (`\bar\rho_\phi`), which as far as I know follows the paper. In the code the parameter has no
+notation (`\bar\rho_\phi`) as the paper, which defines it after its Eq. 2 as "the average mass density of
+scalars in the region r ≲ r_φ" (checked against the PDF). In the code the parameter has no
 bar: `rho_phi` in the sampling parameters, `rho_cgs` / `rho` in the functions, in g/cm³.
 
 "Mean" is meant loosely. The code computes the cloud mass as ρ̄_φ r_φ³ (`cloud_mass_fraction()` in
@@ -953,20 +954,22 @@ don't treat bosons.
 | X-ray binary spins | ~6 × 10⁻¹³ to 2 × 10⁻¹¹ eV | inside, but the paper argues these spins are model-dependent |
 | **GW190517's spin** | below ~1.1 × 10⁻¹² eV (as the paper states it) | **most of the band: the paper's main tension** |
 
-**What the paper says** (Discussion section; read through a summarizing fetch of arXiv:2510.17967,
-so the wording below is quoted from that summary, not checked against the PDF):
+**What the paper says** (Discussion section of arXiv:2510.17967; quotes checked against the PDF):
 
-- spin measurements of black holes "have been interpreted as excluding scalars in this mass range", in
-  particular the high spins of X-ray binaries;
-- but "these spin estimates, however, are highly model-dependent": accounting for a warm Comptonization
-  layer in Cygnus X-1 can reduce its inferred spin (citing Zdziarski et al. 2024, "Black hole spin
-  measurements in LMC X-1 and Cyg X-1 are highly model dependent");
-- the spins of a few well-measured black holes "do not exclude the full range favored by our analysis of
-  GW190728";
-- "the main tension arises from GW190517", whose spin measurement disfavours masses below about
-  1.1 × 10⁻¹² eV;
-- and "joint spin measurements from the full GWTC-2 showed weak evidence for a light scalar in the mass
-  range suggested by our analysis";
+- "The high spins of BHs in X-ray binaries, inferred from continuum-fitting and reflection methods, have
+  been interpreted as excluding scalars in this mass range" (citing Arvanitaki et al. 2015, Cardoso et
+  al. 2018, Hoof et al. 2024, Witte & Mummery 2025);
+- "These spin estimates, however, are highly model-dependent" (Zdziarski et al. 2024, *ApJ* 962, 101,
+  "Black hole spin measurements in LMC X-1 and Cyg X-1 are highly model dependent", and Zdziarski et al.
+  2024, *ApJL* 967, L9, "What is the black hole spin in Cyg X-1?"): "accounting for a warm Comptonization
+  layer in Cyg X-1 can reduce the inferred spin parameter to a/M ≲ 0.1" (the second paper). A footnote
+  adds that such systematics may also reconcile the high X-ray spins with the low spins of most GW
+  sources;
+- "Constraints from few well-measured BH spins **through GWs** [Aswathi et al. 2025, Ng et al. 2021,
+  Caputo et al. 2025, on GW231123] do not exclude the full range favored by our analysis of GW190728";
+- "the main tension arises from GW190517, whose spin measurement disfavors m_φ ≲ 1.1 × 10⁻¹² eV";
+- "Notably, joint spin measurements from the full GWTC-2 [Ng et al. 2021] showed weak evidence for a light
+  scalar in the mass range suggested by our analysis";
 - the non-detection of continuous waves is cited as a constraint, without a comparison with GW190728;
   the stochastic background is not discussed (Yuan et al. 2022 is only in the references).
 
@@ -1084,8 +1087,8 @@ knowledge rather than checked against the paper itself, so check them before quo
 | τ_SR ≤ τ_d ≤ τ_ann (superradiance prior) | arXiv:2510.17967, SM Eqs. 9–10 |
 | X-ray binary spins exclude ~6 × 10⁻¹³–2 × 10⁻¹¹ eV | Arvanitaki, Baryakhtar & Huang 2015, *Phys. Rev. D* 91, 084011 (from memory) |
 | GW-event spins exclude ~1.3–2.7 × 10⁻¹³ eV | Ng, Vitale, Hannuksela & Li 2021, *Phys. Rev. Lett.* 126, 151102 (from memory) |
-| GW190517 disfavours m_φ below ~1.1 × 10⁻¹² eV; X-ray spins model-dependent; GWTC-2 spins weak evidence in the range | arXiv:2510.17967, Discussion (read through a summarizing fetch) |
-| Cyg X-1 / LMC X-1 spins model-dependent | Zdziarski et al. 2024, cited by the paper |
+| GW190517 disfavours m_φ ≲ 1.1 × 10⁻¹² eV; X-ray spins model-dependent; GWTC-2 spins weak evidence in the range | arXiv:2510.17967, Discussion (checked against the PDF) |
+| Cyg X-1 / LMC X-1 spins model-dependent; Cyg X-1 down to a/M ≲ 0.1 | Zdziarski et al. 2024, *ApJ* 962, 101; Zdziarski et al. 2024, *ApJL* 967, L9 (references [153], [154] of the paper) |
 | stochastic-background exclusions around 10⁻¹³ eV | Tsukada et al. 2019, *Phys. Rev. D* 99, 103015; Tsukada et al. 2021, *Phys. Rev. D* 103, 083005 (from memory) |
 | O3 all-sky boson-cloud search, 20–610 Hz | LVK, *Phys. Rev. D* 105, 102001 (2022) (from memory); `docs/modes/continuous-waves.md` [107] |
 

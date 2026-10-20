@@ -298,11 +298,13 @@ Superradiance spins black holes down, so fast-spinning black holes in the right 
 The paper discusses this in its Discussion [\[100\]](../references.md#ref-100):
 
 - the high spins of black holes in X-ray binaries "have been interpreted as excluding scalars in this mass
-  range", but the paper considers them "highly model-dependent" (a warm Comptonization layer in Cygnus X-1 lowers
-  its inferred spin, Zdziarski et al. 2024);
-- "the main tension arises from GW190517": its spin measurement disfavours boson masses below about
-  \(1.1 \times 10^{-12}\) eV;
-- joint spin measurements of GWTC-2 showed weak evidence for a light scalar in the mass range of GW190728.
+  range", but "these spin estimates, however, are highly model-dependent": a warm Comptonization layer in
+  Cygnus X-1 "can reduce the inferred spin parameter to a/M ≲ 0.1" (Zdziarski et al. 2024, ApJL 967, L9);
+- the spins of a few black holes measured through gravitational waves "do not exclude the full range favored by
+  our analysis of GW190728; the main tension arises from GW190517, whose spin measurement disfavors
+  \(m_\phi \lesssim 1.1 \times 10^{-12}\) eV";
+- "joint spin measurements from the full GWTC-2 showed weak evidence for a light scalar in the mass range
+  suggested by our analysis" (Ng et al. 2021).
 
 The band found here, 0.70–1.17 × 10⁻¹² eV, lies mostly below that value: only its upper end escapes the
 GW190517 constraint. The tension concerns the boson, not the fit, and the mode does not test it.
