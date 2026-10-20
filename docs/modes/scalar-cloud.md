@@ -292,6 +292,21 @@ young clouds around light black holes (8–28 M☉) out to some kpc, but says no
 and its limits constrain the boson only together with a model of the Galactic black holes. The
 [continuous_waves](continuous-waves.md#boson-clouds-and-gw190728) mode draws its exclusions with this band.
 
+### The same boson and black-hole spins
+
+Superradiance spins black holes down, so fast-spinning black holes in the right mass range exclude the boson.
+The paper discusses this in its Discussion [\[100\]](../references.md#ref-100):
+
+- the high spins of black holes in X-ray binaries "have been interpreted as excluding scalars in this mass
+  range", but the paper considers them "highly model-dependent" (a warm Comptonization layer in Cygnus X-1 lowers
+  its inferred spin, Zdziarski et al. 2024);
+- "the main tension arises from GW190517": its spin measurement disfavours boson masses below about
+  \(1.1 \times 10^{-12}\) eV;
+- joint spin measurements of GWTC-2 showed weak evidence for a light scalar in the mass range of GW190728.
+
+The band found here, 0.70–1.17 × 10⁻¹² eV, lies mostly below that value: only its upper end escapes the
+GW190517 constraint. The tension concerns the boson, not the fit, and the mode does not test it.
+
 ## Limits
 
 - The torque is Newtonian and valid for \(\beta \ll 1\); close to the merger the model is extrapolated, and the

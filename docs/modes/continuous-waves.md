@@ -119,7 +119,10 @@ GW190728's own components (12 and 8 M☉).*
 **What it means.** The continuous-wave limits do not exclude the GW190728 boson: they say that no young cloud
 around a light, fast-spinning black hole sits within a few kpc of the Earth. A boson of that mass is compatible with
 them as long as such systems are rare or old; turning the limits into a constraint on the boson needs a model of the
-Galactic black holes (their number, masses, spins and ages). The two probes are complementary: the merger tests a
+Galactic black holes (their number, masses, spins and ages). This holds for the continuous-wave limits only: the
+spins of black holes constrain the same boson more directly, and the scalar_cloud paper itself finds its main
+tension there, with GW190517, whose spin disfavours boson masses below about 1.1 × 10⁻¹² eV, most of the GW190728
+band ([scalar_cloud](scalar-cloud.md#the-same-boson-and-black-hole-spins)). The two probes are complementary: the merger tests a
 cloud carried by a binary, the continuous wave a cloud around an isolated black hole. Isolated Galactic black holes
 found by microlensing (one so far, many more expected with Rubin) come with a mass and a distance, the inputs of a directed
 search for their clouds.
