@@ -3,7 +3,8 @@
 For each finished `hubble_constant --method spectral` work directory given, evaluates the source-frame
 primary-mass density p(m1 | Λ) of its mass model for each posterior sample Λ (posterior_reweighted.tsv, else
 posterior.tsv), with icarogw's own model (the mass prior smoothed at m_min, as in the likelihood), and writes the
-median and the 90% band of m1·p(m1) (the density per ln m1), and a few posterior draws, on a grid of m1:
+median and the 90% band of m1·p(m1) (the density per ln m1), and the model at the posterior median of each
+parameter, on a grid of m1:
 docs/scripts/data/mass_models_fit.tsv, read by mass_models_plp_mltp.py.
 
 Runs with the Python of the icarogw environment, from anywhere:
@@ -24,7 +25,6 @@ ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 ap.add_argument("workdirs", nargs="+", help="finished hubble_constant spectral-siren work directories")
 ap.add_argument("--out", default=str(Path(__file__).resolve().parent / "data" / "mass_models_fit.tsv"))
 ap.add_argument("--max-samples", type=int, default=2000, help="posterior samples used per model")
-ap.add_argument("--draws", type=int, default=20, help="posterior draws written per model")
 a = ap.parse_args()
 
 # icarogw reads `config` (CUPY=False: CPU mode) from the import path; the work directories hold one
@@ -51,8 +51,10 @@ for wd in map(Path, a.workdirs):
     q = np.percentile(dens, [5, 50, 95], axis=0)
     for name, v in zip(("lo90", "median", "hi90"), q):
         cols[f"{model}_{name}"] = v
-    for j, i in enumerate(np.random.default_rng(2).choice(len(post), min(a.draws, len(post)), replace=False)):
-        cols[f"{model}_draw{j:02d}"] = dens[i]
+    med = post.median()     # the model at the posterior median of each parameter: a typical fit
+    wrapper.update(**{k: float(med[k]) for k in wrapper.population_parameters})
+    p1 = w.LowpassSmoothedProb(wrapper.prior, float(med["delta_m"]))
+    cols[f"{model}_medpar"] = GRID * np.nan_to_num(np.asarray(p1.pdf(GRID), dtype=float))
     print(f"{wd.name}: {MODELS[model][1]}, {len(post)} samples; median m1 p(m1) peaks at m1 = "
           f"{GRID[np.argmax(q[1])]:.1f}")
 

@@ -192,7 +192,8 @@ more events, its 68% interval is about 30–40% narrower than MLTP's (40% in the
 
 ![Fitted Power Law + Peak and Multi Peak models over the selection-corrected masses](../img/mass_models_plp_mltp.png)
 
-*The fitted primary-mass models of the GWTC-4.0 spectral sirens (20 posterior draws and the 90% band), over the
+*The fitted primary-mass models of the GWTC-4.0 spectral sirens (each at the posterior median of its parameters,
+with its 90% band), over the
 primary masses of the confident events of GWTC-1 to GWTC-5.0 divided by the sensitive volume-time ⟨VT⟩ of each mass
 (not a population fit). Once the selection is removed, the peak near 10 M☉ is the strongest BBH feature: MLTP puts a
 narrow Gaussian on it, while PLP's single Gaussian (prior 20–50 M☉) stays on the 30 M☉ bump and its power law
