@@ -52,6 +52,7 @@ nav:
   - Getting started:
       - Installation: installation.md
       - Quick start: quickstart.md
+      - Running on a cluster: cluster.md
   - Data:
       - Data sources and versions: data-sources.md
       - Known issues in the public releases: known-data-issues.md

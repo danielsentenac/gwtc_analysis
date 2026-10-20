@@ -38,9 +38,9 @@ collections) and produces TSV tables, plots and self-contained HTML reports.
 
 - **Hubble constant from black holes alone.** The `hubble_constant` mode reproduces the
   *Power Law + Peak* spectral-siren measurement of the GWTC-4.0 cosmology paper [\[29\]](references.md#ref-29):
-  H₀ = 105.8 (+44.7 / −33.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8), with the same
+  H₀ = 107.6 (+45.6 / −35.2) km/s/Mpc against the published 105.5 (+46.4 / −35.8), with the same
   137 binary black holes, PE samples, injections and priors. With FullPop-4.0, the paper's fiducial population of
-  all 141 compact binaries, it gives 74.4 (+25.4 / −18.9) against the published 72.9 (+21.9 / −18.8). See
+  all 141 compact binaries, it gives 75.1 (+25.8 / −19.2) against the published 72.9 (+21.9 / −18.8). See
   [Hubble constant (spectral siren)](science/spectral-siren.md) and the [mass models](modes/hubble-constant.md#mass-models).
 - **Dark sirens with a galaxy catalog.** The `galaxy_catalog` mode builds the GLADE+ K-band catalog of the
   GWTC-4.0 analysis (1.0 million galaxies, about 45 min on a cluster, as Slurm jobs on CC-IN2P3); with it,
