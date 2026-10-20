@@ -2,8 +2,8 @@
 
 Notes on the physics behind several modes of `gwtc_analysis`: the bright-siren (counterpart) analysis
 (`counterpart.py`, `h0_bright.py`, sections 1–6), the area-law test (`area_law.py`, sections 7–10) and
-the scalar-cloud test (`scalar_cloud.py`, `scalar_cloud_mode.py`, section 11), with the sources of the
-formulas in section 12.
+the scalar-cloud test (`scalar_cloud.py`, `scalar_cloud_mode.py`, section 11), how H0 follows from a
+distance and a redshift (section 12), with the sources of the formulas in section 13.
 
 ## 1. Viewing angle vs inclination
 
@@ -994,7 +994,89 @@ The posterior boson mass, m_φ ≈ 0.89 (0.70–1.17) × 10⁻¹² eV with the s
 isolated spinning black hole's cloud emit at 2 m_φ c²/h ≈ **340–570 Hz**, inside the band of the LVK
 all-sky search for boson clouds. The `continuous_waves` mode draws its exclusions with this band.
 
-## 12. Sources of the formulas and numbers
+## 12. H0, redshift and distance
+
+### 12.1 Two different quantities
+
+**Redshift z** is how much the light (or the GW signal) was stretched on its way:
+
+  1 + z = λ_observed / λ_emitted = a(today) / a(at emission)
+
+where a is the scale factor, the "size" of the Universe. z says how much the Universe has expanded since
+emission. It doesn't depend on H0 and is measured directly, from a spectrum.
+
+**H0** is how fast the Universe expands **today**, in km/s per Mpc. At other times the expansion rate is
+H(z) = H0 · E(z), with E(z) = √(Ω_m(1+z)³ + 1 − Ω_m) in flat ΛCDM.
+
+**The link is the distance.** H0 sets the scale of distances for a given redshift:
+
+  D_L(z) = (1+z) (c/H0) ∫₀^z dz′/E(z′)  ≈ c z / H0  for z ≪ 1 (**Hubble's law**, v = cz = H0 d)
+
+With z alone the distance is known only in units of c/H0; with z and D_L measured independently, H0
+follows. Examples, flat ΛCDM with Ω_m = 0.3065 (computed with astropy):
+
+| D_L | z for H0 = 67.9 | z for H0 = 73.0 |
+|---|---|---|
+| 40 Mpc (GW170817) | 0.0090 | 0.0097 |
+| 1000 Mpc | 0.198 | 0.212 |
+| 5000 Mpc | 0.780 | 0.828 |
+
+At a fixed distance, a **larger H0 means a larger redshift**: the Universe expands faster, so the light
+has been stretched more by the time it covers the same distance. At high redshift Ω_m (through E(z))
+matters too, which is why the spectral siren has to fix or fit it.
+
+### 12.2 We need z from outside the GW signal
+
+The GW signal gives D_L (with no distance ladder) but **not z**. The expansion stretches every time
+scale by (1+z): a binary of masses m at redshift z gives exactly the signal of a binary of masses
+(1+z)m at rest. The detector measures m_det = (1+z) m_src and cannot separate the true mass from the
+redshift. So H0 needs a redshift from somewhere else:
+
+| Siren | Where z comes from | Mode | Strength and weakness |
+|---|---|---|---|
+| **Bright** | an electromagnetic counterpart identifies the **host galaxy**, whose spectrum gives z (corrected for its peculiar velocity, section 2) | `hubble_constant --method bright` (GW170817) | one event gives a direct H0, but counterparts are rare: only binaries with a neutron star, and close enough |
+| **Dark** | every **galaxy of a catalog** inside the GW sky area and distance range is a possible host; their redshifts are averaged over statistically | `hubble_constant --method dark` | works for any event, but each constrains H0 weakly, and the catalogs are incomplete far away |
+| **Spectral** | the **population's mass distribution** has features at known source-frame masses (the peak near 35 M☉, the cutoffs); comparing them with the measured m_det = (1+z) m_src gives z statistically | `hubble_constant --method spectral` | uses all binary black holes, but relies on the assumed shape of the mass distribution |
+
+A fourth route, not in the package: for binaries with neutron stars, the **tidal deformation** depends
+on the true mass through the equation of state, which breaks the mass–redshift degeneracy, so a single
+event could give z on its own (Messenger & Read 2012). It needs much more sensitive detectors (Einstein
+Telescope, Cosmic Explorer).
+
+### 12.3 H0 once z is known
+
+Invert the distance–redshift relation:
+
+- **nearby source** (z ≪ 1, Hubble's law): **H0 ≈ c z / D_L**;
+- **any redshift** (flat ΛCDM, Ω_m fixed):
+  **H0 = (1 + z) · c / D_L · ∫₀^z dz′ / √(Ω_m(1+z′)³ + 1 − Ω_m)**.
+
+D_L is exactly proportional to 1/H0 at fixed z and Ω_m, so the inversion is a division
+(`counterpart.py`, `implied_h0()`):
+
+```python
+def implied_h0(distances, z_obs):
+    """H0 that puts each distance sample at the host redshift: d_L(z_obs; H0) = d."""
+    return float(luminosity_distance(z_obs, 1.0)) / np.asarray(distances, float)
+```
+
+`luminosity_distance(z, 1.0)` is D_L for H0 = 1 km/s/Mpc; divided by the measured distance, it gives H0.
+
+**GW170817**, with z_H = 0.01006 and D_L ≈ 40 Mpc:
+
+  H0 ≈ 299,792 × 0.01006 / 40 ≈ 3017 / 40 ≈ **75 km/s/Mpc**
+
+The published value is **70 (+12/−8)**: a single D_L is not enough, because D_L is uncertain, mainly
+through its degeneracy with the inclination (section 1). In practice each posterior sample of D_L gives
+its own H0 through the formula above (`implied_h0` is applied per sample); that distribution is
+reweighted to remove the PE distance prior and multiplied by the redshift uncertainty (`h0_bright.py`),
+which gives a posterior on H0, not a single number.
+
+For dark and spectral sirens z is not known per event but as a distribution (over the catalog's
+galaxies, or set by the mass population): H0 then comes from a joint fit rather than from this formula,
+but the relation is still what links D_L and z.
+
+## 13. Sources of the formulas and numbers
 
 For each formula or number used in this file: where it comes from. "Code" means the formula is
 implemented in `gwtc_analysis`, with the file. References marked **(from memory)** were cited from my
@@ -1099,6 +1181,16 @@ knowledge rather than checked against the paper itself, so check them before quo
 | Cyg X-1 / LMC X-1 spins model-dependent; Cyg X-1 down to a/M ≲ 0.1 | Zdziarski et al. 2024, *ApJ* 962, 101; Zdziarski et al. 2024, *ApJL* 967, L9 (references [153], [154] of the paper) |
 | stochastic-background exclusions around 10⁻¹³ eV | Tsukada et al. 2019, *Phys. Rev. D* 99, 103015; Tsukada et al. 2021, *Phys. Rev. D* 103, 083005 (from memory) |
 | O3 all-sky boson-cloud search, 20–610 Hz | LVK, *Phys. Rev. D* 105, 102001 (2022) (from memory); `docs/modes/continuous-waves.md` [107] |
+
+### Section 12 (H0, redshift and distance)
+
+| Formula / number | Source |
+|---|---|
+| v = cz = H0 d | Hubble 1929, *PNAS* 15, 168 (from memory) |
+| D_L(z) in flat ΛCDM, z values for H0 = 67.9 and 73.0 | standard; computed in this session with astropy `FlatLambdaCDM` |
+| `implied_h0()` | code: `counterpart.py` |
+| GW170817 H0 = 70 (+12/−8) | Abbott et al. 2017, *Nature* 551, 85 |
+| redshift from tidal effects | Messenger & Read 2012, *Phys. Rev. Lett.* 108, 091101 (from memory) |
 
 `docs/references.md` holds the project's own reference list: [79] GW250114, [80] Hawking 1971,
 [81] Isi et al. 2021, [100] Roy et al.
