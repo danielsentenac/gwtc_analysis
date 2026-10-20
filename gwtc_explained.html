@@ -1449,11 +1449,183 @@ calibration or a noise feature at low frequency could also make vacuum
 fit the inspiral worse. The claim rests on the Bayes factor under a
 physical prior.</li>
 </ul>
-<p>Same boson elsewhere: the posterior mass m_φ ≈ 0.7–0.9 × 10⁻¹² eV
-would make an isolated spinning black hole's cloud emit a continuous
-wave at 2 m_φ c²/h ≈ 340–570 Hz, inside the band of the LVK all-sky
-search for boson clouds (see the <code>continuous_waves</code>
-mode).</p>
+<p>Same boson elsewhere: see 11.12 for the continuous-wave link and the
+other constraints on the boson, including the tension with the spin of
+GW190517 that the paper itself discusses.</p>
+<h3 id="1112-superradiance">11.12 Superradiance</h3>
+<p><strong>Superradiance is not a counterpart.</strong> A
+<em>counterpart</em> (<code>counterpart</code> and
+<code>h0_bright</code> modes) is an electromagnetic signal from the same
+event, light seen by telescopes, as for GW170817 (kilonova, gamma-ray
+burst, afterglow), which identified the host galaxy and gave the
+redshift. <em>Superradiance</em> is a physical process around a spinning
+black hole. A scalar cloud is made of a field that doesn't interact with
+light, so it is dark, and GW190728 is a binary black hole merger, not
+expected to emit light anyway. The only other signal a cloud gives is
+gravitational: the continuous wave at 2 m_φ c²/h (section 11.12.3).</p>
+<p><strong>The process.</strong> A wave of a bosonic field passing near
+a rotating black hole can come out amplified, taking energy and spin
+from it. This happens when the wave rotates more slowly than the
+horizon, ω &lt; m Ω_H (Ω_H the horizon's angular velocity, m the wave's
+azimuthal number). For an ultralight boson with α ≈ 0.1 the waves stay
+bound to the black hole, so the amplification repeats and a cloud grows
+spontaneously, like a laser with the black hole's rotation as the energy
+source.</p>
+<p><strong>It slows the black hole's spin.</strong> The cloud grows by
+taking the black hole's rotational energy and angular momentum. As the
+black hole slows, Ω_H falls, and the growth stops when Ω_H ≈ ω/m: the
+black hole keeps a reduced <strong>critical spin</strong>, set by α, and
+the cloud reaches its <strong>saturation mass</strong>, up to about 10%
+of the black hole's mass.</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Time scale</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>growth</td>
+<td>τ_SR, short (from minutes to ~Myr depending on α and the mass)</td>
+<td>the cloud grows exponentially and the black hole spins down</td>
+</tr>
+<tr>
+<td>saturation</td>
+<td>at τ_SR</td>
+<td>the spin reaches its critical value, the cloud its maximum mass</td>
+</tr>
+<tr>
+<td>decay</td>
+<td>τ_ann, long</td>
+<td>the bosons annihilate into gravitons (the continuous wave), and the
+cloud slowly disappears</td>
+</tr>
+</tbody>
+</table></div>
+<p>In <code>scalar_cloud</code>, superradiance enters only through the
+<strong>superradiance prior</strong> (SM Eqs. 9–10 of the paper). It
+keeps only clouds with <strong>τ_SR ≤ τ_d ≤ τ_ann</strong>, τ_d being
+the delay between the black hole's formation and the merger: the cloud
+had time to grow, and not yet to decay. That gives the window on α, 0.02
+x^(1/9) ≤ α/(1+q) ≤ 0.11 x^(1/15); the saturation mass gives the upper
+bound on the density.</p>
+<h4 id="11121-constraints-on-the-boson-outside-scalar_cloud">11.12.1
+Constraints on the boson outside scalar_cloud</h4>
+<p><code>scalar_cloud</code> looks for the effect of a cloud on one
+binary's inspiral. Other analyses look for the <strong>consequences
+superradiance would have</strong> wherever black holes exist. The
+references and numbers below are from memory: check them before quoting
+them.</p>
+<p><strong>1. Black hole spins.</strong> If a boson of mass m_φ exists,
+every black hole with α around 0.1 spins down quickly. So a black hole
+measured to spin fast, in the right mass range and old enough for the
+cloud to have grown, <strong>excludes that boson mass</strong>.</p>
+<ul>
+<li><strong>X-ray binaries</strong>: stellar black holes accreting from
+a companion; their spins come from X-ray spectra (inner edge of the
+disk, shape of the iron line). Cygnus X-1, for example, spins above
+0.95. Arvanitaki, Baryakhtar &amp; Huang 2015 excluded scalars of about
+<strong>6 × 10⁻¹³ to 2 × 10⁻¹¹ eV</strong>.</li>
+<li><strong>GW events</strong>: the spins measured in binary black hole
+mergers. Ng et al. 2021 used the GWTC-2 spins to exclude about 1.3–2.7 ×
+10⁻¹³ eV <span class="memo">from memory</span>. The paper points to <strong>GW190517</strong>,
+whose spin measurement disfavours boson masses below about <strong>1.1 ×
+10⁻¹² eV</strong> (see 11.12.2).</li>
+<li><strong>Supermassive black holes</strong> (e.g. M87*, imaged by the
+EHT) constrain much lighter bosons, around 10⁻²¹–10⁻²⁰ eV.</li>
+</ul>
+<p><strong>2. Continuous gravitational waves from a single
+cloud.</strong> A saturated cloud emits a nearly monochromatic wave at f
+= 2 m_φ c²/h for thousands to millions of years. All-sky searches look
+for a nearby unknown black hole with a cloud (the LVK O3 boson-cloud
+search, 20–610 Hz, shown by the <code>continuous_waves</code> mode);
+directed searches look toward known black holes such as Cygnus X-1.
+Nothing has been detected: the upper limits become excluded boson masses
+only <strong>for an assumed black hole</strong> (distance, mass, initial
+spin, age).</p>
+<p><strong>3. Stochastic background from all the clouds.</strong> The
+clouds around all the black holes of the Universe would add up to a
+background of gravitational waves. LVK upper limits on the isotropic
+background exclude ranges around <strong>10⁻¹³ eV</strong> (Tsukada et
+al. 2019 for scalars, 2021 for vectors), again under assumptions about
+the black-hole population. That is the topic of the
+<code>stochastic</code> mode, whose docs don't treat bosons.</p>
+<h4 id="11122-where-the-gw190728-boson-falls">11.12.2 Where the GW190728
+boson falls</h4>
+<p><code>scalar_cloud</code> gives m_φ ≈ 0.7–1.2 × 10⁻¹² eV for
+GW190728:</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th>Constraint</th>
+<th>Excluded range</th>
+<th>GW190728 boson</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>continuous waves (O3 all-sky)</td>
+<td>depends on the assumed black hole</td>
+<td>not excluded: no young cloud around a light, fast-spinning black
+hole within a few kpc; compatible if such systems are rare or old
+(<code>docs/modes/continuous-waves.md</code>)</td>
+</tr>
+<tr>
+<td>stochastic background</td>
+<td>around 10⁻¹³ eV</td>
+<td>below the band: not excluded (not discussed by the paper)</td>
+</tr>
+<tr>
+<td>X-ray binary spins</td>
+<td>~6 × 10⁻¹³ to 2 × 10⁻¹¹ eV</td>
+<td>inside, but the paper argues these spins are model-dependent</td>
+</tr>
+<tr>
+<td><strong>GW190517's spin</strong></td>
+<td>below ~1.1 × 10⁻¹² eV (as the paper states it)</td>
+<td><strong>most of the band: the paper's main tension</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>What the paper says</strong> (Discussion section; read
+through a summarizing fetch of arXiv:2510.17967, so the wording below is
+quoted from that summary, not checked against the PDF):</p>
+<ul>
+<li>spin measurements of black holes "have been interpreted as excluding
+scalars in this mass range", in particular the high spins of X-ray
+binaries;</li>
+<li>but "these spin estimates, however, are highly model-dependent":
+accounting for a warm Comptonization layer in Cygnus X-1 can reduce its
+inferred spin (citing Zdziarski et al. 2024, "Black hole spin
+measurements in LMC X-1 and Cyg X-1 are highly model dependent");</li>
+<li>the spins of a few well-measured black holes "do not exclude the
+full range favored by our analysis of GW190728";</li>
+<li>"the main tension arises from GW190517", whose spin measurement
+disfavours masses below about 1.1 × 10⁻¹² eV;</li>
+<li>and "joint spin measurements from the full GWTC-2 showed weak
+evidence for a light scalar in the mass range suggested by our
+analysis";</li>
+<li>the non-detection of continuous waves is cited as a constraint,
+without a comparison with GW190728; the stochastic background is not
+discussed (Yuan et al. 2022 is only in the references).</li>
+</ul>
+<p>So the paper itself identifies the tension: the GW190728 band
+(0.70–1.17 × 10⁻¹² eV here, "about 10⁻¹² eV" in the paper) lies mostly
+below the ~1.1 × 10⁻¹² eV that GW190517 disfavours, leaving only its
+upper end. The X-ray exclusions it considers weaker, because the spins
+are model-dependent. Other ways out, not argued by the paper: the black
+hole must be old enough for the cloud to have grown, and a boson with
+<strong>self-interactions</strong> (as an axion with a small decay
+constant) can stop the growth early, leaving the spin high.</p>
+<h4 id="11123-the-continuous-wave-link">11.12.3 The continuous-wave
+link</h4>
+<p>The posterior boson mass, m_φ ≈ 0.89 (0.70–1.17) × 10⁻¹² eV with the
+superradiance prior, would make an isolated spinning black hole's cloud
+emit at 2 m_φ c²/h ≈ <strong>340–570 Hz</strong>, inside the band of the
+LVK all-sky search for boson clouds. The <code>continuous_waves</code>
+mode draws its exclusions with this band.</p>
 </section><section><h2 id="s12"><span class="num">12</span><span class="h2t">Sources of the
 formulas and numbers</span></h2>
 <p>For each formula or number used in this file: where it comes from.
@@ -1817,6 +1989,44 @@ memory)</td>
 <td>boson annihilation into gravitons (Arvanitaki &amp; Dubovsky 2011,
 above); LVK O3 all-sky boson search band 20–610 Hz as quoted in the
 docs</td>
+</tr>
+<tr>
+<td>superradiance condition ω &lt; m Ω_H, spin-down, saturation</td>
+<td>Zel'dovich 1971; Brito, Cardoso &amp; Pani, <em>Superradiance</em>,
+Lect. Notes Phys. 906 (2015) <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>τ_SR ≤ τ_d ≤ τ_ann (superradiance prior)</td>
+<td>arXiv:2510.17967, SM Eqs. 9–10</td>
+</tr>
+<tr>
+<td>X-ray binary spins exclude ~6 × 10⁻¹³–2 × 10⁻¹¹ eV</td>
+<td>Arvanitaki, Baryakhtar &amp; Huang 2015, <em>Phys. Rev. D</em> 91,
+084011 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>GW-event spins exclude ~1.3–2.7 × 10⁻¹³ eV</td>
+<td>Ng, Vitale, Hannuksela &amp; Li 2021, <em>Phys. Rev. Lett.</em> 126,
+151102 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>GW190517 disfavours m_φ below ~1.1 × 10⁻¹² eV; X-ray spins
+model-dependent; GWTC-2 spins weak evidence in the range</td>
+<td>arXiv:2510.17967, Discussion (read through a summarizing fetch)</td>
+</tr>
+<tr>
+<td>Cyg X-1 / LMC X-1 spins model-dependent</td>
+<td>Zdziarski et al. 2024, cited by the paper</td>
+</tr>
+<tr>
+<td>stochastic-background exclusions around 10⁻¹³ eV</td>
+<td>Tsukada et al. 2019, <em>Phys. Rev. D</em> 99, 103015; Tsukada et
+al. 2021, <em>Phys. Rev. D</em> 103, 083005 <span class="memo">from memory</span></td>
+</tr>
+<tr>
+<td>O3 all-sky boson-cloud search, 20–610 Hz</td>
+<td>LVK, <em>Phys. Rev. D</em> 105, 102001 (2022) <span class="memo">from memory</span>;
+<code>docs/modes/continuous-waves.md</code> [107]</td>
 </tr>
 </tbody>
 </table></div>
