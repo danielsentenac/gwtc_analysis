@@ -18,7 +18,7 @@ gwtc_analysis scalar_cloud --stages report                     # once the jobs a
 ## The model
 
 An ultralight boson of mass \(m_\phi\) around a binary of total mass \(M\) forms a bound structure of radius
-\(r_\phi = M/\alpha^2\), with \(\alpha = G M m_\phi / (\hbar c)\) (the black-hole size over the boson's wavelength;
+\(r_\phi = GM/(c^2\alpha^2)\) (\(M/\alpha^2\) with \(G = c = 1\)), with \(\alpha = G M m_\phi / (\hbar c)\) (the black-hole size over the boson's wavelength;
 \(\alpha = 0.1\) is \(m_\phi \approx 6.5 \times 10^{-13}\) eV for \(M = 20\,M_\odot\)). In the late inspiral the
 orbit is well inside it (\(\beta = R / r_\phi \ll 1\)) and the binary ionizes it: it loses angular momentum to the
 field at the rate (the paper's Eq. 2 and Eq. 6 of its Supplemental Material, \(G = c = 1\))
@@ -63,8 +63,9 @@ dephase the (2, 2) mode by about 1.6 rad at 20 Hz and 0.13 rad at 30 Hz.
 
 **Best fit.** The vacuum model is fitted from the catalog's best samples (Nelder–Mead in coordinates whitened by
 the covariance of the 2000 highest-likelihood samples: the likelihood is too narrow for a plain optimizer). The cloud
-model has a separate mode at a lower chirp mass (the paper's Fig. 8), which fits started from the vacuum best fit do
-not reach: they stay within a few tenths of ln L of vacuum. The cloud fits therefore start from the 4 best samples of
+model has a separate mode, which fits started from the vacuum best fit do not reach: they stay within a few tenths of
+ln L of vacuum. (In the paper, the cloud posterior sits at a lower chirp mass than the vacuum one, its Fig. 8: a
+lower chirp mass slows the inspiral, the cloud speeds it up.) The cloud fits therefore start from the 4 best samples of
 the nested sampling of the event with the superradiance prior (the merger time of each set by a scan of the
 fixed-time likelihood, the sampling marginalizes it), and are run twice with the binary and the cloud free. The
 statistic is
@@ -165,9 +166,12 @@ best fit (`scalar_cloud.py seeded --inject cloud`).
 
 | Result | Here | Roy et al. |
 |---|---|---|
-| Λ | **8.98** | |
-| background | 2 of 151 at Λ ≥ 8.98 (the event and one segment with a loud transient, Λ = 112), p = 0.013; 0.007 without that segment; 147 of 150 below 4.1 | |
-| injections of the cloud best fit (sensitivity) | Λ = 25 (5–95%: 9.9–44); 4.7% at or below the event's 8.98 | |
+| Λ | **8.98** | not used |
+| ln L cloud − ln L vacuum, best fits | 4.49 (Λ/2) | not given |
+| ln L cloud − ln L vacuum, posterior medians (time-marginalized ln L of the samplings) | 4.20 superradiance, 4.05 agnostic | ≈ 3.7 (Supplemental Material, Fig. 8 inset) |
+| chirp mass (detector frame), posterior median and 90% | vacuum 10.14 (10.05–10.24), superradiance 9.89 (9.73–10.18), agnostic 9.88 (9.72–10.12) M☉ | vacuum 10.14 (+0.10/−0.09), cloud 9.69 (+0.27/−0.28) M☉ (Fig. 8) |
+| background | 2 of 151 at Λ ≥ 8.98 (the event and one segment with a loud transient, Λ = 112), p = 0.013; 0.007 without that segment; 147 of 150 below 4.1 | none (the paper's statistic is the Bayes factor) |
+| injections of the cloud best fit (sensitivity) | Λ = 25 (5–95%: 9.9–44); 4.7% at or below the event's 8.98 | none |
 | ln B, superradiance prior (τ_d = 10⁶ yr) | **1.34 ± 0.30** | 3.5 |
 | ln B, agnostic prior (\(\bar\rho_\phi \le 10^9\) g/cm³) | **−0.82 ± 0.31** | 0.4 (upper end of the prior not given) |
 | \(\bar\rho_\phi\), agnostic (90%) | 3.2 (0.9–5.9) × 10⁷ g/cm³ | ≈ 0.7 × 10⁸ |
@@ -223,10 +227,17 @@ vacuum signal, fits both better than the best-fit cloud.
 
 ![Posteriors of the density and of the scalar mass](../img/modes/scalar_cloud_cloud_posteriors_GW190728.png)
 
-**Against the paper.** Same mode (a lower chirp mass compensated by the dephasing, a density of 10⁷ g/cm³, α of a
-few 0.1), a likelihood gain of 4.5 against their 4–5, an agnostic Bayes factor that matches theirs for a prior up
-to about \(3 \times 10^8\) g/cm³, but a smaller Bayes factor with the superradiance prior (1.3 against 3.5) and a
-density 2 to 4 times lower. Differences that can contribute: the frame of the correction (J
+**Against the paper.** The paper's statistic is the Bayes factor: it gives no best fit, no background and no
+p-value, so Λ, the background and the injections have no published counterpart. What can be compared: a cloud mode
+with a density of 10⁷ g/cm³ and α of a few 0.1; a likelihood gain of 4.49 between the best fits, against a median of
+3.7 over the paper's posterior (a median over samples lies below the maximum: consistent, but not the same quantity);
+a median likelihood gain over the posterior of 4.2 (superradiance) and 4.05 (agnostic), against the paper's 3.7; an
+agnostic Bayes factor that matches theirs for a prior up to about \(3 \times 10^8\) g/cm³; but a smaller Bayes
+factor with the superradiance prior (1.3 against 3.5) and a density 2 to 4 times lower. The chirp-mass shift is
+reproduced in the posteriors, smaller: the vacuum posterior, 10.14 M☉ (detector frame), is the paper's exactly
+(which places its values in the detector frame too), and the cloud posteriors sit at 9.89 M☉, 2.5% below it, against
+4.4% below (9.69 M☉) in the paper. The cloud best fit (10.11 M☉) is not in the bulk of the cloud posterior: the fits
+find the highest point of the cloud mode, the posterior weighs its volume. Differences that can contribute: the frame of the correction (J
 frame here, co-precessing there), the PSDs and the likelihood (ln L 7 below the PE file's), 500 live points instead
 of 1000, and the normalisation of the torque, which sets the density for a given dephasing.
 
