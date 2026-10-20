@@ -120,7 +120,7 @@ fig.tight_layout(rect=(0, 0.06, 1, 1))
 out = OUT / "mass_distribution_selection_corrected.png"
 fig.savefig(out, facecolor=SURFACE)
 print("wrote", out, "| events without m1 bounds:", missing)
-# the corrected histogram, for the overlay of the fitted mass models (mass_models_plp_mltp.py)
+# the corrected histogram, for the overlay of the fitted mass models (mass_models_plot.py)
 data = Path(__file__).resolve().parent / "data" / "mass_distribution_selection_corrected.tsv"
 data.parent.mkdir(exist_ok=True)
 np.savetxt(data, np.column_stack([edges[:-1], edges[1:], counts, rate_bins, lo90, hi90]), delimiter="\t",

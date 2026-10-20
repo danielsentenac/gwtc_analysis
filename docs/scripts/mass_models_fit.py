@@ -5,7 +5,7 @@ For each finished `hubble_constant --method spectral` work directory given, eval
 primary-mass density p(m1 | Λ) of its mass model for each posterior sample Λ (posterior_reweighted.tsv, else
 posterior.tsv), with icarogw's own model, and writes the median and the 90% band of m1·p(m1) (the density per
 ln m1), and the model at the posterior median of each parameter, on a grid of m1:
-docs/scripts/data/mass_models_fit.tsv, read by mass_models_plp_mltp.py.
+docs/scripts/data/mass_models_fit.tsv, read by mass_models_plot.py.
 
 - Power Law + Peak and Multi Peak: the primary-mass prior smoothed at m_min, as in the likelihood.
 - FullPop-4.0: a joint density p(m1) p(m2) f(m1, m2) with a pairing function f; p(m1) is its integral over m2 < m1.
