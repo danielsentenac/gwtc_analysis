@@ -205,7 +205,18 @@ same signal. The distance is measured, but converting it to a redshift requires 
 
 ## Distance and cosmology
 
-In a flat ΛCDM cosmology, the luminosity distance of a source at redshift \(z\) is
+**The GW signal gives the luminosity distance \(D_L\) directly, with no distance ladder.** The phase
+evolution of the chirp measures the (detector-frame) chirp mass, which fixes how loud the source is
+intrinsically; the measured strain amplitude, which falls as \(1/D_L\) ([above](#amplitude-and-frequency)),
+then gives \(D_L\) from general relativity alone. No other distance indicator calibrates it: optical
+distances are built rung by rung, each calibrating the next (parallaxes → Cepheids → type Ia supernovae,
+the [distance ladder](glossary.md)), and each rung adds its own systematic errors. This is what makes a GW
+source a *standard siren*. The GW distance has its own uncertainties instead: the degeneracy with the
+inclination of the orbit, and the amplitude calibration of the detectors (a few percent).
+
+What the signal does **not** give is the redshift. The formula below is therefore not how \(D_L\) is
+measured: it is the cosmological relation between the measured \(D_L\) and the redshift \(z\). In a flat
+ΛCDM cosmology, the luminosity distance of a source at redshift \(z\) is
 
 \[
 D_L(z) = (1+z)\,\frac{c}{H_0} \int_0^z \frac{dz'}{\sqrt{\Omega_m (1+z')^3 + 1 - \Omega_m}}
