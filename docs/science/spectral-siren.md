@@ -510,18 +510,52 @@ well within the uncertainties.
 
 ### Reproduced, with differences
 
-These results were computed by gwtc_analysis, but do not match the published values:
+These results were computed by gwtc_analysis, but differ from the icarogw values of the GWTC-4.0 data release,
+which the other results reproduce. The paper's values are an equal mixture of the icarogw and gwcosmo samples, so
+the comparison is with the icarogw release alone. Both differences are small against the uncertainties; their
+cause is not established.
 
-- **The MLTP spectral siren:** 81.6 (+41.0 / −26.0) km/s/Mpc against 72.3 (+42.5 / −25.6) in the paper, 9.3 km/s/Mpc
-  (0.3σ) apart, with intervals of the same width (90%: 41.4–159.7 against 34.2–154.1). The PLP run, with the same
-  events, PE samples, injections and settings, agrees to 2.1 km/s/Mpc, so the difference is specific to the
-  Multi Peak model. Its posterior is bimodal in the peak parameters (label switching, [below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)),
-  which 100 live points per run may sample unevenly. The paper combines icarogw and gwcosmo samples: the icarogw
-  release alone gives 76.5 (+45.0 / −25.6), 90%: 37.8–161.4, so 5.1 km/s/Mpc remain unexplained. Runs B gave
-  78.6 with 1500 PE samples ([comparison](#injection-subsets-and-reweighting)).
-- **The upper tail of the FullPop-4.0 H₀ posterior:** the 90% upper bound is 125.3 km/s/Mpc against 115.9 in
-  the icarogw release (111.9 in the paper), while the median is only 0.7 km/s/Mpc higher and the lower bound
-  about the same (above).
+- **The MLTP spectral siren is 5.1 km/s/Mpc higher:** 81.6 (+41.0 / −26.0) km/s/Mpc against 76.5 (+45.0 / −25.6)
+  in the icarogw release (90%: 41.4–159.7 against 37.8–161.4), about 0.15σ. The paper's 72.3 (+42.5 / −25.6) is
+  lower still because it includes gwcosmo's 67.8. The PLP run, with the same events, PE samples, injections and
+  settings, is 2.7 km/s/Mpc below the release (107.6 against 110.3), so the difference is specific to the
+  Multi Peak model. Runs B gave 78.6 with 1500 PE samples ([comparison](#injection-subsets-and-reweighting)).
+- **The FullPop-4.0 posterior has a longer upper tail:** the median and the lower bound agree with the icarogw
+  release (75.1 against 74.4; 90% lower bounds 44.6 and 45.7), but the 90% upper bound is 125.3 km/s/Mpc against
+  115.9 (111.9 in the paper): our posterior puts more probability on H₀ between about 100 and 130 km/s/Mpc.
+
+**Ruled out.** The number of PE samples per event: from 1500 to 5000 the MLTP median goes from 83.7 to 81.6, the
+FullPop-4.0 upper bound from 122.9 to 125.3 ([comparison](#injection-subsets-and-reweighting)).
+
+**Possible explanations, not tested yet.**
+
+- **The number of live points.** Our runs combine 8 runs of 100 live points each (dynesty, seeds 1–8). The data
+  release records the LVK's settings in its result files: nessai, a nested sampler whose proposals come from a
+  normalizing flow, with 700 live points for icarogw and 1000 for gwcosmo (the paper names nessai but not the
+  number). The live points are the sampler's only picture of the parameter space at each step. The Multi Peak
+  posterior has two modes: its two Gaussians swap roles in part of the samples (label switching,
+  [below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)), and each mode favours slightly different values
+  of H₀. With 100 live points, chance decides early on how many points follow each mode, and every run can misjudge
+  their relative weight in the same way; combining runs reduces the scatter between runs, not such a shared bias.
+  Tails, like that of FullPop-4.0, are where the fewest points end up. The 8 runs agree on H₀ to a few km/s/Mpc,
+  which excludes large random errors, not a systematic misweighting.
+- **For FullPop-4.0 also:** the sampling with 50% of the injections before the reweighting (the tail carries the
+  fewest samples, whose weights are the least certain), the 7 runs combined instead of 8, and a difference of
+  settings or priors in the FullPop-4.0 model that has not been noticed.
+
+**Tests.**
+
+1. Rerun the MLTP spectral siren with `--nlive 700` (default 100), the LVK's number. If H₀ moves from 81.6 towards
+   76.5, the live points explain the difference. The runs take several times longer than with 100 live points
+   (about a day each with 10% of the injections, probably more).
+2. Rerun MLTP with the two peaks ordered (the lower Gaussian kept below the upper one), which removes the label
+   switching: if the result moves towards the release, the bimodality is the cause. This needs a code change: the
+   mode draws the two peak positions independently in 5–100 M☉, like the release, and has no option to order them.
+   It is a diagnostic only, as the ordering changes the prior with respect to the LVK's.
+3. For FullPop-4.0, the same test with `--nlive 700`; then, if the tail remains, a comparison sample by sample with
+   the release (our likelihood evaluated at the LVK's posterior samples, as was done for Power Law + Peak in
+   [hubble_constant](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)), which shows
+   whether the likelihoods differ at large H₀ or only the sampling.
 
 ### Out of reach of this version
 
