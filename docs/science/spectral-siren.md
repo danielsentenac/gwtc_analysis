@@ -539,20 +539,30 @@ FullPop-4.0 upper bound from 122.9 to 125.3 ([comparison](#injection-subsets-and
   their relative weight in the same way; combining runs reduces the scatter between runs, not such a shared bias.
   Tails, like that of FullPop-4.0, are where the fewest points end up. The 8 runs agree on H₀ to a few km/s/Mpc,
   which excludes large random errors, not a systematic misweighting.
-- **For FullPop-4.0 also:** the sampling with 50% of the injections before the reweighting (the tail carries the
-  fewest samples, whose weights are the least certain), the 7 runs combined instead of 8, and a difference of
-  settings or priors in the FullPop-4.0 model that has not been noticed.
+- **The subset of the injections.** Our runs did not sample with all the injections, as the LVK did: with the
+  default `--inj-fraction auto`, the probe chose 10% of the injections for MLTP (and PLP) and 50% for FullPop-4.0,
+  and the posterior was then reweighted to all the injections. The reweighting is exact for the samples the runs
+  produced, but it cannot add samples where the runs put too few: if the subset's tilt pushed the sampler away from
+  a region the full likelihood favours (one of the two MLTP modes, or the FullPop-4.0 tail), the weights there rest
+  on few samples. The effective sample sizes stay high (66–83%), which argues against a large effect, not against a
+  small one in a mode or a tail.
+- **For FullPop-4.0 also:** the 7 runs combined instead of 8, and a difference of settings or priors in the
+  FullPop-4.0 model that has not been noticed.
 
 **Tests.**
 
 1. Rerun the MLTP spectral siren with `--nlive 700` (default 100), the LVK's number. If H₀ moves from 81.6 towards
    76.5, the live points explain the difference. The runs take several times longer than with 100 live points
    (about a day each with 10% of the injections, probably more).
-2. Rerun MLTP with the two peaks ordered (the lower Gaussian kept below the upper one), which removes the label
+2. Rerun MLTP with all the injections (`--inj-fraction 1`, as the LVK), which needs no reweighting: if H₀ moves
+   towards 76.5, the subset is the cause. Each likelihood evaluation is about 4 times slower than with 10%;
+   combined with test 1 (`--nlive 700 --inj-fraction 1`), the runs reproduce the LVK's settings, at the highest
+   cost.
+3. Rerun MLTP with the two peaks ordered (the lower Gaussian kept below the upper one), which removes the label
    switching: if the result moves towards the release, the bimodality is the cause. This needs a code change: the
    mode draws the two peak positions independently in 5–100 M☉, like the release, and has no option to order them.
    It is a diagnostic only, as the ordering changes the prior with respect to the LVK's.
-3. For FullPop-4.0, the same test with `--nlive 700`; then, if the tail remains, a comparison sample by sample with
+4. For FullPop-4.0, the same tests with `--nlive 700` and `--inj-fraction 1`; then, if the tail remains, a comparison sample by sample with
    the release (our likelihood evaluated at the LVK's posterior samples, as was done for Power Law + Peak in
    [hubble_constant](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)), which shows
    whether the likelihoods differ at large H₀ or only the sampling.
