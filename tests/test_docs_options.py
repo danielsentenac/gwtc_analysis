@@ -20,6 +20,7 @@ PAGES = {
     "area_law": ["modes/area-law.md"],
     "scalar_cloud": ["modes/scalar-cloud.md"],
     "stochastic": ["modes/stochastic.md"],
+    "primordial_black_holes": ["modes/primordial-black-holes.md"],
     "neutron_star_eos": ["modes/neutron-star-eos.md"],
     "spin_population": ["modes/spin-population.md"],
     "lens_pairs": ["modes/lens-pairs.md"],

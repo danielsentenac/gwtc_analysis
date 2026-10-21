@@ -19,6 +19,7 @@ The tool provides:
 - BBH effective-spin population and its correlation with the mass ratio
 - Neutron-star equation of state from GW170817 and GW190425 jointly (Λ₁.₄, R₁.₄)
 - Predicted background of unresolved compact binaries, Ω_GW(f), against the stochastic upper limits
+- Upper limits on the fraction of dark matter in primordial black holes (`primordial_black_holes`), 0.35–150 M☉: the LVK sub-solar searches (O4a + O4b, reproducing the published limits) and the catalog injections and events
 - Test of Hawking's area law with GW250114 (inspiral against ringdown, reproducing the published 4.4σ)
 - Electromagnetic counterparts in the GW posterior (`counterpart`): searched probability, distance along the line of sight against the host redshift, viewing angle and an independent constraint on it
 - Multi-messenger coincidences in the sky maps (`search_skymaps --counterparts`): gamma-ray bursts and neutrinos
@@ -108,6 +109,7 @@ positional arguments:
     area_law
     scalar_cloud
     stochastic
+    primordial_black_holes
     neutron_star_eos
     spin_population
     lens_pairs
@@ -428,6 +430,24 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--out-report` | `stochastic.html` | Output HTML report path. |
 | `--out-summary` | `stochastic.tsv` | Output TSV of Omega_GW(25 Hz) (the spectrum goes to <name>.spectrum.tsv). |
 | `--plots-dir` | `stochastic_plots` | Directory for the plots. |
+
+### `primordial_black_holes`
+
+| Option | Default | Description |
+|---|---:|---|
+| `-h, --help` | `` | show this help message and exit |
+| `--masses` | `` | PBH masses [Msun] for the catalog part (default: 22 values from e^w to 150). |
+| `--mass-window` | `0.2` | Half-width w of the mass window in ln m: binaries in [m e^-w, m e^w]. |
+| `--attribute` | `window` | Events that may be primordial: those with their chirp mass in the window (window), or none, the observed events being astrophysical (none: tighter limits). |
+| `--suppression` | `hutsi` | Suppression of the early-binary rate: S1 S2 of Hütsi et al. 2021 (hutsi), or the fit 2.3e-3 f^-0.65 of the LVK sub-solar papers (lvk, which reproduces their limits). |
+| `--no-sub-solar` | `True` | Leave out the sub-solar searches (0.2-1 Msun). |
+| `--far-threshold` | `1.0` | FAR threshold [1/yr] for injections and events. |
+| `--sensitivity-release` | `gwtc5` | LVK search-sensitivity release of the catalog part, as in the rates mode. |
+| `--sensitivity-file` | `` | Local LVK injection HDF file instead of the release. |
+| `--out-limits` | `pbh_limits.tsv` | Output TSV of the limits per mass. |
+| `--out-report` | `pbh_limits.html` | Output HTML report path. |
+| `--plots-dir` | `pbh_plots` | Directory for the plots. |
+| `--data-repo` | `zenodo` | Where the search-sensitivity injections and the sub-solar data release are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |
 
 ### `neutron_star_eos`
 

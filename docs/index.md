@@ -40,6 +40,7 @@ grow.
 | [`scalar_cloud`](modes/scalar-cloud.md) | A binary black hole in an ultralight scalar-field cloud: the IMRPhenomXPHM_Scalar waveform, best fit against vacuum calibrated on off-source noise, and the Bayes factor (GW190728) |
 | [`continuous_waves`](modes/continuous-waves.md) | Continuous waves: the LVK upper limits on known pulsars, unknown neutron stars and boson clouds around black holes, with the boson mass of GW190728 at its continuous-wave frequency |
 | [`stochastic`](modes/stochastic.md) | The background of unresolved compact binaries, Ω_GW(f), from the spectral-siren masses and rate evolution and the `rates` local rates, against the upper limits |
+| [`primordial_black_holes`](modes/primordial-black-holes.md) | Upper limits on the fraction of dark matter in primordial black holes of one mass, 0.35–150 M☉: the LVK sub-solar searches (O4a + O4b) and the catalog injections and events |
 | [`neutron_star_eos`](modes/neutron-star-eos.md) | The neutron-star equation of state from GW170817 and GW190425 jointly: Λ₁.₄ and R₁.₄ |
 | [`spin_population`](modes/spin-population.md) | The BBH effective-spin distribution and its correlation with the mass ratio, corrected for selection effects |
 | [`lens_pairs`](modes/lens-pairs.md) | Strongly lensed pairs: every pair of BBH events ranked by posterior overlap and time delay, the tier-1 screen of the LVK lensing searches |

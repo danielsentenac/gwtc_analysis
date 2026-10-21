@@ -161,6 +161,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  gwtc_analysis continuous_waves -h\n"
             "  gwtc_analysis scalar_cloud -h\n"
             "  gwtc_analysis stochastic -h\n"
+            "  gwtc_analysis primordial_black_holes -h\n"
             "  gwtc_analysis neutron_star_eos -h\n"
             "  gwtc_analysis spin_population -h\n"
             "  gwtc_analysis lens_pairs -h\n"
@@ -668,6 +669,46 @@ def build_parser() -> argparse.ArgumentParser:
     p_sto.add_argument("--plots-dir", default="stochastic_plots", help="Directory for the plots.")
 
     # ---------------------------------------------------------------------
+    # primordial_black_holes
+    # ---------------------------------------------------------------------
+    p_pbh = sub.add_parser(
+        "primordial_black_holes",
+        help="Upper limits on the fraction of dark matter in primordial black holes, from the merger rates.",
+        description=(
+            "Upper limits (90%) on f_PBH for primordial black holes of a single mass, early binaries (Raidal et al.\n"
+            "2019, Hütsi et al. 2021) and late binaries in clusters (Phukon et al. 2021).\n"
+            "0.2-1 Msun: the sensitive volume-time of the LVK sub-solar-mass searches, O4a + O4b (arXiv:2610.20276,\n"
+            "Zenodo 23346454), no candidate: R_90 = 2.30 / VT. Above 1 Msun: the search-sensitivity injections of the\n"
+            "rates mode, reweighted to equal-mass binaries in [m e^-w, m e^w], and the events whose chirp mass is in\n"
+            "that window (all may be primordial, --attribute window; or none, --attribute none).\n"
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    p_pbh.add_argument("--masses", nargs="+", type=float, default=None,
+                       help="PBH masses [Msun] for the catalog part (default: 22 values from e^w to 150).")
+    p_pbh.add_argument("--mass-window", type=float, default=0.2,
+                       help="Half-width w of the mass window in ln m: binaries in [m e^-w, m e^w].")
+    p_pbh.add_argument("--attribute", choices=("window", "none"), default="window",
+                       help="Events that may be primordial: those with their chirp mass in the window (window), "
+                            "or none, the observed events being astrophysical (none: tighter limits).")
+    p_pbh.add_argument("--suppression", choices=("hutsi", "lvk"), default="hutsi",
+                       help="Suppression of the early-binary rate: S1 S2 of Hütsi et al. 2021 (hutsi), or the fit "
+                            "2.3e-3 f^-0.65 of the LVK sub-solar papers (lvk, which reproduces their limits).")
+    p_pbh.add_argument("--no-sub-solar", dest="sub_solar", action="store_false",
+                       help="Leave out the sub-solar searches (0.2-1 Msun).")
+    p_pbh.add_argument("--far-threshold", type=float, default=1.0, help="FAR threshold [1/yr] for injections and events.")
+    p_pbh.add_argument(
+        "--sensitivity-release",
+        choices=list(RATES_SENSITIVITY_RELEASES),
+        default=RATES_DEFAULT_RELEASE,
+        help="LVK search-sensitivity release of the catalog part, as in the rates mode.",
+    )
+    p_pbh.add_argument("--sensitivity-file", default=None, help="Local LVK injection HDF file instead of the release.")
+    p_pbh.add_argument("--out-limits", default="pbh_limits.tsv", help="Output TSV of the limits per mass.")
+    p_pbh.add_argument("--out-report", default="pbh_limits.html", help="Output HTML report path.")
+    p_pbh.add_argument("--plots-dir", default="pbh_plots", help="Directory for the plots.")
+
+    # ---------------------------------------------------------------------
     # neutron_star_eos
     # ---------------------------------------------------------------------
     p_eos = sub.add_parser(
@@ -965,6 +1006,7 @@ def build_parser() -> argparse.ArgumentParser:
     for mode, files in (("rates", "the search-sensitivity injections"),
                         ("hubble_constant", "the PE files and the search-sensitivity injections"),
                         ("counterpart", "the PE file"), ("continuous_waves", "the LVK upper-limit files"),
+                        ("primordial_black_holes", "the search-sensitivity injections and the sub-solar data release"),
                         ("area_law", "the GW250114 data release"), ("scalar_cloud", "the PE file"),
                         ("neutron_star_eos", "the PE files and the GWTC-1 products of GW170817"),
                         ("build_unofficial_pe", "the GWTC-1 products of GW170817")):
@@ -1323,6 +1365,18 @@ def main(argv=None) -> int:
             run_stochastic(args.spectral_posterior, args.rates, n_draws=args.n_draws, high_z=args.high_z,
                            z_horizon=args.z_horizon, out_report_html=args.out_report, out_summary_tsv=args.out_summary,
                            plots_dir=args.plots_dir)
+            return 0
+
+        if args.mode == "primordial_black_holes":
+            from .primordial_black_holes import run_primordial_black_holes
+            if args.far_threshold <= 0:
+                raise ValueError("--far-threshold must be > 0")
+            run_primordial_black_holes(masses=args.masses, mass_window=args.mass_window, attribute=args.attribute,
+                                       suppression=args.suppression, far_threshold=args.far_threshold,
+                                       sensitivity_file=args.sensitivity_file,
+                                       sensitivity_release=args.sensitivity_release, sub_solar=args.sub_solar,
+                                       out_limits_tsv=args.out_limits, out_report_html=args.out_report,
+                                       plots_dir=args.plots_dir)
             return 0
 
         if args.mode == "neutron_star_eos":

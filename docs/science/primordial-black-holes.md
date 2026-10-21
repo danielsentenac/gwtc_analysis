@@ -86,3 +86,7 @@ becomes partly an optical one. Two practical points for the follow-up:
 The second bound rests on the measured BBH rate, the quantity of the [rates](../modes/rates.md) mode: whatever
 fraction of the observed mergers is primordial, PBHs cannot produce more mergers than are seen. The stochastic
 background gives a bound about 1000 times weaker.
+
+The [primordial_black_holes](../modes/primordial-black-holes.md) mode computes both kinds of bound from the public
+data: the sub-solar searches (it reproduces the LVK limits above) and the GWTC injections and events from 1 to
+150 M☉.
