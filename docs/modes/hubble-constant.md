@@ -29,8 +29,8 @@ The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#re
 114.6 (+41.5 / −33.8) against 115.4 (+40.1 / −33.8), with 5000 PE samples per event ([validation](#validation-gwtc-40-power-law-peak-glade-k-band));
 with Multi Peak, 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3) ([validation](#validation-gwtc-40-multi-peak-glade-k-band)).
 With FullPop-4.0, the paper's fiducial model (141 events, every compact binary), the spectral siren gives 75.1 (+25.8 / −19.2) against the
-published 72.9 (+21.9 / −18.8) ([mass models](#mass-models)), the dark siren 82.0 (+21.0 / −16.4) against 79.6 (+20.8 / −16.3),
-and the dark siren with GW170817, the paper's headline, 76.7 (+13.4 / −8.9) against 75.4 (+12.8 / −9.1)
+published 72.9 (+21.9 / −18.8) ([mass models](#mass-models)), the dark siren 82.0 (+21.0 / −16.4) against 82.0 (+21.5 / −16.0)
+in the release (icarogw), and the dark siren with GW170817 76.7 (+13.4 / −8.9) against the paper's headline 75.4 (+12.8 / −9.1)
 ([validation](#validation-gwtc-40-fullpop-40-glade-k-band)).
 
 ## Quick start
@@ -224,10 +224,12 @@ reweighted to all the injections and then to all 5000 PE samples:
 |---|---|---|---|
 | 1500 | 74.4 (+25.4 / −18.9) | 44.4 – 122.9 | 88% |
 | **5000** | **75.1 (+25.8 / −19.2)** | **44.6 – 125.3** | 83% |
-| GWTC-4.0 paper [\[29\]](../references.md#ref-29) | 72.9 (+21.9 / −18.8) | 44.0 – 111.9 | – |
+| GWTC-4.0 release, icarogw spectral siren | 74.4 (+22.2 / −18.2) | 45.7 – 115.9 | – |
+| GWTC-4.0 paper [\[29\]](../references.md#ref-29) (icarogw and gwcosmo) | 72.9 (+21.9 / −18.8) | 44.0 – 111.9 | – |
 
-Unlike PLP (−7.0 km/s/Mpc from 1500 to 5000 PE samples), FullPop-4.0 barely moves (+0.7). The median is 2.2 above the paper's,
-the lower bound the same, the upper tail longer, with either number of PE samples.
+Unlike PLP (−7.0 km/s/Mpc from 1500 to 5000 PE samples), FullPop-4.0 barely moves (+0.7). The median is 0.7 above the
+icarogw release's (2.2 above the paper's, which includes gwcosmo's 70.3), the lower bound the same, the upper tail
+longer (125.3 against 115.9), with either number of PE samples.
 
 The dark-siren rows of the paper combine icarogw and gwcosmo; the data-release values reproduced above
 ([validation](#validation-gwtc-40-power-law-peak-glade-k-band)) are icarogw's alone.
@@ -384,16 +386,18 @@ gwtc_analysis hubble_constant --method dark --mass-model fullpop4 \
 | runs, 10% of the injections (8 runs, 1953 samples) | 86.9 (+20.4 / −16.3) | 61.9 – 127.9 |
 | reweighted to all the injections (1500 PE samples) | 82.3 (+19.8 / −16.1) | 55.9 – 125.4 |
 | **reweighted to all the injections and 5000 PE samples** | **82.0 (+21.0 / −16.4)** | **55.0 – 128.3** |
-| GWTC-4.0 paper, Table 1 [\[29\]](../references.md#ref-29) | 79.6 (+20.8 / −16.3) | |
+| GWTC-4.0 release, icarogw dark siren | 82.0 (+21.5 / −16.0) | 57.1 – 124.6 |
+| GWTC-4.0 release, gwcosmo dark siren | 76.9 (+20.4 / −16.9) | 49.2 – 115.9 |
+| GWTC-4.0 paper, Table 1 [\[29\]](../references.md#ref-29) (icarogw and gwcosmo) | 79.6 (+20.8 / −16.3) | |
 
-- The median is 2.4 km/s/Mpc above the paper's (0.13σ), with a 68% interval of the same width. The paper's value
-  combines icarogw and gwcosmo; for Power Law + Peak and Multi Peak that combination is 4.8 and 4.7 below the
-  icarogw release, which our runs reproduce. The icarogw release value for FullPop-4.0 has not been compared.
+- With 5000 PE samples the result is the icarogw release's: the same median, 68% intervals within 0.5 km/s/Mpc,
+  a 90% interval 2–4 km/s/Mpc wider. The paper's 79.6 combines the icarogw and gwcosmo samples (82.0 and 76.9),
+  as for Power Law + Peak and Multi Peak, where the combination is 4.8 and 4.7 below the icarogw release.
 - The reweightings keep effective sample sizes of 47% (all the injections, 914 of 1953) and 46% (5000 PE samples,
   893), reject no sample, and reproduce the runs' ln L exactly. All the injections lower H₀ by 4.6 km/s/Mpc; 5000
   PE samples move it by −0.3 only, as for the FullPop-4.0 spectral siren ([mass models](#mass-models)).
-- The catalog moves the median up by 6.9 km/s/Mpc against the FullPop-4.0 spectral siren (75.1), as in the paper
-  (72.9 → 79.6, +6.7), and narrows the 68% interval by 17% (9% in the paper).
+- The catalog moves the median up by 6.9 km/s/Mpc against the FullPop-4.0 spectral siren (75.1), as in the icarogw
+  release (74.4 → 82.0, +7.6) and the paper (72.9 → 79.6, +6.7), and narrows the 68% interval by 17%.
 - With GW170817 (`--method joint`, the bright siren with `--population fullpop4`, as in the paper): **76.7
   (+13.4 / −8.9)** km/s/Mpc, 90%: 63.8 – 101.2, against the paper's headline 75.4 (+12.8 / −9.1); with 1500 PE
   samples per event, 76.2 (+13.6 / −8.5) ([joint posterior](#joint-posterior)).

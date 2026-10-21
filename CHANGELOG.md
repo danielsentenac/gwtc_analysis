@@ -7,9 +7,11 @@
 - **scalar_cloud**: the best-fit statistic is renamed the **deviance** 𝒟 (the likelihood-ratio test statistic),
   formerly Λ, which the population analyses use for their hyperparameters. Only the text changes: the result
   files keep the key `Lambda`.
-- Documentation: the FullPop-4.0 dark siren with GLADE+ K band, 82.0 (+21.0 / −16.4) km/s/Mpc against 79.6
-  (+20.8 / −16.3) in the GWTC-4.0 paper, and its combination with GW170817, 76.7 (+13.4 / −8.9) against the
-  paper's headline 75.4 (+12.8 / −9.1).
+- Documentation: the FullPop-4.0 dark siren with GLADE+ K band, 82.0 (+21.0 / −16.4) km/s/Mpc against 82.0
+  (+21.5 / −16.0) in the GWTC-4.0 release (icarogw; 79.6 in the paper, with gwcosmo), and its combination with
+  GW170817, 76.7 (+13.4 / −8.9) against the paper's headline 75.4 (+12.8 / −9.1). The spectral sirens are also
+  compared with the icarogw release values. Results of diagnostics made outside the `gwtc_analysis` command are
+  labelled as such.
 
 ### Fixes
 

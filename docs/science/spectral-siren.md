@@ -443,7 +443,7 @@ alone unless stated; H₀ in km/s/Mpc and mass-peak positions in M☉, median an
 | GWTC-4.0, FullPop-4.0 spectral siren: position of the upper BBH mass peak (M☉) | **26.7 (+3.5 / −3.4)**, 90%: 20.5 – 32.9 | 26.6 (+2.9 / −2.8), 90%: 21.8 – 31.4, paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, PLP dark siren, GLADE+ K band | **114.6 (+41.5 / −33.8)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8), data release (icarogw) |
 | GWTC-4.0, MLTP dark siren, GLADE+ K band | **86.8 (+39.8 / −26.1)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)) | 86.3 (+41.3 / −26.3), data release (icarogw) |
-| GWTC-4.0, FullPop-4.0 dark siren, GLADE+ K band | **82.0 (+21.0 / −16.4)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-fullpop-40-glade-k-band)) | 79.6 (+20.8 / −16.3), paper [\[29\]](../references.md#ref-29) (icarogw and gwcosmo) |
+| GWTC-4.0, FullPop-4.0 dark siren, GLADE+ K band | **82.0 (+21.0 / −16.4)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-fullpop-40-glade-k-band)) | 82.0 (+21.5 / −16.0), data release (icarogw) |
 | GWTC-4.0, FullPop-4.0 dark siren + GW170817, the paper's headline | **76.7 (+13.4 / −8.9)**, product of the two posteriors | 75.4 (+12.8 / −9.1), paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, PLP spectral siren + GW170817 | **80.2 (+22.5 / −12.1)**, product of the two posteriors (`--method joint`, [below](#spectral-siren-and-gw170817)) | 80.6 (+21.8 / −13.2), paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, MLTP spectral siren + GW170817 | **75.4 (+17.5 / −9.1)**, product of the two posteriors ([below](#spectral-siren-and-gw170817)) | 73.6 (+15.5 / −9.2), paper [\[29\]](../references.md#ref-29) |
@@ -453,20 +453,23 @@ alone unless stated; H₀ in km/s/Mpc and mass-peak positions in M☉, median an
 | Planck 2018 (cosmic microwave background) | not a GW measurement | 67.4 ± 0.5, Planck 2020 [\[33\]](../references.md#ref-33) |
 | SH0ES (distance ladder) | not a GW measurement | 73.0 ± 1.0, Riess et al. 2022 [\[34\]](../references.md#ref-34) |
 
-For the two dark sirens, the published values are the icarogw values of the GWTC-4.0 data release, which gwtc_analysis reproduces. Table 1 of
+For the three dark sirens, the published values are the icarogw values of the GWTC-4.0 data release, which gwtc_analysis reproduces. Table 1 of
 the paper, which combines icarogw and gwcosmo, quotes lower values for the same models and catalog: 110.6
-(+42.5 / −34.7) for PLP and 81.6 (+41.2 / −27.6) for MLTP, 4.8 and 4.7 km/s/Mpc below the release. gwtc_analysis cannot
-compute those, as it uses icarogw only ([icarogw and gwcosmo](icarogw-gwcosmo.md)).
+(+42.5 / −34.7) for PLP, 81.6 (+41.2 / −27.6) for MLTP and 79.6 (+20.8 / −16.3) for FullPop-4.0, 4.8, 4.7 and
+2.4 km/s/Mpc below the release. gwtc_analysis cannot compute those, as it uses icarogw only
+([icarogw and gwcosmo](icarogw-gwcosmo.md)). For the spectral sirens too, gwcosmo's
+release values are below icarogw's: icarogw gives 110.3 (PLP), 76.5 (MLTP) and 74.4 (FullPop-4.0), gwcosmo 100.8,
+67.8 and 70.3.
 
 gwtc_analysis implements PLP, MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`) and FullPop-4.0:
 81.6 (+41.0 / −26.0) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
 peak at 10.1 (+21.3 / −1.3) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
 high-mass one at 29.6 (+4.9 / −7.1) M☉ (runs A, all the injections and 5000 PE samples). FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events: 75.1
 (+25.8 / −19.2) km/s/Mpc against 72.9 (+21.9 / −18.8), the same lower end (90%: 44.6 against 44.0) and a longer
-upper tail (125.3 against 111.9). The longer tail is not explained yet. The number of PE samples is not the cause:
-1500 and 5000 per event give 74.4 and 75.1, with upper bounds 122.9 and 125.3
-([comparison](../modes/hubble-constant.md#mass-models)); the paper's combination of the icarogw and gwcosmo
-samples remains a candidate. Its 68% interval is 33% narrower than MLTP's, against 40% in the paper. The
+upper tail (125.3 against 111.9). The paper's combination with gwcosmo explains part of the tail: the icarogw
+release alone gives 74.4 (+22.2 / −18.2), 90%: 45.7 – 115.9, so ours is 0.7 above its median and 9.4 above its
+upper bound. The rest is not explained yet. The number of PE samples is not the cause: 1500 and 5000 per event
+give 74.4 and 75.1, with upper bounds 122.9 and 125.3 ([comparison](../modes/hubble-constant.md#mass-models)). Its 68% interval is 33% narrower than MLTP's, against 40% in the paper. The
 three models are compared in [mass models](../modes/hubble-constant.md#mass-models).
 
 ### Spectral siren and GW170817
@@ -513,10 +516,12 @@ These results were computed by gwtc_analysis, but do not match the published val
   (0.3σ) apart, with intervals of the same width (90%: 41.4–159.7 against 34.2–154.1). The PLP run, with the same
   events, PE samples, injections and settings, agrees to 2.1 km/s/Mpc, so the difference is specific to the
   Multi Peak model. Its posterior is bimodal in the peak parameters (label switching, [below](#why-the-multi-peak-model-gives-a-tighter-and-lower-h0)),
-  which 100 live points per run may sample unevenly, and the paper combines icarogw and gwcosmo samples. Not
-  explained yet. Runs B gave 78.6 with 1500 PE samples ([comparison](#injection-subsets-and-reweighting)).
-- **The upper tail of the FullPop-4.0 H₀ posterior:** the 90% upper bound is 125.3 km/s/Mpc against 111.9 in
-  the paper, while the median is only 2.2 km/s/Mpc higher and the lower bound the same (above).
+  which 100 live points per run may sample unevenly. The paper combines icarogw and gwcosmo samples: the icarogw
+  release alone gives 76.5 (+45.0 / −25.6), 90%: 37.8–161.4, so 5.1 km/s/Mpc remain unexplained. Runs B gave
+  78.6 with 1500 PE samples ([comparison](#injection-subsets-and-reweighting)).
+- **The upper tail of the FullPop-4.0 H₀ posterior:** the 90% upper bound is 125.3 km/s/Mpc against 115.9 in
+  the icarogw release (111.9 in the paper), while the median is only 0.7 km/s/Mpc higher and the lower bound
+  about the same (above).
 
 ### Out of reach of this version
 
