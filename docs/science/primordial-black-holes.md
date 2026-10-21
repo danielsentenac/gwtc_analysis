@@ -79,7 +79,10 @@ becomes partly an optical one. Two practical points for the follow-up:
 ## How PBH binaries form and merge
 
 Bounds on f_PBH from GW data compare the merger rate a PBH population would have with the rate allowed by the data.
-That rate depends on how the binaries form. The bounds on this page use two channels: **early binaries**, formed in
+That rate depends on how the binaries form, their **formation channel**: one particular path from two separate
+objects to a bound pair that eventually merges. Stellar black holes have several (isolated binary evolution, the
+dynamical channel in dense star clusters, the AGN-disk channel, hierarchical mergers); a primordial channel would be
+one more, contributing some fraction of the observed mergers. The bounds on this page use two channels: **early binaries**, formed in
 the radiation era, and **late binaries**, formed by capture in PBH clusters today (Phukon et al. [\[125\]](../references.md#ref-125)). The early
 ones dominate the bounds below about 50 M☉, and their history is unusual.
 
@@ -130,7 +133,8 @@ circular limit. At a = 100 AU, a merger within the age of the Universe needs e �
 (at small e, e ∝ f^(−19/18)). The catalog analyses assume circular orbits anyway: their posterior samples carry
 neither eccentricity nor pericentre. An eccentric analysis would measure only the residual e at a reference
 frequency. The e ≈ 0.999 birth orbit leaves no trace, so eccentricity cannot tell an early PBH binary from a
-stellar one; a measured in-band eccentricity would point instead to a recent capture in a cluster or an AGN disk.
+stellar one; a measured in-band eccentricity would point instead to a recent capture in a star cluster, an AGN
+disk, or a PBH cluster ([late binaries](#late-binaries), below).
 
 ### The suppression factor S
 
@@ -172,6 +176,49 @@ The [primordial_black_holes](../modes/primordial-black-holes.md) mode offers bot
 
 The choice changes no data, only the model of how many early binaries survive: it is the largest theoretical
 uncertainty of these bounds.
+
+### Late binaries
+
+The second PBH channel forms pairs in the present-day Universe, by **capture**. Two PBHs that are not bound pass
+very close to each other inside a dense cluster or dark-matter halo, on an unbound (hyperbolic) path. At closest
+approach they emit a burst of gravitational waves; if it carries away more energy than their kinetic energy of
+relative motion, they cannot separate again and are bound (Quinlan & Shapiro 1989; for PBHs, Bird et al. 2016
+[\[128\]](../references.md#ref-128)). The capture cross-section grows steeply as the relative velocity falls, roughly as v^(−18/7). Captures
+are therefore efficient only where the black holes move slowly and are packed densely: small PBH clusters with low
+velocity dispersions, not galaxy halos where speeds are hundreds of km/s. The channel needs PBHs to be clustered,
+which some scenarios predict and others consider hard to realise; the GWTC-4.0 analysis of Andrés-Carcasona
+et al. [\[102\]](../references.md#ref-102) leaves strong initial clustering out for that reason.
+
+| | Early binary | Late binary |
+|---|---|---|
+| When it forms | radiation era, z ≳ 3000 | today, inside clusters |
+| How | a pair born unusually close decouples from the expansion | gravitational-wave capture in a close encounter |
+| Orbit at formation | very wide (tens to thousands of AU), e ≈ 0.999 | tight, e close to 1 |
+| Time to merge | billions of years | short, years to thousands of years |
+| Eccentricity in the band | none left | can remain measurable |
+| What sets the rate | f_PBH and the suppression S | f_PBH and the clustering (density and velocity of the clusters) |
+
+**The exception to "circular in the band".** Capture binaries form tight and merge before gravitational radiation
+has rounded their orbits off, so they can still be eccentric at 10–20 Hz. That is the main way an eccentric event
+could point to a capture origin, primordial or in a stellar cluster.
+
+**The rate** used by the [primordial_black_holes](../modes/primordial-black-holes.md) mode is that of Phukon et al.
+[\[125\]](../references.md#ref-125) (eq. 2), consistent with Clesse & García-Bellido [\[126\]](../references.md#ref-126):
+
+\[
+R_\text{late} = f_\text{PBH} \times 420\ \text{Gpc}^{-3}\,\text{yr}^{-1} \times
+\frac{(2m)^{10/7}}{(m^2)^{5/7}}.
+\]
+
+- **The 420 Gpc⁻³ yr⁻¹** is a fiducial clustering rate. It stands for how dense and slow the clusters are, which is
+  model-dependent and not derived from first principles.
+- **For equal masses the mass dependence cancels**: R_late ≈ 1130 f_PBH Gpc⁻³ yr⁻¹ at any mass, whereas the
+  early-binary rate falls as M^(−32/37). Late binaries therefore give weaker limits below ~50 M☉ and tighter ones
+  above.
+- **The rate is linear in f_PBH**, as in the LVK script, with the clustering held fixed. How it really scales with f
+  depends on how the clustering itself does (in Clesse & García-Bellido the rate involves the product of the
+  mass-function fractions of the two black holes, with the clustering a free parameter). The late-binary limits are
+  therefore more model-dependent than the early-binary ones.
 
 ## What the GW data say
 

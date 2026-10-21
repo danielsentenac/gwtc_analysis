@@ -383,6 +383,9 @@ was checked against the arXiv API.
 **[127]** M. Sasaki, T. Suyama, T. Tanaka and S. Yokoyama, *Primordial Black Hole Scenario for the Gravitational-Wave Event GW150914*. Phys. Rev. Lett. 117, 061101 (2016). The formation of early PBH binaries and their orbits. [arXiv:1603.08338](https://arxiv.org/abs/1603.08338)
 {: #ref-127 }
 
+**[128]** S. Bird, I. Cholis, J. B. Muñoz et al., *Did LIGO detect dark matter?* Phys. Rev. Lett. 116, 201301 (2016). PBH binaries formed by gravitational-wave capture in dark-matter halos. [arXiv:1603.00464](https://arxiv.org/abs/1603.00464)
+{: #ref-128 }
+
 ## Continuous waves
 
 **[105]** LVK, *Search for continuous gravitational waves from known pulsars in the first part of the fourth
