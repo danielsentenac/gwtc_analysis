@@ -291,7 +291,9 @@ Practical points:
 
 The GWTC-4.0 dark siren reproduced on a Slurm cluster, with the [galaxy_catalog](galaxy-catalog.md)
 defaults (GLADE+ Ks, nside 64, ε = 1), the paper's 137 BBH events, and the Slurm chain (8 seeds of 100 live
-points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injections and then to 5000 PE samples:
+points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injections and then to 5000 PE samples
+(the last step run after the chain with the runner's `reweight` stage, which `--reweight-pe-samples 5000` puts in
+the chain; the same for the Multi Peak validation below):
 
 | | H₀ (km/s/Mpc, median and 68%) | 90% |
 |---|---|---|
@@ -306,7 +308,8 @@ points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injection
 - As for the spectral siren, the 10% injection subset shifts H₀ up by about 10 km/s/Mpc; the reweighting removes it.
 - **The number of PE samples per event matters.** With 1500 the median was 5 km/s/Mpc above the release. The
   release stores the ln L of each posterior sample, so our likelihood can be evaluated at the LVK samples, and the
-  LVK posterior reweighted to it; the difference ln L(ours) − ln L(LVK) shows where the likelihoods differ:
+  LVK posterior reweighted to it; the difference ln L(ours) − ln L(LVK) shows where the likelihoods differ. This
+  diagnostic was made with standalone scripts calling the runner's likelihood, not with the `gwtc_analysis` command:
 
   | Our likelihood | Spectral siren (LVK 110.3) | Dark siren (LVK 115.4) | Tilt of the difference, per 100 km/s/Mpc (spectral / dark) |
   |---|---|---|---|
@@ -322,8 +325,9 @@ points, 8 CPUs each, 1500 PE samples per event), reweighted to all the injection
   cause; the galaxy selection matches the paper's ([galaxy_catalog](galaxy-catalog.md#glade-k-band)). With 1500
   samples the Monte Carlo noise of the likelihood alone moves the median by several km/s/Mpc: for a comparison with
   a published value, sample with 1500 and reweight to 5000 (`--reweight-pe-samples 5000`), or sample with 5000.
-- The catalog adds almost nothing at these distances: at fixed population parameters, ln L(H₀) with and without
-  the catalog differ by less than 1 over 20–200 km/s/Mpc. The sky-averaged galaxy density of the catalog (in- plus
+- The catalog adds almost nothing at these distances (a diagnostic made with a standalone script, not with the
+  `gwtc_analysis` command): at fixed population parameters, ln L(H₀) with and without the catalog differ by less
+  than 1 over 20–200 km/s/Mpc. The sky-averaged galaxy density of the catalog (in- plus
   out-of-catalog) is within a few percent of the uniform Schechter density beyond z ≈ 0.07, where the BBHs are,
   with a 15–25% deficit at z ≈ 0.01–0.04 and the local structures below z ≈ 0.005.
 - A deeper catalog helps: with the DES-Y6 galaxies instead of GLADE+, the O4a dark-siren H₀ has a 68% interval

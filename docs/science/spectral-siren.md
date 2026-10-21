@@ -22,7 +22,8 @@ samples per event; the runs below use all 5000 of the releases, [below](#injecti
 
 Both results come from the paper's 137 events, 8 runs of 100 live points each (seeds 1–8), sampled with a 10% subset of the injections and 1500 PE samples
 per event, then **reweighted** to all the found injections, as in the paper, and to all the 5000 PE samples
-of each event ([below](#injection-subsets-and-reweighting)). The reweighting keeps an effective sample size
+of each event ([below](#injection-subsets-and-reweighting)); the reweighting to 5000 PE samples was run after the
+chain with the runner's `reweight` stage, which `--reweight-pe-samples 5000` puts in the chain. The reweighting keeps an effective sample size
 of 68% (PLP) and 67% (MLTP) of the samples. The PLP median is 2.1 km/s/Mpc above the paper's (0.05σ) and the
 90% intervals nearly coincide. The MLTP median is 9.3 km/s/Mpc above the paper's (0.3σ), with a 68%
 interval of the same width ([differences](#reproduced-with-differences)). With 1500 PE samples per event the
@@ -348,7 +349,9 @@ posterior of the runs, sample by sample, to other Monte Carlo settings (weights
 100 live points per run, 10% of the injections and 1500 PE samples per event:
 
 - **runs A**, those of the [result](#result): 8 runs, the paper's 137 events;
-- **runs B**: 10 runs, 136 events (GW191127 added afterwards by reweighting), prepared separately.
+- **runs B**: 10 runs, 136 events, sampled in September 2026 with an earlier version of the mode; the 137th event,
+  GW191127, was added afterwards with the runner's `reweight --target-inputs` (`python h0_icarogw.py reweight`, an
+  option the `gwtc_analysis` command does not expose).
 
 **Injections: 10% against all** (H₀ in km/s/Mpc, median and 68%):
 
@@ -385,7 +388,9 @@ and for any number of PE samples.
     | samples | 110 | 340 | 475 | 438 | 429 |
     | mean weight (average 1) | 2.05 | 1.31 | 1.00 | 0.86 | 0.61 |
 
-    A sample near 55 km/s/Mpc now counts three times as much as one near 180: the median moves from 128.0 to 114.6.
+    The table bins the weights of the reweighting (`<workdir>/reweight/`) by H₀, a post-processing that the mode
+    does not report. A sample near 55 km/s/Mpc now counts three times as much as one near 180: the median moves
+    from 128.0 to 114.6.
     For MLTP the weights go from 1.47 (40–70) to 0.69 (160–200), and the median from 94.3 to 83.7.
 5. **When it works.** The runs must already have samples wherever the target posterior lies: a shift of
    13 km/s/Mpc is small against a width of 40, so the weights stay moderate. The effective sample size
@@ -454,9 +459,9 @@ the paper, which combines icarogw and gwcosmo, quotes lower values for the same 
 compute those, as it uses icarogw only ([icarogw and gwcosmo](icarogw-gwcosmo.md)).
 
 gwtc_analysis implements PLP, MLTP (`--mass-model mltp`, with icarogw's `massprior_MultiPeak`) and FullPop-4.0:
-78.6 (+38.0 / −26.5) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
-peak at 9.9 (+19.7 / −1.1) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
-high-mass one at 29.6 (+4.9 / −7.1) M☉. FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events: 75.1
+81.6 (+41.0 / −26.0) km/s/Mpc for MLTP, against 72.3 (+42.5 / −25.6) in the paper, with the low-mass
+peak at 10.1 (+21.3 / −1.3) M☉ (the long upper tail comes from the two peaks exchanging roles) and the
+high-mass one at 29.6 (+4.9 / −7.1) M☉ (runs A, all the injections and 5000 PE samples). FullPop-4.0 (`--mass-model fullpop4`) adds the neutron-star events: 75.1
 (+25.8 / −19.2) km/s/Mpc against 72.9 (+21.9 / −18.8), the same lower end (90%: 44.6 against 44.0) and a longer
 upper tail (125.3 against 111.9). The longer tail is not explained yet. The number of PE samples is not the cause:
 1500 and 5000 per event give 74.4 and 75.1, with upper bounds 122.9 and 125.3
@@ -579,7 +584,8 @@ The paper's peak values are those of FullPop-4.0, as it states for the dark sire
 mass model"; the GW170817 reanalysis also uses μ_low = 8.98 M☉ from the FullPop-4.0 spectral siren). The FullPop-4.0
 run of gwtc_analysis reproduces them: 8.95 (+0.55 / −0.65) and 26.7 (+3.5 / −3.4) M☉
 ([table](#other-mass-models-and-published-results)). The MLTP run places its lower peak about 1 M☉ higher, with a
-long upper tail:
+long upper tail (the fractions and correlations below, and the 3% of FullPop-4.0 samples whose peaks swap, are
+computed from the posterior samples of the runs; the mode reports the medians and intervals only):
 
 - in 18% of the samples the two Gaussians swap roles (label switching), and in 27% neither sits below
   15 M☉; this tail, not the position of the peak, makes the MLTP intervals wide;
