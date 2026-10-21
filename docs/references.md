@@ -201,6 +201,27 @@ was checked against the arXiv API.
 **[98]** V. Varma et al., *Surrogate models for precessing binary black hole simulations with unequal masses* (NRSur7dq4). Phys. Rev. Research 1, 033015 (2019). [arXiv:1905.09300](https://arxiv.org/abs/1905.09300)
 {: #ref-98 }
 
+**[115]** F. Pretorius, *Evolution of Binary Black Hole Spacetimes*. Phys. Rev. Lett. 95, 121101 (2005). [arXiv:gr-qc/0507014](https://arxiv.org/abs/gr-qc/0507014)
+{: #ref-115 }
+
+**[116]** M. Campanelli, C. O. Lousto, P. Marronetti and Y. Zlochower, *Accurate Evolutions of Orbiting Black-Hole Binaries Without Excision* (moving punctures). Phys. Rev. Lett. 96, 111101 (2006). [arXiv:gr-qc/0511048](https://arxiv.org/abs/gr-qc/0511048)
+{: #ref-116 }
+
+**[117]** J. G. Baker, J. Centrella, D.-I. Choi, M. Koppitz and J. van Meter, *Gravitational wave extraction from an inspiraling configuration of merging black holes* (moving punctures). Phys. Rev. Lett. 96, 111102 (2006). [arXiv:gr-qc/0511103](https://arxiv.org/abs/gr-qc/0511103)
+{: #ref-117 }
+
+**[118]** M. Boyle et al., *The SXS Collaboration catalog of binary black hole simulations*. Class. Quantum Grav. 36, 195006 (2019). [arXiv:1904.04831](https://arxiv.org/abs/1904.04831)
+{: #ref-118 }
+
+**[119]** P. Ajith et al., *Phenomenological template family for black-hole coalescence waveforms* (the first IMRPhenom). Class. Quantum Grav. 24, S689 (2007). [arXiv:0704.3764](https://arxiv.org/abs/0704.3764)
+{: #ref-119 }
+
+**[120]** M. Hannam et al., *A simple model of complete precessing black-hole-binary gravitational waveforms* (IMRPhenomP, "twisting up"). Phys. Rev. Lett. 113, 151101 (2014). [arXiv:1308.3271](https://arxiv.org/abs/1308.3271)
+{: #ref-120 }
+
+**[121]** L. Pompili et al., *Laying the foundation of the effective-one-body waveform models SEOBNRv5: improved accuracy and efficiency for spinning non-precessing binary black holes*. Phys. Rev. D 108, 124035 (2023). [arXiv:2303.18039](https://arxiv.org/abs/2303.18039)
+{: #ref-121 }
+
 **[99]** P. C. Peters, *Gravitational radiation and the motion of two point masses*. Phys. Rev. 136, B1224 (1964). [doi:10.1103/PhysRev.136.B1224](https://doi.org/10.1103/PhysRev.136.B1224)
 {: #ref-99 }
 

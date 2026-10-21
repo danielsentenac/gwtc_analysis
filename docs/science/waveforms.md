@@ -17,20 +17,70 @@ physics element leaves its mark (schematic).*
 
 ## Three ways to build a model
 
-- **Phenomenological models (IMRPhenom).** Analytic formulas for the amplitude and phase, mostly in the frequency
-  domain, fitted to numerical-relativity and effective-one-body waveforms. The fastest, hence the workhorse of the
-  catalogs (IMRPhenomXPHM, Pratten et al. 2021 [\[51\]](../references.md#ref-51)).
-- **Effective-one-body models (SEOBNR, TEOBResumS).** The two-body problem is mapped onto one effective body moving
-  in a deformed black-hole spacetime (Buonanno & Damour 1999 [\[94\]](../references.md#ref-94)); its equations of
-  motion are integrated in time and calibrated to numerical relativity
-  ([\[95\]](../references.md#ref-95), [\[96\]](../references.md#ref-96), [\[97\]](../references.md#ref-97)).
-  Slower, very accurate, and the natural place to add new physics to the dynamics.
-- **Numerical-relativity surrogates (NRSur).** Interpolations across a library of numerical-relativity simulations,
-  the most faithful within their training range (NRSur7dq4, Varma et al. 2019 [\[98\]](../references.md#ref-98):
-  mass ratios up to 4, a few tens of cycles), so used for heavy binaries whose signal in the detectors is short.
-- Two related tools are not catalog models: **post-Newtonian approximants** such as TaylorF2 (inspiral only, used
-  for binary neutron stars and in searches), and **numerical relativity** itself, too expensive for parameter
-  estimation but used to build and test the models.
+All three answer the same question, the signal of two compact objects in general relativity, but they trade
+accuracy, speed and coverage of the parameter space differently. An analogy: numerical relativity is the
+wind-tunnel measurement, effective-one-body is a physical theory with a few constants tuned to the wind tunnel, and
+phenomenological models are engineering formulas fitted to the measurements and to that theory.
+
+**Numerical relativity (NR): solving Einstein's equations directly.** The full equations are evolved on a
+computational grid, from a few orbits before merger to the settled final black hole. No approximation beyond the
+numerical resolution: this is the reference, and the only way to get the merger itself right. Possible since 2005
+(Pretorius [\[115\]](../references.md#ref-115); then the "moving puncture" method, Campanelli et al. [\[116\]](../references.md#ref-116) and Baker et al. [\[117\]](../references.md#ref-117)). Main codes:
+SpEC (the SXS collaboration, whose public catalog holds thousands of simulations [\[118\]](../references.md#ref-118)), the Einstein Toolkit, BAM,
+GRChombo. **The price**: weeks to months of supercomputer time per simulation, for the last tens of orbits only, at
+one point of parameter space. Long inspirals (a binary neutron star spends thousands of cycles in the band), very
+unequal masses and extreme spins are expensive or out of reach. NR is therefore never run inside parameter
+estimation: it is the ground truth the other families are built from and checked against.
+
+**NR surrogates (NRSur): interpolating the simulations.** A surrogate decomposes a set of simulations on a compact
+basis and fits how the coefficients vary with mass ratio and spins, so it returns a new waveform between the
+simulations in a fraction of a second. Within its training range it is as accurate as NR itself (NRSur7dq4
+[\[98\]](../references.md#ref-98): mass ratio up to 4, spins up to 0.8, precession and higher modes included). Outside it, it has nothing to
+say, and it is only as long as the simulations (about 20 orbits), which covers the whole signal in the detectors
+only for heavy binaries, roughly above 60 M☉ in total.
+
+**Effective-one-body (EOB: SEOBNR, TEOBResumS): a physical model of the dynamics.** Buonanno and Damour
+[\[94\]](../references.md#ref-94) map the two-body problem onto **one effective body** of reduced mass μ = m₁m₂/M moving in a deformed
+black-hole spacetime, the deformation growing with the symmetric mass ratio ν = μ/M. When one body is much lighter
+(ν → 0) this is exactly a particle orbiting a black hole; for comparable masses the post-Newtonian results are built
+into the deformation in a **resummed** form, which stays well behaved close to merger where the plain
+post-Newtonian series breaks down. The orbit is then evolved in time: an energy (Hamiltonian) gives the motion, a
+resummed gravitational-wave flux removes energy, the waveform is computed along the orbit, and at the peak the merger
+is joined to the ringdown (the quasinormal modes of the final black hole). The few unknown higher-order terms are
+**calibrated to numerical relativity** ([\[95\]](../references.md#ref-95), [\[96\]](../references.md#ref-96), [\[97\]](../references.md#ref-97)). **Strengths**: accurate over the whole inspiral,
+however long, from equal masses to extreme mass ratios; new physics enters naturally in the dynamics (tides,
+eccentricity, spin precession). **The price**: an ordinary differential equation integrated in time, slower than a
+formula, hence the reduced-order versions (ROM) and the faster SEOBNRv5 implementation [\[121\]](../references.md#ref-121).
+
+**Phenomenological (IMRPhenom): a fitted formula for the signal itself.** Started by Ajith et al. [\[119\]](../references.md#ref-119). Instead
+of evolving an orbit, the model writes the amplitude and phase directly, usually as functions of frequency, in
+pieces: an inspiral part (post-Newtonian plus extra fitted terms), an intermediate part, and a merger–ringdown part
+shaped around the ringdown frequency of the final black hole. The coefficients are fitted, across mass ratio and
+spin, to **hybrid** waveforms: an EOB or post-Newtonian inspiral glued to an NR merger. Precession is added by
+**"twisting up"** [\[120\]](../references.md#ref-120): an aligned-spin waveform is rotated with time-dependent angles that follow the precessing
+orbit (the **P** in the names). **Strengths**: closed formulas in the frequency domain, where the likelihood is
+computed, so a waveform costs milliseconds; this is why the catalogs run their large analyses with IMRPhenomXPHM
+[\[51\]](../references.md#ref-51). **The price**: the accuracy is that of the fit and of the twisting approximation; outside the calibration
+set (high mass ratio, large tilted spins) the fit is an extrapolation.
+
+**How they relate.** NR is the reference; EOB is calibrated to NR; Phenom is fitted to EOB + NR hybrids; surrogates
+interpolate NR (or, as ROM, an EOB model). The differences between models are therefore not independent opinions but
+a measure of the remaining **systematic error**. Where it matters, for loud, heavy, precessing or unequal-mass
+signals, the LVK analyses an event with two families (Phenom and EOB) and combines the samples (the `Mixed` labels,
+[below](#decoding-the-names)). When they disagree, the model, not the noise, limits the measurement: GW231123 is the
+current example ([below](#how-the-models-evolved-catalog-by-catalog)).
+
+| | Numerical relativity | NR surrogate | Effective-one-body | Phenomenological |
+|---|---|---|---|---|
+| Method | Einstein's equations solved on a grid | interpolation of NR simulations | effective-body dynamics evolved in time | fitted closed formulas, mostly in frequency |
+| Accuracy | reference | NR-level inside its range | high, calibrated to NR | good, limited by the fits |
+| Cost of one waveform | weeks–months of supercomputer | ~0.01–0.1 s | ~0.1–1 s (faster with ROM) | ~milliseconds |
+| Length | last tens of orbits | ~20 orbits | any | any |
+| Coverage | discrete simulations | inside the training range only | all masses and mass ratios | all, but extrapolates outside the calibration set |
+| Used for | building and testing models; exotic physics | heavy binaries (GW190521, GW231123) | cross-checks, eccentricity, tides, extreme mass ratios | the bulk of catalog parameter estimation |
+
+Two related tools are not catalog models: **post-Newtonian approximants** such as TaylorF2 (inspiral only, used for
+binary neutron stars and in searches), and **numerical relativity** itself, described above.
 
 ## The physics elements
 
