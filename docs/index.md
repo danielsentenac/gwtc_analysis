@@ -11,6 +11,18 @@ from GWTC-1 (2015) to GWTC-5.0 (the O4b observing run, 2025).
 It reads the catalogs directly from their public releases (GWOSC, Zenodo, an S3 mirror or Galaxy
 collections) and produces TSV tables, plots and self-contained HTML reports.
 
+With it, a user can visualize the content of the catalogs (the masses, distances, spins and sky localizations of
+the events, and the posteriors and strain data of each one), and illustrate and test the published results by
+running the analyses behind them on the same public data: the Hubble constant from spectral, dark and bright
+sirens and their combination, the localization of a transient event and of its electromagnetic counterpart on the
+sky and in distance, the merger rates of each source class, the spin population of binary black holes, and tests
+of the black-hole area law, of strong lensing and of the neutron-star equation of state. Each analysis is compared
+with the published result it reproduces, and the comparison is documented. The same analyses extend to the
+catalogs that follow, once added to the package registry (`check_catalogs` reports a new GWOSC release,
+[Adding a new catalog](data-sources.md#adding-a-new-catalog)), and to new datasets, such as deeper galaxy
+catalogs for the dark sirens (DES, Rubin), so that the published results can be redone and extended as the data
+grow.
+
 ## What it does
 
 | Mode | Purpose |
