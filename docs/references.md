@@ -386,6 +386,30 @@ was checked against the arXiv API.
 **[128]** S. Bird, I. Cholis, J. B. Muñoz et al., *Did LIGO detect dark matter?* Phys. Rev. Lett. 116, 201301 (2016). PBH binaries formed by gravitational-wave capture in dark-matter halos. [arXiv:1603.00464](https://arxiv.org/abs/1603.00464)
 {: #ref-128 }
 
+**[129]** C. Messick et al., *Analysis Framework for the Prompt Discovery of Compact Binary Mergers in Gravitational-wave Data* (GstLAL). Phys. Rev. D 95, 042001 (2017). [arXiv:1604.04324](https://arxiv.org/abs/1604.04324)
+{: #ref-129 }
+
+**[130]** S. Sachdev et al., *The GstLAL Search Analysis Methods for Compact Binary Mergers in Advanced LIGO's Second and Advanced Virgo's First Observing Runs*. [arXiv:1901.08580](https://arxiv.org/abs/1901.08580)
+{: #ref-130 }
+
+**[131]** B. Ewing et al., *Performance of the low-latency GstLAL inspiral search towards LIGO, Virgo, and KAGRA's fourth observing run*. [arXiv:2305.05625](https://arxiv.org/abs/2305.05625)
+{: #ref-131 }
+
+**[132]** A. H. Nitz et al., *Detecting binary compact-object mergers with gravitational waves: Understanding and Improving the sensitivity of the PyCBC search*. Astrophys. J. 849, 118 (2017). [arXiv:1705.01513](https://arxiv.org/abs/1705.01513)
+{: #ref-132 }
+
+**[133]** T. Adams et al., *Low-latency analysis pipeline for compact binary coalescences in the advanced gravitational wave detector era* (MBTA). [arXiv:1512.02864](https://arxiv.org/abs/1512.02864)
+{: #ref-133 }
+
+**[134]** F. Aubin et al., *The MBTA Pipeline for Detecting Compact Binary Coalescences in the Third LIGO-Virgo Observing Run*. Class. Quantum Grav. 38, 095004 (2021). [arXiv:2012.11512](https://arxiv.org/abs/2012.11512)
+{: #ref-134 }
+
+**[135]** B. Allen, *A χ² time-frequency discriminator for gravitational wave detection*. Phys. Rev. D 71, 062001 (2005). [arXiv:gr-qc/0405045](https://arxiv.org/abs/gr-qc/0405045)
+{: #ref-135 }
+
+**[136]** S. Klimenko et al., *Method for detection and reconstruction of gravitational wave transients with networks of advanced detectors* (coherent WaveBurst). Phys. Rev. D 93, 042004 (2016). [arXiv:1511.05999](https://arxiv.org/abs/1511.05999)
+{: #ref-136 }
+
 ## Continuous waves
 
 **[105]** LVK, *Search for continuous gravitational waves from known pulsars in the first part of the fourth
