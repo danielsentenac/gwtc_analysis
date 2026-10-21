@@ -2,7 +2,7 @@
 
 Could some of the black holes seen by LIGO–Virgo–KAGRA be primordial, and part of the dark matter? This page
 explains what primordial black holes are, why sub-solar masses are the cleanest test, what a counterpart would tell,
-and which bounds the GW data already set. The masses themselves are explained in
+how PBH binaries form and merge, and which bounds the GW data already set. The masses themselves are explained in
 [What a GW signal measures](gw-signals.md#masses-primary-secondary-and-what-the-signal-measures); the merger rate
 behind the last bound in [Merger rates](merger-rates.md).
 
@@ -75,6 +75,103 @@ becomes partly an optical one. Two practical points for the follow-up:
   1 M☉, and a chirp-mass bin whose lowest bin (up to 0.87 M☉) marks sub-solar systems. S251112cm, from the
   dedicated sub-solar search, was followed up by Rubin (GCN 43257); a dark result is informative only if the
   map was well covered.
+
+## How PBH binaries form and merge
+
+Bounds on f_PBH from GW data compare the merger rate a PBH population would have with the rate allowed by the data.
+That rate depends on how the binaries form. The bounds on this page use two channels: **early binaries**, formed in
+the radiation era, and **late binaries**, formed by capture in PBH clusters today (Phukon et al. [\[125\]](../references.md#ref-125)). The early
+ones dominate the bounds below about 50 M☉, and their history is unusual.
+
+**Close, yet wide.** Two PBHs born at a distance x first move apart with the expansion of the Universe. They stop,
+turn around and fall towards each other only when their own gravity wins, i.e. when the density of the pair, ~m/x³,
+exceeds that of the radiation around it. The pair's density falls as (1 + z)³ and the radiation's as (1 + z)⁴, so
+a closer pair decouples earlier, when the Universe was smaller and had stretched it less. The separation at
+decoupling therefore grows as x⁴, and the orbit that results has the semi-major axis
+(Sasaki et al. 2016 [\[127\]](../references.md#ref-127); Raidal et al. 2019 [\[123\]](../references.md#ref-123))
+
+\[
+a \approx \frac{\alpha}{f_\text{PBH}}\,\frac{x^4}{\bar x^{3}},\qquad \alpha \approx 0.1,
+\]
+
+where x̄ is the mean PBH spacing at matter–radiation equality. "Close" and "wide" refer to two different scales:
+
+- **"close"** means closer than the *average* distance between PBHs;
+- **"wide"** means much wider than the ~0.2 AU (1 AU = 1.5 × 10⁸ km, the Earth–Sun distance) from which two 30 M☉
+  black holes on a circular orbit merge within the age of the Universe. That limit comes from the Peters merger time,
+  t = (5/256) c⁵a⁴ / (G³m₁m₂M) [\[99\]](../references.md#ref-99).
+
+The average spacing is enormous. For 30 M☉ PBHs with f_PBH = 10⁻³, the number density today is ~10⁶ per Mpc³,
+giving a spacing of ~10 kpc comoving, or ~3 pc ≈ 600 000 AU at equality (z ≈ 3400). With the fourth power:
+
+| Initial distance x / x̄ | Orbit a (30 M☉, f_PBH = 10⁻³) |
+|---|---|
+| 0.1 | ~6000 AU |
+| 0.03 | ~50 AU, a bit wider than Neptune's orbit and still 250 times the circular limit |
+
+**Eccentric.** The pair falls almost straight in. Only the small tidal pull of the neighbouring PBHs and of the
+surrounding matter gives it some sideways motion, so the orbit is nearly radial, with eccentricity e very close to 1.
+
+**How a 50 AU orbit merges.** The size of the orbit is not its closest distance: the pericentre is a(1 − e) and the
+apocentre a(1 + e). Gravitational-wave power grows roughly as 1/r⁵, so nearly all the energy leaves in a burst at
+each pericentre passage. Each burst lowers the apocentre much more than the pericentre, so the orbit shrinks and
+becomes round over hundreds of millions of orbits (45 years each at the start for 30 + 30 M☉ at 50 AU). For a very
+eccentric orbit the merger time is
+
+\[
+t \approx \frac{3}{85}\,\frac{c^5 a^4}{G^3 m_1 m_2 M}\,(1-e^2)^{7/2}.
+\]
+
+Going from 0.2 to 50 AU multiplies a⁴ by ~3 × 10⁹, which is compensated if (1 − e²)^(7/2) ≈ 2 × 10⁻¹⁰, i.e.
+**e ≈ 0.9991**. That orbit swings from ~100 AU in to a pericentre of ≈ 0.04 AU (6 million km), inside the 0.2 AU
+circular limit. At a = 100 AU, a merger within the age of the Universe needs e ≳ 0.9996.
+
+**Circular in the band.** By 10–20 Hz the orbit has shrunk to a few hundred kilometres and lost its eccentricity
+(at small e, e ∝ f^(−19/18)). The catalog analyses assume circular orbits anyway: their posterior samples carry
+neither eccentricity nor pericentre. An eccentric analysis would measure only the residual e at a reference
+frequency. The e ≈ 0.999 birth orbit leaves no trace, so eccentricity cannot tell an early PBH binary from a
+stellar one; a measured in-band eccentricity would point instead to a recent capture in a cluster or an AGN disk.
+
+### The suppression factor S
+
+Without correction, the early-binary rate (Hütsi et al. 2021 [\[124\]](../references.md#ref-124), eq. 2.1),
+
+\[
+R \approx 1.6\times10^{6}\ \text{Gpc}^{-3}\,\text{yr}^{-1}\, f_\text{PBH}^{53/37}
+\left(\frac{t}{t_0}\right)^{-34/37} \left(\frac{M}{M_\odot}\right)^{-32/37} \eta^{-34/37}\, S,
+\]
+
+would count every binary that forms as surviving untouched until it merges. S < 1 is the fraction that does. Two
+effects reduce it:
+
+- **S₁, disruption at formation.** The other PBHs around the pair, and the ordinary matter fluctuations (rescaled
+  variance σ_M ≈ 0.004), pull on it. They change its orbit, which delays the merger, or break it before it merges.
+  The more PBHs there are (larger f), the more neighbours each pair has.
+- **S₂, disruption later.** Once structures form, PBHs gather in clusters, where a binary can meet a third black
+  hole and be broken apart or changed. This too is stronger at large f.
+
+At f_PBH = 1 only about 2 binaries in 1000 survive (S ≈ 0.002); at small f the binaries are isolated and S is closer
+to 1. S moves the bounds directly: the limit on f is where the predicted rate equals the rate the data allow. A
+smaller S means fewer mergers for a given f, hence a weaker limit; a factor 3 in S moves the limit by a factor of 3
+to 6.
+
+The LVK sub-solar papers [\[101\]](../references.md#ref-101), [\[122\]](../references.md#ref-122) use the fit S = 2.3 × 10⁻³ f^−0.65. It equals S₁S₂ at f = 1 but keeps
+only the growth of S₂ as f falls, without the drop of S₁ at small f:
+
+| f_PBH | S₁S₂ / LVK fit | Consequence |
+|---|---|---|
+| 1 | 1.0 | identical |
+| 0.1 | 1.3 | close |
+| 0.01 | 2.9 | the LVK limit is ~6 times weaker at 1 M☉ (0.018–0.032 against 0.003–0.006) |
+| ≲ 10⁻⁴ | — | the fit exceeds 1, more binaries surviving than formed: unphysical |
+
+The [primordial_black_holes](../modes/primordial-black-holes.md) mode offers both (`--suppression`):
+
+- `lvk` reproduces the published sub-solar limits;
+- `hutsi` (the default) is the only valid choice above 1 M☉, where the limits lie at f ~ 10⁻⁵–10⁻³.
+
+The choice changes no data, only the model of how many early binaries survive: it is the largest theoretical
+uncertainty of these bounds.
 
 ## What the GW data say
 

@@ -380,6 +380,9 @@ was checked against the arXiv API.
 **[126]** S. Clesse and J. García-Bellido, *GW190425, GW190521 and GW190814: Three candidate mergers of primordial black holes from the QCD epoch*. The late-binary rate (eq. B7). [arXiv:2007.06481](https://arxiv.org/abs/2007.06481)
 {: #ref-126 }
 
+**[127]** M. Sasaki, T. Suyama, T. Tanaka and S. Yokoyama, *Primordial Black Hole Scenario for the Gravitational-Wave Event GW150914*. Phys. Rev. Lett. 117, 061101 (2016). The formation of early PBH binaries and their orbits. [arXiv:1603.08338](https://arxiv.org/abs/1603.08338)
+{: #ref-127 }
+
 ## Continuous waves
 
 **[105]** LVK, *Search for continuous gravitational waves from known pulsars in the first part of the fourth
