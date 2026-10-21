@@ -356,6 +356,9 @@ was checked against the arXiv API.
 **[101]** LVK, *Searches for Binary Mergers with Sub-solar Mass Components in Data from the First Part of LIGO–Virgo–KAGRA's Fourth Observing Run*. Components 0.2–1 M☉, LIGO data of 24 May 2023 to 16 January 2024; limits on the fraction of dark matter in primordial black holes. [arXiv:2605.05444](https://arxiv.org/abs/2605.05444)
 {: #ref-101 }
 
+**[122]** LVK, *Search for Compact Binary Coalescences with Sub-solar Mass Components in Data from the Second Part of LIGO–Virgo–KAGRA's Fourth Observing Run*. O4b (10 April 2024 to 28 January 2025) combined with O4a; secondary 0.2–1 M☉, primary 0.2–10 M☉; rate limits 50–5000 Gpc⁻³ yr⁻¹ and limits on the fraction of dark matter in primordial black holes. [arXiv:2610.20276](https://arxiv.org/abs/2610.20276)
+{: #ref-122 }
+
 **[102]** M. Andrés-Carcasona, A. J. Iovino, E. Vallejo-Pagès, V. Vaskonen, H. Veermäe, M. Martínez and Ll. M. Mir, *Constraints on primordial black holes from the first part of LIGO-Virgo-KAGRA fourth observing run* (not an LVK paper). [arXiv:2605.15749](https://arxiv.org/abs/2605.15749)
 {: #ref-102 }
 
@@ -418,6 +421,8 @@ LIGO O3 data*. Phys. Rev. D 105, 102001 (2022). Data: [LIGO-P2100343](https://dc
 | GWTC-5.0 PE and skymaps | [Zenodo 20348005](https://zenodo.org/records/20348005), [20348006](https://zenodo.org/records/20348006) |
 | GWTC-4.0 lensing searches (posterior-overlap results of every O4a pair) | [Zenodo 18163632](https://zenodo.org/records/18163632) |
 | GWTC-4.0 cosmology (posteriors and settings of the H₀ analyses) | [Zenodo 22284039](https://zenodo.org/records/22284039) |
+| Sub-solar-mass searches, O4a (triggers, VT binned in chirp mass, injections) | [Zenodo 19338460](https://zenodo.org/records/19338460) |
+| Sub-solar-mass searches, O4b combined with O4a (triggers, VT in chirp-mass and (m₁, m₂) bins, injections, PBH and dissipative-dark-matter results) | [Zenodo 23346454](https://zenodo.org/records/23346454) |
 | GW250114 (area law) | [Zenodo 16877102](https://zenodo.org/records/16877102) |
 | GWTC-4.0 sensitivity injections | [Zenodo 16740128](https://zenodo.org/records/16740128) |
 | GWTC-5.0 sensitivity injections | [Zenodo 19500052](https://zenodo.org/records/19500052) |

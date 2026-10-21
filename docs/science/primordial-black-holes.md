@@ -80,7 +80,7 @@ becomes partly an optical one. Two practical points for the follow-up:
 
 | Mass range | Data | Bound on \(f_\text{PBH}\) |
 |---|---|---|
-| 0.2–1 M☉ (sub-solar) | LVK O4a search, no candidate; rates below 110–10 000 Gpc⁻³ yr⁻¹ [\[101\]](../references.md#ref-101) | ≤ 7% at 1 M☉, ≤ 40% at 0.35 M☉ (binaries formed in the early Universe) |
+| 0.2–1 M☉ (sub-solar) | LVK O4b search combined with O4a, no significant candidate; rates below 50–5000 Gpc⁻³ yr⁻¹ [\[122\]](../references.md#ref-122) (O4a alone: 110–10 000 [\[101\]](../references.md#ref-101)) | ≤ 1.8–3.2% at 1 M☉, ≤ 10–18% at 0.35 M☉ (binaries formed in the early Universe; the range spans the three search pipelines; O4a alone: 7% and 40%); binaries formed late: f_PBH < 1 only above 0.62–0.74 M☉ |
 | 1–100 M☉ | the observed BBH merger rate, which no PBH population may exceed (O4a, [\[102\]](../references.md#ref-102)) | ~10⁻² at 1 M☉, ~10⁻³ at 10–30 M☉, ~10⁻⁴ at 100 M☉ |
 
 The second bound rests on the measured BBH rate, the quantity of the [rates](../modes/rates.md) mode: whatever
