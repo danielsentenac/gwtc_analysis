@@ -29,7 +29,9 @@ The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#re
 114.6 (+41.5 / −33.8) against 115.4 (+40.1 / −33.8), with 5000 PE samples per event ([validation](#validation-gwtc-40-power-law-peak-glade-k-band));
 with Multi Peak, 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3) ([validation](#validation-gwtc-40-multi-peak-glade-k-band)).
 With FullPop-4.0, the paper's fiducial model (141 events, every compact binary), the spectral siren gives 75.1 (+25.8 / −19.2) against the
-published 72.9 (+21.9 / −18.8) ([mass models](#mass-models)).
+published 72.9 (+21.9 / −18.8) ([mass models](#mass-models)), the dark siren 82.0 (+21.0 / −16.4) against 79.6 (+20.8 / −16.3),
+and the dark siren with GW170817, the paper's headline, 76.7 (+13.4 / −8.9) against 75.4 (+12.8 / −9.1)
+([validation](#validation-gwtc-40-fullpop-40-glade-k-band)).
 
 ## Quick start
 
@@ -210,6 +212,8 @@ histogram between 7 and 100 M☉ (the fits are scale-free). Details in
 | Dark siren + GW170817 | 82.5 (+22.6 / −14.2) | 75.4 (+16.6 / −10.0) | **75.4 (+12.8 / −9.1)**, the paper's headline |
 | gwtc_analysis, spectral siren | 107.6 (+45.6 / −35.2) | 81.6 (+41.0 / −26.0) | 75.1 (+25.8 / −19.2) |
 | gwtc_analysis, spectral siren + GW170817 | 80.2 (+22.5 / −12.1) | 75.4 (+17.5 / −9.1) | 74.1 (+13.4 / −8.0) |
+| gwtc_analysis, dark siren, GLADE+ K band | 114.6 (+41.5 / −33.8) | 86.8 (+39.8 / −26.1) | 82.0 (+21.0 / −16.4) |
+| gwtc_analysis, dark siren + GW170817 | 83.5 (+22.4 / −13.5) | 76.7 (+17.8 / −9.6) | 76.7 (+13.4 / −8.9) |
 
 FullPop-4.0 run: the 141 events of the paper (137 BBH, GW190425, GW190814, GW200115, GW230529; GW170817 kept for
 the bright siren), the priors of Table 5, nested sampling with 100 live points, 50% of the injections and 1500 PE
@@ -357,6 +361,40 @@ The same chain with `--mass-model mltp`, on the same catalog, events and injecti
   reweighting 5–9 min per chunk. Two runs (seeds 2 and 3) were still in their slow tail after 25 h and were
   cancelled; the chain combined the 6 others.
 
+### Validation: GWTC-4.0, FullPop-4.0, GLADE+ K band
+
+The paper's fiducial dark siren: `--mass-model fullpop4` on the same catalog, with the 141 events of the
+FullPop-4.0 spectral siren (137 BBH, GW190425, GW190814, GW200115, GW230529; GW170817 left out for the bright
+siren). The probe chose 10% of the injections (3.7 times faster per evaluation, a predicted effective sample size
+of 78%). The chain was run without `--reweight-pe-samples`, and the reweighting to 5000 PE samples afterwards with
+the runner's `reweight` stage, which is what the option below does in the same chain:
+
+```bash
+gwtc_analysis hubble_constant --method dark --mass-model fullpop4 \
+    --galaxy-catalog glade_k/catalog_K-glade+_nside64_eps1.hdf5 --workdir h0_dark_fullpop4 \
+    --executor slurm --icarogw-python /path/to/icarogw-env/bin/python --submit --reweight-pe-samples 5000
+```
+
+| | H₀ (km/s/Mpc, median and 68%) | 90% |
+|---|---|---|
+| runs, 10% of the injections (8 runs, 1953 samples) | 86.9 (+20.4 / −16.3) | 61.9 – 127.9 |
+| reweighted to all the injections (1500 PE samples) | 82.3 (+19.8 / −16.1) | 55.9 – 125.4 |
+| **reweighted to all the injections and 5000 PE samples** | **82.0 (+21.0 / −16.4)** | **55.0 – 128.3** |
+| GWTC-4.0 paper, Table 1 [\[29\]](../references.md#ref-29) | 79.6 (+20.8 / −16.3) | |
+
+- The median is 2.4 km/s/Mpc above the paper's (0.13σ), with a 68% interval of the same width. The paper's value
+  combines icarogw and gwcosmo; for Power Law + Peak and Multi Peak that combination is 4.8 and 4.7 below the
+  icarogw release, which our runs reproduce. The icarogw release value for FullPop-4.0 has not been compared.
+- The reweightings keep effective sample sizes of 47% (all the injections, 914 of 1953) and 46% (5000 PE samples,
+  893), reject no sample, and reproduce the runs' ln L exactly. All the injections lower H₀ by 4.6 km/s/Mpc; 5000
+  PE samples move it by −0.3 only, as for the FullPop-4.0 spectral siren ([mass models](#mass-models)).
+- The catalog moves the median up by 6.9 km/s/Mpc against the FullPop-4.0 spectral siren (75.1), as in the paper
+  (72.9 → 79.6, +6.7), and narrows the 68% interval by 17% (9% in the paper).
+- With GW170817 (`--method joint`, the bright siren with `--population fullpop4`, as in the paper): **76.7
+  (+13.4 / −8.9)** km/s/Mpc, 90%: 63.8 – 101.2, against the paper's headline 75.4 (+12.8 / −9.1); with 1500 PE
+  samples per event, 76.2 (+13.6 / −8.5) ([joint posterior](#joint-posterior)).
+- Timing: all 8 runs converged, in 13.8–23.1 h each; the reweighting 3–4 min per chunk (32 chunks).
+
 ## Joint posterior
 
 `--method joint --inputs A B ...` multiplies independent H₀ posteriors: work directories of the other methods
@@ -410,6 +448,7 @@ with the dark siren. The paper's GW170817 uses the FullPop-4.0 population and a 
 |---|---|---|---|
 | Power Law + Peak | 84.8 (+23.7 / −14.2) | 83.5 (+22.4 / −13.5) | 82.5 (+22.6 / −14.2) |
 | Multi Peak | 77.5 (+18.7 / −10.0) | 76.7 (+17.8 / −9.6) | 75.4 (+16.6 / −10.0) |
+| FullPop-4.0 (the paper's headline) | – | 76.7 (+13.4 / −8.9) | 75.4 (+12.8 / −9.1) |
 
 The remaining difference is that of GW170817 alone (78.5 against 77.8) carried through the product, plus that of
 the dark sirens (our Power Law + Peak and Multi Peak reproduce the release, which is 4.8 and 4.7 above the paper's

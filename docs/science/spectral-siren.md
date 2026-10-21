@@ -438,6 +438,8 @@ alone unless stated; H₀ in km/s/Mpc and mass-peak positions in M☉, median an
 | GWTC-4.0, FullPop-4.0 spectral siren: position of the upper BBH mass peak (M☉) | **26.7 (+3.5 / −3.4)**, 90%: 20.5 – 32.9 | 26.6 (+2.9 / −2.8), 90%: 21.8 – 31.4, paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, PLP dark siren, GLADE+ K band | **114.6 (+41.5 / −33.8)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)) | 115.4 (+40.1 / −33.8), data release (icarogw) |
 | GWTC-4.0, MLTP dark siren, GLADE+ K band | **86.8 (+39.8 / −26.1)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)) | 86.3 (+41.3 / −26.3), data release (icarogw) |
+| GWTC-4.0, FullPop-4.0 dark siren, GLADE+ K band | **82.0 (+21.0 / −16.4)**, 5000 PE samples ([validation](../modes/hubble-constant.md#validation-gwtc-40-fullpop-40-glade-k-band)) | 79.6 (+20.8 / −16.3), paper [\[29\]](../references.md#ref-29) (icarogw and gwcosmo) |
+| GWTC-4.0, FullPop-4.0 dark siren + GW170817, the paper's headline | **76.7 (+13.4 / −8.9)**, product of the two posteriors | 75.4 (+12.8 / −9.1), paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, PLP spectral siren + GW170817 | **80.2 (+22.5 / −12.1)**, product of the two posteriors (`--method joint`, [below](#spectral-siren-and-gw170817)) | 80.6 (+21.8 / −13.2), paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, MLTP spectral siren + GW170817 | **75.4 (+17.5 / −9.1)**, product of the two posteriors ([below](#spectral-siren-and-gw170817)) | 73.6 (+15.5 / −9.2), paper [\[29\]](../references.md#ref-29) |
 | GWTC-4.0, FullPop-4.0 spectral siren + GW170817 | **74.1 (+13.4 / −8.0)**, product of the two posteriors ([below](#spectral-siren-and-gw170817)) | 73.4 (+12.8 / −8.6), paper [\[29\]](../references.md#ref-29) |
@@ -510,13 +512,6 @@ These results were computed by gwtc_analysis, but do not match the published val
   explained yet. Runs B gave 78.6 with 1500 PE samples ([comparison](#injection-subsets-and-reweighting)).
 - **The upper tail of the FullPop-4.0 H₀ posterior:** the 90% upper bound is 125.3 km/s/Mpc against 111.9 in
   the paper, while the median is only 2.2 km/s/Mpc higher and the lower bound the same (above).
-
-### Not run yet
-
-These published results can be computed with gwtc_analysis, but have not been run:
-
-- **The FullPop-4.0 dark siren**, 79.6 (+20.8 / −16.3), and its combination with GW170817,
-  75.4 (+12.8 / −9.1), the headline result of the paper. A run with the GLADE+ K-band catalog is in progress.
 
 ### Out of reach of this version
 
