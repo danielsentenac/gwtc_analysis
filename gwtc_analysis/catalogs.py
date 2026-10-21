@@ -1336,9 +1336,10 @@ def _rates_events(segments: list[tuple[float, float]], far_threshold: float, ns_
             if key in best and best[key]["far_per_yr"] <= far:
                 continue
             best[key] = dict(event=name, catalog=cat, gps=gps, far_per_yr=far, p_astro=v.get("p_astro"),
-                              mass_1_source=v.get("mass_1_source"), mass_2_source=v.get("mass_2_source"))
+                              mass_1_source=v.get("mass_1_source"), mass_2_source=v.get("mass_2_source"),
+                              chirp_mass_source=v.get("chirp_mass_source"))
     df = pd.DataFrame(list(best.values()), columns=["event", "catalog", "gps", "far_per_yr", "p_astro",
-                                                    "mass_1_source", "mass_2_source"])
+                                                    "mass_1_source", "mass_2_source", "chirp_mass_source"])
 
     def cls(r):
         m1, m2 = r["mass_1_source"], r["mass_2_source"]

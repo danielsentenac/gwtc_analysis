@@ -368,6 +368,18 @@ was checked against the arXiv API.
 **[104]** B. Carr and F. Kühnel, *Primordial Black Holes as Dark Matter: Recent Developments*. Ann. Rev. Nucl. Part. Sci. 70, 355 (2020). [arXiv:2006.02838](https://arxiv.org/abs/2006.02838)
 {: #ref-104 }
 
+**[123]** M. Raidal, C. Spethmann, V. Vaskonen and H. Veermäe, *Formation and Evolution of Primordial Black Hole Binaries in the Early Universe*. JCAP 02, 018 (2019). The merger rate of early PBH binaries and its suppression. [arXiv:1812.01930](https://arxiv.org/abs/1812.01930)
+{: #ref-123 }
+
+**[124]** G. Hütsi, M. Raidal, V. Vaskonen and H. Veermäe, *Two populations of LIGO-Virgo black holes*. JCAP 03, 068 (2021). The early-binary rate (eq. 2.1) and the suppression factors S₁, S₂ (eqs. 2.2, 2.3, 2.7, A.5) of the `primordial_black_holes` mode. [arXiv:2012.02786](https://arxiv.org/abs/2012.02786)
+{: #ref-124 }
+
+**[125]** K. S. Phukon et al., *Search for sub-solar primordial black holes in low mass ratio binaries with LIGO-Virgo O2 data and implications for the primordial black hole dark matter fraction*. Phys. Rev. D 114, 063529 (2026). The late-binary rate in PBH clusters (eq. 2). [arXiv:2105.11449](https://arxiv.org/abs/2105.11449)
+{: #ref-125 }
+
+**[126]** S. Clesse and J. García-Bellido, *GW190425, GW190521 and GW190814: Three candidate mergers of primordial black holes from the QCD epoch*. The late-binary rate (eq. B7). [arXiv:2007.06481](https://arxiv.org/abs/2007.06481)
+{: #ref-126 }
+
 ## Continuous waves
 
 **[105]** LVK, *Search for continuous gravitational waves from known pulsars in the first part of the fourth
