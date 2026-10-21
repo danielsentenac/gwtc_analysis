@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### New
+
+- **primordial_black_holes**: upper limits (90%) on the fraction of dark matter in primordial black holes of one
+  mass, for early binaries (Hütsi et al. 2021 rate, suppression S₁ S₂ or, with `--suppression lvk`, the fit of the
+  LVK sub-solar papers) and late binaries in clusters (Phukon et al. 2021). From 0.35 to 1 M☉, the sensitive
+  volume-time of the LVK sub-solar searches, O4a + O4b (Zenodo 23346454): with `--suppression lvk` it reproduces
+  the published 0.018–0.032 at 1 M☉ and 0.10–0.18 at 0.35 M☉. Above 1 M☉, the search-sensitivity injections of
+  `rates` and the events matched by chirp mass: ~10⁻³ at 10–40 M☉, ~10⁻⁴ near 100 M☉. The events of `rates` now
+  carry the GWOSC chirp mass.
+
 ### Changes
 
 - **scalar_cloud**: the best-fit statistic is renamed the **deviance** 𝒟 (the likelihood-ratio test statistic),
