@@ -100,3 +100,82 @@ def test_catalog_limits_attribution():
     assert list(w["n_events"]) == [1, 0] and list(n["n_events"]) == [1, 0]
     assert w["rate_90"].iloc[0] > n["rate_90"].iloc[0]              # the event loosens the limit
     assert w["f_early"].iloc[1] == pytest.approx(n["f_early"].iloc[1])
+
+
+def test_suppression_values():
+    """S1 S2 at hand-checked points (monochromatic, Hütsi et al. 2021 eqs. 2.2, 2.3, 2.7, A.5)."""
+    assert float(pbh.suppression_hutsi(0.1)) == pytest.approx(0.0131, rel=0.03)
+    assert float(pbh.suppression_hutsi(1e-3)) == pytest.approx(0.419, rel=0.03)
+    assert float(pbh.suppression_hutsi(1e-6)) < float(pbh.suppression_hutsi(1e-3))   # S1 falls at small f
+
+
+def test_late_rate_independent_of_mass_for_equal_masses():
+    r = pbh.rate_late(np.array([0.5, 5.0, 50.0]), 1.0)
+    assert np.allclose(r, 2 ** (10 / 7) * pbh.R_LATE_CLUSTERS)
+
+
+def test_early_rate_falls_with_mass():
+    r = pbh.rate_early(np.array([1.0, 10.0, 100.0]), 1e-3)
+    assert np.all(np.diff(r) < 0)
+    assert r[0] / r[1] == pytest.approx(10 ** (32 / 37), rel=1e-6)
+
+
+def test_read_ssm_vt_needs_every_pipeline(tmp_path):
+    p = tmp_path / "results-PBH.zip"
+    with zipfile.ZipFile(p, "w") as z:
+        z.writestr("PBH/vt-results-final/pycbc_pbh_vt_inputs_mc.txt", "mc_min mc_max VT_O4ab neff_O4ab\n0.16 0.44 1e-3 100\n")
+    with pytest.raises(ValueError, match="GstLAL"):
+        pbh.read_ssm_vt(p)
+
+
+def test_cli_choices_match_the_module():
+    from gwtc_analysis import cli
+
+    sp = cli.build_parser()._mode_parsers["primordial_black_holes"]
+    choices = {a.dest: a.choices for a in sp._actions if a.choices}
+    assert tuple(choices["suppression"]) == pbh.SUPPRESSIONS
+    assert sp.get_default("suppression") == pbh.SUPPRESSIONS[0]
+    assert tuple(choices["attribute"]) == ("window", "none")
+
+
+def test_cli_dispatch(monkeypatch):
+    from gwtc_analysis import cli
+
+    seen = {}
+    monkeypatch.setattr(pbh, "run_primordial_black_holes", lambda **kw: seen.update(kw))
+    assert cli.main(["primordial_black_holes", "--masses", "3", "30", "--mass-window", "0.1",
+                     "--suppression", "lvk", "--attribute", "none", "--no-sub-solar"]) == 0
+    assert seen["masses"] == [3.0, 30.0] and seen["mass_window"] == 0.1
+    assert seen["suppression"] == "lvk" and seen["attribute"] == "none" and seen["sub_solar"] is False
+
+
+@pytest.mark.parametrize("kw, msg", [(dict(mass_window=1.5), "mass-window"), (dict(masses=[1.05]), "e\\^-w"),
+                                     (dict(suppression="x"), "suppression"), (dict(attribute="x"), "attribute")])
+def test_run_rejects_bad_options(kw, msg):
+    with pytest.raises(ValueError, match=msg):
+        pbh.run_primordial_black_holes(**kw)
+
+
+def test_run_end_to_end_offline(tmp_path, monkeypatch):
+    """The whole mode on synthetic injections and events and the sub-solar zip: TSV, report and plot."""
+    from gwtc_analysis import catalogs
+
+    inj = _injections(seed=4)
+    inj["segments"] = [(0.0, 1.0)]
+    ev = pd.DataFrame(dict(event=["GWA", "GWB"], mass_1_source=[10.0, 31.0], mass_2_source=[9.0, 29.0],
+                           chirp_mass_source=[8.27, 26.1], far_per_yr=[1e-3, 1e-2]))
+    zip_path = _ssm_zip(tmp_path)
+    monkeypatch.setattr(pbh, "fetch_ssm", lambda refresh=False: zip_path)
+    monkeypatch.setattr(catalogs, "_rates_sensitivity_path", lambda f, r: tmp_path / "inj.hdf")
+    monkeypatch.setattr(catalogs, "_load_found_injections", lambda p, far: inj)
+    monkeypatch.setattr(catalogs, "_rates_events", lambda seg, far, ns, lists: ev)
+    out = tmp_path / "out"
+    t = pbh.run_primordial_black_holes(masses=[2.0, 10.0, 30.0], out_limits_tsv=out / "l.tsv",
+                                       out_report_html=out / "r.html", plots_dir=out / "plots")
+    assert (out / "l.tsv").exists() and (out / "plots" / "f_pbh.png").exists()
+    html = (out / "r.html").read_text()
+    assert "Hütsi" in html and "arXiv:2610.20276" in html
+    cat = t[t["source"] == "GWTC injections and events"].set_index("m_pbh")
+    assert list(cat["n_events"]) == [0, 1, 1]
+    assert set(t[t["source"] != "GWTC injections and events"]["pipeline"]) == set(pbh.SSM_PIPELINES)
+    assert (cat["f_early"] > 0).all() and (cat["f_late"] > 0).all()
