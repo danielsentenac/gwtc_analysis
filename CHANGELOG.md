@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 (2026-10-21)
 
 ### New
 
@@ -22,6 +22,10 @@
   GW170817, 76.7 (+13.4 / −8.9) against the paper's headline 75.4 (+12.8 / −9.1). The spectral sirens are also
   compared with the icarogw release values. Results of diagnostics made outside the `gwtc_analysis` command are
   labelled as such.
+- Documentation: primordial black holes and sub-solar masses on their own science page (formation channels, early
+  binaries and their suppression, late binaries, the LVK sub-solar bounds of O4a + O4b); the three approaches to
+  waveform models (numerical relativity and surrogates, effective-one-body, phenomenological) compared; the
+  search pipelines (GstLAL, PyCBC, MBTA, cWB) and the ranking statistic in the glossary; references 115–136.
 
 ### Fixes
 
