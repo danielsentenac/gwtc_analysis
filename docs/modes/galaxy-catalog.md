@@ -143,7 +143,9 @@ with the labels of its Figure 3 (13.3, 13.5, 13.6, 13.7) to their rounding.
 gives H₀ = 114.6 (+41.5 / −33.8) km/s/Mpc against 115.4 (+40.1 / −33.8) in the GWTC-4.0 release
 ([hubble_constant](hubble-constant.md#validation-gwtc-40-power-law-peak-glade-k-band)), and with Multi Peak
 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3)
-([hubble_constant](hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)). Built on a Slurm cluster in about
+([hubble_constant](hubble-constant.md#validation-gwtc-40-multi-peak-glade-k-band)); with FullPop-4.0 (141 events),
+82.0 (+21.0 / −16.4) against 79.6 (+20.8 / −16.3) in the paper
+([hubble_constant](hubble-constant.md#validation-gwtc-40-fullpop-40-glade-k-band)). Built on a Slurm cluster in about
 45 min: 505,575 galaxies enter the in-catalog term, 94% of the sky has a threshold, median threshold Ks = 13.5;
 luminosity-weighted completeness 0.71 at z = 0.04, 0.25 at 0.08, 0.04 at 0.13.
 
