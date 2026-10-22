@@ -74,7 +74,7 @@ With the defaults (`gwtc5` injections, 259 events with FAR ≤ 1/yr):
 | 1 M☉ (sub-solar) | 0.0028–0.0059 | **0.018–0.032** | 0.018–0.032 [\[122\]](../references.md#ref-122) (LVK fit) |
 | 1.2–2.5 M☉ (catalog) | 0.0013–0.0017 | 0.004–0.007 | ~10⁻² at 1 M☉ [\[102\]](../references.md#ref-102) |
 | 12–38 M☉ (catalog) | 0.0006–0.0008 | 0.0007–0.0015 | ~10⁻³ [\[102\]](../references.md#ref-102) |
-| ~100 M☉ (catalog) | 1.1 × 10⁻⁴ | (S > 1: not valid) | ~10⁻⁴ [\[102\]](../references.md#ref-102) |
+| ~100 M☉ (catalog) | 1.1 × 10⁻⁴ | (S > 1: not valid) | ~10⁻⁴ near 90 M☉ [\[102\]](../references.md#ref-102) |
 
 Ranges over the three pipelines for the sub-solar searches. Two checks:
 
@@ -89,9 +89,16 @@ Late binaries give weaker limits below ~50 M☉ and tighter ones above: for equa
 
 ## Limitations
 
-- **Monochromatic mass function** and fixed merger-rate models: the bounds for extended mass functions and the
-  population fit of GWTC-4.0 by Andrés-Carcasona et al. [\[102\]](../references.md#ref-102), in which PBHs explain
-  part of the observed population, are not reproduced; the comparison above is with its order of magnitude.
+- **Monochromatic mass function and fixed merger-rate models.** Andrés-Carcasona et al.
+  [\[102\]](../references.md#ref-102) fit the 161 events with FAR < 1/yr from O1 to O4a (76 from O1–O3, as in the
+  GWTC-3 population analysis [\[12\]](../references.md#ref-12), and 85 new in O4a) with two populations at once: an
+  astrophysical one (power law + 2 peaks, i.e. Multi Peak, with its rate R₀ and evolution (1 + z)^κ free) and a
+  primordial one (log-normal mass function: f_PBH, peak mass, width), in a hierarchical Bayesian analysis corrected
+  for selection. They also give bounds for log-normal mass functions, and "agnostic" bounds in which any subset of
+  the events may be primordial. None of this is reproduced here: the mode compares a fixed PBH merger rate with a
+  Poisson rate limit in each mass window. The "Published" column above is therefore their order of magnitude for a
+  monochromatic mass function, from ~10⁻² at 1 M☉ down to ~10⁻⁴ near 90 M☉ ("the tightest constraints in the mass
+  region 0.5–90 M⊙", with OGLE and EROS microlensing in their comparison).
 - **No search**: the mode uses the published search sensitivities and the catalog; a sub-solar candidate below the
   catalog threshold, or an alert (HasSSM), does not enter.
 - **A sub-solar merger need not be primordial**: collapsar disks may fragment into sub-solar neutron stars that merge
