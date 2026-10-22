@@ -225,7 +225,7 @@ R_\text{late} = f_\text{PBH} \times 420\ \text{Gpc}^{-3}\,\text{yr}^{-1} \times
 | Mass range | Data | Bound on \(f_\text{PBH}\) |
 |---|---|---|
 | 0.2–1 M☉ (sub-solar) | LVK O4b search combined with O4a, no significant candidate; rates below 50–5000 Gpc⁻³ yr⁻¹ [\[122\]](../references.md#ref-122) (O4a alone: 110–10 000 [\[101\]](../references.md#ref-101)) | ≤ 1.8–3.2% at 1 M☉, ≤ 10–18% at 0.35 M☉ (binaries formed in the early Universe; the range spans the three search pipelines; O4a alone: 7% and 40%); binaries formed late: f_PBH < 1 only above 0.62–0.74 M☉ |
-| 1–90 M☉ | the observed BBH mergers, which no PBH population may exceed (O1–O4a, [\[102\]](../references.md#ref-102), all events astrophysical) | ~10⁻² at 1 M☉, ~10⁻³ at 10–30 M☉, ~10⁻⁴ near 90 M☉ |
+| 1–90 M☉ | the observed BBH mergers, which no PBH population may exceed (O1–O4a, [\[102\]](../references.md#ref-102), all events astrophysical) | ~2 × 10⁻³ at 1 M☉, ~2 × 10⁻⁴ at 10 M☉, ~1 × 10⁻⁴ at 50–90 M☉ |
 
 The second bound rests on the measured BBH rate, the quantity of the [rates](../modes/rates.md) mode: whatever
 fraction of the observed mergers is primordial, PBHs cannot produce more mergers than are seen. The stochastic
