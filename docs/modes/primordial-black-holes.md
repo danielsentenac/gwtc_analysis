@@ -72,9 +72,9 @@ With the defaults (`gwtc5` injections, 259 events with FAR ≤ 1/yr):
 |---|---|---|---|
 | 0.35 M☉ (sub-solar) | 0.061–0.142 | **0.096–0.178** | 0.10–0.18 [\[122\]](../references.md#ref-122) (LVK fit) |
 | 1 M☉ (sub-solar) | 0.0028–0.0059 | **0.018–0.032** | 0.018–0.032 [\[122\]](../references.md#ref-122) (LVK fit) |
-| 1.2–2.5 M☉ (catalog) | 0.0013–0.0017 | 0.004–0.007 | ~10⁻² at 1 M☉ [\[102\]](../references.md#ref-102) |
-| 12–38 M☉ (catalog) | 0.0006–0.0008 | 0.0007–0.0015 | ~10⁻³ [\[102\]](../references.md#ref-102) |
-| ~100 M☉ (catalog) | 1.1 × 10⁻⁴ | (S > 1: not valid) | ~10⁻⁴ near 90 M☉ [\[102\]](../references.md#ref-102) |
+| 1.2–2.5 M☉ (catalog) | 0.0013–0.0017 | 0.004–0.007 | ~10⁻² at 1 M☉ [\[102\]](../references.md#ref-102) (astrophysics only) |
+| 12–38 M☉ (catalog) | 0.0006–0.0008 | 0.0007–0.0015 | ~10⁻³ [\[102\]](../references.md#ref-102) (astrophysics only) |
+| ~100 M☉ (catalog) | 1.1 × 10⁻⁴ | (S > 1: not valid) | ~10⁻⁴ near 90 M☉ [\[102\]](../references.md#ref-102) (astrophysics only) |
 
 Ranges over the three pipelines for the sub-solar searches. Two checks:
 
@@ -87,18 +87,48 @@ Ranges over the three pipelines for the sub-solar searches. Two checks:
 Late binaries give weaker limits below ~50 M☉ and tighter ones above: for equal masses their rate,
 420 × 2^(10/7) f ≈ 1130 f Gpc⁻³ yr⁻¹, does not depend on m, while the early-binary rate falls as M^(−32/37).
 
+## Relation to Andrés-Carcasona et al.
+
+The catalog limits of [\[102\]](../references.md#ref-102) (O1–O4a, 161 events with FAR < 1/yr) use the **same
+early-binary rate and the same suppression**: their eq. A.1 is eq. 2.1 of Hütsi et al.
+[\[124\]](../references.md#ref-124), with the suppression "from the analytical prescriptions" of that paper, i.e.
+`--suppression hutsi`. The rest differs:
+
+| | [\[102\]](../references.md#ref-102) | `primordial_black_holes` |
+|---|---|---|
+| PBH channels | early two-body + early three-body (γ = 1, K = 4) | early two-body; late binaries in clusters |
+| Mass function | monochromatic and log-normal | monochromatic |
+| Detection probability | semi-analytic, single-detector SNR > 8 with representative noise spectra | the LVK search-sensitivity injections, FAR ≤ 1/yr (as in [rates](rates.md)) |
+| Statistics | hierarchical Bayesian likelihood (dynesty, bilby) | Poisson upper limit in a chirp-mass window |
+
+They treat the observed events in three ways:
+
+1. **Astrophysics only**: all events are astrophysical; the 95 % bound is where the expected number of PBH detections
+   N < 3. These are the solid curves of their Fig. 1 and the numbers in the table above (~10⁻² at 1 M☉ down to
+   ~10⁻⁴ near 90 M☉). Counterpart here: `--attribute none` (2.30 / VT, 90 %).
+2. **Agnostic**: any subset of events may be primordial (10⁵ random subsets, or a subset-marginalised likelihood);
+   slightly weaker at 2–20 M☉. Rough counterpart: `--attribute window` (every event in the window may be primordial).
+3. **Astrophysically informed**: a joint fit of a power law + 2 peaks (Multi Peak) astrophysical population and a
+   log-normal PBH population. No counterpart.
+
+**Why the mode does not reproduce their analysis.** It extends the method of the LVK sub-solar searches, a rate
+limit from the published search sensitivity, which it reproduces exactly below 1 M☉, to the catalog masses with the
+same LVK injections as `rates`: one framework from 0.35 to 150 M☉, from public data, in minutes. Their case 1 is a
+comparable computation (and the three-body channel or a log-normal mass function could be added at little cost);
+cases 2 and 3 need the posterior samples of all events and nested sampling over ~16 population parameters, or 10⁵
+subsets, hours to days of computing.
+
+**Open point.** The table above compares their case 1 with the default `--attribute window`, which assumes
+something different; the like-for-like `--attribute none` gives limits down to ~10⁻⁵ at 30–100 M☉, tighter than their
+~10⁻⁴ near 90 M☉ by up to ~10 (90 % vs 95 % accounts for only ~1.3, and their three-body channel would tighten
+theirs). The detection probability (injections vs SNR > 8) and the window construction are the candidates; not yet
+resolved.
+
 ## Limitations
 
-- **Monochromatic mass function and fixed merger-rate models.** Andrés-Carcasona et al.
-  [\[102\]](../references.md#ref-102) fit the 161 events with FAR < 1/yr from O1 to O4a (76 from O1–O3, as in the
-  GWTC-3 population analysis [\[12\]](../references.md#ref-12), and 85 new in O4a) with two populations at once: an
-  astrophysical one (power law + 2 peaks, i.e. Multi Peak, with its rate R₀ and evolution (1 + z)^κ free) and a
-  primordial one (log-normal mass function: f_PBH, peak mass, width), in a hierarchical Bayesian analysis corrected
-  for selection. They also give bounds for log-normal mass functions, and "agnostic" bounds in which any subset of
-  the events may be primordial. None of this is reproduced here: the mode compares a fixed PBH merger rate with a
-  Poisson rate limit in each mass window. The "Published" column above is therefore their order of magnitude for a
-  monochromatic mass function, from ~10⁻² at 1 M☉ down to ~10⁻⁴ near 90 M☉ ("the tightest constraints in the mass
-  region 0.5–90 M⊙", with OGLE and EROS microlensing in their comparison).
+- **Not the analysis of Andrés-Carcasona et al. [\[102\]](../references.md#ref-102)**; see the section below.
+  Monochromatic mass function only, no three-body channel, and the catalog part is a Poisson count in a mass window,
+  not a hierarchical fit.
 - **No search**: the mode uses the published search sensitivities and the catalog; a sub-solar candidate below the
   catalog threshold, or an alert (HasSSM), does not enter.
 - **A sub-solar merger need not be primordial**: collapsar disks may fragment into sub-solar neutron stars that merge
