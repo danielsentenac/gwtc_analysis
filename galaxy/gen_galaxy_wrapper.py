@@ -575,8 +575,6 @@ TEMPLATE = '''<tool id="gwtc_analysis" name="GWTC" version="@TOOL_VERSION@+galax
   </macros>
   <expand macro="requirements"/>
   <command detect_errors="exit_code"><![CDATA[
-## pesummary calls getpass.getuser(), which fails in containers whose uid has no passwd entry
-export USER="\\${{USER:-galaxy}}" &&
 mkdir -p plots work &&
 {command}
 ]]></command>
