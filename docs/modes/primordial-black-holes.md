@@ -57,7 +57,8 @@ binaries, numerically for `hutsi`). Values above 1 mean no constraint.
   limits too tight by up to ~10. An unequal binary with the right chirp mass also counts, which is conservative for
   an upper limit.
 - **`--attribute window`** (default) lets every such event be primordial; **`--attribute none`** takes n = 0, i.e.
-  all the observed events are astrophysical: a tighter limit (down to ~10⁻⁵ at 30–100 M☉) and a much stronger
+  all the observed events are astrophysical: a tighter limit (early binaries down to 8.3 × 10⁻⁵ at 50 M☉ with the
+  default injections, late binaries ~3 × 10⁻⁵) and a much stronger
   assumption.
 - The early-binary volume includes the rate evolution (t/t₀)^(−34/37) (Planck15), so that VT × R(z = 0) is the
   expected number of detections; spins as in `rates` (|a| < 0.4 below 2.5 M☉, else 0.99).
@@ -72,9 +73,9 @@ With the defaults (`gwtc5` injections, 259 events with FAR ≤ 1/yr):
 |---|---|---|---|
 | 0.35 M☉ (sub-solar) | 0.061–0.142 | **0.096–0.178** | 0.10–0.18 [\[122\]](../references.md#ref-122) (LVK fit) |
 | 1 M☉ (sub-solar) | 0.0028–0.0059 | **0.018–0.032** | 0.018–0.032 [\[122\]](../references.md#ref-122) (LVK fit) |
-| 1.2–2.5 M☉ (catalog) | 0.0013–0.0017 | 0.004–0.007 | ~10⁻² at 1 M☉ [\[102\]](../references.md#ref-102) (astrophysics only) |
-| 12–38 M☉ (catalog) | 0.0006–0.0008 | 0.0007–0.0015 | ~10⁻³ [\[102\]](../references.md#ref-102) (astrophysics only) |
-| ~100 M☉ (catalog) | 1.1 × 10⁻⁴ | (S > 1: not valid) | ~10⁻⁴ near 90 M☉ [\[102\]](../references.md#ref-102) (astrophysics only) |
+| 1.2–2.5 M☉ (catalog) | 0.0013–0.0017 | 0.004–0.007 | ~2 × 10⁻³ at 1.5 M☉ [\[102\]](../references.md#ref-102) (astrophysics only) |
+| 12–38 M☉ (catalog) | 0.0006–0.0008 | 0.0007–0.0015 | ~1.5–2 × 10⁻⁴ [\[102\]](../references.md#ref-102) (astrophysics only) |
+| ~100 M☉ (catalog) | 1.1 × 10⁻⁴ | (S > 1: not valid) | ~1 × 10⁻⁴ at 50–90 M☉ [\[102\]](../references.md#ref-102) (astrophysics only) |
 
 Ranges over the three pipelines for the sub-solar searches. Two checks:
 
@@ -104,8 +105,8 @@ early-binary rate and the same suppression**: their eq. A.1 is eq. 2.1 of Hütsi
 They treat the observed events in three ways:
 
 1. **Astrophysics only**: all events are astrophysical; the 95 % bound is where the expected number of PBH detections
-   N < 3. These are the solid curves of their Fig. 1 and the numbers in the table above (~10⁻² at 1 M☉ down to
-   ~10⁻⁴ near 90 M☉). Counterpart here: `--attribute none` (2.30 / VT, 90 %).
+   N < 3. These are the solid curves of their Fig. 1 and the [102] values in the tables (~10⁻² at 0.5 M☉, ~2 × 10⁻³
+   at 1 M☉, ~2 × 10⁻⁴ at 10 M☉, ~1 × 10⁻⁴ at 50–90 M☉; their text's "between 10⁻² and 10⁻⁴" spans 0.5–90 M☉). Counterpart here: `--attribute none` (2.30 / VT, 90 %).
 2. **Agnostic**: any subset of events may be primordial (10⁵ random subsets, or a subset-marginalised likelihood);
    slightly weaker at 2–20 M☉. Rough counterpart: `--attribute window` (every event in the window may be primordial).
 3. **Astrophysically informed**: a joint fit of a power law + 2 peaks (Multi Peak) astrophysical population and a
@@ -118,11 +119,24 @@ comparable computation (and the three-body channel or a log-normal mass function
 cases 2 and 3 need the posterior samples of all events and nested sampling over ~16 population parameters, or 10⁵
 subsets, hours to days of computing.
 
-**Open point.** The table above compares their case 1 with the default `--attribute window`, which assumes
-something different; the like-for-like `--attribute none` gives limits down to ~10⁻⁵ at 30–100 M☉, tighter than their
-~10⁻⁴ near 90 M☉ by up to ~10 (90 % vs 95 % accounts for only ~1.3, and their three-body channel would tighten
-theirs). The detection probability (injections vs SNR > 8) and the window construction are the candidates; not yet
-resolved.
+**Comparison with their case 1.** `--attribute none` with `--sensitivity-release gwtc4` (O3 + O4a, their data
+period) against the monochromatic constraint of their Fig. 1 (read from the figure, ±20–30 %):
+
+| PBH mass | this mode, `none`, `gwtc4` (90 %) | [\[102\]](../references.md#ref-102), astrophysics only (95 %) |
+|---|---|---|
+| 1.5 M☉ | 1.8 × 10⁻³ | ~1.8 × 10⁻³ |
+| 3 M☉ | 9.1 × 10⁻⁴ | ~8 × 10⁻⁴ |
+| 10 M☉ | 3.2 × 10⁻⁴ | ~2.3 × 10⁻⁴ |
+| 20 M☉ | 1.8 × 10⁻⁴ | ~1.5 × 10⁻⁴ |
+| 30 M☉ | 1.3 × 10⁻⁴ | ~1.2 × 10⁻⁴ |
+| 50 M☉ | 1.1 × 10⁻⁴ | ~1.0 × 10⁻⁴ |
+| 90 M☉ | 1.4 × 10⁻⁴ | ~1.1 × 10⁻⁴ |
+| 120 M☉ | 2.0 × 10⁻⁴ | ~1.5 × 10⁻⁴ |
+
+Agreement within a factor 1.0–1.4, despite the different detection probability (injections against SNR > 8), the
+missing three-body channel and 90 % against 95 %. The ~10⁻⁵ level of their Fig. 1 is the dashed "sensitivity floor"
+(expected detections N > 0.05), not a constraint. The default `--attribute window` is 2–4 times weaker at
+10–50 M☉, where events fall in the window, as their agnostic case is weaker than their case 1.
 
 ## Limitations
 
