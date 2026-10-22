@@ -186,7 +186,7 @@ relative motion, they cannot separate again and are bound (Quinlan & Shapiro 198
 [\[128\]](../references.md#ref-128)). The capture cross-section grows steeply as the relative velocity falls, roughly as v^(−18/7). Captures
 are therefore efficient only where the black holes move slowly and are packed densely: small PBH clusters with low
 velocity dispersions, not galaxy halos where speeds are hundreds of km/s. The channel needs PBHs to be clustered,
-which some scenarios predict and others consider hard to realise; the GWTC-4.0 analysis of Andrés-Carcasona
+which some scenarios predict and others consider hard to realise; the O1–O4a analysis of Andrés-Carcasona
 et al. [\[102\]](../references.md#ref-102) leaves strong initial clustering out for that reason.
 
 | | Early binary | Late binary |
