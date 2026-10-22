@@ -258,7 +258,7 @@ def plot(ssm: pd.DataFrame, cat: pd.DataFrame, out_png: Path, suppression: str) 
     fig, ax = plt.subplots(figsize=(9.5, 4.8), dpi=150)
     fig.patch.set_facecolor(surface); ax.set_facecolor(surface)
     marks = {"GstLAL": "o", "MBTA": "s", "PyCBC": "^"}
-    for pipe, g in ssm.groupby("pipeline"):
+    for pipe, g in (ssm.groupby("pipeline") if len(ssm) else ()):
         g = g.sort_values("m_pbh")
         ax.plot(g["m_pbh"], g["f_early"], color=blue, marker=marks.get(pipe, "o"), ms=4, lw=1.2,
                 label=f"early binaries, sub-solar search ({pipe})")
