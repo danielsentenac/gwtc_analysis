@@ -179,3 +179,22 @@ def test_run_end_to_end_offline(tmp_path, monkeypatch):
     assert list(cat["n_events"]) == [0, 1, 1]
     assert set(t[t["source"] != "GWTC injections and events"]["pipeline"]) == set(pbh.SSM_PIPELINES)
     assert (cat["f_early"] > 0).all() and (cat["f_late"] > 0).all()
+
+
+def test_run_without_sub_solar(tmp_path, monkeypatch):
+    """--no-sub-solar: the catalog part alone still writes the TSV, the report and the plot."""
+    from gwtc_analysis import catalogs
+
+    inj = _injections(seed=5)
+    inj["segments"] = [(0.0, 1.0)]
+    ev = pd.DataFrame(dict(event=["GWA"], mass_1_source=[10.0], mass_2_source=[9.0],
+                           chirp_mass_source=[8.27], far_per_yr=[1e-3]))
+    monkeypatch.setattr(pbh, "fetch_ssm", lambda refresh=False: pytest.fail("sub-solar release fetched"))
+    monkeypatch.setattr(catalogs, "_rates_sensitivity_path", lambda f, r: tmp_path / "inj.hdf")
+    monkeypatch.setattr(catalogs, "_load_found_injections", lambda p, far: inj)
+    monkeypatch.setattr(catalogs, "_rates_events", lambda seg, far, ns, lists: ev)
+    out = tmp_path / "out"
+    t = pbh.run_primordial_black_holes(masses=[2.0, 10.0], sub_solar=False, out_limits_tsv=out / "l.tsv",
+                                       out_report_html=out / "r.html", plots_dir=out / "plots")
+    assert (out / "l.tsv").exists() and (out / "r.html").exists() and (out / "plots" / "f_pbh.png").exists()
+    assert set(t["source"]) == {"GWTC injections and events"}
