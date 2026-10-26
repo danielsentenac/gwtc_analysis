@@ -496,7 +496,7 @@ spectral siren is 9.3 km/s/Mpc above the paper's, its joint 1.8. The FullPop-4.0
 | H₀ (km/s/Mpc) | Median and 68% | 90% |
 |---|---|---|
 | FullPop-4.0 spectral siren (141 events, GW170817 left out) | 75.3 (+27.4 / −20.0) | 43.5 – 128.2 |
-| GW170817 bright siren, FullPop-4.0 population, low-spin PE samples | 78.5 (+25.6 / −11.4) | 62.7 – 130.5 |
+| GW170817 bright siren, FullPop-4.0 population, low-spin PE samples | 78.5 (+25.6 / −11.5) | 62.7 – 130.5 |
 | **Joint, gwtc_analysis** | **74.1 (+13.4 / −8.0)** | **62.3 – 100.9** |
 | Joint, GWTC-4.0 paper [\[29\]](../references.md#ref-29) | 73.4 (+12.8 / −8.6) | |
 

@@ -155,11 +155,12 @@ entry of the list (`COUNTERPARTS` in `gwtc_analysis/counterpart.py`) remains the
 ![H0 from GW170817 and NGC 4993](../img/modes/h0_bright_GW170817.png)
 
 **GW170817.** The maximum a posteriori and the lower side agree with the published value. The upper
-side is wider because the public GWTC-1 samples come from a later reanalysis (GWTC-1,
-IMRPhenomPv2_NRTidal), whose distance has a longer low-distance tail than the 2017 analysis (43.8 +2.9
-−6.9 Mpc). That tail comes from the **distance–inclination degeneracy**: an inclined binary is fainter
-than a face-on one at the same distance (see the [counterpart](counterpart.md#the-distanceinclination-degeneracy)
-mode). The full ΛCDM \(d_L\) raises H₀ by 0.8% (0.6 km/s/Mpc) compared with the linear Hubble law of the
+side of the LowSpin row is wider because of the **spin prior**, not of the waveform or the reanalysis: the 2017
+measurement used the high-spin samples, and quoted its interval with a prior uniform in log H₀ (∝ 1/H₀), which
+lowers the upper tail. The HighSpin row with that prior gives **68.8** (+12.4 / −7.0), against 70.0 (+12.0 /
+−8.0). The low-spin samples have a longer low-distance tail (90% lower bound 24.9 Mpc, against 29.1 Mpc with high
+spins), which comes from the **distance–inclination degeneracy**: an inclined binary is fainter than a face-on one
+at the same distance (see the [counterpart](counterpart.md#the-distanceinclination-degeneracy) mode). The full ΛCDM \(d_L\) raises H₀ by 0.8% (0.6 km/s/Mpc) compared with the linear Hubble law of the
 2017 paper.
 
 ### Against the GWTC-4.0 reanalysis

@@ -30,8 +30,8 @@ The defaults reproduce the GWTC-4.0 cosmology paper [\[29\]](../references.md#re
 with Multi Peak, 86.8 (+39.8 / −26.1) against 86.3 (+41.3 / −26.3) ([validation](#validation-gwtc-40-multi-peak-glade-k-band)).
 With FullPop-4.0, the paper's fiducial model (141 events, every compact binary), the spectral siren gives 75.1 (+25.8 / −19.2) against the
 published 72.9 (+21.9 / −18.8) ([mass models](#mass-models)), the dark siren 82.0 (+21.0 / −16.4) against 82.0 (+21.5 / −16.0)
-in the release (icarogw), and the dark siren with GW170817 76.7 (+13.4 / −8.9) against the paper's headline 75.4 (+12.8 / −9.1)
-([validation](#validation-gwtc-40-fullpop-40-glade-k-band)).
+in the release (icarogw), and the dark siren with GW170817 76.7 (+13.4 / −8.9) against the paper's headline 75.4 (+12.8 / −9.1), which mixes
+icarogw and gwcosmo ([validation](#validation-gwtc-40-fullpop-40-glade-k-band)).
 
 ## Quick start
 
@@ -459,8 +459,9 @@ with the dark siren. The paper's GW170817 uses the FullPop-4.0 population and a 
 | FullPop-4.0 (the paper's headline) | – | 76.7 (+13.4 / −8.9) | 75.4 (+12.8 / −9.1) |
 
 The remaining difference is that of GW170817 alone (78.5 against 77.8) carried through the product, plus that of
-the dark sirens (our Power Law + Peak and Multi Peak reproduce the release, which is 4.8 and 4.7 above the paper's
-Table 1 for the dark sirens alone).
+the dark sirens: ours reproduce the icarogw release, which is 4.8, 4.7 and 2.4 above the paper's Table 1 for the
+dark sirens alone (Power Law + Peak, Multi Peak, FullPop-4.0), because the paper is an equal mixture of the icarogw
+and gwcosmo samples and gwcosmo's are lower.
 
 ```bash
 gwtc_analysis hubble_constant --method bright --population fullpop4 --pe-label C02:IMRPhenomPv2_NRTidal-LowSpin
