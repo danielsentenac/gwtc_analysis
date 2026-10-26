@@ -61,7 +61,7 @@ FIXED = {"plots_dir": "--plots-dir plots", "workdir": "--workdir work", "cache_d
 SKIP = {"help", "method", "stages", "settings", "keep_pe_files", "icarogw_python", "executor", "slurm_option",
         "slurm_env_setup", "slurm_assembly_option", "submit", "python", "fs_low", "fs_high", "jobs", "workers",
         "npool", "out_plot", "refresh", "refresh_catalogs"}
-SLOTS = {("scalar_cloud", "jobs"): "--jobs \\${GALAXY_SLOTS:-1}", ("lens_pairs", "workers"): "--workers \\${GALAXY_SLOTS:-4}"}
+SLOTS = {("scalar_cloud", "jobs"): "--jobs \"\\${GALAXY_SLOTS:-1}\"", ("lens_pairs", "workers"): "--workers \"\\${GALAXY_SLOTS:-4}\""}
 # options naming input files: Galaxy data inputs (format, multiple)
 FILES = {"sensitivity_file": ("h5", False), "population_posterior": ("tabular", False), "pe_file": ("h5", False),
          "sky_map": ("fits", False), "skymap": ("fits", True), "spectral_posterior": ("tabular", False),
