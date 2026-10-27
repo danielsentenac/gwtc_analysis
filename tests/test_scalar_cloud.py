@@ -27,7 +27,7 @@ def test_torque_terms():
 
 
 def test_units():
-    """alpha = 0.1 for M = 20.6 Msun is m_phi = 6.5e-13 eV; the cloud mass fraction rho r_phi^3 / M."""
+    """alpha = 0.1 for M = 20.6 Msun is m_phi = 6.5e-13 eV; the cloud mass fraction rhobar r_phi^3 / M."""
     assert sc.scalar_mass_ev(0.1, 20.6) == pytest.approx(6.49e-13, rel=0.01)
     assert sc.cloud_mass_fraction(1e8, 0.1, 20.6) == pytest.approx(0.0687, rel=0.01)
     assert sc.cloud_mass_fraction(2e8, 0.1, 20.6) == pytest.approx(2 * sc.cloud_mass_fraction(1e8, 0.1, 20.6))
@@ -54,17 +54,17 @@ def _duration(h, f1=25.0, f2=100.0):
 
 
 def test_waveform_vacuum_limit_and_faster_inspiral():
-    """rho = 0 is IMRPhenomXPHM exactly (aligned and precessing); the cloud shortens the inspiral by the time the
+    """rhobar = 0 is IMRPhenomXPHM exactly (aligned and precessing); the cloud shortens the inspiral by the time the
     dephasing predicts."""
     from bilby.gw.source import lal_binary_black_hole
 
     for base in (ALIGNED, PRECESSING):
         vac = lal_binary_black_hole(F, **base, **WF)
-        for rho in (0.0, 1e-30):
-            h = sc.scalar_cloud_binary_black_hole(F, **base, rho_phi=rho, alpha_phi=0.1)
+        for rhobar in (0.0, 1e-30):
+            h = sc.scalar_cloud_binary_black_hole(F, **base, rhobar_phi=rhobar, alpha_phi=0.1)
             assert np.allclose(h["plus"], vac["plus"], rtol=0, atol=1e-35)
     vac = lal_binary_black_hole(F, **ALIGNED, **WF)
-    h = sc.scalar_cloud_binary_black_hole(F, **ALIGNED, rho_phi=1e6, alpha_phi=0.1)
+    h = sc.scalar_cloud_binary_black_hole(F, **ALIGNED, rhobar_phi=1e6, alpha_phi=0.1)
     ff = np.linspace(25, 100, 4000)
     d = sc.dephasing_22(ff, 23.5, sc._source_frame_total_mass(23.5, 850.0), 9.5 / 14, 1e6, 0.1)
     expected = (np.gradient(d, ff)[-1] - np.gradient(d, ff)[0]) / (2 * np.pi)        # change of t(100) - t(25)

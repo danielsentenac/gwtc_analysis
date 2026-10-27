@@ -135,7 +135,7 @@ def plot_dephasing(an, p_cloud: dict, p_vac: dict, out_png: Path) -> Path:
 
     f = np.geomspace(an.s["f_low"], 400, 400)
     m_det, m_src, q = _masses(p_cloud)
-    d = sc.dephasing_22(f, m_det, m_src, q, p_cloud["rho_phi"], p_cloud["alpha_phi"])
+    d = sc.dephasing_22(f, m_det, m_src, q, p_cloud["rhobar_phi"], p_cloud["alpha_phi"])
     fig, ax = plt.subplots(figsize=(7.5, 3.6))
     ax.plot(f, -d, color=COLORS["cloud"], lw=2, label="|ΔΨ₂₂(f)| of the best cloud fit (rad)")
     ax.set_xscale("log")
@@ -322,7 +322,7 @@ def _sample_label(model: str, tau_d: float) -> str:
 def _profile_worker(args):
     wd, i = args
     an = sc.Analysis(wd)
-    vac = json.loads((Path(wd) / "vacuum.json").read_text())
+    vac = sc.read_json(Path(wd) / "vacuum.json")
     sc._dump(Path(wd) / "profile" / f"point_{i:03d}.json", sc.profile_point(an, vac, i))
     return i
 
@@ -351,7 +351,7 @@ def write_slurm_chains(workdir: Path, python: str, stages: list[str], n_backgrou
     wd = str(workdir)
     starts_file = Path(workdir) / "offsource" / "starts.json"
     if starts_file.exists():        # fewer off-source segments than asked (data gaps): no array task past the last
-        n_background = min(n_background, len(json.loads(starts_file.read_text())))
+        n_background = min(n_background, len(sc.read_json(starts_file)))
     runner = Path(sc.__file__)
     lib = Path(python).expanduser().parent.parent / "lib"
     env = {"LD_LIBRARY_PATH": str(lib)} if lib.is_dir() else None
@@ -445,14 +445,14 @@ def run_scalar_cloud(event: str = "GW190728_064510", workdir: str | Path = "scal
         _pool_map(_profile_worker, [(str(wd), i) for i in range(n_grid)], jobs)
         sc.main(["polish", "--workdir", str(wd)])
     if "background" in heavy:
-        starts = json.loads((wd / "offsource" / "starts.json").read_text())
+        starts = sc.read_json(wd / "offsource" / "starts.json")
         _pool_map(_background_worker, [(str(wd), k) for k in range(min(n_background, len(starts)))], jobs)
     if "sample" in heavy:
         for m in sample_models:
             sc.sample(wd, m, tau_d if m == "superradiance" else None, npool=max(1, jobs))
     if "seeded" in heavy:
         sc.main(["seeds", "--workdir", str(wd), "--result", str(_seed_result(wd, tau_d))])
-        starts = json.loads((wd / "offsource" / "starts.json").read_text())
+        starts = sc.read_json(wd / "offsource" / "starts.json")
         _pool_map(_seeded_worker, [(str(wd), k) for k in range(-1, min(n_background, len(starts)))], jobs)
     result = {}
     if "report" in stages:
@@ -469,9 +469,7 @@ def _sampling_results(wd: Path, tau_d: float) -> dict:
     for m in SAMPLE_MODELS:
         f = wd / "sampling" / f"{_sample_label(m, tau_d)}_result.hdf5"
         if f.exists():
-            import bilby
-
-            r = bilby.core.result.read_in_result(str(f))
+            r = sc.read_result(f)
             out[m] = dict(log_evidence=float(r.log_evidence), log_evidence_err=float(r.log_evidence_err),
                           posterior=r.posterior, log_bayes_factor=float(r.log_bayes_factor),
                           nlive=(r.sampler_kwargs or {}).get("nlive"))
@@ -499,7 +497,7 @@ def plot_cloud_posteriors(samp: dict, out_png: Path, m_src_ref: float) -> Path:
         if m not in samp:
             continue
         post = samp[m]["posterior"]
-        axes[0].hist(post["rho_phi"] / 1e8, bins=40, density=True, histtype="step", lw=1.8, color=color, label=m)
+        axes[0].hist(post["rhobar_phi"] / 1e8, bins=40, density=True, histtype="step", lw=1.8, color=color, label=m)
         axes[1].hist(sc.scalar_mass_ev(post["alpha_phi"], m_src_ref) * 1e12, bins=40, density=True,
                      histtype="step", lw=1.8, color=color, label=m)
     axes[0].set_xlabel("ρ̄ (10⁸ g/cm³)", color=INK2, fontsize=9)
@@ -520,7 +518,7 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
 
     from .report import write_simple_html_report
 
-    s = json.loads((wd / "event.json").read_text())
+    s = sc.read_json(wd / "event.json")
     if s.get("pe_file"):
         from .report import record_pe_file
 
@@ -528,7 +526,7 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
     event = s.get("event", "the event")
     plots = wd / "plots"
     an = sc.Analysis(wd)
-    cat = dict(an.catalog_starts()[0], rho_phi=0.0, alpha_phi=0.1)
+    cat = dict(an.catalog_starts()[0], rhobar_phi=0.0, alpha_phi=0.1)
     rows = [dict(fit="catalog maximum-likelihood sample (IMRPhenomXPHM)", log_likelihood_ratio=an.lnl(cat))]
     paras, images, result, bands = [], [], {}, None
     paras.append(
@@ -547,23 +545,23 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
     if seeded_f.exists():
         # the statistic with the cloud fits started in the cloud mode of the event's nested sampling (it reaches the
         # mode that fits started from vacuum miss)
-        prof = json.loads(sc_f.read_text())["profile"] if sc_f.exists() else []
+        prof = sc.read_json(sc_f)["profile"] if sc_f.exists() else []
         sc_f = seeded_f
         bkg_dir = wd / "seeded"
     else:
         prof, bkg_dir = None, wd / "background"
     if vac_f.exists():
-        vac = json.loads(vac_f.read_text())
+        vac = sc.read_json(vac_f)
         rows.append(dict(fit="vacuum best fit (IMRPhenomXPHM)", log_likelihood_ratio=vac["log_likelihood_ratio"]))
     if sc_f.exists():
-        res = json.loads(sc_f.read_text())
+        res = sc.read_json(sc_f)
         p = res["params"]
         m_det, m_src, q = _masses(p)
-        d20 = sc.dephasing_22(np.array([s["f_low"]]), m_det, m_src, q, p["rho_phi"], p["alpha_phi"])[0]
+        d20 = sc.dephasing_22(np.array([s["f_low"]]), m_det, m_src, q, p["rhobar_phi"], p["alpha_phi"])[0]
         rows.append(dict(fit="cloud best fit (IMRPhenomXPHM_Scalar)", log_likelihood_ratio=res["log_likelihood_ratio"],
-                         rho_g_cm3=p["rho_phi"], alpha=p["alpha_phi"],
+                         rhobar_g_cm3=p["rhobar_phi"], alpha=p["alpha_phi"],
                          m_phi_eV=sc.scalar_mass_ev(p["alpha_phi"], m_src),
-                         cloud_mass_fraction=sc.cloud_mass_fraction(p["rho_phi"], p["alpha_phi"], m_src),
+                         cloud_mass_fraction=sc.cloud_mass_fraction(p["rhobar_phi"], p["alpha_phi"], m_src),
                          dephasing_at_f_low_rad=abs(d20)))
         result["Lambda"] = res["Lambda"]
         paras.append(f"<b>Best fit.</b> deviance 𝒟 = 2 (ln L<sub>cloud</sub> − ln L<sub>vacuum</sub>) = <b>{res['Lambda']:.2f}</b>"
@@ -577,7 +575,7 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
         bands = lnl_gain_by_band(an, p, res.get("vacuum", vac)["params"])
         images.append(plot_dephasing(an, p, vac["params"], plots / "dephasing.png"))
         points = res["profile"] if prof is None else prof
-        extra = [json.loads(f.read_text()) for f in sorted((wd / "profile_extra").glob("*.json"))] \
+        extra = [sc.read_json(f) for f in sorted((wd / "profile_extra").glob("*.json"))] \
             if (wd / "profile_extra").is_dir() else []
         if points:
             images.append(plot_profile(points + extra, vac["log_likelihood_ratio"], plots / "profile.png"))
@@ -590,11 +588,11 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
                          "optimistic.")
     bkg = sorted(bkg_dir.glob("inj_*.json")) if bkg_dir.is_dir() else []
     if bkg and "Lambda" in result:
-        lams = np.array([json.loads(f.read_text())["Lambda"] for f in bkg])
+        lams = np.array([sc.read_json(f)["Lambda"] for f in bkg])
         pv, k = background_p_value(lams, result["Lambda"])
         result.update(background_n=len(lams), p_value=pv)
         cloud_inj = sorted((wd / "seeded_cloud").glob("inj_*.json")) if bkg_dir.name == "seeded" else []
-        lams_c = np.array([json.loads(f.read_text())["Lambda"] for f in cloud_inj]) if cloud_inj else None
+        lams_c = np.array([sc.read_json(f)["Lambda"] for f in cloud_inj]) if cloud_inj else None
         images.append(plot_background(lams, result["Lambda"], plots / "background.png", lams_c))
         if lams_c is not None:
             frac = float((lams_c <= result["Lambda"]).mean())
@@ -625,7 +623,7 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
                np.isfinite(r["ln_B_cloud_vs_vacuum"]) else "") for r in tab)
             + f". The paper finds ln B ≈ 0.4 (agnostic) and 3.5 (superradiance, τ_d = 10⁶ yr).")
         if vac_f.exists():
-            m_ref = _masses(json.loads(vac_f.read_text())["params"])[1]
+            m_ref = _masses(sc.read_json(vac_f)["params"])[1]
             images.append(plot_cloud_posteriors(samp, plots / "cloud_posteriors.png", m_src_ref=m_ref))
         from .continuous_waves import EV_TO_HZ
 

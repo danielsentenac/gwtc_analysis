@@ -417,14 +417,14 @@ around a mass M happen on simple multiples of GM/c³:
 
 - **Black hole size**: the Schwarzschild radius is 2GM/c² ≈ 2.95 km per solar mass; light crosses it
   in ≈ 9.9 μs.
-- **Orbits**: Kepler's law T = 2π√(r³/GM), with r = n × GM/c², gives T = 2π n^{3/2} × GM/c³.
+- **Orbits**: Kepler's law T = 2π√(r³/GM), with r = n × GM/c², gives T = 2π n<sup>3/2</sup> × GM/c³.
 
 For a non-spinning black hole:
 
 | Process | In units of M | For 1 M_☉ | For GW250114 (~70 M_☉) |
 |---|---|---|---|
 | Light crossing GM/c² | 1 M | 4.93 μs | ≈ 0.35 ms |
-| Orbit at the ISCO (r = 6M) | 2π·6^{3/2} ≈ 92 M | 0.45 ms | ≈ 32 ms, so f_GW ≈ 63 Hz |
+| Orbit at the ISCO (r = 6M) | 2π·6<sup>3/2</sup> ≈ 92 M | 0.45 ms | ≈ 32 ms, so f_GW ≈ 63 Hz |
 | 220 ringdown period | 2π/0.374 ≈ 16.8 M_f | 83 μs, so f ≈ 12 kHz | ≈ 4 ms, so f ≈ 250 Hz* |
 | 220 damping time | ≈ 11.2 M_f | 55 μs | ≈ 4 ms |
 
@@ -562,7 +562,7 @@ and model against the reference A_i.
   merger is strongly nonlinear, and many overtones contribute. Even 220 + 221 is only considered reliable
   from about 6 M_f, and 220 alone needs a later start: hence 10.5 M_f for the 220 headline.
 - **Upper end, 20 M_f (≈ 7 ms):** the ringdown decays exponentially, with a damping time of about
-  12 M_f. Between 10.5 and 20 M_f the amplitude falls by roughly e^(−9.5/12) ≈ 0.45, so A_f gets wide and
+  12 M_f. Between 10.5 and 20 M_f the amplitude falls by roughly e<sup>−9.5/12</sup> ≈ 0.45, so A_f gets wide and
   the significance drops to about 1.5σ. Later starts would add little.
 - **Spacing:** steps of 1 M_f, plus 9.5 and 10.5 around the reference start.
 
@@ -654,9 +654,10 @@ only about 10⁻⁴ of the binary's mass.
 radius r_φ. A bound cloud's density varies with distance, like the electron density of an atom, peaking
 near the centre and falling off outside r_φ. The model doesn't use the profile in detail: it describes
 the cloud by this single number, and the torque formula is written in terms of it. The docs use the same
-notation (`\bar\rho_\phi`) as the paper, which defines it after its Eq. 2 as "the average mass density of
-scalars in the region r ≲ r_φ" (checked against the PDF). In the code the parameter has no
-bar: `rho_phi` in the sampling parameters, `rho_cgs` / `rho` in the functions, in g/cm³.
+notation (ρ̄_φ) as the paper, which defines it after its Eq. 2 as "the average mass density of
+scalars in the region r ≲ r_φ" (checked against the PDF). The code keeps the bar in the names:
+`rhobar_phi` in the sampling parameters, `rhobar_cgs` / `rhobar` in the functions, in g/cm³ (result
+files written with the earlier `rho_phi` are still read).
 
 "Mean" is meant loosely. The code computes the cloud mass as ρ̄_φ r_φ³ (`cloud_mass_fraction()` in
 `scalar_cloud.py`), without the 4π/3 of a sphere's volume, so ρ̄_φ works as a density scale for the cloud
@@ -673,9 +674,9 @@ the "superradiance" prior below.
 the field and kick part of it out (**ionization**, like ionizing an atom). This removes orbital angular
 momentum, on top of what gravitational waves remove. The ratio of the two losses is δ:
 
-  δ = (cloud loss) / (GW loss), which grows as about v^(−13.5)
+  δ = (cloud loss) / (GW loss), which grows as about v<sup>−13.5</sup>
 
-v is the orbital velocity (v = (πGMf/c³)^(1/3) for GW frequency f). Since δ grows hugely when v is small,
+v is the orbital velocity (v = (πGMf/c³)<sup>1/3</sup> for GW frequency f). Since δ grows hugely when v is small,
 **the effect is strongest at low frequency**, early in the observed inspiral, when the orbit is wide and
 slow. Near the merger the GW loss dominates and the cloud doesn't matter.
 
@@ -683,7 +684,7 @@ slow. Near the merger the GW loss dominates and the cloud doesn't matter.
 time at each frequency. The waveform's phase then differs from vacuum by ΔΨ(f), the **dephasing**. The
 model fixes ΔΨ = 0 at the end of the inspiral (M f_c = 0.018), so the merger and ringdown are unchanged,
 and the difference grows toward low frequencies. Each mode (ℓ, m) of the waveform is multiplied by
-e^{i ΔΨ_ℓm}. With ρ̄_φ = 0, the cloud waveform is exactly the vacuum one (tested in the code).
+e<sup>i ΔΨ<sub>ℓm</sub></sup>. With ρ̄_φ = 0, the cloud waveform is exactly the vacuum one (tested in the code).
 
 Example: ρ̄_φ = 10⁶ g/cm³ and α = 0.1 dephase GW190728 by about 1.6 rad at 20 Hz and 0.13 rad at 30 Hz.
 The best fit has 38 rad at 20 Hz.
@@ -917,7 +918,7 @@ of the black hole's mass.
 In `scalar_cloud`, superradiance enters only through the **superradiance prior** (SM Eqs. 9–10 of the
 paper). It keeps only clouds with **τ_SR ≤ τ_d ≤ τ_ann**, τ_d being the delay between the black hole's
 formation and the merger: the cloud had time to grow, and not yet to decay. That gives the window on α,
-0.02 x^(1/9) ≤ α/(1+q) ≤ 0.11 x^(1/15); the saturation mass gives the upper bound on the density.
+0.02 x<sup>1/9</sup> ≤ α/(1+q) ≤ 0.11 x<sup>1/15</sup>; the saturation mass gives the upper bound on the density.
 
 #### 11.12.1 Constraints on the boson outside scalar_cloud
 
@@ -1010,7 +1011,7 @@ H(z) = H0 · E(z), with E(z) = √(Ω_m(1+z)³ + 1 − Ω_m) in flat ΛCDM.
 
 **The link is the distance.** H0 sets the scale of distances for a given redshift:
 
-  D_L(z) = (1+z) (c/H0) ∫₀^z dz′/E(z′)  ≈ c z / H0  for z ≪ 1 (**Hubble's law**, v = cz = H0 d)
+  D_L(z) = (1+z) (c/H0) ∫<sub>0</sub><sup>z</sup> dz′/E(z′)  ≈ c z / H0  for z ≪ 1 (**Hubble's law**, v = cz = H0 d)
 
 With z alone the distance is known only in units of c/H0; with z and D_L measured independently, H0
 follows. Examples, flat ΛCDM with Ω_m = 0.3065 (computed with astropy):
@@ -1049,7 +1050,7 @@ Invert the distance–redshift relation:
 
 - **nearby source** (z ≪ 1, Hubble's law): **H0 ≈ c z / D_L**;
 - **any redshift** (flat ΛCDM, Ω_m fixed):
-  **H0 = (1 + z) · c / D_L · ∫₀^z dz′ / √(Ω_m(1+z′)³ + 1 − Ω_m)**.
+  **H0 = (1 + z) · c / D_L · ∫<sub>0</sub><sup>z</sup> dz′ / √(Ω_m(1+z′)³ + 1 − Ω_m)**.
 
 D_L is exactly proportional to 1/H0 at fixed z and Ω_m, so the inversion is a division
 (`counterpart.py`, `implied_h0()`):
@@ -1154,13 +1155,13 @@ knowledge rather than checked against the paper itself, so check them before quo
 | model, α = GMm_φ/(ħc), r_φ = GM/(c²α²) (M/α² with G = c = 1) | Roy, Vicente, Aurrekoetxea, Clough & Ferreira, arXiv:2510.17967; code: `scalar_cloud.py` |
 | torque L̇_φ = 4π ρ̄_φ M³ I/v⁴ and the sum I(v, α, q) | arXiv:2510.17967, Eq. 2 and Eq. 6 of its Supplemental Material (as cited in `docs/modes/scalar-cloud.md`); code: `torque_integral()` |
 | GW loss L̇_GW = (32/5) η² M v⁷ | quadrupole formula for a circular orbit, Peters 1964, *Phys. Rev.* 136, B1224 |
-| δ = (5π/8) ρ̄_φ M² I/(η² v¹¹), ~ v^(−13.5) | ratio of the two losses above; code: `dephasing_22()` |
+| δ = (5π/8) ρ̄_φ M² I/(η² v¹¹), ~ v<sup>−13.5</sup> | ratio of the two losses above; code: `dephasing_22()` |
 | ΔΨ₂₂(f) = 2π ∫ (f′ − f) Δ(dt/df) df′ | stationary-phase approximation of an inspiral (e.g. Cutler & Flanagan 1994, *Phys. Rev. D* 49, 2658, from memory), as used in the paper; code: `dephasing_22()` |
 | M f_c = 0.018, end of the inspiral | end of the inspiral region of IMRPhenomX (code comment `MF_INSPIRAL_END`) |
-| (ℓ, m) modes: (|m|/2) ΔΨ₂₂(2f/|m|) | the paper; code: `scalar_cloud_binary_black_hole()` |
+| (ℓ, m) modes: (\|m\|/2) ΔΨ₂₂(2f/\|m\|) | the paper; code: `scalar_cloud_binary_black_hole()` |
 | ionization of gravitational atoms | Baumann, Bertone, Stout & Tomaselli 2022, *Phys. Rev. Lett.* 128, 221102 (from memory) |
 | superradiance | Brito, Cardoso & Pani, *Superradiance*, Lect. Notes Phys. 906 (2015); Arvanitaki & Dubovsky 2011, *Phys. Rev. D* 83, 044026 (from memory) |
-| superradiance window 0.02 x^(1/9) ≤ α/(1+q) ≤ 0.11 x^(1/15) | arXiv:2510.17967, Supplemental Material Eq. 9 (code: `superradiance_window()`) |
+| superradiance window 0.02 x<sup>1/9</sup> ≤ α/(1+q) ≤ 0.11 x<sup>1/15</sup> | arXiv:2510.17967, Supplemental Material Eq. 9 (code: `superradiance_window()`) |
 | saturation density 1.3 × 10⁸ g/cm³ … | arXiv:2510.17967, Supplemental Material Eq. 10 (code: `superradiance_density_max()`) |
 | cloud mass ρ̄_φ r_φ³ < 0.1 M | the paper's agnostic prior; code: `cloud_mass_fraction()` |
 | 𝒟 = 2(ln L_cloud − ln L_vacuum), background p = (k+1)/(n+1) | choices of `gwtc_analysis` (`scalar_cloud.py`, `scalar_cloud_mode.py`), not the paper's |

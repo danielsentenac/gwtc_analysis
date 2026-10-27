@@ -597,11 +597,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Is a binary black hole better fitted with a scalar-field cloud around it (IMRPhenomXPHM_Scalar)?",
         description=(
             "Fit of a binary black hole with the IMRPhenomXPHM_Scalar waveform of Roy et al. (arXiv:2510.17967):\n"
-            "IMRPhenomXPHM plus the angular momentum lost to an ultralight scalar cloud (density rho, alpha = M m_phi).\n"
+            "IMRPhenomXPHM plus the angular momentum lost to an ultralight scalar cloud (mean density rhobar, alpha = M m_phi).\n"
             "Stages:\n"
             "  prepare   : the PE file's settings, noise spectra and top samples; GWOSC strain of the event and of\n"
             "              --n-background off-source segments within an hour of it;\n"
-            "  fit       : vacuum best fit, profile over (alpha, rho) and free cloud fit: deviance D = 2 (lnL_cloud - lnL_vac);\n"
+            "  fit       : vacuum best fit, profile over (alpha, rhobar) and free cloud fit: deviance D = 2 (lnL_cloud - lnL_vac);\n"
             "  background: the same procedure on the vacuum best fit injected into the off-source segments (p-value);\n"
             "  sample    : nested sampling (bilby, dynesty, the paper's settings) of vacuum, agnostic and superradiance\n"
             "              priors, hence the Bayes factor (a cluster job);\n"

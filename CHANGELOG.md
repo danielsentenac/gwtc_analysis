@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changes
+
+- **scalar_cloud**: the mean density of the cloud keeps the bar of the paper's ρ̄_φ in the code: the sampling
+  parameter and result key `rho_phi` is now `rhobar_phi` (`rhobar` in the profile points, `rhobar_g_cm3` in the
+  report, `rhobar_cgs` in the functions). Work directories and sampling results written before are still read,
+  their old keys renamed.
+
 ## 0.9.0 (2026-10-21)
 
 ### New

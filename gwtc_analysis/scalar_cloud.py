@@ -5,24 +5,24 @@ An ultralight scalar of mass m_phi around a binary of total mass M forms a monop
 r_phi = M / alpha^2 (alpha = M m_phi, G = c = hbar = 1). In the late inspiral (beta = R / r_phi << 1) the binary
 ionizes it, and loses angular momentum at the rate (Eq. 2 and Eq. 6 of the paper)
 
-    dL_phi / dt = 4 pi rho M^3 I(v, alpha, q) / v^4,
+    dL_phi / dt = 4 pi rhobar M^3 I(v, alpha, q) / v^4,
     I = sum_{l, m > 0} pi^2 beta^(1/4 + l/2) [2 (1 + q2) / m]^(1/2 - l) [1 + (-1)^l q2^(l - 1)]^2
                        [Y_lm(pi/2, 0) / Gamma(l + 3/2)]^2,
 
-with rho the mean scalar density within r_phi, v = (M Omega)^(1/3), beta = alpha^2 / v^2, q2 = m2 / M, and the
+with rhobar the mean scalar density within r_phi, v = (M Omega)^(1/3), beta = alpha^2 / v^2, q2 = m2 / M, and the
 sum up to l = 4. Against the Newtonian GW loss dL_GW/dt = (32/5) eta^2 M v^7, the orbital frequency then evolves
-faster by the factor 1 + delta(v), delta = (5 pi / 8) rho M^2 I / (eta^2 v^11). In the stationary-phase
+faster by the factor 1 + delta(v), delta = (5 pi / 8) rhobar M^2 I / (eta^2 v^11). In the stationary-phase
 approximation this changes the phase of the (2, 2) mode by
 
     Delta Psi_22(f) = 2 pi int_f^{f_c} (f' - f) Delta(dt/df)(f') df',   Delta(dt/df) = (dt/df)_GW [1/(1 + delta) - 1],
 
 zero with its derivative at the end of the inspiral f_c (M f_c = 0.018), so that only the inspiral changes, and
-of the (l, m) modes by (|m| / 2) Delta Psi_22(2 f / |m|). The masses in delta are source-frame (rho is a physical
+of the (l, m) modes by (|m| / 2) Delta Psi_22(2 f / |m|). The masses in delta are source-frame (rhobar is a physical
 density); the kinematics use the detector-frame masses.
 
 The waveform is the IMRPhenomXPHM polarizations of bilby (the catalog model) plus that correction, computed on the
 modes of SimInspiralChooseFDModes (J frame, seen at theta_jn) and rotated into the polarization frame of
-SimInspiralChooseFDWaveform by an angle fitted on the vacuum modes. With rho = 0 it is exactly IMRPhenomXPHM. The
+SimInspiralChooseFDWaveform by an angle fitted on the vacuum modes. With rhobar = 0 it is exactly IMRPhenomXPHM. The
 paper applies the correction in the co-precessing frame; here it is applied per J-frame mode, which is exact for
 aligned spins and an approximation for precessing ones.
 """
@@ -38,6 +38,7 @@ MSUN_SI = 1.988409870698051e30
 HBAR_EV_S = 6.582119569e-16
 MF_INSPIRAL_END = 0.018            # end of the inspiral of the (2, 2) mode, in units of 1 / M (PhenomX)
 L_MAX = 4
+LEGACY_KEYS = {"rho_phi": "rhobar_phi", "rho": "rhobar", "rho_g_cm3": "rhobar_g_cm3"}   # see read_json
 _trapz = getattr(np, "trapezoid", None) or np.trapz
 
 
@@ -77,9 +78,9 @@ def torque_integral(v: np.ndarray, alpha: float, q2: float) -> np.ndarray:
     return sum(c * beta ** p for p, c in torque_coefficients(q2))
 
 
-def density_geometric(rho_cgs: float) -> float:
+def density_geometric(rhobar_cgs: float) -> float:
     """A mass density in g/cm^3 in geometric units (1/m^2)."""
-    return rho_cgs * 1e3 * G_SI / C_SI ** 2
+    return rhobar_cgs * 1e3 * G_SI / C_SI ** 2
 
 
 def scalar_mass_ev(alpha: float, m_source_msun: float) -> float:
@@ -87,29 +88,29 @@ def scalar_mass_ev(alpha: float, m_source_msun: float) -> float:
     return alpha * HBAR_EV_S / (G_SI * m_source_msun * MSUN_SI / C_SI ** 3)
 
 
-def cloud_mass_fraction(rho_cgs: float, alpha: float, m_source_msun: float) -> float:
-    """rho r_phi^3 / M, the mass of the scalar structure against the binary (the paper's prior keeps it < 0.1)."""
+def cloud_mass_fraction(rhobar_cgs: float, alpha: float, m_source_msun: float) -> float:
+    """rhobar r_phi^3 / M, the mass of the scalar structure against the binary (the paper's prior keeps it < 0.1)."""
     m_geo = G_SI * m_source_msun * MSUN_SI / C_SI ** 2
-    return density_geometric(rho_cgs) * (m_geo / alpha ** 2) ** 3 / m_geo
+    return density_geometric(rhobar_cgs) * (m_geo / alpha ** 2) ** 3 / m_geo
 
 
-def dephasing_22(f: np.ndarray, m_det_msun: float, m_src_msun: float, q: float, rho_cgs: float, alpha: float,
+def dephasing_22(f: np.ndarray, m_det_msun: float, m_src_msun: float, q: float, rhobar_cgs: float, alpha: float,
                  n_grid: int = 4000) -> np.ndarray:
     """Delta Psi_22 (rad) at the frequencies f (Hz, > 0) of the (2, 2) mode; 0 at and above the end of the
     inspiral. q = m2 / m1 <= 1."""
     f = np.asarray(f, float)
     out = np.zeros_like(f)
-    if rho_cgs <= 0:
+    if rhobar_cgs <= 0:
         return out
     m_s = G_SI * m_det_msun * MSUN_SI / C_SI ** 3                     # detector-frame total mass, seconds
     eta = q / (1 + q) ** 2
     q2 = q / (1 + q)
-    rho_m2 = density_geometric(rho_cgs) * (G_SI * m_src_msun * MSUN_SI / C_SI ** 2) ** 2
+    rhobar_m2 = density_geometric(rhobar_cgs) * (G_SI * m_src_msun * MSUN_SI / C_SI ** 2) ** 2
     f_c = MF_INSPIRAL_END / m_s
     lo = max(min(f[f > 0].min(), f_c) * 0.999, 1e-3) if np.any(f > 0) else f_c
     fg = np.geomspace(lo, f_c, n_grid)
     v = (pi * m_s * fg) ** (1 / 3)
-    delta = (5 * pi / 8) * rho_m2 * torque_integral(v, alpha, q2) / (eta ** 2 * v ** 11)
+    delta = (5 * pi / 8) * rhobar_m2 * torque_integral(v, alpha, q2) / (eta ** 2 * v ** 11)
     dtdf_gw = (5 * m_s / (32 * eta * v ** 9)) * (pi * m_s / (3 * v ** 2))
     g = dtdf_gw * (1 / (1 + delta) - 1)                                # Delta(dt/df) <= 0: a faster inspiral
     # Delta Psi(f) = 2 pi int_f^fc (f' - f) g(f') df' = 2 pi [A(f) - f B(f)], A = int f' g, B = int g (from f to fc)
@@ -158,9 +159,9 @@ def _mode_sum(modes: dict, theta_jn: float, n_pos: int, factors: dict | None = N
 
 
 def scalar_cloud_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_distance, a_1, tilt_1, phi_12, a_2,
-                                   tilt_2, phi_jl, theta_jn, phase, rho_phi=0.0, alpha_phi=0.1, **kwargs):
-    """bilby frequency-domain source model: IMRPhenomXPHM in a scalar cloud of mean density rho_phi (g/cm^3) and
-    alpha_phi = M m_phi (source-frame M). rho_phi = 0 is bilby's lal_binary_black_hole, unchanged."""
+                                   tilt_2, phi_jl, theta_jn, phase, rhobar_phi=0.0, alpha_phi=0.1, **kwargs):
+    """bilby frequency-domain source model: IMRPhenomXPHM in a scalar cloud of mean density rhobar_phi (g/cm^3) and
+    alpha_phi = M m_phi (source-frame M). rhobar_phi = 0 is bilby's lal_binary_black_hole, unchanged."""
     import lal
     import lalsimulation as ls
     from bilby.gw.conversion import bilby_to_lalsimulation_spins
@@ -171,7 +172,7 @@ def scalar_cloud_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_d
     wf_kw.update({k: v for k, v in kwargs.items() if k in wf_kw})
     vac = lal_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_distance, a_1, tilt_1, phi_12, a_2,
                                 tilt_2, phi_jl, theta_jn, phase, **wf_kw)
-    if rho_phi <= 0 or vac is None:
+    if rhobar_phi <= 0 or vac is None:
         return vac
     f_ref, f_min = wf_kw["reference_frequency"], wf_kw["minimum_frequency"]
     df = frequency_array[1] - frequency_array[0]
@@ -208,7 +209,7 @@ def scalar_cloud_binary_black_hole(frequency_array, mass_1, mass_2, luminosity_d
         if m == 0:
             factors[(l, m)] = 0.0
             continue
-        dpsi = (abs(m) / 2) * dephasing_22(2 * af / abs(m), m_det, m_src, q, rho_phi, alpha_phi)
+        dpsi = (abs(m) / 2) * dephasing_22(2 * af / abs(m), m_det, m_src, q, rhobar_phi, alpha_phi)
         # modes with m > 0 live at f < 0 in LAL's two-sided convention: the phase shift changes sign with f
         factors[(l, m)] = np.exp(-1j * np.sign(f_two) * np.sign(m) * dpsi * SIGN_CONVENTION) - 1.0
     dp, dx = _mode_sum(modes, theta_jn, n_pos, factors)
@@ -294,7 +295,7 @@ def fetch_strain(workdir, n_offsource: int = 0, sampling_frequency: float = 2048
     from gwpy.timeseries import TimeSeries
 
     wd = Path(workdir)
-    s = json.loads((wd / "event.json").read_text())
+    s = read_json(wd / "event.json")
     dur, t0 = s["duration"], s["segment_start"]
     s["sampling_frequency"] = sampling_frequency
     (wd / "event.json").write_text(json.dumps(s, indent=1))
@@ -331,14 +332,13 @@ class Analysis:
     """The likelihood of one data segment (the event or an off-source one), and the fits on it."""
 
     def __init__(self, workdir, segment: str | None = None):
-        import json
         from pathlib import Path
 
         import bilby
 
         bilby.core.utils.logger.setLevel("ERROR")
         self.wd = Path(workdir)
-        self.s = json.loads((self.wd / "event.json").read_text())
+        self.s = read_json(self.wd / "event.json")
         self.catalog = dict(np.load(self.wd / "catalog_samples.npz"))
         fs, dur = self.s["sampling_frequency"], self.s["duration"]
         ifos = bilby.gw.detector.InterferometerList([])
@@ -393,30 +393,30 @@ class Analysis:
                 and 0 <= p["tilt_1"] <= pi and 0 <= p["tilt_2"] <= pi and 0 <= p["theta_jn"] <= pi
                 and p["luminosity_distance"] > 10 and p["chirp_mass"] > 0)
 
-    def fit(self, start: dict, rho: float = 0.0, alpha: float = 0.1, free_cloud: bool = False,
+    def fit(self, start: dict, rhobar: float = 0.0, alpha: float = 0.1, free_cloud: bool = False,
             maxfev: int = 1500, step: float = 0.3) -> tuple[dict, float]:
         """Nelder-Mead in coordinates whitened by the catalog covariance (the binary parameters), from `start`;
-        the cloud (log10 rho, alpha) fixed, or free with `free_cloud`. Returns (parameters, ln L ratio)."""
+        the cloud (log10 rhobar, alpha) fixed, or free with `free_cloud`. Returns (parameters, ln L ratio)."""
         from scipy.optimize import minimize
 
         th0 = np.array([start[k] for k in FIT_KEYS])
         n = len(FIT_KEYS) + (2 if free_cloud else 0)
-        l0, a0 = (np.log10(rho) if rho > 0 else 3.0), alpha
+        l0, a0 = (np.log10(rhobar) if rhobar > 0 else 3.0), alpha
 
         def unpack(y):
             p = dict(start)
             p.update(zip(FIT_KEYS, th0 + self.chol @ y[:len(FIT_KEYS)]))
             if free_cloud:
-                p["rho_phi"], p["alpha_phi"] = 10 ** (l0 + 0.5 * y[-2]), a0 + 0.05 * y[-1]
+                p["rhobar_phi"], p["alpha_phi"] = 10 ** (l0 + 0.5 * y[-2]), a0 + 0.05 * y[-1]
             else:
-                p["rho_phi"], p["alpha_phi"] = rho, alpha
+                p["rhobar_phi"], p["alpha_phi"] = rhobar, alpha
             return p
 
         def obj(y):
             p = unpack(y)
             if not self._valid(p) or not (0.005 <= p["alpha_phi"] <= 0.5 * (1 + p["mass_ratio"])):
                 return 1e9
-            if free_cloud and not (2 <= np.log10(p["rho_phi"]) <= 11):
+            if free_cloud and not (2 <= np.log10(p["rhobar_phi"]) <= 11):
                 return 1e9
             return -self.lnl(p)
 
@@ -450,7 +450,7 @@ VACUUM_MAXFEV, PROFILE_MAXFEV, POLISH_MAXFEV, N_POLISH = 2500, 1200, 3000, 2
 def fit_vacuum(an: Analysis, starts: list[dict]) -> dict:
     best = None
     for st in starts:
-        p, l = an.fit(dict(st, rho_phi=0.0, alpha_phi=0.1), maxfev=VACUUM_MAXFEV)
+        p, l = an.fit(dict(st, rhobar_phi=0.0, alpha_phi=0.1), maxfev=VACUUM_MAXFEV)
         _log(f"vacuum fit from q = {st['mass_ratio']:.2f}: ln L = {l:.2f}")
         if best is None or l > best[1]:
             best = (p, l)
@@ -463,7 +463,7 @@ def profile_point(an: Analysis, vacuum: dict, i: int, alpha: float | None = None
     from the vacuum best fit."""
     alpha = ALPHAS[i // len(DEPHASING_TARGETS)] if alpha is None else alpha
     target = DEPHASING_TARGETS[i % len(DEPHASING_TARGETS)] if target is None else target
-    rho = an.density_for_dephasing(vacuum["params"], alpha, target)
+    rhobar = an.density_for_dephasing(vacuum["params"], alpha, target)
     best = None
     # a strong dephasing at low frequency is partly compensated by a lower chirp mass (Roy et al., Fig. 8): the
     # binary is re-fitted from the vacuum best fit and from starts with the chirp mass lowered and the spins
@@ -473,10 +473,10 @@ def profile_point(an: Analysis, vacuum: dict, i: int, alpha: float | None = None
         if shift:
             start["chirp_mass"] *= 1 + shift
             start["tilt_1"] = start["tilt_2"] = pi / 2
-        p, l = an.fit(start, rho=rho, alpha=alpha, maxfev=PROFILE_MAXFEV, step=0.5 if shift else 0.3)
+        p, l = an.fit(start, rhobar=rhobar, alpha=alpha, maxfev=PROFILE_MAXFEV, step=0.5 if shift else 0.3)
         if best is None or l > best[1]:
             best = (p, l, shift)
-    return dict(index=i, alpha=alpha, target_dephasing=target, rho=rho, params=best[0],
+    return dict(index=i, alpha=alpha, target_dephasing=target, rhobar=rhobar, params=best[0],
                 log_likelihood_ratio=best[1], chirp_mass_shift_of_start=best[2])
 
 
@@ -484,7 +484,7 @@ def polish(an: Analysis, points: list[dict], vacuum: dict) -> dict:
     """Free fit (binary and cloud) from the best profile points; the deviance D = 2 (ln L_cloud - ln L_vac), stored as "Lambda"."""
     best = None
     for pt in sorted(points, key=lambda d: -d["log_likelihood_ratio"])[:N_POLISH]:
-        p, l = an.fit(pt["params"], rho=pt["rho"], alpha=pt["alpha"], free_cloud=True, maxfev=POLISH_MAXFEV)
+        p, l = an.fit(pt["params"], rhobar=pt["rhobar"], alpha=pt["alpha"], free_cloud=True, maxfev=POLISH_MAXFEV)
         if best is None or l > best[1]:
             best = (p, l)
     if best[1] < vacuum["log_likelihood_ratio"]:
@@ -510,7 +510,7 @@ def cloud_seeds(an: Analysis, posterior, n_top: int = 25, n_seeds: int = N_SEEDS
     """Starting points in the cloud mode: the highest-likelihood samples of a nested-sampling posterior of the
     event (time marginalized: the merger time of each is set by a scan of the fixed-time likelihood), the n_seeds
     best at fixed time."""
-    keys = FIT_KEYS + SKY_KEYS + ["rho_phi", "alpha_phi"]
+    keys = FIT_KEYS + SKY_KEYS + ["rhobar_phi", "alpha_phi"]
     t0 = float(an.catalog["geocent_time"][0])
     out = []
     for _, row in posterior.sort_values("log_likelihood", ascending=False).head(n_top).iterrows():
@@ -537,8 +537,8 @@ def seeded_statistic(an: Analysis, vacuum_start: dict, seeds: list[dict], time_s
         p = dict(s["params"], geocent_time=s["params"]["geocent_time"] + time_shift)
         l = an.lnl(p)
         for step in SEEDED_STEPS:
-            p, l = an.fit(p, rho=p["rho_phi"], alpha=p["alpha_phi"], free_cloud=True, maxfev=SEEDED_MAXFEV, step=step)
-        _log(f"cloud fit from seed: ln L = {l:.2f} (rho {p['rho_phi']:.3g}, alpha {p['alpha_phi']:.3f})")
+            p, l = an.fit(p, rhobar=p["rhobar_phi"], alpha=p["alpha_phi"], free_cloud=True, maxfev=SEEDED_MAXFEV, step=step)
+        _log(f"cloud fit from seed: ln L = {l:.2f} (rhobar {p['rhobar_phi']:.3g}, alpha {p['alpha_phi']:.3f})")
         fits.append(dict(params=p, log_likelihood_ratio=l))
         if l > best[1]:
             best = (p, l)
@@ -549,7 +549,7 @@ def seeded_statistic(an: Analysis, vacuum_start: dict, seeds: list[dict], time_s
 # ---------------------------------------------------------------------------
 # nested sampling: the evidences of vacuum and of a cloud (the paper's Bayes factor)
 # ---------------------------------------------------------------------------
-RHO_MAX_AGNOSTIC = 1e9             # g/cm^3: the paper's "broad uniform prior" (its upper end is not given)
+RHOBAR_MAX_AGNOSTIC = 1e9             # g/cm^3: the paper's "broad uniform prior" (its upper end is not given)
 SAMPLER_SETTINGS = dict(nlive=1000, naccept=60, sample="acceptance-walk", dlogz=0.1)   # as the paper
 
 
@@ -560,7 +560,7 @@ def superradiance_window(m1_source: float, tau_d_yr: float) -> tuple[float, floa
 
 
 def superradiance_density_max(alpha: float, q: float, m1_source: float) -> float:
-    """Upper bound on rho (g/cm^3) from the saturation mass of the cloud (Eq. 10 of the paper's SM)."""
+    """Upper bound on rhobar (g/cm^3) from the saturation mass of the cloud (Eq. 10 of the paper's SM)."""
     return 1.3e8 * (1 + q) ** 3 / 8 * ((alpha / (1 + q)) / 0.07) ** 7 * (10.0 / m1_source) ** 2
 
 
@@ -580,19 +580,19 @@ def _cloud_conversion(tau_d_yr):
             m_src = m_det * ratio
             p["alpha_bound"] = p["alpha_phi"] / (0.5 * (1 + q))
             m_geo = G_SI * m_src * MSUN_SI / C_SI ** 2
-            p["cloud_mass_fraction"] = density_geometric(p["rho_phi"]) * (m_geo / p["alpha_phi"] ** 2) ** 3 / m_geo
+            p["cloud_mass_fraction"] = density_geometric(p["rhobar_phi"]) * (m_geo / p["alpha_phi"] ** 2) ** 3 / m_geo
             if tau_d_yr:
                 m1s = np.asarray(out["mass_1"]) * ratio
                 lo, hi = superradiance_window(m1s, tau_d_yr)
                 p["superradiance_alpha"] = (p["alpha_phi"] / (1 + q) - lo) / (hi - lo)
-                p["superradiance_density"] = p["rho_phi"] / superradiance_density_max(p["alpha_phi"], q, m1s)
+                p["superradiance_density"] = p["rhobar_phi"] / superradiance_density_max(p["alpha_phi"], q, m1s)
         return p
     return convert
 
 
 def sampling_priors(an: Analysis, model: str, tau_d_yr: float | None = None):
     """The binary priors of the GWTC-2.1 LALInference analysis, and those of the cloud: none (vacuum), agnostic
-    (rho uniform, alpha <= (1 + q) / 2, cloud mass < 0.1 M) or superradiance (Eqs. 9-10 for tau_d)."""
+    (rhobar uniform, alpha <= (1 + q) / 2, cloud mass < 0.1 M) or superradiance (Eqs. 9-10 for tau_d)."""
     import bilby
     from bilby.core.prior import Constraint, Cosine, PowerLaw, Sine, Uniform
     from bilby.gw.prior import UniformInComponentsChirpMass, UniformInComponentsMassRatio
@@ -623,9 +623,9 @@ def sampling_priors(an: Analysis, model: str, tau_d_yr: float | None = None):
         geocent_time=Uniform(tc - 0.1, tc + 0.1, name="geocent_time"),
     ))
     if model == "vacuum":
-        pri["rho_phi"], pri["alpha_phi"] = 0.0, 0.1
+        pri["rhobar_phi"], pri["alpha_phi"] = 0.0, 0.1
     else:
-        pri["rho_phi"] = Uniform(0.0, RHO_MAX_AGNOSTIC, name="rho_phi")
+        pri["rhobar_phi"] = Uniform(0.0, RHOBAR_MAX_AGNOSTIC, name="rhobar_phi")
         pri["alpha_phi"] = Uniform(0.008, 1.0, name="alpha_phi")
         pri["alpha_bound"] = Constraint(0.0, 1.0, name="alpha_bound")
         pri["cloud_mass_fraction"] = Constraint(0.0, 0.1, name="cloud_mass_fraction")
@@ -653,6 +653,25 @@ def sample(workdir, model: str, tau_d_yr: float | None = None, npool: int = 1, n
 # ---------------------------------------------------------------------------
 # command line of the jobs
 # ---------------------------------------------------------------------------
+def read_json(path):
+    """A JSON file of the work directory. The mean density was rho_phi (rho in the profile points, rho_g_cm3 in
+    the report) before it became rhobar_phi: the old keys are renamed, so earlier work directories still read."""
+    import json
+    from pathlib import Path
+
+    return json.loads(Path(path).read_text(),
+                      object_hook=lambda d: {LEGACY_KEYS.get(k, k): v for k, v in d.items()})
+
+
+def read_result(path):
+    """A bilby result of the sampling stage, the posterior column rho_phi of earlier runs renamed rhobar_phi."""
+    import bilby
+
+    r = bilby.core.result.read_in_result(str(path))
+    r.posterior = r.posterior.rename(columns=LEGACY_KEYS)
+    return r
+
+
 def _dump(path, obj) -> None:
     import json
 
@@ -671,7 +690,6 @@ def _dump(path, obj) -> None:
 
 def main(argv=None) -> int:
     import argparse
-    import json
     import time
     from pathlib import Path
 
@@ -705,12 +723,12 @@ def main(argv=None) -> int:
         _dump(wd / "vacuum.json", fit_vacuum(an, an.catalog_starts()))
     elif args.cmd == "profile":
         an = Analysis(wd)
-        vac = json.loads((wd / "vacuum.json").read_text())
+        vac = read_json(wd / "vacuum.json")
         _dump(wd / "profile" / f"point_{args.task:03d}.json", profile_point(an, vac, args.task))
     elif args.cmd == "polish":
         an = Analysis(wd)
-        vac = json.loads((wd / "vacuum.json").read_text())
-        points = [json.loads(p.read_text()) for p in sorted((wd / "profile").glob("point_*.json"))]
+        vac = read_json(wd / "vacuum.json")
+        points = [read_json(p) for p in sorted((wd / "profile").glob("point_*.json"))]
         res = polish(an, points, vac)
         res.update(vacuum=vac, profile=points)
         _dump(wd / "scalar.json", res)
@@ -718,30 +736,28 @@ def main(argv=None) -> int:
              f"{res['log_likelihood_ratio']:.2f})")
     elif args.cmd == "extra":
         an = Analysis(wd)
-        vac = json.loads((wd / "vacuum.json").read_text())
+        vac = read_json(wd / "vacuum.json")
         res = profile_point(an, vac, -1, alpha=args.alpha, target=args.target)
         _dump(wd / "profile_extra" / f"point_a{args.alpha:g}_t{args.target:g}.json", res)
     elif args.cmd == "sample":
         sample(wd, args.model, args.tau_d if args.model == "superradiance" else None, npool=args.npool,
                nlive=args.nlive)
     elif args.cmd == "seeds":
-        import bilby
-
         an = Analysis(wd)
-        post = bilby.core.result.read_in_result(args.result).posterior
+        post = read_result(args.result).posterior
         _dump(wd / "cloud_seeds.json", cloud_seeds(an, post))
     elif args.cmd == "seeded":                     # task -1: the event; k >= 0: off-source injection k
-        seeds = json.loads((wd / "cloud_seeds.json").read_text())
-        vac = json.loads((wd / "vacuum.json").read_text())
+        seeds = read_json(wd / "cloud_seeds.json")
+        vac = read_json(wd / "vacuum.json")
         if args.task < 0:
             an, shift, st, name = Analysis(wd), 0.0, vac["params"], "event"
         else:
             name = f"inj_{args.task:03d}"
-            starts = json.loads((wd / "offsource" / "starts.json").read_text())
+            starts = read_json(wd / "offsource" / "starts.json")
             an = Analysis(wd, segment=f"{args.task:03d}")
-            inj = dict(vac["params"], rho_phi=0.0)
+            inj = dict(vac["params"], rhobar_phi=0.0)
             if args.inject == "cloud":
-                inj = json.loads((wd / "seeded" / "event.json").read_text())["params"]
+                inj = read_json(wd / "seeded" / "event.json")["params"]
             shift = starts[args.task] - an.s["segment_start"]
             an.inject(inj, shift)
             st = dict(inj, geocent_time=inj["geocent_time"] + shift)
@@ -751,10 +767,10 @@ def main(argv=None) -> int:
         _log(f"seeded {name}: deviance D = {res['Lambda']:.2f}")
     elif args.cmd == "background":
         k = f"{args.task:03d}"
-        starts = json.loads((wd / "offsource" / "starts.json").read_text())
+        starts = read_json(wd / "offsource" / "starts.json")
         an = Analysis(wd, segment=k)
-        vac = json.loads((wd / "vacuum.json").read_text())
-        inj = dict(vac["params"], rho_phi=0.0)
+        vac = read_json(wd / "vacuum.json")
+        inj = dict(vac["params"], rhobar_phi=0.0)
         shift = starts[args.task] - an.s["segment_start"]
         an.inject(inj, shift)
         st = dict(inj, geocent_time=inj["geocent_time"] + shift)
