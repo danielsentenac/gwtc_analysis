@@ -278,7 +278,7 @@ The observed gain follows it in L1 between 30 and 35 Hz only, not below 30 Hz no
 30 Hz hold a noise fluctuation or the signal is the open question; the background says that noise rarely gives as
 much near this mode.
 
-![Background of \(\mathcal{D}\) and injections of the cloud best fit](../img/modes/scalar_cloud_background_GW190728.png)
+![Background of 𝒟 and injections of the cloud best fit](../img/modes/scalar_cloud_background_GW190728.png)
 
 **Between two distributions.** The same procedure on the event's cloud best fit injected into the 150 off-source
 segments gives \(\mathcal{D}\) around 25, the density and α recovered without bias (median 8.4 × 10⁶ g/cm³ and 0.16 for 5.8 × 10⁶

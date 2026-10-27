@@ -349,7 +349,7 @@ posterior of the runs, sample by sample, to other Monte Carlo settings (weights
 100 live points per run, 10% of the injections and 1500 PE samples per event:
 
 - **runs A**, those of the [result](#result): 8 runs, the paper's 137 events;
-- **runs B**: 10 runs, 136 events, sampled in September 2026 with an earlier version of the mode; the 137th event,
+- **runs B**: 10 runs, 136 events, sampled with an earlier version of the mode; the 137th event,
   GW191127, was added afterwards with the runner's `reweight --target-inputs` (`python h0_icarogw.py reweight`, an
   option the `gwtc_analysis` command does not expose).
 

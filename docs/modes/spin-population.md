@@ -109,18 +109,14 @@ than the detected binaries, median 0.84), a fraction **0.39 (0.30–0.48)** of t
 0.24–0.42 in GWTC-4.0 [\[13\]](../references.md#ref-13): a substantial population consistent with dynamical
 assembly. The fraction comes mostly from the near-equal-mass binaries, where the linear trend puts the mean just
 below zero; it depends on the assumed q distribution and on the linear form of the trend, which GWTC-4.0 does not
-assume. Until October 2026 the mode averaged over the detected mass ratios, with 0.35 (0.26–0.43) from an
-earlier run (before the fixes of the October 2026 reviews). The run of 14 October 2026, 0.42 (0.32–0.52), read the
-O1–O3 events from the cosmologically reweighted PE files, dividing by the prior these files record (D_L²) while
-their samples follow the cosmological one, and GWTC-4.0 from its earlier release version; the rule of
-[Which PE file is read](../data-sources.md#which-pe-file-is-read) corrects both.
+assume. The PE files read are those of [Which PE file is read](../data-sources.md#which-pe-file-is-read).
 
 ![BBH chi_eff population](../img/modes/spin_population.png)
 
 *Left: the population χ_eff distribution at three mass ratios (median and 90%). Right: the posterior of the
 mean at q = 0.5 against the slope; 99.8% of the samples have α < 0.*
 
-Diagnostics of the correlated run (15 October 2026; PE files: 62 `nocosmo` for O1–O3, 75 combined of GWTC-4.0
+Diagnostics of the correlated run (PE files: 62 `nocosmo` for O1–O3, 75 combined of GWTC-4.0
 v3): at the posterior median 16,164 effective injections (threshold 548) and at least 18 effective PE samples per
 event (threshold 10); 20 walkers × 1200 steps, acceptance 0.62, autocorrelation time 40 steps, about 400
 independent samples.

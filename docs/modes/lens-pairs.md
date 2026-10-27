@@ -92,10 +92,12 @@ strain.** It uses scipy (`gaussian_kde`, at its default bandwidth), healpy and a
    ln 1.05, must intersect; otherwise log₁₀ 𝓑 = −30 and no density is evaluated.
 5. **Intrinsic term.** π in the unbounded coordinates is the box prior (uniform on \(m_2 \le m_1\) in 1–1000 M☉)
    times the Jacobian, with \(u_i = a_i/0.99\) and \(c_i = \cos\theta_i\):
-   \[
-   \ln\pi = \ln\frac{2}{999^2} + 2\ln\mathcal{M} + \tfrac25\ln(1+q) - \tfrac65\ln q + \ln q(1-q)
-   + \sum_i \ln u_i(1-u_i) + \sum_i \ln\frac{1-c_i^2}{2} .
-   \]
+
+    \[
+    \ln\pi = \ln\frac{2}{999^2} + 2\ln\mathcal{M} + \tfrac25\ln(1+q) - \tfrac65\ln q + \ln q(1-q) +
+    \sum_i \ln u_i(1-u_i) + \sum_i \ln\frac{1-c_i^2}{2} .
+    \]
+
 6. **Sky term.** Histogram of the samples at nside 64, smoothed (2° FWHM), floored at 10⁻¹² and normalized;
    \(\ln\mathcal{B}_\text{sky} = \ln(N_\text{pix}\sum P_1P_2)\).
 7. **Lensed delays.** 200,000 draws: \(z_s\) among the event redshifts, \(z_l\) uniform in \((0, z_s)\),
@@ -114,8 +116,10 @@ with FAR < 1 /yr, **3486 pairs**, and its data release ([Zenodo 18163632](https:
 posterior-overlap results of each pair. `gwtc_analysis lens_pairs` (default catalog GWTC-4) selects the same
 84 events.
 
-Run of 14 October 2026 (PE files from the S3 mirror, 2000 samples per event), compared pair by pair with the
-LVK results (superevent names mapped to the catalog events through their GraceDB times):
+### Results
+
+With the PE files from the S3 mirror and 2000 samples per event, compared pair by pair with the LVK results
+(superevent names mapped to the catalog events through their GraceDB times):
 
 | | LVK (posterior overlap) | `lens_pairs` |
 |---|---|---|

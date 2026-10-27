@@ -205,8 +205,7 @@ At z = 0.438, H₀ ≈ 30 corresponds to \(d_L\) ≈ 5.6 Gpc and H₀ ≈ 75 to 
 of the flare have a median of 4.6 Gpc with 16% below 2.2 Gpc. With injections, the source-frame mass model
 of the BBH class (Power Law + Peak, m_max = 87 M☉) weights both the selection and the event: GW190521's
 primary, about 95 M☉ in the source frame at the flare's redshift, lies beyond it, so only a few samples
-carry weight (hence the jagged curve) and the population, not the flare, shapes the upper side. Until
-October 2026 the event carried no mass term (30.4, median 63.2), inconsistent with the selection. The result
+carry weight (hence the jagged curve) and the population, not the flare, shapes the upper side. The result
 depends strongly on the sky selection (median 55.5 within 5°, against 94.9 within 3°) and on the waveform
 model; only IMRPhenomXPHM has enough samples near the flare in GWTC-2.1. Read it as an illustration of the
 method, not as a measurement.
