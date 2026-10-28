@@ -1084,6 +1084,21 @@ BNS signals are long, so a run with the strain overlays takes several minutes
 
 ---
 
+## TODO
+
+- **`event_selection`: a `--q-max` option** (and `--q-min`) on the mass ratio q = m₂/m₁, computed from the
+  GWOSC medians of m₁ and m₂ (after the m₁ ≥ m₂ ordering), with a `mass_ratio` column in the TSV. Unequal
+  masses (q ≈ 0.3–0.5) are a fingerprint of hierarchical mergers; today the cut is applied by hand on the
+  TSV. With it, GW241011-like candidates, outside the pair-instability gap, are selected in one command:
+  `--preset hierarchical --pisn-gap-min 15 --q-max 0.35` (13 events, GW241011_233834 among them; see
+  [docs/modes/event-selection.md](docs/modes/event-selection.md#hierarchical-merger-candidates)). To
+  update with it: `cli.py`, `cli_defaults.py`, `event_selection.py`, the Galaxy wrapper
+  (`galaxy/gen_galaxy_wrapper.py`, `galaxy/gwtc_analysis.xml`), the auto-generated CLI options of this
+  README and `docs/cli-reference.md`, the docs page (replace the manual TSV filter), and a test in
+  `tests/test_source_classes.py`.
+
+---
+
 ## Testing
 
 ```bash
