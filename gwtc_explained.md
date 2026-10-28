@@ -663,8 +663,7 @@ files written with the earlier `rho_phi` are still read).
 `scalar_cloud.py`), without the 4π/3 of a sphere's volume, so ρ̄_φ works as a density scale for the cloud
 rather than an exact volume average. That doesn't change the fit, since ρ̄_φ is just the amplitude of
 the torque. It matters when comparing the cloud mass, or the 0.1 M cap of the agnostic prior, with other
-papers. A factor 4π/3 ≈ 4.2 would also be the size of the "2 to 4 times lower density" difference with the
-paper (section 11.8); how the paper normalizes it hasn't been checked, so this is only a possibility.
+papers. A factor 4π/3 ≈ 4.2 is close to the ~5× lower density found with the superradiance prior (section 11.8), but the densities with the agnostic prior agree with the paper's, which argues against a plain normalization factor; how the paper normalizes it hasn't been checked.
 
 How would such a cloud form? A **spinning** black hole can amplify waves of a bosonic field and transfer
 its spin to them (**superradiance**), growing a cloud spontaneously when α is around 0.1. This motivates
@@ -831,8 +830,7 @@ Chirp-mass posteriors (detector frame, median and 90%):
 The identical vacuum value places the paper's numbers in the detector frame. The shift is reproduced,
 smaller: 2.5% here against 4.4% in the paper.
 
-**Not reproduced:** a smaller superradiance Bayes factor (1.3 against 3.5), a density 2 to 4 times
-lower, and only part of the chirp-mass shift (2.5% against 4.4%). The three go together: a weaker cloud
+**Not reproduced:** a smaller superradiance Bayes factor (1.3 against 3.5), a density about 5 times lower with the superradiance prior (with the agnostic prior the densities agree), and only part of the chirp-mass shift (2.5% against 4.4%). The three go together: a weaker cloud
 needs less chirp-mass compensation. Possible causes:
 
 - the frame where the correction is applied: here each mode in the **J frame** (fixed to the total
@@ -1170,7 +1168,7 @@ knowledge rather than checked against the paper itself, so check them before quo
 | sampler settings (1000 live points, naccept 60, dlogz 0.1) | the paper's, as recorded in `SAMPLER_SETTINGS` |
 | IMRPhenomXPHM | Pratten et al. 2021, *Phys. Rev. D* 103, 104056 (from memory) |
 | GW190728 results (𝒟 = 8.98, ln B, ρ̄_φ, band table) | runs of this mode, as reported in `docs/modes/scalar-cloud.md` |
-| paper's ln B = 3.5 and 0.4, ρ̄_φ ≈ 0.7 × 10⁸ | arXiv:2510.17967, as quoted in `docs/modes/scalar-cloud.md` |
+| paper's ln B = 3.5 and 0.4, ρ̄_φ ≈ 0.9 × 10⁸ (superradiance) and peak ≈ 0.35 × 10⁸ (agnostic), read off its Fig. 3 | arXiv:2510.17967, as quoted in `docs/modes/scalar-cloud.md` |
 | m_φ ≈ 6.5 × 10⁻¹³ eV for α = 0.1, M = 20 M_☉ | m_φ = α ħc³/(GM); code: `scalar_mass_ev()` |
 | r_φ ≈ 800 km, cloud mass ~10⁻⁴ M for the best fit | computed in this session from the formulas above |
 | continuous wave at 2 m_φ c²/h | boson annihilation into gravitons (Arvanitaki & Dubovsky 2011, above); LVK O3 all-sky boson search band 20–610 Hz as quoted in the docs |

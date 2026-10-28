@@ -54,7 +54,7 @@ that analysis and adds a frequentist check around it.
 - the two cloud samplings of GW190728 used 500 live points instead of 1000 (cost).
 
 These are the likely causes of the remaining differences (a superradiance Bayes factor of 1.3 against 3.5, a
-density 2 to 4 times lower, a chirp-mass shift of 2.5% against 4.4%): see [Against the paper](#gw190728_064510).
+density about 5 times lower with the superradiance prior, a chirp-mass shift of 2.5% against 4.4%): see [Against the paper](#gw190728_064510).
 
 ## The model
 
@@ -235,8 +235,8 @@ best fit (`scalar_cloud.py seeded --inject cloud`).
 | injections of the cloud best fit (sensitivity) | \(\mathcal{D}\) = 25 (5–95%: 9.9–44); 4.7% at or below the event's 8.98 | none |
 | ln B, superradiance prior (τ_d = 10⁶ yr); ± the statistical uncertainty of the nested-sampling evidences | **1.34 ± 0.30** | 3.5 |
 | ln B, agnostic prior (\(\bar\rho_\phi \le 10^9\) g/cm³) | **−0.82 ± 0.31** | 0.4 (upper end of the prior not given) |
-| \(\bar\rho_\phi\), agnostic (90%) | 3.2 (0.9–5.9) × 10⁷ g/cm³ | ≈ 0.7 × 10⁸ (read off Fig. 3, not stated in the text) |
-| \(\bar\rho_\phi\), superradiance | (0.18 ± 0.08) × 10⁸ g/cm³ | |
+| \(\bar\rho_\phi\), agnostic (90%) | 3.2 (0.9–5.9) × 10⁷ g/cm³ | broad, peak ≈ 0.35 × 10⁸, up to ~1 × 10⁸ (read off Fig. 3, not stated in the text) |
+| \(\bar\rho_\phi\), superradiance | (0.18 ± 0.08) × 10⁸ g/cm³ | ≈ 0.9 (0.6–1.2) × 10⁸ (read off Fig. 3) |
 
 The agnostic Bayes factor depends on the upper end of the uniform prior on \(\bar\rho_\phi\), which the paper does not
 give. The posterior lies below \(6 \times 10^7\) g/cm³; lowering the upper end (the prior fraction drawn from the
@@ -293,7 +293,7 @@ p-value, so \(\mathcal{D}\), the background and the injections have no published
 with a density of 10⁷ g/cm³ and α of a few 0.1; a median likelihood gain over the posterior of 4.2 (superradiance)
 and 4.05 (agnostic), against the paper's 3.7 (the best-fit gain, 4.49, is a maximum, not comparable); an
 agnostic Bayes factor that matches theirs for a prior up to about \(3 \times 10^8\) g/cm³; but a smaller Bayes
-factor with the superradiance prior (1.3 against 3.5) and a density 2 to 4 times lower. The chirp-mass shift is
+factor with the superradiance prior (1.3 against 3.5) and a density about 5 times lower with that prior (the agnostic densities agree). The chirp-mass shift is
 reproduced in the posteriors, smaller: the vacuum posterior, 10.14 M☉ (detector frame), is the paper's exactly
 (which places its values in the detector frame too), and the cloud posteriors sit at 9.89 M☉, 2.5% below it, against
 4.4% below (9.69 M☉) in the paper. The cloud best fit (10.11 M☉) is not in the bulk of the cloud posterior: the fits
