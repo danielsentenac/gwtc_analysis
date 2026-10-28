@@ -321,7 +321,7 @@ def _plot_remnants(df: pd.DataFrame, out_png: Path, catalogs_label: str = "") ->
         ax.scatter(d.loc[~bbh, "total_mass_source"], d.loc[~bbh, "radiated_energy_msun"], s=30, color=orange,
                    edgecolor=surface, lw=1, label=f"with a neutron star ({int((~bbh).sum())})", zorder=4)
     m = np.geomspace(max(1.0, d["total_mass_source"].min() * 0.8), d["total_mass_source"].max() * 1.2, 50)
-    ax.plot(m, 0.048 * m, color=ink2, lw=0.9, ls=(0, (3, 3)), zorder=2, label="4.8%: equal masses, no spin")
+    ax.plot(m, 0.048 * m, color=ink2, lw=0.9, ls=(0, (3, 3)), zorder=2, label="E$_{\\rm rad}$ = 4.8% of M: the value for q = 1, no spin")
     ax.set_xscale("log"); ax.set_yscale("log")
     ax.set_xlabel("Total mass (source frame, M$_\\odot$)", color=ink2)
     ax.set_ylabel("Radiated energy (M$_\\odot$c$^2$)", color=ink2)
@@ -333,7 +333,7 @@ def _plot_remnants(df: pd.DataFrame, out_png: Path, catalogs_label: str = "") ->
     af = d["final_spin_estimate"].dropna()
     axes[2].hist(af, bins=np.linspace(0.3, 1.0, 36), color=blue, alpha=0.85, lw=0, zorder=2)
     axes[2].axvline(0.686, color=ink2, lw=0.9, ls=(0, (3, 3)), zorder=3)
-    axes[2].annotate("0.686: equal masses, no spin", xy=(0.686, 1), xycoords=("data", "axes fraction"),
+    axes[2].annotate("0.686: the value for q = 1, no spin", xy=(0.686, 1), xycoords=("data", "axes fraction"),
                      xytext=(-4, -12), textcoords="offset points", fontsize=8, color=ink2, ha="right")
     axes[2].set_xlabel("Final spin, estimated from q and $\\chi_{\\rm eff}$", color=ink2)
     axes[2].set_ylabel("Binary black holes", color=ink2)

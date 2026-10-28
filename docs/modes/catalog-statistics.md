@@ -75,6 +75,12 @@ The report lists the 10 events that radiated the most energy, with a figure:
 equal masses without spin; the events with a neutron star radiate much less (orange). The estimated
 final spins cluster near 0.69, as expected for mergers of similar masses with small spins.*
 
+*The dashed lines mark the values of a reference binary, equal masses without spin (numerical
+relativity); they do not classify the events. Lying near them does not mean equal masses: the
+fraction depends on η = q/(1+q)², flat near q = 1 (q = 0.7 radiates 4.6%, q = 0.5 about 3.9%), and
+aligned spins raise it, so an unequal pair with χ_eff > 0 can sit on the line (GW230928_215827:
+q = 0.54, χ_eff = 0.40, 4.8%). Of the 114 binary black holes within 4.3–5.3%, 47 have q ≥ 0.75.*
+
 | Event | Total mass (M☉) | Final mass (M☉) | E_rad (M☉c²) | E_rad (erg) | Final spin (estimate) |
 |---|---|---|---|---|---|
 | GW231123_135430 | 236 | 222 | 14.0 | 2.5 × 10⁵⁵ | 0.77 |
