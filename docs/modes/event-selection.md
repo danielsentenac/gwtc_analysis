@@ -73,13 +73,36 @@ Stellar evolution should not form black holes in the **pair-instability gap**, f
 130 M☉ (the lower edge is uncertain, 45–65 M☉ in the literature): such a black hole is more likely the
 remnant of an earlier merger, in a dense star cluster or an AGN disk. Remnants of mergers spin with
 χ ≈ 0.7 in random directions, so a **negative χ_eff**, spins anti-aligned with the orbit, is another
-sign of dynamical assembly.
+sign of dynamical assembly. A remnant is also about twice as heavy as the first-generation black holes
+around it, so a hierarchical merger favors **unequal masses**: a mass ratio m₁/m₂ of about 2–3
+(q = m₂/m₁ ≈ 0.3–0.5). The preset does not cut on q; m₁ and m₂ are in the TSV.
 
 The preset selects 54 events of GWTC-1 to GWTC-5. 19 of them have their whole 90% interval of m₁ above
-50 M☉; the heaviest are GW231123_135430 (137 M☉, 90% above 119), GW190426_190642 and GW190521_030229
-(98 M☉). Two have χ_eff < 0 at 90%: GW241110_124123 (χ_eff = −0.31, a 16 M☉ primary: selected by its
-spin alone) and GW241127_061008. Spin magnitudes of the components are not in the GWOSC lists; they are
-read from the PE samples with [parameters_estimation](parameters-estimation.md).
+50 M☉; the heaviest are GW231123_135430 (137 M☉, 90% above 119), GW190426_190642 (105 M☉; a marginal
+candidate, p_astro 0.75, FAR ≈ 4 yr⁻¹, outside the FAR < 1 yr⁻¹ cut of the LVK population analyses) and
+GW190521_030229 (98 M☉). GW231123 is the only one with both fingerprints of a second-generation black
+hole measured: a mass in the gap and high spins (≈ 0.9 and 0.8); its masses are nearly equal (q ≈ 0.74),
+as expected if both components come from earlier mergers. For most others the spin magnitudes
+return the prior, so they count only collectively: GWTC-5.0 finds a sub-population with χ ~ 0.7 above
+m₁ ≈ 42 (+13 −7) M☉ [\[14\]](../references.md#ref-14), close to `--pisn-gap-min 45`.
+
+Two have χ_eff < 0 at 90%: GW241110_124123 (χ_eff = −0.31, a 16 M☉ primary spinning against the orbit
+at 97.7%, one of the two LVK hierarchical candidates [\[94\]](../references.md#ref-94), selected by its
+spin alone) and GW241127_061008 (64 + 21 M☉). A negative χ_eff indicates isotropic spins, hence
+dynamical assembly, but not by itself a black hole from an earlier merger.
+
+**What the preset cannot see.** The other LVK candidate, **GW241011_233834** (19.5 + 6.0 M☉,
+χ_eff = +0.50) [\[94\]](../references.md#ref-94), is not selected because it is not in the mass gap: its
+primary has 19.5 M☉, below `--pisn-gap-min`, and its χ_eff is positive, so it meets neither criterion
+of the preset. Its signature is a primary spin magnitude χ₁ ≈ 0.78 with unequal masses, m₁/m₂ ≈ 3
+(q ≈ 0.3); spin magnitudes are not in the GWOSC lists, and are read from the PE samples with
+[parameters_estimation](parameters-estimation.md).
+
+Lowering the edge selects it, `--pisn-gap-min 15`, but the preset is then no longer a gap selection: it
+keeps 228 of the 390 events, most of the binary black holes. To narrow it, add the unequal-mass
+fingerprint on the TSV: with m₂/m₁ ≤ 0.35 as well, 13 events remain, GW241011 among them (with
+GW190412, GW190814 and GW241127_061008); whether their primaries spin fast is then read from the PE
+samples.
 
 ![Hierarchical preset: m₂ and χ_eff against m₁](../img/modes/selection_preset_hierarchical.png)
 

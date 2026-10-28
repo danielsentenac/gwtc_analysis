@@ -452,6 +452,9 @@ LIGO O3 data*. Phys. Rev. D 105, 102001 (2022). Data: [LIGO-P2100343](https://dc
 **[93]** I. McMahon et al., *Measurement of the Hubble constant using the Dark Energy Survey Year 6 Gold galaxy catalogue and the fourth Gravitational-Wave Transient Catalogue*. MNRAS 550, stag1167 (2026). [arXiv:2602.04766](https://arxiv.org/abs/2602.04766)
 {: #ref-93 }
 
+**[94]** LVK, *GW241011 and GW241110: Exploring Binary Formation and Fundamental Physics with Asymmetric, High-Spin Black Hole Coalescence*. ApJL 993, L21 (2025). [arXiv:2510.26931](https://arxiv.org/abs/2510.26931)
+{: #ref-94 }
+
 ## Data releases
 
 | Release | Where |
