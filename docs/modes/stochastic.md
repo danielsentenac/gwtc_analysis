@@ -99,7 +99,10 @@ proportion:
 parts are skewed to high values (log-normal rates with wide intervals; means ≈ 0.5 and 1.0 × 10⁻¹⁰), which raises
 the median of the sum.*
 
-The prediction agrees with the LVK one and lies a factor 2.7 below the current upper limit.
+The prediction agrees with the LVK one within the uncertainties (90%: 5.3–12.0 against 4.1–11.3 × 10⁻¹⁰) and
+lies a factor 2.7 below the current upper limit. The waveform model is not what separates the two medians
+(a bias of a few per cent at 25 Hz, [Systematics](#systematics)): the main differences are the BBH rate
+normalization and its assumed evolution beyond z ≈ 1, where 78% of the BBH background comes from.
 
 ![Predicted compact-binary background](../img/modes/stochastic_omega_gw.png)
 
@@ -139,13 +142,14 @@ O3, O4a and O4b used by `rates` (FAR < 1/yr).*
 ## Systematics
 
 - **The rate beyond the detected events dominates.** With `--high-z posterior`, Ω_BBH(25 Hz) = 9.5 × 10⁻¹⁰:
-  77% of it then comes from z > 1, where the fitted shape is only the prior's. The default ties that region
+  78% of it then comes from z > 1, where the fitted shape is only the prior's. The default ties that region
   to the star-formation history; neither is a measurement.
 - **The energy spectrum.** The Ajith et al. 2008 merger and ringdown overestimate the radiated energy
-  (4.2 M☉c² for a GW150914-like binary, against ~3.0 from numerical relativity). At 25 Hz, 21% of the BBH
-  background comes from the merger and ringdown of heavy, distant binaries: a ~20% upward bias at most.
+  (4.2 M☉c² for a GW150914-like binary, against ~3.0 from numerical relativity). At 25 Hz, only 2% of the BBH
+  background comes from the merger and ringdown, and 11% from all frequencies above the innermost stable
+  orbit: even if all of that were 40% too high, the bias would be ~3%.
 - **BNS and NSBH** rest on 1 and 4 detections, rates without delay time and inspiral-only spectra; they
-  contribute ~15% of the total.
+  contribute ~17% of the total.
 
 All options: [CLI reference](../cli-reference.md#stochastic).
 
