@@ -10,8 +10,9 @@ gwtc_analysis stochastic --spectral-posterior hubble_constant_spectral --rates m
 
 ## Inputs
 
-The calculation combines two earlier results: a **merger rate** today (from [rates](rates.md)) and its **evolution
-with redshift and mass distribution** (from a [hubble_constant](hubble-constant.md) run). Run those two modes first. What each
+The calculation takes three ingredients from two earlier runs: the **merger rate today** R₀ (from
+[rates](rates.md)), and the **evolution of the rate with redshift** and the **mass distribution** (both from a
+[hubble_constant](hubble-constant.md) run). Run those two modes first. What each
 input provides, and the other choices: [Options](#options).
 
 ```bash
