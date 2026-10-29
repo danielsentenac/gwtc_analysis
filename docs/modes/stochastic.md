@@ -10,9 +10,12 @@ gwtc_analysis stochastic --spectral-posterior hubble_constant_spectral --rates m
 
 ## Inputs
 
-The calculation takes three ingredients from two earlier runs: the **merger rate today** R₀ (from
-[rates](rates.md)), and the **evolution of the rate with redshift** and the **mass distribution** (both from a
-[hubble_constant](hubble-constant.md) run). Run those two modes first. What each
+The background is computed for each class, BBH, BNS and NSBH, and summed. It takes its inputs from two
+earlier runs: the **merger rates** of the three classes from [rates](rates.md) (for BBH the rate at z = 0.2,
+where the catalog measures it best; for BNS and NSBH the rate today), and, for BBH only, the **evolution of the
+rate with redshift** and the **mass distribution** from a [hubble_constant](hubble-constant.md) run. For BNS and
+NSBH they are fixed: the star-formation history and the mass distributions of the table in [Method](#method).
+Run those two modes first. What each
 input provides, and the other choices: [Options](#options).
 
 ```bash
