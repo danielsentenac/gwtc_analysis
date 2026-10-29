@@ -87,13 +87,17 @@ proportion:
 
 | Population | Ω_GW(25 Hz), median (90%) |
 |---|---|
-| BBH | 6.0 × 10⁻¹⁰ (4.3–9.3 × 10⁻¹⁰) |
+| BBH | 5.9 × 10⁻¹⁰ (4.1–10.2 × 10⁻¹⁰) |
 | BNS | 0.3 × 10⁻¹⁰ (0.06–1.8 × 10⁻¹⁰) |
-| NSBH | 0.9 × 10⁻¹⁰ (0.4–2.2 × 10⁻¹⁰) |
-| **total** | **7.5 × 10⁻¹⁰ (5.5–11.7 × 10⁻¹⁰)** |
+| NSBH | 0.95 × 10⁻¹⁰ (0.4–2.2 × 10⁻¹⁰) |
+| **total** | **7.5 × 10⁻¹⁰ (5.3–12.0 × 10⁻¹⁰)** |
 | LVK prediction from GWTC-5.0 [\[85\]](../references.md#ref-85) | 6.3 (+5.0 / −2.2) × 10⁻¹⁰ |
 | upper limit, data through April 2025 [\[85\]](../references.md#ref-85) | ≤ 2.0 × 10⁻⁹ (95%, index 2/3) |
 | upper limit, O3 [\[86\]](../references.md#ref-86) | ≤ 3.4 × 10⁻⁹ |
+
+*The total is summed draw by draw, so its median (7.5) is not the sum of the medians (7.1): the BNS and NSBH
+parts are skewed to high values (log-normal rates with wide intervals; means ≈ 0.5 and 1.0 × 10⁻¹⁰), which raises
+the median of the sum.*
 
 The prediction agrees with the LVK one and lies a factor 2.7 below the current upper limit.
 
@@ -112,8 +116,8 @@ at z = 0.2 (`rates --sensitivity-release gwtc5`, median [90%]).
 
 | | Local rate (Gpc⁻³ yr⁻¹) | Whole Universe (z < 10), one every | z < 1, one every | Within 40 Mpc, one every | Detected per year | Ω_GW(25 Hz) |
 |---|---|---|---|---|---|---|
-| BBH | 25 at z = 0.2 | ~6 min (3.5–9) | ~70 min | — | ~96 (248 in 2.59 yr) | 6.0 × 10⁻¹⁰ |
-| NSBH | 33 [13, 67] | ~4 min (2–10) | ~40 min | ~110 yr (56–290) | ~1.5 (4 in 2.59 yr) | 0.9 × 10⁻¹⁰ |
+| BBH | 25 at z = 0.2 | ~6 min (3.5–9) | ~70 min | — | ~96 (248 in 2.59 yr) | 5.9 × 10⁻¹⁰ |
+| NSBH | 33 [13, 67] | ~4 min (2–10) | ~40 min | ~110 yr (56–290) | ~1.5 (4 in 2.59 yr) | 0.95 × 10⁻¹⁰ |
 | BNS | 26 [4, 87] | ~5 min (1.5–33) | ~50 min | ~140 yr (43–930) | ~0.4 (1 in 2.59 yr) | 0.3 × 10⁻¹⁰ |
 
 *90% ranges from the rate intervals (BNS, NSBH) or from 300 draws of the Madau–Dickinson shape of a Power Law
@@ -134,7 +138,7 @@ O3, O4a and O4b used by `rates` (FAR < 1/yr).*
 
 ## Systematics
 
-- **The rate beyond the detected events dominates.** With `--high-z posterior`, Ω_BBH(25 Hz) = 9.8 × 10⁻¹⁰:
+- **The rate beyond the detected events dominates.** With `--high-z posterior`, Ω_BBH(25 Hz) = 9.5 × 10⁻¹⁰:
   77% of it then comes from z > 1, where the fitted shape is only the prior's. The default ties that region
   to the star-formation history; neither is a measurement.
 - **The energy spectrum.** The Ajith et al. 2008 merger and ringdown overestimate the radiated energy

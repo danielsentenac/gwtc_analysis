@@ -794,7 +794,7 @@ gwtc_analysis area_law               # downloads 114 MB once
 
 - **BBH:** the Power Law + Peak or Multi Peak masses and the Madau–Dickinson rate shape of each draw of a spectral-siren posterior (`hubble_constant`), normalized to the BBH rate at z = 0.2 of the `rates` mode, with the inspiral–merger–ringdown spectrum of Ajith et al. 2008. Beyond the farthest detected events (z ≈ 1) the rate follows the star-formation history (`--high-z sfr`, default) or the fitted shape, there the prior's (`--high-z posterior`).
 - **BNS, NSBH:** the local rates of `rates`, the star-formation history, the inspiral spectrum up to the ISCO.
-- **Result (GWTC-4.0 posterior, rates of the default `gwtc5` release):** Ω_GW(25 Hz) = 7.5 × 10⁻¹⁰ (90%: 5.5–11.7 × 10⁻¹⁰), BBH 6.0 × 10⁻¹⁰. The LVK prediction from GWTC-5.0 is 6.3 (+5.0 / −2.2) × 10⁻¹⁰, and the upper limit from the data through April 2025 is 2.0 × 10⁻⁹ ([arXiv:2608.23477](https://arxiv.org/abs/2608.23477)): a factor 2.7 below detection.
+- **Result (GWTC-4.0 posterior, rates of the default `gwtc5` release):** Ω_GW(25 Hz) = 7.5 × 10⁻¹⁰ (90%: 5.3–12.0 × 10⁻¹⁰), BBH 5.9 × 10⁻¹⁰. The LVK prediction from GWTC-5.0 is 6.3 (+5.0 / −2.2) × 10⁻¹⁰, and the upper limit from the data through April 2025 is 2.0 × 10⁻⁹ ([arXiv:2608.23477](https://arxiv.org/abs/2608.23477)): a factor 2.7 below detection.
 
 ```bash
 gwtc_analysis rates --out-rates merger_rates.tsv
