@@ -32,7 +32,7 @@ print(f"{len(m1)} events with m1_source and z; detector frame {m1.min():.2f}-{m1
       f"median z {np.median(z):.2f}")
 
 # Stacked uncertainty: each event as a split normal in ln m, from its 90% interval scaled by (1 + z)
-grid = np.logspace(0, np.log10(400), 1200)
+grid = np.logspace(0, np.log10(250), 1200)
 lg = np.log(grid)
 dens = np.zeros_like(grid)
 for m, lo, hi, zz in events.values():
@@ -42,7 +42,7 @@ for m, lo, hi, zz in events.values():
     s = np.where(lg < np.log(m), s_lo, s_hi)
     dens += np.exp(-0.5 * ((lg - np.log(m)) / s) ** 2) * 2 / (np.sqrt(2 * np.pi) * (s_lo + s_hi))
 
-bins = np.logspace(0, np.log10(400), 44)
+bins = np.logspace(0, np.log10(250), 41)
 dlog = np.log(bins[1]) - np.log(bins[0])
 counts, _ = np.histogram(m1, bins)
 counts_src, _ = np.histogram(m1_src, bins)
@@ -55,9 +55,9 @@ ax.bar(centers, counts, width=widths * 0.9, color=BLUE, alpha=0.85, linewidth=0,
 ax.plot(grid, dens * dlog, color=ORANGE, lw=2, label="Sum of event uncertainties", zorder=3)
 ax.stairs(counts_src, bins, color=INK2, lw=1, ls=(0, (2, 2)), label="Same events, source frame", zorder=3)
 ax.set_xscale("log")
-ax.set_xlim(1, 400)
-ax.set_xticks([1, 2, 5, 10, 20, 35, 50, 100, 200, 400])
-ax.set_xticklabels(["1", "2", "5", "10", "20", "35", "50", "100", "200", "400"])
+ax.set_xlim(1, 250)
+ax.set_xticks([1, 2, 5, 10, 20, 35, 50, 100, 200])
+ax.set_xticklabels(["1", "2", "5", "10", "20", "35", "50", "100", "200"])
 ax.set_xlabel("Primary mass $m_1(1+z)$ (detector frame, M$_\\odot$)", color=INK2)
 ax.set_ylabel("Events per bin", color=INK2)
 ax.grid(axis="y", color=GRID, lw=0.8, zorder=0)
@@ -79,5 +79,5 @@ fig.text(0.01, 0.01, "As the waveform measures them, before any cosmology. The r
 fig.tight_layout(rect=(0, 0.03, 1, 1))
 fig.savefig(Path(__file__).resolve().parents[1] / "img" / "mass_distribution_detector_frame.png", facecolor=SURFACE)
 
-for lo_, hi_ in ((1, 3), (3, 6), (6, 15), (15, 25), (25, 45), (45, 80), (80, 400)):
+for lo_, hi_ in ((1, 3), (3, 6), (6, 15), (15, 25), (25, 45), (45, 80), (80, 250)):
     print(f"  m1(1+z) {lo_:>3}-{hi_:<3} Msun: {int(((m1 >= lo_) & (m1 < hi_)).sum()):3d} events")
