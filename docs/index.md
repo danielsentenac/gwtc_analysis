@@ -73,14 +73,20 @@ grow.
   official releases filled from the events' discovery releases. See
   [Known issues in the public releases](known-data-issues.md).
 
+![Primary masses of the confident GW events in the detector frame](img/mass_distribution_detector_frame.png)
+
 ![Primary masses of the confident GW events](img/mass_distribution.png)
 
 ![Primary masses corrected for selection effects](img/mass_distribution_selection_corrected.png)
 
-*Top: the primary masses as detected. Bottom: the same events divided by the sensitive volume-time ⟨VT⟩ of each
+*Top: the primary masses as the waveform measures them, in the detector frame, m₁(1 + z), before any cosmology is
+assumed. The 10 M☉ peak, seen only nearby, moves a little (to about 14 M☉); the 35 M☉ peak, seen out to z ~ 1, is
+shifted to about 50 M☉ and widened by the redshift: the drift that spectral sirens use to measure H₀ (see
+[Hubble constant (spectral siren)](science/spectral-siren.md)). Middle: the same events in the source frame, as
+detected. Bottom: the same events divided by the sensitive volume-time ⟨VT⟩ of each
 mass, from the LVK injections, as the [rates](modes/rates.md) mode computes it: a merger rate per ln m₁. Heavy
 binaries are seen much farther, so the 35 M☉ peak of the detections is mostly a selection effect, while the
-10 M☉ peak remains. This is not a population fit: m₂ uniform in [1, m₁], no redshift evolution. The two figures are made by the
+10 M☉ peak remains. This is not a population fit: m₂ uniform in [1, m₁], no redshift evolution. The three figures are made by the
 scripts of [`docs/scripts`](https://github.com/danielsentenac/gwtc_analysis/tree/main/docs/scripts).*
 
 ## Where to go next
