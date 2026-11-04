@@ -89,6 +89,18 @@ binaries are seen much farther, so the 35 M☉ peak of the detections is mostly 
 10 M☉ peak remains. This is not a population fit: m₂ uniform in [1, m₁], no redshift evolution. The three figures are made by the
 scripts of [`docs/scripts`](https://github.com/danielsentenac/gwtc_analysis/tree/main/docs/scripts).*
 
+![Waveforms of eight representative binaries: inspiral, merger and ringdown](img/imr_gallery.png)
+
+*What the detectors hear, from 20 Hz, for eight representative binaries (h₊, face-on, normalised). Left: the whole
+signal in band, in seconds: a GW170817-like neutron-star binary stays 168 s and 5381 cycles in band, a 36 + 29 M☉
+binary 0.73 s and 22 cycles, a 137 + 101 M☉ binary only ~2 cycles in 60 ms, its inspiral below the band. Right: the
+last orbits, merger (orange, from the ISCO frequency to the peak) and ringdown (green) in units of the total mass M,
+where the equal-mass non-spinning cases have the same shape: only the mass ratio and the spins change it. Unequal
+masses give long inspirals and slowly spinning remnants, aligned spins delay the merger (more cycles, a longer
+ringdown), precession modulates the amplitude. Made with pycbc (IMRPhenomXAS, IMRPhenomXPHM, IMRPhenomNSBH,
+IMRPhenomPv2_NRTidalv2) by [`docs/scripts/imr_gallery.py`](https://github.com/danielsentenac/gwtc_analysis/tree/main/docs/scripts);
+an illustration, not a gwtc_analysis mode.*
+
 ## Where to go next
 
 - New users: [Installation](installation.md), then [Quick start](quickstart.md).
