@@ -410,6 +410,18 @@ was checked against the arXiv API.
 **[136]** S. Klimenko et al., *Method for detection and reconstruction of gravitational wave transients with networks of advanced detectors* (coherent WaveBurst). Phys. Rev. D 93, 042004 (2016). [arXiv:1511.05999](https://arxiv.org/abs/1511.05999)
 {: #ref-136 }
 
+**[137]** B. Carr, K. Kohri, Y. Sendouda and J. Yokoyama, *Constraints on primordial black holes*. Rep. Prog. Phys. 84, 116902 (2021). The bounds on f_PBH over all masses. [arXiv:2002.12778](https://arxiv.org/abs/2002.12778)
+{: #ref-137 }
+
+**[138]** A. M. Green and B. J. Kavanagh, *Primordial black holes as a dark matter candidate*. J. Phys. G 48, 043001 (2021). [arXiv:2007.10722](https://arxiv.org/abs/2007.10722)
+{: #ref-138 }
+
+**[139]** B. Carr, M. Raidal, T. Tenkanen, V. Vaskonen and H. Veermäe, *Primordial black hole constraints for extended mass functions*. Phys. Rev. D 96, 023514 (2017). [arXiv:1705.05567](https://arxiv.org/abs/1705.05567)
+{: #ref-139 }
+
+**[140]** B. Carr, S. Clesse, J. García-Bellido and F. Kühnel, *Cosmic conundra explained by thermal history and primordial black holes*. Phys. Dark Univ. 31, 100755 (2021). The quark–hadron transition and the peak of the PBH mass function near 1 M☉. [arXiv:1906.08217](https://arxiv.org/abs/1906.08217)
+{: #ref-140 }
+
 ## Continuous waves
 
 **[105]** LVK, *Search for continuous gravitational waves from known pulsars in the first part of the fourth

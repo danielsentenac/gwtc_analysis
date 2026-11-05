@@ -69,6 +69,11 @@ With the defaults (`gwtc5` injections, 259 events with FAR ≤ 1/yr):
 
 ![Upper limits on f_PBH](../img/modes/pbh_limits.png)
 
+The shaded band, f_PBH > 1, is where the data set no constraint: a population making up all of the dark matter
+would give fewer mergers than the searches can detect. How to read the curves (a weak limit is not a sign of PBHs,
+one mass at a time, and whether PBHs could be most of the dark matter) is in
+[Primordial black holes](../science/primordial-black-holes.md#reading-the-limits-could-pbhs-be-most-of-the-dark-matter).
+
 | PBH mass | Early binaries, `hutsi` | Early binaries, `lvk` | Published |
 |---|---|---|---|
 | 0.35 M☉ (sub-solar) | 0.061–0.142 | **0.096–0.178** | 0.10–0.18 [\[122\]](../references.md#ref-122) (LVK fit) |
