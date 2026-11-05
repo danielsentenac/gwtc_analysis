@@ -5,7 +5,7 @@ IMRPhenomXPHM_Scalar of Roy et al., arXiv:2510.17967). This module prepares the 
 locally or writes them as Slurm jobs, and writes the report:
 
 - **best fit**: the vacuum model and the cloud model fitted to the event's strain from the catalog posterior;
-  the deviance D = 2 (ln L_cloud - ln L_vacuum) and the whitened strain against the catalog, vacuum and
+  the deviance D = 2 (ln L_cloud - ln L_vacuum) and the matched-filter SNR of the catalog, vacuum and
   cloud waveforms;
 - **background**: the same procedure on the vacuum best fit injected into off-source noise around the event: the
   distribution of D without a cloud, hence the p-value of the event's D;
@@ -46,7 +46,8 @@ def _style(ax):
 # whitened strain
 # ---------------------------------------------------------------------------
 def _whiten(ifo, h_fd: np.ndarray, f_lo: float = 20.0, f_hi: float = 350.0) -> np.ndarray:
-    """Whitened, band-passed time series of a frequency-domain series of `ifo`."""
+    """Whitened, band-passed time series of a frequency-domain series of `ifo` (arbitrary units: divide by
+    `_noise_sigma` of the data for units of the noise standard deviation)."""
     f = ifo.frequency_array
     asd = ifo.amplitude_spectral_density_array
     w = np.zeros_like(h_fd)
@@ -54,61 +55,234 @@ def _whiten(ifo, h_fd: np.ndarray, f_lo: float = 20.0, f_hi: float = 350.0) -> n
     w[band] = h_fd[band] / asd[band]
     # a smooth edge so that the band limits do not ring
     taper = np.ones_like(f)
-    for lo, hi in ((f_lo, f_lo + 5), (f_hi - 20, f_hi)):
+    edge = min(5.0, 0.25 * (f_hi - f_lo))
+    for lo, hi in ((f_lo, f_lo + edge), (f_hi - edge, f_hi)):
         k = (f >= lo) & (f <= hi)
         x = (f[k] - lo) / (hi - lo)
         taper[k] = 0.5 * (1 - np.cos(np.pi * x)) if lo == f_lo else 0.5 * (1 + np.cos(np.pi * x))
     return np.fft.irfft(w * taper, n=len(ifo.time_array))
 
 
-def plot_whitened(an, curves: list[tuple[str, dict, str]], out_png: Path,
-                  windows: tuple[tuple[float, float, float], ...] = ((-5.0, -3.0, 60.0), (-0.5, 0.06, 350.0))
-                  ) -> Path:
-    """Whitened strain of H1 and L1 with the waveforms of `curves` (label, parameters, colour), in an early
-    inspiral window and around the merger (times from the merger of the first curve; each window band-passed from
-    20 Hz to its own upper frequency, so that the early inspiral is not buried in high-frequency noise), and a last
-    row with the difference between the last and the first waveform (where a cloud acts)."""
+def _noise_sigma(x: np.ndarray, t: np.ndarray, t_merger: float, duration: float) -> float:
+    """Robust standard deviation (1.4826 MAD) of whitened data away from the signal (from 1 s after the segment
+    start to 1 s before the end, without the last `duration` s before the merger and 0.5 s after it)."""
+    k = (t > t[0] + 1) & (t < t[-1] - 1) & ~((t > t_merger - duration) & (t < t_merger + 0.5))
+    if k.sum() < 100:
+        k = (t > t[0] + 1) & (t < t[-1] - 1)
+    y = x[k]
+    return float(1.4826 * np.median(np.abs(y - np.median(y)))) or 1.0
+
+
+def _frequency_track(ifo, h_fd: np.ndarray, f_lo: float, smooth: float = 0.05) -> np.ndarray:
+    """Instantaneous frequency (Hz) of a detector-frame waveform against `ifo.time_array`: the phase derivative of
+    its analytic signal, with a running median over `smooth` s (precession and higher modes make it wobble)."""
+    from scipy.ndimage import median_filter, uniform_filter1d
+    from scipy.signal import hilbert
+
+    f = ifo.frequency_array
+    x = np.fft.irfft(np.where(f >= f_lo, h_fd, 0), n=len(ifo.time_array))
+    fs = 1.0 / (ifo.time_array[1] - ifo.time_array[0])
+    fi = np.gradient(np.unwrap(np.angle(hilbert(x)))) * fs / (2 * np.pi)
+    n = max(3, int(smooth * fs))
+    return uniform_filter1d(median_filter(fi, size=n), size=2 * n)
+
+
+def _snr_band(ifo, h_fd: np.ndarray, f_lo: float, fraction: float = 0.99) -> float:
+    """Frequency below which `fraction` of the optimal SNR^2 of `h_fd` lies."""
+    f = ifo.frequency_array
+    psd = ifo.power_spectral_density_array
+    w = np.where((f >= f_lo) & np.isfinite(psd) & (psd > 0), np.abs(h_fd) ** 2 / np.where(psd > 0, psd, 1), 0.0)
+    c = np.cumsum(w)
+    return float(f[np.searchsorted(c, fraction * c[-1])]) if c[-1] > 0 else float(f[-1])
+
+
+def _band_snr(ifo, h_fd: np.ndarray, f_lo: float, f_hi: float) -> float:
+    """Optimal SNR of `h_fd` in `ifo` between f_lo and f_hi (the whole signal, not only a time window)."""
+    f = ifo.frequency_array
+    psd = ifo.power_spectral_density_array
+    k = (f >= f_lo) & (f <= f_hi) & np.isfinite(psd) & (psd > 0)
+    df = f[1] - f[0]
+    return float(np.sqrt(4 * df * np.sum(np.abs(h_fd[k]) ** 2 / psd[k])))
+
+
+def _window_of_track(t: np.ndarray, track: np.ndarray, f_a: float, f_b: float, t_merger: float,
+                     fallback: tuple[float, float]) -> tuple[float, float]:
+    """(start, end) from the merger of the times at which the inspiral track crosses f_a and f_b."""
+    k = (t < t_merger) & (t > t_merger - 30)
+    tt, ff = t[k] - t_merger, track[k]
+    try:
+        a = float(tt[np.where(ff <= f_a)[0][-1]])
+        b = float(tt[np.where(ff <= f_b)[0][-1]])
+    except IndexError:
+        return fallback
+    return (a, b) if b - a > 0.2 else fallback
+
+
+def _matched_filter(ifo, h_fd: np.ndarray, f_lo: float, f_hi: float) -> tuple[np.ndarray, np.ndarray]:
+    """(lags in s, complex matched-filter SNR) of the template `h_fd` (a detector response, at its own time) on the
+    data of `ifo`, between f_lo and f_hi: z(tau) = <d, h e^{-2 pi i f tau}> / sqrt(<h, h>). The lag 0 is the fit's own
+    time; Re z(0) is its own phase, |z| the SNR maximised over phase and max |z| over time too."""
+    f = ifo.frequency_array
+    psd = ifo.power_spectral_density_array
+    d = ifo.frequency_domain_strain
+    n = len(ifo.time_array)
+    duration = 1.0 / (f[1] - f[0])
+    k = ifo.frequency_mask & (f >= f_lo) & (f <= f_hi) & np.isfinite(psd) & (psd > 0)
+    x = np.zeros(n, dtype=complex)
+    x[:len(f)][k] = d[k] * np.conj(h_fd[k]) / psd[k]
+    norm = np.sqrt(4.0 / duration * np.sum(np.abs(h_fd[k]) ** 2 / psd[k]))
+    z = 4.0 / duration * n * np.fft.ifft(x) / (norm if norm > 0 else 1.0)
+    fs = n / duration
+    lags = (np.arange(n) + n // 2) % n - n // 2
+    order = np.argsort(lags)
+    return lags[order] / fs, z[order]
+
+
+def _peak(lags: np.ndarray, z: np.ndarray, max_lag: float) -> tuple[float, float]:
+    """(lag, |z|) of the matched-filter peak within +-max_lag of the fit's time."""
+    k = np.abs(lags) <= max_lag
+    i = int(np.argmax(np.abs(z[k])))
+    return float(lags[k][i]), float(np.abs(z[k][i]))
+
+
+def plot_matched_filter(an, curves: list[tuple[str, dict, str]], out_png: Path,
+                        inspiral_band: tuple[float, float] = (20.0, 45.0)) -> Path:
+    """The fits against the data, through matched filtering (the strain overlay cannot show differences of a few
+    tenths of a noise sigma): one row per detector (H1, L1) with
+
+    - a Q-transform of the whitened data, with the frequency tracks of the waveforms of `curves` (label, parameters,
+      colour);
+    - the matched-filter SNR |z| of each fit against the time shift from its own merger time, over the full band and
+      over `inspiral_band` only (where a cloud acts), with the peak values;
+
+    and a last row with the peak SNR of each fit in each detector and in the network (quadrature sum), in both bands:
+    for templates of optimal amplitude, (rho_cloud^2 - rho_vacuum^2) / 2 is the likelihood gain of the cloud."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
 
-    dets = [ifo for ifo in an.ifos if ifo.name != "V1"] or list(an.ifos)
-    nrow, ncol = len(dets) + 1, len(windows)
-    fig, axes = plt.subplots(nrow, ncol, figsize=(12, 2.4 * nrow), squeeze=False,
-                             gridspec_kw=dict(width_ratios=[w[1] - w[0] for w in windows]))
+    TimeSeries = sc.gwpy_timeseries()
+    rows = [ifo for ifo in an.ifos if ifo.name != "V1"] or list(an.ifos)
+    nrow = len(rows) + 1
+    fig, axes = plt.subplots(nrow, 3, figsize=(14, 2.8 * nrow), squeeze=False,
+                             gridspec_kw=dict(width_ratios=[3.0, 2.2, 2.2]))
     p_ref = curves[0][1]
-    for r, ifo in enumerate(dets):
+    f_low = float(an.s.get("f_low", 20.0))
+    bands = [("full band", f_low, None, 0.012, 0.015), ("inspiral band", max(f_low, inspiral_band[0]),
+                                                           inspiral_band[1], 0.03, 0.15)]
+    peaks = {b[0]: {label: {} for label, _, _ in curves} for b in bands}
+    t_tf = None
+    for ifo in an.ifos:
         t = ifo.time_array
+        fs = 1.0 / (t[1] - t[0])
         t_merger = p_ref["geocent_time"] + ifo.time_delay_from_geocenter(p_ref["ra"], p_ref["dec"],
                                                                          p_ref["geocent_time"])
         resp = [ifo.get_detector_response(an.waveform_generator.frequency_domain_strain(p), p) for _, p, _ in curves]
-        hw = {}
-        for c, (a, b, f_hi) in enumerate(windows):
-            ax = axes[r, c]
-            k = (t >= t_merger + a) & (t <= t_merger + b)
-            d = _whiten(ifo, ifo.frequency_domain_strain, f_hi=f_hi)
-            hw[c] = [_whiten(ifo, h, f_hi=f_hi) for h in resp]
-            ax.plot(t[k] - t_merger, d[k], color=COLORS["data"], lw=0.7,
-                    label=f"{ifo.name} data (whitened, 20–{f_hi:g} Hz)")
-            for (label, p, color), h in zip(curves, hw[c]):
-                ax.plot(t[k] - t_merger, h[k], color=color, lw=1.3, label=label)
+        r = next((i for i, x in enumerate(rows) if x.name == ifo.name), None)
+        for c, (bname, lo, hi, max_lag, span) in enumerate(bands):
+            hi = 0.5 * fs if hi is None else hi
+            for (label, _, color), h in zip(curves, resp):
+                lags, z = _matched_filter(ifo, h, lo, hi)
+                lag, rho = _peak(lags, z, max_lag)
+                peaks[bname][label][ifo.name] = rho
+                if r is None:
+                    continue
+                ax = axes[r, c + 1]
+                k = np.abs(lags) <= span
+                ls = "--" if "catalog" in label else "-"
+                ax.plot(lags[k] * 1e3, np.abs(z[k]), color=color, lw=1.4 if ls == "-" else 1.1, ls=ls)
+                ax.plot([lag * 1e3], [rho], "o", color=color, ms=4.5)
+            if r is None:
+                continue
+            ax = axes[r, c + 1]
+            top = max(peaks[bname][l][ifo.name] for l, _, _ in curves)
+            ax.set_ylim(0.55 * top, 1.0 * top + 0.12 * top)
+            ax.axvline(0, color=INK2, lw=0.7, ls=":")
+            ax.text(0.02, 0.97, "\n".join(f"{l.replace(' best fit', '').replace(' max-likelihood sample', '')}: "
+                                          f"{peaks[bname][l][ifo.name]:.2f}" for l, _, _ in curves),
+                    transform=ax.transAxes, ha="left", va="top", fontsize=7.5, color=INK2,
+                    bbox=dict(facecolor="white", edgecolor="none", alpha=0.85, pad=1.5))
             _style(ax)
+            ax.set_title(f"{ifo.name}: matched-filter SNR, {bname} ({lo:.0f}–{hi:.0f} Hz)", color=INK, fontsize=9,
+                         loc="left")
+            if r == len(rows) - 1:
+                ax.set_xlabel("time shift from the fit's merger time (ms)", color=INK2, fontsize=9)
             if c == 0:
-                ax.set_ylabel(f"{ifo.name}", color=INK2, fontsize=9)
-            if r == 0:
-                ax.legend(frameon=False, fontsize=7.5, loc="upper left", labelcolor=INK2)
-        if r == len(dets) - 1:
-            for c, (a, b, _) in enumerate(windows):
-                ax = axes[-1, c]
-                k = (t >= t_merger + a) & (t <= t_merger + b)
-                ax.plot(t[k] - t_merger, hw[c][-1][k] - hw[c][0][k], color=curves[-1][2], lw=1.2,
-                        label=f"{ifo.name}: {curves[-1][0]} − {curves[0][0]}")
-                _style(ax)
-                ax.set_xlabel("time from merger (s)", color=INK2, fontsize=9)
-                if c == 0:
-                    ax.set_ylabel("difference", color=INK2, fontsize=9)
-                    ax.legend(frameon=False, fontsize=7.5, loc="upper left", labelcolor=INK2)
+                ax.set_ylabel("|z| (SNR)", color=INK2, fontsize=8.5)
+        if r is None:
+            continue
+
+        # time-frequency map
+        tracks = [_frequency_track(ifo, h, f_low) for h in resp]
+        f_hi = min(max(_snr_band(ifo, resp[0], f_low), 150.0), 0.45 * fs)
+        if t_tf is None:
+            t_start = _window_of_track(t, tracks[0], f_low + 1, f_low + 2, t_merger, (-8.0, -7.0))[0]
+            t_tf = (max(t_start - 0.3, t[0] - t_merger + 1.0), 0.1)
+        ax = axes[r, 0]
+        white = _whiten(ifo, ifo.frequency_domain_strain, f_low, 0.45 * fs)
+        white = white / _noise_sigma(white, t, t_merger, -t_tf[0])
+        q = TimeSeries(white, t0=t[0], sample_rate=fs).q_transform(
+            qrange=(4, 64), frange=(f_low, f_hi), outseg=(t_merger + t_tf[0], t_merger + t_tf[1]), whiten=False,
+            logf=True)
+        e = np.asarray(q.value)
+        mesh = ax.pcolormesh(np.asarray(q.times.value) - t_merger, np.asarray(q.frequencies.value), e.T,
+                             shading="auto", cmap="viridis", vmin=0, vmax=max(5.0, float(np.percentile(e, 99.7))),
+                             rasterized=True)
+        for (label, _, color), tr in zip(curves, tracks):
+            k = (t - t_merger >= t_tf[0]) & (t - t_merger <= 0.0) & (tr >= f_low) & (tr <= f_hi)
+            ax.plot(t[k] - t_merger, tr[k], color=color, lw=1.0, ls="--" if "catalog" in label else "-", alpha=0.85)
+        ax.set_yscale("log")
+        ax.set_ylim(f_low, f_hi)
+        ticks = [v for v in (20, 30, 50, 100, 200, 300, 500, 800) if f_low <= v <= f_hi]
+        ax.set_yticks(ticks, [f"{v:g}" for v in ticks])
+        ax.minorticks_off()
+        ax.set_xlim(*t_tf)
+        ax.set_ylabel(f"{ifo.name}\nfrequency (Hz)", color=INK2, fontsize=9)
+        cb = fig.colorbar(mesh, ax=ax, pad=0.01, fraction=0.04)
+        cb.set_label("normalised energy", color=INK2, fontsize=7.5)
+        cb.ax.tick_params(labelsize=7, colors=INK2)
+        ax.tick_params(colors=INK2, labelsize=9)
+        ax.set_title(f"{ifo.name}: Q-transform of the whitened data, with the frequency tracks of the fits"
+                     if r == 0 else ifo.name, color=INK, fontsize=9, loc="left")
+        if r == len(rows) - 1:
+            ax.set_xlabel("time from merger (s)", color=INK2, fontsize=9)
+
+    # peak SNR per detector and in the network, both bands
+    names = [ifo.name for ifo in an.ifos] + ["network"]
+    for c, (bname, *_rest) in enumerate(bands):
+        ax = axes[-1, c + 1]
+        n_c = len(curves)
+        for j, (label, _, color) in enumerate(curves):
+            vals = list(peaks[bname][label].values())
+            vals = vals + [float(np.sqrt(np.sum(np.square(vals))))]
+            x = np.arange(len(names)) + (j - (n_c - 1) / 2) * 0.22
+            ax.plot(x, vals, "o", color=color, ms=6, mfc="none" if "catalog" in label else color)
+            for xi, v in zip(x, vals):
+                ax.annotate(f"{v:.2f}", (xi, v), xytext=(0, 6), textcoords="offset points", rotation=90,
+                            ha="center", va="bottom", fontsize=6.5, color=color)
+        ax.set_xticks(range(len(names)), names)
+        lo_v = min(min(v.values()) for v in peaks[bname].values())
+        hi_v = max(np.sqrt(np.sum(np.square(list(v.values())))) for v in peaks[bname].values())
+        ax.set_ylim(0.8 * lo_v, 1.22 * hi_v)
+        ax.set_xlim(-0.6, len(names) - 0.4)
+        _style(ax)
+        lo, hi = bands[c][1], bands[c][2] or 0.5 / (an.ifos[0].time_array[1] - an.ifos[0].time_array[0])
+        ax.set_title(f"peak SNR, {bname} ({lo:.0f}–{hi:.0f} Hz)", color=INK, fontsize=9, loc="left")
+        if c == 0:
+            ax.set_ylabel("peak |z|", color=INK2, fontsize=8.5)
+    lnl = {l: an.lnl(p) for l, p, _ in curves}
+
+    lax = axes[-1, 0]
+    lax.axis("off")
+    hs = [Line2D([], [], color=c, lw=1.6, ls="--" if "catalog" in l else "-", marker="o", ms=4, label=l)
+          for l, _, c in curves]
+    lax.legend(handles=hs, loc="center", frameon=False, fontsize=9, labelcolor=INK2, handlelength=2.6,
+               title="matched filter: each fit used as a template on the data, |z| maximised over\n"
+               "phase, its peak also over a ±12 ms (full band) or ±30 ms (inspiral band) time shift;\n"
+               "network: quadrature sum of the detectors. Coherent ln L of each fit\n(own time and phase): "
+               + ", ".join(f"{l.split()[0]} {v:.2f}" for l, v in lnl.items()), title_fontsize=8.5)
     fig.tight_layout()
     out_png.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_png, dpi=140)
@@ -259,10 +433,8 @@ def lnl_by_frequency(an, p: dict) -> tuple[np.ndarray, np.ndarray]:
 LNL_BANDS = (20.0, 30.0, 35.0, 60.0, None)
 
 
-def lnl_gain_by_band(an, p_cloud: dict, p_vac: dict, edges=LNL_BANDS):
-    """ln L_cloud - ln L_vacuum per detector and frequency band (a table: where the improvement comes from)."""
-    import pandas as pd
-
+def lnl_gain_per_frequency(an, p_cloud: dict, p_vac: dict) -> tuple[np.ndarray, dict]:
+    """(frequencies, {detector: ln L_cloud - ln L_vacuum per frequency bin}): summed, the likelihood gain."""
     f = an.ifos[0].frequency_array
     gain = {ifo.name: np.zeros_like(f) for ifo in an.ifos}
     for sign, p in ((1.0, p_cloud), (-1.0, p_vac)):
@@ -274,6 +446,14 @@ def lnl_gain_by_band(an, p_cloud: dict, p_vac: dict, edges=LNL_BANDS):
             w = np.zeros_like(f)
             w[ok] = 4.0 / an.s["duration"] / psd[ok]
             gain[ifo.name] += sign * w * (np.real(np.conj(ifo.frequency_domain_strain) * h) - 0.5 * np.abs(h) ** 2)
+    return f, gain
+
+
+def lnl_gain_by_band(an, p_cloud: dict, p_vac: dict, edges=LNL_BANDS):
+    """ln L_cloud - ln L_vacuum per detector and frequency band (a table: where the improvement comes from)."""
+    import pandas as pd
+
+    f, gain = lnl_gain_per_frequency(an, p_cloud, p_vac)
     hi = [e if e is not None else np.inf for e in edges[1:]]
     cols = [f"{lo:g}–{h:g} Hz" if np.isfinite(h) else f"> {lo:g} Hz" for lo, h in zip(edges[:-1], hi)]
     rows = []
@@ -285,23 +465,36 @@ def lnl_gain_by_band(an, p_cloud: dict, p_vac: dict, edges=LNL_BANDS):
     return tab
 
 
-def plot_lnl_by_frequency(an, p_cloud: dict, p_vac: dict, out_png: Path) -> Path:
-    """Cumulative ln L_cloud - ln L_vacuum against frequency: which part of the signal prefers the cloud."""
+DET_COLORS = {"H1": "#1f2328", "L1": "#bf8700", "V1": "#8250df"}
+
+
+def plot_lnl_by_frequency(an, p_cloud: dict, p_vac: dict, out_png: Path, edges=LNL_BANDS) -> Path:
+    """Cumulative ln L_cloud - ln L_vacuum against frequency, per detector and summed: which part of the signal, in
+    which detector, prefers the cloud; the bands of the table by band are marked."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    f, lc = lnl_by_frequency(an, p_cloud)
-    _, lv = lnl_by_frequency(an, p_vac)
+    f, gain = lnl_gain_per_frequency(an, p_cloud, p_vac)
     k = (f >= an.s["f_low"] * 0.95) & (f <= 500)
-    fig, ax = plt.subplots(figsize=(7.5, 3.4))
-    ax.plot(f[k], (lc - lv)[k], color=COLORS["cloud"], lw=2)
+    fig, ax = plt.subplots(figsize=(8.5, 3.8))
+    for det, g in gain.items():
+        c = np.cumsum(g)
+        ax.plot(f[k], c[k], color=DET_COLORS.get(det, INK2), lw=1.3, label=f"{det} (total {c[-1]:+.2f})")
+    tot = np.cumsum(sum(gain.values()))
+    ax.plot(f[k], tot[k], color=COLORS["cloud"], lw=2.2, label=f"all detectors (total {tot[-1]:+.2f})")
     ax.axhline(0, color=INK2, lw=0.8)
+    for e in edges[1:]:
+        if e is not None and f[k][0] < e < f[k][-1]:
+            ax.axvline(e, color=GRID, lw=1.0, ls="--", zorder=0)
     ax.set_xscale("log")
     _style(ax)
     ax.set_xlabel("frequency (Hz)", color=INK2, fontsize=9)
     ax.set_ylabel("cumulative ln L_cloud − ln L_vacuum", color=INK2, fontsize=9)
+    ax.set_title("Where the cloud fit gains over the vacuum fit (dashed: the bands of the table)", color=INK,
+                 fontsize=9.5, loc="left")
+    ax.legend(frameon=False, fontsize=8, labelcolor=INK2, loc="upper left", bbox_to_anchor=(1.01, 1.0))
     fig.tight_layout()
     fig.savefig(out_png, dpi=140)
     plt.close(fig)
@@ -568,9 +761,10 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
                      f" (ln L {res['vacuum_log_likelihood_ratio']:.2f} → {res['log_likelihood_ratio']:.2f}). "
                      "The cloud model contains vacuum (ρ̄ = 0), so 𝒟 ≥ 0 even without a cloud: it is read against "
                      "the background below.")
-        images.append(plot_whitened(an, [("vacuum best fit", vac["params"], COLORS["vacuum"]),
-                                         ("catalog max-likelihood sample", cat, COLORS["catalog"]),
-                                         ("cloud best fit", p, COLORS["cloud"])], plots / "whitened.png"))
+        images.append(plot_matched_filter(an, [("vacuum best fit", vac["params"], COLORS["vacuum"]),
+                                               ("catalog max-likelihood sample", cat, COLORS["catalog"]),
+                                               ("cloud best fit", p, COLORS["cloud"])],
+                                           plots / "matched_filter.png"))
         images.append(plot_lnl_by_frequency(an, p, vac["params"], plots / "lnl_by_frequency.png"))
         bands = lnl_gain_by_band(an, p, res.get("vacuum", vac)["params"])
         images.append(plot_dephasing(an, p, vac["params"], plots / "dephasing.png"))

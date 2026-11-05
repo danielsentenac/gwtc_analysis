@@ -106,3 +106,85 @@ def test_slurm_chains(tmp_path):
     seeded = (tmp_path / "slurm_seeded" / "01_seeded.sh").read_text()
     assert "--array=0-20" in seeded and "--task $((SLURM_ARRAY_TASK_ID-1))" in seeded
     assert "superradiance_tau1e06_result.hdf5" in (tmp_path / "slurm_seeded" / "00_seeds.sh").read_text()
+
+
+# ---------------------------------------------------------------------------
+# helpers of the matched-filter plot
+# ---------------------------------------------------------------------------
+class _FakeIfo:
+    """The few attributes of a bilby Interferometer the plot helpers read."""
+
+    def __init__(self, fs=1024.0, dur=8.0, psd=1.0):
+        self.time_array = np.arange(int(fs * dur)) / fs
+        self.frequency_array = np.fft.rfftfreq(len(self.time_array), 1 / fs)
+        self.power_spectral_density_array = np.full(len(self.frequency_array), psd)
+        self.frequency_mask = np.ones(len(self.frequency_array), bool)
+        self.frequency_domain_strain = np.zeros(len(self.frequency_array), complex)
+
+
+def test_noise_sigma_ignores_the_signal():
+    from gwtc_analysis import scalar_cloud_mode as m
+
+    rng = np.random.default_rng(1)
+    t = np.arange(16 * 1024) / 1024.0
+    x = rng.normal(0, 1, len(t))
+    x[(t > 10) & (t < 12)] += 50 * np.sin(2 * np.pi * 40 * t[(t > 10) & (t < 12)])     # a loud signal
+    assert m._noise_sigma(x, t, t_merger=12.0, duration=3.0) == pytest.approx(1.0, rel=0.05)
+
+
+def test_frequency_track_of_a_chirp():
+    """A linear chirp from 30 to 90 Hz: the track follows f(t) = 30 + 15 t away from the edges."""
+    from gwtc_analysis import scalar_cloud_mode as m
+
+    ifo = _FakeIfo()
+    t = ifo.time_array
+    x = np.where((t > 2) & (t < 6), np.sin(2 * np.pi * (30 * (t - 2) + 7.5 * (t - 2) ** 2)), 0.0)
+    tr = m._frequency_track(ifo, np.fft.rfft(x), f_lo=10.0)
+    for tx in (3.0, 4.0, 5.0):
+        assert tr[np.argmin(abs(t - tx))] == pytest.approx(30 + 15 * (tx - 2), abs=1.5)
+
+
+def test_snr_band_and_band_snr():
+    """White noise, flat |h|: the 99% frequency and the band SNR follow from the bin counts."""
+    from gwtc_analysis import scalar_cloud_mode as m
+
+    ifo = _FakeIfo(psd=4.0)
+    f = ifo.frequency_array
+    h = np.where((f >= 20) & (f <= 220), 1.0, 0.0).astype(complex)
+    assert m._snr_band(ifo, h, 20.0, 0.99) == pytest.approx(218.0, abs=1.0)
+    df = f[1] - f[0]
+    n = ((f >= 50) & (f <= 100)).sum()
+    assert m._band_snr(ifo, h, 50.0, 100.0) == pytest.approx(np.sqrt(4 * df * n / 4.0))
+
+
+def test_matched_filter_peaks_at_the_shift_with_the_template_norm():
+    """Data = template moved 25 ms later, no noise: |z| peaks at +25 ms with the value sqrt(<h, h>)."""
+    from gwtc_analysis import scalar_cloud_mode as m
+
+    ifo = _FakeIfo(psd=2.0)
+    f = ifo.frequency_array
+    h = np.where((f >= 20) & (f <= 300), (f / 100.0) ** (-7 / 6), 0.0) * np.exp(-2j * np.pi * f * 4.0)
+    ifo.frequency_domain_strain = h * np.exp(-2j * np.pi * f * 0.025)
+    lags, z = m._matched_filter(ifo, h, 20.0, 300.0)
+    norm = np.sqrt(4 * (f[1] - f[0]) * np.sum(np.abs(h) ** 2 / 2.0))
+    lag, rho = m._peak(lags, z, 0.1)
+    assert lag == pytest.approx(0.025, abs=1.5 / 1024) and rho == pytest.approx(norm, rel=0.02)
+    assert abs(z[np.argmin(abs(lags))]) < rho
+
+
+def test_gwpy_import_keeps_the_matplotlib_axes():
+    """gwpy replaces the default Axes class (thick legend lines in every later plot): the helper restores it."""
+    pytest.importorskip("gwpy")
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.axes import Axes
+
+    from gwtc_analysis import scalar_cloud as sc
+
+    handlelength = matplotlib.rcParams["legend.handlelength"]
+    sc.gwpy_timeseries()
+    fig, ax = plt.subplots()
+    assert type(ax) is Axes and matplotlib.rcParams["legend.handlelength"] == handlelength
+    plt.close(fig)
