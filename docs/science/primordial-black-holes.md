@@ -2,8 +2,8 @@
 
 Could some of the black holes seen by LIGO–Virgo–KAGRA be primordial, and part of the dark matter? This page
 explains what primordial black holes are, why sub-solar masses are the cleanest test, what a counterpart would tell,
-how PBH binaries form and merge, and which bounds the GW data already set. The masses themselves are explained in
-[What a GW signal measures](gw-signals.md#masses-primary-secondary-and-what-the-signal-measures); the merger rate
+how PBH binaries form and merge, which bounds the GW data already set, and whether PBHs could be most of the dark
+matter. The masses themselves are explained in [What a GW signal measures](gw-signals.md#masses-primary-secondary-and-what-the-signal-measures); the merger rate
 behind the last bound in [Merger rates](merger-rates.md).
 
 ## What they are
@@ -234,3 +234,74 @@ background gives a bound about 1000 times weaker.
 The [primordial_black_holes](../modes/primordial-black-holes.md) mode computes both kinds of bound from the public
 data: the sub-solar searches (it reproduces the LVK limits above) and the GWTC injections and events from 1 to
 150 M☉.
+
+## Reading the limits: could PBHs be most of the dark matter?
+
+### A weak limit is not a sign of PBHs
+
+In the plot of the [primordial_black_holes](../modes/primordial-black-holes.md#results) mode, the limits are
+loosest below 1 M☉. That does not mean PBHs are expected to be more numerous there: a high upper limit only means
+the data are less sensitive. A light binary is a weak source, seen only nearby: the sensitive volume-time falls
+roughly as m^2.5, the rate limit R₉₀ = 2.30 / VT rises, and so does the allowed f_PBH. No search has found a
+candidate at any mass, so the limits are upper bounds everywhere and nowhere a detection.
+
+The same reason puts the late-binary limits above f_PBH = 1 below about 0.65 M☉ (the shaded band of the plot):
+for equal masses their rate is R_late ≈ 1130 f_PBH Gpc⁻³ yr⁻¹ at any mass ([Late binaries](#late-binaries)), so
+even f_PBH = 1 gives fewer mergers than the sub-solar searches could detect there. A limit above 1 means no
+constraint.
+
+### One mass at a time
+
+Each point of the curve is a separate hypothesis: *all* PBHs have that mass (a monochromatic mass function). The
+point at 10 M☉ says "if every PBH weighed 10 M☉, they would be at most ~0.1% of the dark matter"; the point at
+30 M☉ is another universe. Integrating the curve over mass therefore gives no fraction (it is not even
+dimensionless): the limits are upper bounds of incompatible scenarios, not a measured distribution.
+
+A real population has a spread of masses: critical collapse gives a tail to low masses even from a single scale
+of fluctuations, a broad peak of the primordial power spectrum gives a log-normal or power-law mass function, and
+the softening of the equation of state at the quark–hadron transition favours masses near 1–2 M☉
+[\[140\]](../references.md#ref-140). With a mass function ψ(m), normalised so that ∫ψ(m) dm = f_PBH, a common
+approximate test against monochromatic limits f_max(m) is [\[139\]](../references.md#ref-139)
+
+\[
+\int \frac{\psi(m)}{f_\text{max}(m)}\, \mathrm{d}m \le 1 .
+\]
+
+It is exact only for observables linear in f_PBH, which merger rates are not: the early-binary rate goes as
+f^(53/37) with a suppression that depends on the whole population, and PBHs of different masses pair up, so the
+rate involves ψ(m₁) ψ(m₂). Merger limits for an extended mass function need the rate recomputed for that ψ
+(Raidal et al. [\[123\]](../references.md#ref-123), Andrés-Carcasona et al.
+[\[102\]](../references.md#ref-102)); the mode does not do it. Either way a spread of masses tightens the bound:
+a broad population is limited by the strongest constraint anywhere in its range.
+
+### Could they be most of the dark matter?
+
+**Not between 0.2 and 200 M☉.** With the default suppression of the mode (Hütsi et al.
+[\[124\]](../references.md#ref-124)):
+
+| Mass | Early binaries | Late binaries |
+|---|---|---|
+| 0.35 M☉ | f_PBH ≲ 0.06–0.14 | no constraint (> 1) |
+| 1 M☉ | ≲ 0.003–0.006 | ≲ 0.3–0.4 |
+| 1–200 M☉ | ~10⁻⁴ to 2 × 10⁻³ | ~3 × 10⁻⁵ to 0.1 |
+
+(ranges over the three sub-solar search pipelines; the [table above](#what-the-gw-data-say) quotes the LVK fit of
+the suppression, about 6 times looser at 1 M☉). At most a few percent of the dark matter, much less above 1 M☉.
+The early-binary limits assume binaries formed in the radiation era with the computed suppression; if PBHs formed
+clustered, more of these binaries could be disrupted and the limits would loosen, toward the late-binary curve,
+which still excludes f_PBH = 1 above ~0.7 M☉.
+
+**Other masses are tested by other probes**, roughly (reviews [\[104\]](../references.md#ref-104),
+[\[137\]](../references.md#ref-137), [\[138\]](../references.md#ref-138)):
+
+| Mass | Probe | Bound |
+|---|---|---|
+| ≲ 10⁻¹⁶ M☉ | Hawking evaporation: extragalactic gamma rays, cosmic-ray electrons, the CMB | f_PBH ≪ 1 (evaporated by today below ~10⁻¹⁹ M☉) |
+| ~10⁻¹⁶ – 10⁻¹¹ M☉ (asteroid masses) | none conclusive | **f_PBH = 1 allowed** |
+| ~10⁻¹¹ – 10 M☉ | microlensing of stars: Subaru HSC (M31), OGLE, EROS/MACHO | f_PBH ≲ 0.01–0.1 |
+| ≳ 10 M☉ | accretion imprint on the CMB, dwarf-galaxy and wide-binary dynamics, GW mergers | f_PBH ≪ 1 |
+
+The asteroid-mass window is the only range where PBHs could still be all of the dark matter, and only for a
+fairly narrow mass function inside it. GW detectors cannot test it: binaries that light merge at frequencies far
+above the LIGO–Virgo–KAGRA band. What the GWTC and sub-solar data say is that PBHs from about 0.2 to 200 M☉ are at
+most a few percent of the dark matter, and much less above 1 M☉.
