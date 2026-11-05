@@ -555,6 +555,19 @@ mkdir -p plots work &&
         --suppression '$mode.suppression'
     #end if
     $mode.no_sub_solar
+    #if str($mode.lognormal_widths).strip():
+        --lognormal-widths
+        #for $t in str($mode.lognormal_widths).split():
+            '$t'
+        #end for
+    #end if
+    #if str($mode.lognormal_masses).strip():
+        --lognormal-masses
+        #for $t in str($mode.lognormal_masses).split():
+            '$t'
+        #end for
+    #end if
+    $mode.no_extended
     #if str($mode.far_threshold) not in ('', 'None'):
         --far-threshold '$mode.far_threshold'
     #end if
@@ -1026,6 +1039,9 @@ mkdir -p plots work &&
           <option value="lvk">lvk</option>
         </param>
         <param argument="--no-sub-solar" label="Leave out the sub-solar searches" help="Leave out the sub-solar searches (0.2-1 Msun)." type="boolean" truevalue="--no-sub-solar" falsevalue="" checked="false"/>
+        <param argument="--lognormal-widths" label="Widths of the log-normal mass functions (in ln m)" help="Widths sigma (in ln m) of the log-normal mass functions of the unequal-mass limits." type="text" value="0.5 1.0 2.0" optional="true"/>
+        <param argument="--lognormal-masses" label="Peak masses of the log-normal mass functions (M☉)" help="Peak masses m_c [Msun] of the log-normal mass functions (default: 24 values from 0.3 to 150)." type="text" value="" optional="true"/>
+        <param argument="--no-extended" label="Leave out the unequal masses (map and log-normal limits)" help="Leave out the unequal masses: the map F_PBH(m1, m2) and the log-normal limits." type="boolean" truevalue="--no-extended" falsevalue="" checked="false"/>
         <param argument="--far-threshold" label="False-alarm-rate threshold (per year)" help="FAR threshold [1/yr] for injections and events." type="float" value="1.0"/>
         <param argument="--sensitivity-release" label="Search-sensitivity release" help="LVK search-sensitivity release of the catalog part, as in the rates mode." type="select">
           <option value="gwtc5" selected="true">gwtc5</option>

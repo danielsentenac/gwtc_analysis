@@ -242,10 +242,13 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--attribute` | `window` | Events that may be primordial: those with their chirp mass in the window (window), or none, the observed events being astrophysical (none: tighter limits). |
 | `--suppression` | `hutsi` | Suppression of the early-binary rate: S1 S2 of Hütsi et al. 2021 (hutsi), or the fit 2.3e-3 f^-0.65 of the LVK sub-solar papers (lvk, which reproduces their limits). |
 | `--no-sub-solar` | `True` | Leave out the sub-solar searches (0.2-1 Msun). |
+| `--lognormal-widths` | `[0.5, 1.0, 2.0]` | Widths sigma (in ln m) of the log-normal mass functions of the unequal-mass limits. |
+| `--lognormal-masses` | `` | Peak masses m_c [Msun] of the log-normal mass functions (default: 24 values from 0.3 to 150). |
+| `--no-extended` | `True` | Leave out the unequal masses: the map F_PBH(m1, m2) and the log-normal limits. |
 | `--far-threshold` | `1.0` | FAR threshold [1/yr] for injections and events. |
 | `--sensitivity-release` | `gwtc5` | LVK search-sensitivity release of the catalog part, as in the rates mode. |
 | `--sensitivity-file` | `` | Local LVK injection HDF file instead of the release. |
-| `--out-limits` | `pbh_limits.tsv` | Output TSV of the limits per mass. |
+| `--out-limits` | `pbh_limits.tsv` | Output TSV of the limits per mass; the unequal-mass tables go next to it (<name>.map.tsv, <name>.lognormal.tsv). |
 | `--out-report` | `pbh_limits.html` | Output HTML report path. |
 | `--plots-dir` | `pbh_plots` | Directory for the plots. |
 | `--data-repo` | `zenodo` | Where the search-sensitivity injections and the sub-solar data release are downloaded from: zenodo, their public sources (Zenodo, LIGO DCC); s3, the MinIO mirror (faster); or galaxy, the public usegalaxy.org history. The files are the same: a file the mirror does not have comes from its public source. |

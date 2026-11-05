@@ -46,7 +46,114 @@ def _ssm_zip(tmp_path):
     with zipfile.ZipFile(p, "w") as z:
         for key in pbh.SSM_PIPELINES.values():
             z.writestr(f"PBH/vt-results-final/{key}_pbh_vt_inputs_mc.txt", txt)
+            z.writestr(f"PBH/vt-results-final/{key}_pbh_vt_inputs_m1m2.txt", M1M2)
     return p
+
+
+# first rows of the GstLAL (m1, m2) table of the O4b release, and its row without O4a values (no injections)
+M1M2 = ("m1_min m1_max m2_min m2_max VT_O4a efficiency_O4a variance_O4a neff_O4a VT_O4b efficiency_O4b variance_O4b "
+        "neff_O4b VT_O4ab efficiency_O4ab variance_O4ab neff_O4ab\n"
+        "0.19 2.372 0.19 0.372 0.0005936 0.000359 1.7e-10 743.7 0.00050628 0.00015156 5.5e-11 414.23 0.00091707 "
+        "0.00026304 8.4412e-11 819.65\n"
+        "0.19 2.372 0.918 1.1 0.005 0.003 1e-8 700 0.005 0.001 1e-9 500 0.010943 0.003 1e-9 1100\n"
+        "8.918 11.1 0.19 0.372     0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0\n")
+
+
+def test_ssm_map_is_the_lvk_formula(tmp_path):
+    """F = 2.30 / VT / (dln m1 dln m2 R(m1, m2; F = 1)) at the arithmetic bin centre; the empty bin is NaN."""
+    vt2 = pbh.read_ssm_vt_m1m2(_ssm_zip(tmp_path))
+    g = pbh.ssm_map(vt2[vt2["pipeline"] == "GstLAL"]).reset_index(drop=True)
+    assert len(g) == 3 and np.isnan(g["vt_gpc3_yr"].iloc[2]) and np.isnan(g["F_early"].iloc[2])
+    m1, m2 = 1.281, 0.281
+    mt = m1 + m2
+    dln = np.log(2.372 / 0.19) * np.log(0.372 / 0.19)
+    r90 = -np.log(0.1) / 0.00091707
+    eb = 1.6e6 * 2.3e-3 * mt ** (-32 / 37) * (m1 * m2 / mt ** 2) ** (-34 / 37)
+    lb = 420.0 * mt ** (10 / 7) / (m1 * m2) ** (5 / 7)
+    assert g["F_early"].iloc[0] == pytest.approx(r90 / (dln * eb), rel=1e-9)
+    assert g["F_late"].iloc[0] == pytest.approx(r90 / (dln * lb), rel=1e-9)
+
+
+def test_ordered_ln_area():
+    d = np.log(2.0)
+    assert pbh.ordered_ln_area((1, 2), (1, 2)) == pytest.approx(d * d / 2, rel=1e-4)       # triangle
+    assert pbh.ordered_ln_area((4, 8), (1, 2)) == pytest.approx(d * d, rel=1e-6)           # whole rectangle
+    assert pbh.ordered_ln_area((1, 2), (4, 8)) == pytest.approx(0.0, abs=1e-9)             # all m1 < m2
+    rng = np.random.default_rng(0)                                                          # straddling bin
+    u1, u2 = rng.uniform(np.log(0.19), np.log(2.372), 400000), rng.uniform(np.log(0.918), np.log(1.1), 400000)
+    mc = np.mean(u1 >= u2) * np.log(2.372 / 0.19) * np.log(1.1 / 0.918)
+    assert pbh.ordered_ln_area((0.19, 2.372), (0.918, 1.1)) == pytest.approx(mc, rel=0.01)
+
+
+def test_region_vt_is_window_vt_on_the_diagonal():
+    inj = _injections()
+    x = pbh._injection_terms(inj, evolve=False)
+    w = 0.2
+    b = (10 * np.exp(-w), 10 * np.exp(w))
+    assert pbh.region_vt(inj, b, b, x) == pytest.approx(pbh.window_vt(inj, 10.0, w, evolve=False), rel=1e-3)
+
+
+def _dense_points(vt, lo=0.2, hi=2.0, step=0.004):
+    """Exposure points of a constant VT on a fine (ln m1, ln m2) grid, m1 >= m2."""
+    u = np.arange(np.log(lo), np.log(hi), step)
+    m1, m2, c = pbh.grid_exposure(u, u, vt)
+    return pbh._ExposurePoints(m1, m2, c, c)
+
+
+def test_grid_exposure_counts_half_the_diagonal():
+    u = np.linspace(0.0, 1.0, 11)
+    _, _, c = pbh.grid_exposure(u, u, 1.0)
+    assert c.sum() == pytest.approx(2.0 * 0.5, rel=1e-3)          # 2 VT x the triangle of area 1/2
+
+
+@pytest.mark.parametrize("sup", pbh.SUPPRESSIONS)
+def test_narrow_lognormal_is_monochromatic(sup):
+    """As sigma -> 0 the log-normal limit tends to the monochromatic one at m_c, for both channels."""
+    vt, mc = 2e-3, 0.6
+    pts = _dense_points(vt)
+    f_e, f_l = pbh.lognormal_limit(pts, mc, 0.03, {}, sup)
+    r90 = pbh.rate_upper_limit(0, vt)
+    assert f_e == pytest.approx(pbh.f_pbh_limit(mc, r90, "early", sup), rel=0.02)
+    assert f_l == pytest.approx(pbh.f_pbh_limit(mc, r90, "late"), rel=0.02)
+
+
+def test_broad_lognormal_and_events():
+    """A wider log-normal at the same m_c spreads over more masses; an event loosens the limit."""
+    pts = _dense_points(2e-3, 0.05, 20.0, 0.01)
+    f_narrow, _ = pbh.lognormal_limit(pts, 0.6, 0.1, {}, "lvk")
+    f_wide, _ = pbh.lognormal_limit(pts, 0.6, 1.0, {}, "lvk")
+    assert np.isfinite(f_wide) and f_wide != pytest.approx(f_narrow, rel=0.01)
+    f_one, _ = pbh.lognormal_limit(pts, 0.6, 1.0, {pbh.SUB_SOLAR_GROUP: 1}, "lvk")
+    assert f_one > f_wide
+
+
+def test_lognormal_windows():
+    """Split in two windows, the limit is set by the window that holds no event; pooled, by all the exposure."""
+    pts = _dense_points(2e-3)
+    pts.group = np.where(pts.m1 * pts.m2 > 0.36, 1, 2)          # split around m1 m2 = 0.6^2
+    f_split, _ = pbh.lognormal_limit(pts, 0.6, 0.3, {1: 50}, "lvk")
+    f_only2, _ = pbh.lognormal_limit(pbh._ExposurePoints(pts.m1[pts.group == 2], pts.m2[pts.group == 2],
+                                                         pts.c_early[pts.group == 2], pts.c_late[pts.group == 2]),
+                                     0.6, 0.3, {}, "lvk")
+    assert f_split == pytest.approx(f_only2, rel=1e-9)
+    f_pool, _ = pbh.lognormal_limit(pts, 0.6, 0.3, {1: 50}, "lvk", pooled=True)
+    assert f_pool < f_split
+
+
+def test_chirp_window_matches_the_monochromatic_window():
+    """The window of an equal-mass m + m binary is centred on it: m = 1 is window 0, m = e^(2w) the next."""
+    mc = 2 ** -0.2 * np.array([1.0, np.exp(0.39), np.exp(0.41)])
+    assert list(pbh.chirp_window(mc, 0.2)) == [0, 1, 1]
+    assert list(pbh.chirp_window(2 ** -0.2 * np.array([np.exp(0.19), np.exp(0.21)]), 0.2)) == [0, 1]
+
+
+def test_hutsi_suppression_mass_function():
+    """S1 falls with M/<m> (more PBHs near the pair) and with the spread <m^2>/<m>^2; the defaults are the
+    monochromatic values."""
+    f = 1e-2
+    assert float(pbh.suppression_hutsi(f, 2.0, 1.0)) == pytest.approx(float(pbh.suppression_hutsi(f)))
+    assert float(pbh.suppression_hutsi(f, 4.0)) < float(pbh.suppression_hutsi(f, 2.0))
+    assert float(pbh.suppression_hutsi(f, 2.0, np.e)) < float(pbh.suppression_hutsi(f, 2.0, 1.0))
 
 
 def test_ssm_reproduces_the_lvk(tmp_path):
@@ -144,13 +251,17 @@ def test_cli_dispatch(monkeypatch):
     seen = {}
     monkeypatch.setattr(pbh, "run_primordial_black_holes", lambda **kw: seen.update(kw))
     assert cli.main(["primordial_black_holes", "--masses", "3", "30", "--mass-window", "0.1",
-                     "--suppression", "lvk", "--attribute", "none", "--no-sub-solar"]) == 0
+                     "--suppression", "lvk", "--attribute", "none", "--no-sub-solar",
+                     "--lognormal-widths", "0.3", "--lognormal-masses", "1", "10", "--no-extended"]) == 0
     assert seen["masses"] == [3.0, 30.0] and seen["mass_window"] == 0.1
+    assert seen["lognormal_widths"] == [0.3] and seen["lognormal_masses"] == [1.0, 10.0] and seen["extended"] is False
     assert seen["suppression"] == "lvk" and seen["attribute"] == "none" and seen["sub_solar"] is False
 
 
 @pytest.mark.parametrize("kw, msg", [(dict(mass_window=1.5), "mass-window"), (dict(masses=[1.05]), "e\\^-w"),
-                                     (dict(suppression="x"), "suppression"), (dict(attribute="x"), "attribute")])
+                                     (dict(suppression="x"), "suppression"), (dict(attribute="x"), "attribute"),
+                                     (dict(lognormal_widths=[0.0]), "widths"),
+                                     (dict(lognormal_masses=[-1.0]), "lognormal-masses")])
 def test_run_rejects_bad_options(kw, msg):
     with pytest.raises(ValueError, match=msg):
         pbh.run_primordial_black_holes(**kw)
@@ -170,9 +281,16 @@ def test_run_end_to_end_offline(tmp_path, monkeypatch):
     monkeypatch.setattr(catalogs, "_load_found_injections", lambda p, far: inj)
     monkeypatch.setattr(catalogs, "_rates_events", lambda seg, far, ns, lists: ev)
     out = tmp_path / "out"
-    t = pbh.run_primordial_black_holes(masses=[2.0, 10.0, 30.0], out_limits_tsv=out / "l.tsv",
+    t = pbh.run_primordial_black_holes(masses=[2.0, 10.0, 30.0], lognormal_masses=[0.5, 5.0, 30.0],
+                                       map_edges=np.geomspace(1.1, 100.0, 5), out_limits_tsv=out / "l.tsv",
                                        out_report_html=out / "r.html", plots_dir=out / "plots")
     assert (out / "l.tsv").exists() and (out / "plots" / "f_pbh.png").exists()
+    for f in ("l.map.tsv", "l.lognormal.tsv", "plots/f_pbh_map.png", "plots/f_pbh_lognormal.png"):
+        assert (out / f).exists(), f
+    mp = pd.read_csv(out / "l.map.tsv", sep="\t")
+    assert set(mp["source"]) == {"sub-solar searches O4a+O4b", "GWTC injections and events"}
+    ln = pd.read_csv(out / "l.lognormal.tsv", sep="\t")
+    assert set(ln["pipeline"]) == set(pbh.SSM_PIPELINES) and set(ln["sigma"]) == {0.5, 1.0, 2.0}
     html = (out / "r.html").read_text()
     assert "Hütsi" in html and "arXiv:2610.20276" in html
     cat = t[t["source"] == "GWTC injections and events"].set_index("m_pbh")
@@ -194,7 +312,22 @@ def test_run_without_sub_solar(tmp_path, monkeypatch):
     monkeypatch.setattr(catalogs, "_load_found_injections", lambda p, far: inj)
     monkeypatch.setattr(catalogs, "_rates_events", lambda seg, far, ns, lists: ev)
     out = tmp_path / "out"
-    t = pbh.run_primordial_black_holes(masses=[2.0, 10.0], sub_solar=False, out_limits_tsv=out / "l.tsv",
+    t = pbh.run_primordial_black_holes(masses=[2.0, 10.0], sub_solar=False, lognormal_masses=[5.0],
+                                       lognormal_widths=[0.5], map_edges=np.geomspace(1.1, 100.0, 4),
+                                       out_limits_tsv=out / "l.tsv",
                                        out_report_html=out / "r.html", plots_dir=out / "plots")
     assert (out / "l.tsv").exists() and (out / "r.html").exists() and (out / "plots" / "f_pbh.png").exists()
     assert set(t["source"]) == {"GWTC injections and events"}
+    ln = pd.read_csv(out / "l.lognormal.tsv", sep="\t")
+    assert list(ln["pipeline"]) == ["all (FAR threshold)"] and np.isfinite(ln["f_early"]).all()
+
+
+def test_first_excluded_finds_the_first_crossing():
+    """A count that rises, falls and rises again: the limit is the first crossing, and the dip is reported."""
+    count = lambda d, f: d * (f / 1e-4 if f < 1e-3 else 10 * (1e-3 / f) ** 3 if f < 1e-1 else 1e-5 * (f / 0.1) ** 9)
+    f_lim, f_re = pbh._first_excluded([(1.0, 2.0)], count)
+    assert f_lim == pytest.approx(2e-4, rel=1e-4)
+    assert f_re is not None and 1e-3 < f_re < 1e-1
+    f_lim2, f_re2 = pbh._first_excluded([(1.0, 2.0), (1.0, 0.5)], count)        # the second window crosses first
+    assert f_lim2 == pytest.approx(5e-5, rel=1e-4)
+    assert pbh._first_excluded([(1e-20, 2.0)], count)[0] == np.inf
