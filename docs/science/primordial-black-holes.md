@@ -271,8 +271,15 @@ It is exact only for observables linear in f_PBH, which merger rates are not: th
 f^(53/37) with a suppression that depends on the whole population, and PBHs of different masses pair up, so the
 rate involves ψ(m₁) ψ(m₂). Merger limits for an extended mass function need the rate recomputed for that ψ
 (Raidal et al. [\[123\]](../references.md#ref-123), Andrés-Carcasona et al.
-[\[102\]](../references.md#ref-102)); the mode does not do it. Either way a spread of masses tightens the bound:
-a broad population is limited by the strongest constraint anywhere in its range.
+[\[102\]](../references.md#ref-102)); the [primordial_black_holes](../modes/primordial-black-holes.md#unequal-masses)
+mode does it for log-normal mass functions, and also gives the LVK map F_PBH(m₁, m₂), one limit per pair of masses
+whatever the shape of ψ.
+
+A spread of masses does not simply tighten the merger bound. For the linear test above, a broad population is
+limited by the strongest constraint anywhere in its range; for merger rates, the suppression works against it: in a
+broad mass function the pairs much heavier than the mean are the most disrupted (S₁ ∝ e^(−N̄) with N̄ ≈ M/⟨m⟩ once
+f ≳ 0.004), and these are the loudest, most detectable binaries. With the default choices, a log-normal of width
+σ = 0.5 gives limits close to the one-mass curve (down to ~3 × 10⁻⁴ near 70 M☉), σ = 2 only ≳ 2 × 10⁻³.
 
 ### Could they be most of the dark matter?
 

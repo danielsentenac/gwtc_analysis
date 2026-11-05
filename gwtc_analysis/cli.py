@@ -681,6 +681,9 @@ def build_parser() -> argparse.ArgumentParser:
             "Zenodo 23346454), no candidate: R_90 = 2.30 / VT. Above 1 Msun: the search-sensitivity injections of the\n"
             "rates mode, reweighted to equal-mass binaries in [m e^-w, m e^w], and the events whose chirp mass is in\n"
             "that window (all may be primordial, --attribute window; or none, --attribute none).\n"
+            "Unequal masses: the map F_PBH(m1, m2) of the LVK (one limit per mass bin) and the limits on the total\n"
+            "f_PBH of log-normal mass functions (Hütsi et al. 2021), from the (m1, m2) tables of the sub-solar\n"
+            "searches and the injections.\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -696,6 +699,12 @@ def build_parser() -> argparse.ArgumentParser:
                             "2.3e-3 f^-0.65 of the LVK sub-solar papers (lvk, which reproduces their limits).")
     p_pbh.add_argument("--no-sub-solar", dest="sub_solar", action="store_false",
                        help="Leave out the sub-solar searches (0.2-1 Msun).")
+    p_pbh.add_argument("--lognormal-widths", nargs="+", type=float, default=[0.5, 1.0, 2.0],
+                       help="Widths sigma (in ln m) of the log-normal mass functions of the unequal-mass limits.")
+    p_pbh.add_argument("--lognormal-masses", nargs="+", type=float, default=None,
+                       help="Peak masses m_c [Msun] of the log-normal mass functions (default: 24 values from 0.3 to 150).")
+    p_pbh.add_argument("--no-extended", dest="extended", action="store_false",
+                       help="Leave out the unequal masses: the map F_PBH(m1, m2) and the log-normal limits.")
     p_pbh.add_argument("--far-threshold", type=float, default=1.0, help="FAR threshold [1/yr] for injections and events.")
     p_pbh.add_argument(
         "--sensitivity-release",
@@ -704,7 +713,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="LVK search-sensitivity release of the catalog part, as in the rates mode.",
     )
     p_pbh.add_argument("--sensitivity-file", default=None, help="Local LVK injection HDF file instead of the release.")
-    p_pbh.add_argument("--out-limits", default="pbh_limits.tsv", help="Output TSV of the limits per mass.")
+    p_pbh.add_argument("--out-limits", default="pbh_limits.tsv", help="Output TSV of the limits per mass; the unequal-mass tables go next to it (<name>.map.tsv, <name>.lognormal.tsv).")
     p_pbh.add_argument("--out-report", default="pbh_limits.html", help="Output HTML report path.")
     p_pbh.add_argument("--plots-dir", default="pbh_plots", help="Directory for the plots.")
 
@@ -1376,7 +1385,8 @@ def main(argv=None) -> int:
                                        sensitivity_file=args.sensitivity_file,
                                        sensitivity_release=args.sensitivity_release, sub_solar=args.sub_solar,
                                        out_limits_tsv=args.out_limits, out_report_html=args.out_report,
-                                       plots_dir=args.plots_dir)
+                                       plots_dir=args.plots_dir, extended=args.extended,
+                                       lognormal_widths=args.lognormal_widths, lognormal_masses=args.lognormal_masses)
             return 0
 
         if args.mode == "neutron_star_eos":

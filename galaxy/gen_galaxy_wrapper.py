@@ -126,6 +126,9 @@ PARAM_LABELS = {
     "masses": "PBH masses (M☉)", "mass_window": "Half-width of the mass window (in ln m)",
     "attribute": "Events that may be primordial", "suppression": "Suppression of the early-binary rate",
     "sub_solar": "Leave out the sub-solar searches",
+    "lognormal_widths": "Widths of the log-normal mass functions (in ln m)",
+    "lognormal_masses": "Peak masses of the log-normal mass functions (M☉)",
+    "extended": "Leave out the unequal masses (map and log-normal limits)",
 }
 # help texts written for Galaxy, where the package's mention work directories or values a data input cannot take
 HELP_OVERRIDES = {

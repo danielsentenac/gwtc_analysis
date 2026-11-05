@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### New
+
+- **primordial_black_holes**: unequal masses. The LVK map F_PBH(m₁, m₂), one upper limit per pair of masses, as
+  defined by the script of the sub-solar release (its (m₁, m₂) tables below m₂ = 1.1 M☉, reproduced exactly; the
+  search-sensitivity injections in log bins above), and the limits on the total f_PBH of log-normal mass functions
+  (Hütsi et al. 2021, eq. 3.6; S₁ for the mass function), summed over all pairs and tested in each chirp-mass window
+  as the monochromatic limits, with the f at which a broad mass function is allowed again when the suppression makes
+  the count fall. New options `--lognormal-widths` (0.5 1 2), `--lognormal-masses`, `--no-extended`; tables
+  `<out-limits>.map.tsv` and `<out-limits>.lognormal.tsv`, plots `f_pbh_map.png` and `f_pbh_lognormal.png`. The
+  default run takes about 5 min instead of 2.
+- **primordial_black_holes**: the region f_PBH > 1 of the plot is shaded as "no constraint".
+
 ### Changes
 
 - **scalar_cloud**: the mean density of the cloud keeps the bar of the paper's ρ̄_φ in the code: the sampling
