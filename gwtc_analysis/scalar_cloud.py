@@ -284,6 +284,22 @@ def _gwosc_coverage(det: str, start: float, end: float) -> list[tuple[float, flo
     return [(float(a), float(b)) for a, b in get_segments(f"{det}_DATA", int(start), int(end) + 1)]
 
 
+def gwpy_timeseries():
+    """gwpy's TimeSeries class. Importing gwpy replaces matplotlib's default Axes (the "rectilinear" projection,
+    whose legends then draw 6-point lines) and changes rcParams for every later plot of the process: both are
+    restored."""
+    import matplotlib
+    from matplotlib.axes import Axes
+    from matplotlib.projections import register_projection
+
+    rc = matplotlib.rcParams.copy()
+    from gwpy.timeseries import TimeSeries
+
+    register_projection(Axes)
+    matplotlib.rcParams.update(rc)
+    return TimeSeries
+
+
 def fetch_strain(workdir, n_offsource: int = 0, sampling_frequency: float = 2048.0, window: float = 3600.0,
                  avoid: float = 64.0) -> int:
     """The event's strain, and n_offsource segments of the same length within +- window s of it, at least `avoid`
@@ -292,8 +308,7 @@ def fetch_strain(workdir, n_offsource: int = 0, sampling_frequency: float = 2048
     import json
     from pathlib import Path
 
-    from gwpy.timeseries import TimeSeries
-
+    TimeSeries = gwpy_timeseries()
     wd = Path(workdir)
     s = read_json(wd / "event.json")
     dur, t0 = s["duration"], s["segment_start"]
