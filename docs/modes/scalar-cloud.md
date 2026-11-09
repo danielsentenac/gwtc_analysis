@@ -248,7 +248,16 @@ prior itself, the cloud-mass cap barely acts there):
 
 The paper's 0.4 corresponds to an upper end near \(3 \times 10^8\) g/cm³.
 
-![Whitened strain of GW190728 with the catalog, vacuum and cloud fits](../img/modes/scalar_cloud_whitened_GW190728.png)
+![Matched-filter SNR of the catalog, vacuum and cloud fits of GW190728](../img/modes/scalar_cloud_matched_filter_GW190728.png)
+
+**Reading the matched-filter figure.** A strain overlay cannot show the difference between the fits: they
+differ by a few tenths of the noise standard deviation. Each fit is therefore used as a template on the data.
+Left: the Q-transform of the whitened data, with the frequency track of each fit. Middle and right: the
+matched-filter SNR \(|z|\) of each fit against a time shift from its own merger time, over the full band and
+over the 20–45 Hz inspiral band only, where a cloud acts. Bottom: the peak SNR per detector and for the
+network (quadrature sum). In the full band the fits are nearly equal. The cloud's gain shows up in the
+inspiral band, where its template matches the data better than the vacuum one. The caption gives the
+coherent ln L of each fit, at its own time and phase: the statistic of the test.
 
 ![Cumulative ln L of the cloud best fit over vacuum against frequency](../img/modes/scalar_cloud_lnl_by_frequency_GW190728.png)
 
@@ -345,7 +354,7 @@ GW190517 constraint. The tension concerns the boson, not the fit, and the mode d
 - The HTML report ends with the **PE files of this run** (recorded in `event.json` by `prepare`): for each event the file read, its type (`nocosmo`, `cosmo`, `combined` or the GW170817 bundle) and where it was taken from (Zenodo, the S3 mirror, Galaxy, a PE cache), then the options of the run; see [Which PE file is read](../data-sources.md#which-pe-file-is-read);
 - `--out-report` (HTML): the fits, the background and the posteriors, with the plots;
 - `--out-summary` (TSV): the fits (vacuum and cloud), with \(\mathcal{D}\) and its p-value;
-- `<workdir>/`: `event.json` (the event and its priors), the results of each stage, and `plots/` (`whitened.png`,
+- `<workdir>/`: `event.json` (the event and its priors), the results of each stage, and `plots/` (`matched_filter.png`,
   `lnl_by_frequency.png`, `dephasing.png`, `profile.png`, `background.png`, `cloud_posteriors.png`).
 
 ## Options
