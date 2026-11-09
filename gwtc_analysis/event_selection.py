@@ -106,6 +106,10 @@ def run_event_selection(
     mass_gap: tuple[float, float] = sc.MASS_GAP,
     pisn_gap_min: float = sc.PISN_GAP_MIN,
     out_plot: Optional[str | Path] = None,
+    area_max: Optional[float] = None,
+    area_cred: float = 0.9,
+    data_repo: str = "zenodo",
+    zenodo_versions: Optional[dict[str, str]] = None,
 ) -> None:
     """Select GWTC events based on source-frame component masses and luminosity distance.
 
@@ -116,6 +120,10 @@ def run_event_selection(
 
     `preset` selects a class of sources (`source_classes.apply_preset`): neutron-stars, mass-gap or
     hierarchical; its columns are added to the TSV. The bounds apply on top of it.
+
+    `area_max` keeps the events whose sky area at the `area_cred` credible level (deg², column A90_deg2 for 0.9)
+    is at most this, computed from the skymaps (`data_repo`, `zenodo_versions` as catalog_statistics) of the events
+    passing the other cuts only; events without a skymap are dropped.
 
     Writes TSV with selected events (at least event_id), and with `out_plot` a PNG of the selected events
     among all the events of the catalogs. The redshift column is GWOSC's: inferred from the luminosity
@@ -220,9 +228,29 @@ def run_event_selection(
                    "hierarchical": {"pisn": pisn_gap_min}}[preset]
         print(f"[event_selection] preset {preset}: {desc}")
 
+    area_col = f"A{int(round(100 * area_cred))}_deg2"
+    if area_max is not None:
+        if not 0 < area_cred < 1:
+            raise ValueError(f"area_cred must be in (0, 1), got {area_cred}")
+        from .catalogs import add_credible_areas
+
+        df_all[area_col] = np.nan
+        if mask.any():
+            sub = df_all.loc[mask, ["event_id", "catalog_key"]].copy()
+            print(f"[event_selection] sky areas of {len(sub)} event(s) from {data_repo}")
+            add_credible_areas(sub, sorted(sub["catalog_key"].unique()), data_repo=data_repo, cred=area_cred,
+                               column=area_col, zenodo_versions=zenodo_versions, tag="event_selection")
+            df_all.loc[mask, area_col] = sub[area_col].to_numpy()
+            missing = int(df_all.loc[mask, area_col].isna().sum())
+            if missing:
+                print(f"[event_selection] {missing} event(s) without a skymap: not selected")
+        mask &= df_all[area_col] <= float(area_max)
+
     cols = ["event_id", "catalog_key", "mass_1_source", "mass_2_source", "luminosity_distance", "redshift"]
     if preset == "hierarchical" or chi_eff_min is not None or chi_eff_max is not None:
         cols.append("chi_eff")
+    if area_max is not None:
+        cols.append(area_col)
     out = pd.concat([df_all.loc[mask, cols], extra.loc[mask, [c for c in extra.columns if c not in cols]]], axis=1)
 
     # Stable order for tests/users
@@ -233,5 +261,7 @@ def run_event_selection(
     if out_plot:
         bounds = dict(m1_min=m1_min, m1_max=m1_max, m2_min=m2_min, m2_max=m2_max, dl_min=dl_min, dl_max=dl_max,
                       chi_eff_min=chi_eff_min, chi_eff_max=chi_eff_max)
+        if area_max is not None:
+            bounds[area_col.replace("_deg2", "_max")] = area_max   # in the title only: "A90 ≤ 100"
         png = _plot_selection(df_all, mask, bounds, requested, Path(out_plot), preset=preset, regions=regions)
         print(f"[event_selection] {int(mask.sum())} of {len(df_all)} events selected; plot written to {png}")

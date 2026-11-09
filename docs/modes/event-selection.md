@@ -10,6 +10,9 @@ gwtc_analysis event_selection --catalogs ALL --m1-min 50 --dl-max 2000
 
 # potential neutron-star companions
 gwtc_analysis event_selection --catalogs ALL --m2-max 3
+
+# well-localized events: 90% sky area below 100 deg²
+gwtc_analysis event_selection --catalogs ALL --area-max 100
 ```
 
 | Option | Selects on |
@@ -18,7 +21,14 @@ gwtc_analysis event_selection --catalogs ALL --m2-max 3
 | `--m2-min`, `--m2-max` | secondary mass, source frame (M☉) |
 | `--dl-min`, `--dl-max` | luminosity distance (Mpc) |
 | `--chi-eff-min`, `--chi-eff-max` | effective spin χ_eff |
+| `--area-max` | sky area of the 90% credible region (deg²), from the skymaps; `--area-cred` sets another level (0.5 → A50) |
 | `--preset` | a class of sources: `neutron-stars`, `mass-gap`, `hierarchical` |
+
+With `--area-max`, the skymaps of the events passing the other cuts are read (from `--data-repo`:
+`zenodo`, the release tarballs, by default; `s3` or `galaxy`, the mirrors, fall back to Zenodo; an older
+release with `--zenodo-version GWTC-3=v2`, as in [catalog_statistics](catalog-statistics.md)), and the
+area is added to the TSV (`A90_deg2`). Events without a skymap are not selected. The first run downloads
+the skymap tarballs; they are cached in `.cache_gwosc`.
 
 The selection is written to `--out-selection` (TSV). It uses the GWOSC confident lists; for analyses
 that need the marginal candidates as well, see [Known issues](../known-data-issues.md#gw200105-only-in-the-marginal-list).
@@ -222,5 +232,9 @@ are the detector-frame ones divided by 1 + z, so the table shows which redshift 
 | `--mass-gap LO HI` | `3.0 5.0` | Lower mass gap between neutron stars and black holes (M_sun). |
 | `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
 | `--out-plot` | — | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
+| `--area-max` | — | Maximum sky area (deg²) of the --area-cred credible region, from the skymaps (read only for the events passing the other cuts; events without a skymap are dropped). |
+| `--area-cred` | `0.9` | Credible level of --area-max: 0.9→A90, 0.5→A50. |
+| `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where the skymaps of --area-max are read from (as catalog_statistics). |
+| `--zenodo-version CATALOG=VERSION` | — | Read an older Zenodo release version of a catalog instead of the latest, with any --data-repo (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 
 The same table with the help text of all the modes: [CLI reference](../cli-reference.md#event_selection).

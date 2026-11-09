@@ -828,7 +828,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Select GW events based on physical criteria (mass, distance, spin, source class) and write a TSV.",
         description=(
             "Select events by simple cuts on source-frame masses, luminosity distance and chi_eff (GWOSC medians),\n"
-            "and/or a --preset class of sources. Cuts are optional; if a cut is not provided, it is not applied.\n"
+            "the 90%% sky area (--area-max, from the skymaps) and/or a --preset class of sources. Cuts are optional; if a cut is not provided, it is not applied.\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -855,6 +855,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_sel.add_argument("--out-plot", default=None,
                        help="Optional PNG of the selected events among all the events of the catalogs (m2 and D_L "
                             "against m1).")
+    p_sel.add_argument("--area-max", type=float, default=None,
+                       help="Maximum sky area (deg²) of the --area-cred credible region, from the skymaps (read only "
+                            "for the events passing the other cuts; events without a skymap are dropped).")
+    p_sel.add_argument("--area-cred", type=float, default=0.9,
+                       help="Credible level of --area-max: 0.9→A90, 0.5→A50.")
+    p_sel.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo",
+                       help="Where the skymaps of --area-max are read from (as catalog_statistics).")
+    _add_zenodo_version_arg(p_sel)
 
     # ---------------------------------------------------------------------
     # search_skymaps
@@ -1445,6 +1453,10 @@ def main(argv=None) -> int:
                 mass_gap=tuple(args.mass_gap),
                 pisn_gap_min=args.pisn_gap_min,
                 out_plot=args.out_plot,
+                area_max=args.area_max,
+                area_cred=args.area_cred,
+                data_repo=args.data_repo,
+                zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
             )
             return 0
 

@@ -330,6 +330,10 @@ Every option of every mode, generated from `gwtc_analysis/cli.py` by
 | `--mass-gap` | `[3.0, 5.0]` | Lower mass gap between neutron stars and black holes (M_sun). |
 | `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
 | `--out-plot` | `` | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
+| `--area-max` | `` | Maximum sky area (deg²) of the --area-cred credible region, from the skymaps (read only for the events passing the other cuts; events without a skymap are dropped). |
+| `--area-cred` | `0.9` | Credible level of --area-max: 0.9→A90, 0.5→A50. |
+| `--data-repo` | `zenodo` | Where the skymaps of --area-max are read from (as catalog_statistics). |
+| `--zenodo-version` | `` | Read an older Zenodo release version of a catalog instead of the latest, with any --data-repo (e.g. --zenodo-version GWTC-3=v2 GWTC-4=v1). Versions are numbered from the oldest (v1); list them with the zenodo_releases mode. |
 
 ## `search_skymaps`
 

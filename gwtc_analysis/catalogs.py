@@ -445,6 +445,124 @@ def _plot_area_cdf(
 
 
 
+def add_credible_areas(df: pd.DataFrame, catalogs: List[str], *, data_repo: str = "zenodo", cred: float = 0.9,
+                       column: str = "A90_deg2", zenodo_versions: Optional[dict[str, str]] = None,
+                       tag: str = "catalog_statistics") -> pd.DataFrame:
+    """Fill `column` of `df` (rows with a `catalog_key`) with the sky area (deg²) of the `cred` credible region of
+    each event's skymap, read from `data_repo` (zenodo, s3 or galaxy, the mirrors falling back to Zenodo).
+    Events without a skymap get NaN. Modifies and returns `df`."""
+    df[column] = np.nan
+
+    zenodo_cache_dir = ".cache_gwosc"
+
+    for cat in catalogs:
+        m = df["catalog_key"].eq(cat)
+        if not m.any():
+            continue
+
+        if data_repo == "zenodo":
+            tmp = gw.add_localization_area_from_zenodo(
+                df.loc[m],
+                catalog_key=cat,
+                cred=cred,
+                column=column,
+                cache_dir=zenodo_cache_dir,
+                progress=True,
+                verbose=False,
+                zenodo_version=(zenodo_versions or {}).get(_reg.products_catalog(cat)),   # GWTC-1: its maps are GWTC-2.1's
+            )
+            df.loc[m, column] = tmp[column].values
+            continue
+
+        staged = data_repo == "galaxy" and (Path(f"{cat}-SKYMAPS").exists()
+                                             or (cat == "GWTC-1" and Path("GWTC-2.1-SKYMAPS").exists()))
+        if data_repo in ("s3", "galaxy") and not staged:
+            # the maps of the selected Zenodo version, from the mirror (the S3 bucket, or the Galaxy history
+            # when no collection is staged) when it holds them; the events it does
+            # not cover (or all of them, if it fails) from Zenodo
+            from .data_repo import skymap_release_tag
+
+            from .galaxy_store import repo_label, store_client
+
+            version = (zenodo_versions or {}).get(_reg.products_catalog(cat))
+            label = repo_label(data_repo)
+            try:
+                tmp = gw.add_localization_area_from_s3(
+                    df.loc[m],
+                    catalog_key=cat,
+                    cred=cred,
+                    column=column,
+                    bucket="gwtc",
+                    base_prefix="",
+                    progress=True,
+                    verbose=False,
+                    release_tag=skymap_release_tag(_reg.products_catalog(cat), version),
+                    client=store_client(data_repo),
+                )
+                df.loc[m, column] = tmp[column].values
+            except Exception as e:
+                print(f"[{tag}] {label} failed for {cat} ({type(e).__name__}: {e}): using Zenodo")
+            rest = m & df[column].isna()
+            if rest.any():
+                print(f"[{tag}] {int(rest.sum())} {cat} skymap(s) not on the {label}: from Zenodo")
+                tmp = gw.add_localization_area_from_zenodo(
+                    df.loc[rest],
+                    catalog_key=cat,
+                    cred=cred,
+                    column=column,
+                    cache_dir=zenodo_cache_dir,
+                    progress=True,
+                    verbose=False,
+                    zenodo_version=version,
+                )
+                df.loc[rest, column] = tmp[column].values
+            continue
+
+        if data_repo == "galaxy":
+            # Convention: Galaxy collections are staged under the working directory as:
+            #   GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS, GWTC-5-SKYMAPS
+            base = Path(f"{cat}-SKYMAPS")
+            if not base.exists():
+                # GWTC-1 is covered by GWTC-2.1 on Galaxy
+                if cat == "GWTC-1":
+                    base = Path("GWTC-2.1-SKYMAPS")
+                if not base.exists():
+                    raise RuntimeError(
+                        f"Galaxy mode: cannot find skymaps directory for {cat}. "
+                        f"Expected {cat}-SKYMAPS (or GWTC-2.1-SKYMAPS for GWTC-1). "
+                        "Make sure the Galaxy collection is staged in the working directory."
+                    )
+
+            if hasattr(gw, "add_localization_area_from_galaxy"):
+                tmp = gw.add_localization_area_from_galaxy(
+                    df.loc[m],
+                    catalog_key=cat,
+                    base_dir=str(base.parent),
+                    cred=cred,
+                    column=column,
+                    progress=True,
+                    verbose=False,
+                )
+            else:
+                # Backward-compatible fallback: the directory-based helper already supports Galaxy collections.
+                tmp = gw.add_localization_area_from_directory(
+                    df.loc[m],
+                    skymap_dir=str(base),
+                    cred=cred,
+                    column=column,
+                    progress=True,
+                    verbose=False,
+                )
+
+            df.loc[m, column] = tmp[column].values
+            continue
+
+        raise ValueError(
+            f"include_area requires a supported data_repo. Got {data_repo!r} (expected s3/zenodo/galaxy)."
+        )
+    return df
+
+
 def run_catalog_statistics(
     catalogs: List[str],
     out_events_tsv: str | Path,
@@ -579,115 +697,8 @@ def run_catalog_statistics(
     # Credible area (optional)
     # ------------------------------------------------------------------
     if include_area:
-        df[area_column] = np.nan
-
-        zenodo_cache_dir = ".cache_gwosc"
-
-        for cat in catalogs:
-            m = df["catalog_key"].eq(cat)
-            if not m.any():
-                continue
-
-            if data_repo == "zenodo":
-                tmp = gw.add_localization_area_from_zenodo(
-                    df.loc[m],
-                    catalog_key=cat,
-                    cred=area_cred,
-                    column=area_column,
-                    cache_dir=zenodo_cache_dir,
-                    progress=True,
-                    verbose=False,
-                    zenodo_version=(zenodo_versions or {}).get(_reg.products_catalog(cat)),   # GWTC-1: its maps are GWTC-2.1's
-                )
-                df.loc[m, area_column] = tmp[area_column].values
-                continue
-
-            staged = data_repo == "galaxy" and (Path(f"{cat}-SKYMAPS").exists()
-                                                 or (cat == "GWTC-1" and Path("GWTC-2.1-SKYMAPS").exists()))
-            if data_repo in ("s3", "galaxy") and not staged:
-                # the maps of the selected Zenodo version, from the mirror (the S3 bucket, or the Galaxy history
-                # when no collection is staged) when it holds them; the events it does
-                # not cover (or all of them, if it fails) from Zenodo
-                from .data_repo import skymap_release_tag
-
-                from .galaxy_store import repo_label, store_client
-
-                version = (zenodo_versions or {}).get(_reg.products_catalog(cat))
-                label = repo_label(data_repo)
-                try:
-                    tmp = gw.add_localization_area_from_s3(
-                        df.loc[m],
-                        catalog_key=cat,
-                        cred=area_cred,
-                        column=area_column,
-                        bucket="gwtc",
-                        base_prefix="",
-                        progress=True,
-                        verbose=False,
-                        release_tag=skymap_release_tag(_reg.products_catalog(cat), version),
-                        client=store_client(data_repo),
-                    )
-                    df.loc[m, area_column] = tmp[area_column].values
-                except Exception as e:
-                    print(f"[catalog_statistics] {label} failed for {cat} ({type(e).__name__}: {e}): using Zenodo")
-                rest = m & df[area_column].isna()
-                if rest.any():
-                    print(f"[catalog_statistics] {int(rest.sum())} {cat} skymap(s) not on the {label}: from Zenodo")
-                    tmp = gw.add_localization_area_from_zenodo(
-                        df.loc[rest],
-                        catalog_key=cat,
-                        cred=area_cred,
-                        column=area_column,
-                        cache_dir=zenodo_cache_dir,
-                        progress=True,
-                        verbose=False,
-                        zenodo_version=version,
-                    )
-                    df.loc[rest, area_column] = tmp[area_column].values
-                continue
-
-            if data_repo == "galaxy":
-                # Convention: Galaxy collections are staged under the working directory as:
-                #   GWTC-2.1-SKYMAPS, GWTC-3-SKYMAPS, GWTC-4-SKYMAPS, GWTC-5-SKYMAPS
-                base = Path(f"{cat}-SKYMAPS")
-                if not base.exists():
-                    # GWTC-1 is covered by GWTC-2.1 on Galaxy
-                    if cat == "GWTC-1":
-                        base = Path("GWTC-2.1-SKYMAPS")
-                    if not base.exists():
-                        raise RuntimeError(
-                            f"Galaxy mode: cannot find skymaps directory for {cat}. "
-                            f"Expected {cat}-SKYMAPS (or GWTC-2.1-SKYMAPS for GWTC-1). "
-                            "Make sure the Galaxy collection is staged in the working directory."
-                        )
-
-                if hasattr(gw, "add_localization_area_from_galaxy"):
-                    tmp = gw.add_localization_area_from_galaxy(
-                        df.loc[m],
-                        catalog_key=cat,
-                        base_dir=str(base.parent),
-                        cred=area_cred,
-                        column=area_column,
-                        progress=True,
-                        verbose=False,
-                    )
-                else:
-                    # Backward-compatible fallback: the directory-based helper already supports Galaxy collections.
-                    tmp = gw.add_localization_area_from_directory(
-                        df.loc[m],
-                        skymap_dir=str(base),
-                        cred=area_cred,
-                        column=area_column,
-                        progress=True,
-                        verbose=False,
-                    )
-
-                df.loc[m, area_column] = tmp[area_column].values
-                continue
-
-            raise ValueError(
-                f"include_area requires a supported data_repo. Got {data_repo!r} (expected s3/zenodo/galaxy)."
-            )
+        add_credible_areas(df, catalogs, data_repo=data_repo, cred=area_cred, column=area_column,
+                           zenodo_versions=zenodo_versions)
 
     # ------------------------------------------------------------------
     # Write per-event table

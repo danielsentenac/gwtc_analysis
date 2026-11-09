@@ -95,6 +95,32 @@ def test_event_selection_preset(tmp_path, monkeypatch):
         es.run_event_selection(catalogs=["GWTC-4"], out_tsv=tmp_path / "x.tsv", preset="exotic")
 
 
+
+def test_event_selection_area_max(tmp_path, monkeypatch):
+    """--area-max reads the skymaps of the events passing the other cuts only, keeps A90 <= value, drops the
+    events without a skymap and adds the A90 column."""
+    from gwtc_analysis import catalogs as cat_mod
+    from gwtc_analysis import event_selection as es
+
+    monkeypatch.setattr(es.gw, "fetch_gwtc_events", lambda catalog: {"events": {}})
+    monkeypatch.setattr(es.gw, "events_to_dataframe", lambda ev: _table().assign(luminosity_distance=500.0,
+                                                                                 redshift=0.1))
+    areas = {"GW190814": 20.0, "NSBH": 900.0}        # BNS has no skymap
+    seen = []
+
+    def fake_zenodo(df, *, catalog_key, cred, column, **kw):
+        seen.extend(df["event_id"])
+        return df.assign(**{column: df["event_id"].map(areas)})
+
+    monkeypatch.setattr(cat_mod.gw, "add_localization_area_from_zenodo", fake_zenodo)
+    es.run_event_selection(catalogs=["GWTC-4"], out_tsv=tmp_path / "a.tsv", m2_max=3.0, area_max=100.0)
+    out = pd.read_csv(tmp_path / "a.tsv", sep="\t")
+    assert out["event_id"].tolist() == ["GW190814"] and out["A90_deg2"].tolist() == [20.0]
+    assert "HEAVY" not in seen and set(seen) <= set(_table()["event_id"])
+    es.run_event_selection(catalogs=["GWTC-4"], out_tsv=tmp_path / "b.tsv", m2_max=3.0, area_max=1000.0,
+                           area_cred=0.5)
+    assert pd.read_csv(tmp_path / "b.tsv", sep="\t")["A50_deg2"].notna().all()
+
 def test_cli_presets():
     from gwtc_analysis.cli import build_parser
 
