@@ -417,7 +417,7 @@ def search_event(gw: GWMap, event: str, catalogs: Catalogs, windows: dict, far_g
 # ---------------------------------------------------------------------------
 def _gw_fars(catalogs: Iterable[str]) -> list[tuple[float, float, str]]:
     """(GPS, FAR per year, name) of the GWOSC events of the catalogs, to attach the GW FAR to a map by its time."""
-    from .catalog_registry import gwosc_lists, products_catalog
+    from .catalog_registry import gwosc_lists
     from .gw_stat import fetch_gwtc_events
 
     cats = [c for c in catalogs if c != "ALL"]
@@ -447,6 +447,7 @@ def _iter_catalog_maps(catalogs: list[str], skymap_label: str, zenodo_versions: 
     """(event, catalog, path of a temporary FITS file) for one map per event of the catalogs' skymap releases."""
     import tarfile
 
+    from .catalog_registry import products_catalog
     from .gw_stat import build_skymap_index_from_tar, download_zenodo_skymaps_tarball, select_skymap_member
     from .search_skymaps import _expand_catalogs_for_skymaps, _skymap_sources
 
@@ -490,7 +491,7 @@ def _plot_coincidence(map_path: Path, event: str, rows: list[dict], prob: float,
     title = _safe_filename(f"{event}_{best['counterpart']}")
     try:
         produced = plot_skymap_with_ra_dec(str(map_path), title, best["ra"], best["dec"], "grey",
-                                           contour_levels=(50, 90))
+                                           contour_levels=(50, 90), out_dir=plots)
         out = _normalize_plot_output(produced, plots / f"{title}.png")
         return Path(out) if out else None
     except Exception as e:

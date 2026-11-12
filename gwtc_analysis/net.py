@@ -9,8 +9,10 @@ throttling (429, 500, 502, 503, 504), is retried twice: after the delay the serv
 """
 from __future__ import annotations
 
+import contextlib
 import time
-from typing import Callable, Optional, TypeVar
+from pathlib import Path
+from typing import Callable, Iterator, Optional, TypeVar
 from urllib.parse import urlparse
 
 import requests
@@ -64,6 +66,40 @@ def retry(fn: Callable[[], T], url: str, *, log: Callable[[str], None] = print, 
             log(f"⚠️ [RETRY] {urlparse(url).netloc}: {_why(e)}, retrying in {wait:g} s")
             time.sleep(wait)
     raise AssertionError("unreachable")
+
+
+@contextlib.contextmanager
+def file_lock(dest, *, log: Callable[[str], None] = print) -> Iterator[None]:
+    """One writer of `dest` at a time, among the processes and threads sharing a cache: the others wait, then
+    find the file there. Two runs downloading one file at once overwrote each other's partial file. The lock is
+    held on `.<name>.lock` next to `dest` while the file is written; where the file system has no locks, the code
+    runs unlocked, as before."""
+    dest = Path(dest)
+    try:
+        import fcntl
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        fh = open(dest.with_name(f".{dest.name}.lock"), "a")
+    except (ImportError, OSError):
+        yield
+        return
+    try:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            log(f"another run is writing {dest.name}: waiting for it")
+            fcntl.flock(fh, fcntl.LOCK_EX)
+        except OSError:
+            pass                                   # no locks on this file system
+        yield
+    finally:
+        # removed before it is released, so that no lock file stays among the outputs: a run already waiting on
+        # it then finds the file written and only reads it
+        try:
+            Path(fh.name).unlink(missing_ok=True)
+        except OSError:
+            pass
+        fh.close()                                 # releases the lock
 
 
 def _send(method: str, url: str, session: Optional[requests.Session], **kwargs) -> requests.Response:

@@ -157,7 +157,7 @@ def _event_samples(row, cache: Path, n: int, rng, data_repo: str = "zenodo") -> 
                 pass
             desc = distance_prior_desc(src.name, desc)
             cols = {c: np.asarray(ps[c], float) for c in ("mass_1", "mass_2", "luminosity_distance", "chi_eff")}
-        part = out.with_suffix(".part")
+        part = out.with_suffix(f".{os.getpid()}.part")        # one per process: runs sharing a cache
         with h5py.File(part, "w") as o:
             for c, v in cols.items():
                 o.create_dataset(c, data=v, compression="gzip")

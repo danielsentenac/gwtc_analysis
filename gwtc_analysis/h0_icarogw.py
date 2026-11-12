@@ -264,7 +264,8 @@ def _lock_seed(seed: int, mass_model: str = "plp") -> None:
             break
         except FileExistsError:
             parts = lock.read_text().split()
-            h, pid, job = (parts + ["?", "-1", ""])[:3]
+            # host, pid and, when written inside a Slurm job, its id (absent: no job to ask squeue about)
+            h, pid, job = (parts[0] if parts else "?"), (parts[1] if len(parts) > 1 else "-1"), "".join(parts[2:3])
             mine = bool(job) and job == os.environ.get("SLURM_JOB_ID")    # this job, requeued (often elsewhere)
             if (h == host and not _pid_alive(int(pid))) or (job and not _slurm_job_alive(job)) or mine:
                 lock.unlink(missing_ok=True)       # stale: the process, or the Slurm job (another node), is gone

@@ -101,3 +101,26 @@ def test_retry_of_a_whole_operation(waits):
     with pytest.raises(KeyError):
         net.retry(lambda: {}["x"], URL, log=lambda m: None)
     assert waits == [5]
+
+
+def test_file_lock_one_writer_at_a_time(tmp_path):
+    """A second holder of the lock of a file waits for the first (threads here; processes sharing a cache too)."""
+    import threading
+    import time
+
+    from gwtc_analysis import net
+
+    dest, inside, peak, said = tmp_path / "cache" / "file.h5", [0], [0], []
+
+    def work():
+        with net.file_lock(dest, log=said.append):
+            inside[0] += 1
+            peak[0] = max(peak[0], inside[0])
+            time.sleep(0.2)
+            inside[0] -= 1
+
+    threads = [threading.Thread(target=work) for _ in range(3)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert peak[0] == 1
+    assert said and "waiting" in said[0]

@@ -134,7 +134,9 @@ def _extract(src: Path, out: Path) -> None:
             prior = v.decode() if isinstance(v, bytes) else str(v)
         except (KeyError, TypeError, ValueError):
             pass
-    part = out.with_suffix(".part")
+    import os
+
+    part = out.with_suffix(f".{os.getpid()}.part")        # one per process: runs sharing a cache
     out.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(part, "w") as o:
         for c, v in cols.items():

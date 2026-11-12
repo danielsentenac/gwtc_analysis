@@ -147,7 +147,7 @@ def _extract_pe(path: Path, out: Path) -> None:
 
     from .pe_files import COSMO_REWEIGHTED_PRIOR, is_cosmo_reweighted
 
-    part = out.with_suffix(".part")
+    part = out.with_suffix(f".{os.getpid()}.part")        # one per process: runs sharing a cache
     with h5py.File(path, "r") as f, h5py.File(part, "w") as o:
         o.attrs["source_file"] = path.name
         for lab in f:

@@ -255,14 +255,25 @@ def extract_pe(pe_file: str, label: str, workdir) -> dict:
         g = h[label]
         md = g["meta_data/meta_data"]
         ps = g["posterior_samples"][()]
+        def setting(*names):          # the releases name the analysis settings in two ways (GWTC-3 files: bilby's)
+            for n in names:
+                if n in md:
+                    return float(_read_scalar(md[n]))
+            raise ValueError(f"{label} of {pe_file} does not record its {names[0]} (looked for {', '.join(names)} "
+                             f"in its meta_data: {', '.join(sorted(md))}); choose another --pe-label "
+                             f"among {[k for k in h if 'posterior_samples' in h[k]]}")
+
         settings = dict(
             label=label, pe_file=str(pe_file),
-            duration=float(_read_scalar(md["segment_length"])),
-            segment_start=float(_read_scalar(md["segment_start"])),
-            f_low=float(_read_scalar(md["f_low"])), f_ref=float(_read_scalar(md["f_ref"])),
-            pe_sample_rate=float(_read_scalar(md["sample_rate"])),
+            duration=setting("segment_length", "duration"),
+            segment_start=setting("segment_start", "start_time"),
+            f_low=setting("f_low"), f_ref=setting("f_ref"),
+            pe_sample_rate=setting("sample_rate", "sampling_frequency"),
             detectors=sorted(g["psds"].keys()),
         )
+        if not settings["detectors"]:
+            raise ValueError(f"{label} of {pe_file} holds no noise spectra; choose another --pe-label "
+                             f"among {[k for k in h if 'posterior_samples' in h[k]]}")
         try:
             other = g["meta_data/other"]
             settings["pe_max_log_likelihood_ratio"] = float(

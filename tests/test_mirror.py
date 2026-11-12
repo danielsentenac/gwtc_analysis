@@ -247,3 +247,22 @@ def test_no_fallback_for_a_missing_file_or_a_run_already_on_galaxy(tmp_path, mon
     with pytest.raises(requests.ConnectionError):
         mirror.fetch_to(DCC_URL, tmp_path / "b.txt", _down, log=lambda m: None)
     assert asked == ["galaxy"] and not (tmp_path / "b.txt").exists()
+
+
+def test_fetch_to_uses_the_file_another_run_fetched_meanwhile(tmp_path, monkeypatch):
+    """A run that waited for another run's download of the same file does not download it again."""
+    import contextlib
+
+    from gwtc_analysis import mirror, net
+
+    dest, calls = tmp_path / "f.dat", []
+
+    @contextlib.contextmanager
+    def other_run_downloads(d, log=print):          # the wait: the other run completes the file
+        dest.write_bytes(b"theirs")
+        yield
+
+    monkeypatch.setattr(net, "file_lock", other_run_downloads)
+    mirror.set_data_repo("zenodo")
+    mirror.fetch_to("https://example.org/f.dat", dest, lambda u, p: calls.append(u))
+    assert dest.read_bytes() == b"theirs" and not calls

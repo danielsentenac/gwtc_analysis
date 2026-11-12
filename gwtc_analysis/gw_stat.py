@@ -700,8 +700,7 @@ def add_localization_area_from_directory(
         found += 1
         try:
             raw = Path(p).read_bytes()
-            prob = _read_sky_map_from_bytes(raw)
-            area = _credible_area_from_probmap(prob, cred=cred)
+            area = _credible_area_from_bytes(raw, cred=cred)
             areas[out.index.get_loc(idx_row)] = float(area)
             ok += 1
         except Exception as e:  # noqa: BLE001
@@ -721,37 +720,13 @@ def add_localization_area_from_directory(
     out[column] = areas
     return out
 
-def _credible_area_from_probmap(prob: np.ndarray, cred: float = 0.9) -> float:
+def _credible_area_from_bytes(data: bytes, cred: float = 0.9) -> float:
+    """Sky area (deg²) of the `cred` credible region of a skymap given as the bytes of its FITS file, computed on
+    its multi-order pixels (a flattened GWTC-5 map takes several GB)."""
     _require_ligo_skymap()
-    from ligo.skymap.postprocess import find_greedy_credible_levels  # type: ignore
-    cls = find_greedy_credible_levels(prob)
-    mask = cls <= cred
-    pixel_area = 41252.96 / len(prob)  # deg^2
-    return float(mask.sum() * pixel_area)
+    from .skymap_moc import credible_area_deg2, read_moc
 
-def _read_sky_map_from_bytes(data: bytes) -> np.ndarray:
-    import gzip
-    import io
-    import numpy as np
-    _require_ligo_skymap()
-    from ligo.skymap.io import read_sky_map  # type: ignore
-
-    # If gzipped FITS, decompress first (gzip magic bytes: 1f 8b)
-    if len(data) >= 2 and data[0] == 0x1F and data[1] == 0x8B:
-        data = gzip.decompress(data)
-
-    bio = io.BytesIO(data)
-
-    # Newer ligo.skymap supports ignore_missing_simple; older versions don't.
-    try:
-        prob, _meta = read_sky_map(bio, nest=None, ignore_missing_simple=True)
-    except TypeError as e:
-        if "ignore_missing_simple" not in str(e):
-            raise
-        bio.seek(0)
-        prob, _meta = read_sky_map(bio, nest=None)
-
-    return np.asarray(prob, dtype=float)
+    return credible_area_deg2(read_moc(data), cred=cred)
 
 def _normalize_event_name(ev: str | None) -> str | None:
     if ev is None:
@@ -818,115 +793,118 @@ def download_zenodo_skymaps_tarball(
     if dest_path is None:
         dest_path = os.path.join(cache_dir, f"zenodo_{record.record_id}_{filename}")
 
-    # If already downloaded, use it
-    if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-        if verbose:
-            print(f"[gw_stat] using cached tarball: {dest_path}")
-        return dest_path
+    from .net import file_lock
 
-    try:
-        from tqdm.auto import tqdm  # type: ignore
-    except Exception:
-        tqdm = None  # type: ignore
-
-    part_path = dest_path + ".part"
-    existing = os.path.getsize(part_path) if os.path.exists(part_path) else 0
-
-    headers = {}
-    if existing > 0:
-        headers["Range"] = f"bytes={existing}-"
-        if verbose:
-            print(f"[gw_stat] resuming tarball download at byte {existing}: {part_path}")
-
-    with requests.Session() as s:
-        # NOTE: _safe_get must accept headers=... and stream=True, or you can pass stream=True via _safe_get.
-        # If your _safe_get doesn't support these kwargs yet, add them there.
-        try:
-            r = _safe_get(
-                s,
-                url,
-                timeout=(10, 1200),
-                retries=3,
-                verbose=verbose,
-                headers=headers,   # e.g. {"Range": "bytes=123-"} or {}
-                stream=True,
-            )
-        except requests.HTTPError:
-            if existing == 0:
-                raise
-            # a range the server refuses (416: the .part is already complete, the process died before the rename,
-            # or larger than the file): start again from scratch
-            print(f"[gw_stat] cannot resume {part_path}; downloading it again")
-            os.remove(part_path)
-            existing, headers = 0, {}
-            r = _safe_get(s, url, timeout=(10, 1200), retries=3, verbose=verbose, headers=headers, stream=True)
-
-        # If server ignored Range and returned 200, restart from scratch
-        if existing > 0 and r.status_code == 200:
+    with file_lock(dest_path):          # one download per cache: a second run waits, then uses the tarball
+        # If already downloaded, use it
+        if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
             if verbose:
-                print("[gw_stat] server ignored Range; restarting full download")
-            existing = 0
-            headers = {}
-            # restart request cleanly
-            r.close()
-            r = _safe_get(
-                s,
-                url,
-                timeout=(10, 1200),
-                retries=3,
-                verbose=verbose,
-                headers=headers,
-                stream=True,
-            )
+                print(f"[gw_stat] using cached tarball: {dest_path}")
+            return dest_path
 
-        # Determine total size (best effort)
-        total = None
-        cl = r.headers.get("Content-Length")
-        if cl:
+        try:
+            from tqdm.auto import tqdm  # type: ignore
+        except Exception:
+            tqdm = None  # type: ignore
+
+        part_path = dest_path + ".part"
+        existing = os.path.getsize(part_path) if os.path.exists(part_path) else 0
+
+        headers = {}
+        if existing > 0:
+            headers["Range"] = f"bytes={existing}-"
+            if verbose:
+                print(f"[gw_stat] resuming tarball download at byte {existing}: {part_path}")
+
+        with requests.Session() as s:
+            # NOTE: _safe_get must accept headers=... and stream=True, or you can pass stream=True via _safe_get.
+            # If your _safe_get doesn't support these kwargs yet, add them there.
             try:
-                total = int(cl)
-            except ValueError:
-                total = None
+                r = _safe_get(
+                    s,
+                    url,
+                    timeout=(10, 1200),
+                    retries=3,
+                    verbose=verbose,
+                    headers=headers,   # e.g. {"Range": "bytes=123-"} or {}
+                    stream=True,
+                )
+            except requests.HTTPError:
+                if existing == 0:
+                    raise
+                # a range the server refuses (416: the .part is already complete, the process died before the rename,
+                # or larger than the file): start again from scratch
+                print(f"[gw_stat] cannot resume {part_path}; downloading it again")
+                os.remove(part_path)
+                existing, headers = 0, {}
+                r = _safe_get(s, url, timeout=(10, 1200), retries=3, verbose=verbose, headers=headers, stream=True)
 
-        # If resuming and status 206, Content-Length is remaining; convert to full size for tqdm
-        if existing > 0 and r.status_code == 206 and total is not None:
-            total = existing + total
+            # If server ignored Range and returned 200, restart from scratch
+            if existing > 0 and r.status_code == 200:
+                if verbose:
+                    print("[gw_stat] server ignored Range; restarting full download")
+                existing = 0
+                headers = {}
+                # restart request cleanly
+                r.close()
+                r = _safe_get(
+                    s,
+                    url,
+                    timeout=(10, 1200),
+                    retries=3,
+                    verbose=verbose,
+                    headers=headers,
+                    stream=True,
+                )
 
-        pbar = None
-        if progress and tqdm is not None:
-            pbar = tqdm(
-                total=total,
-                initial=existing if (total is not None and existing > 0) else 0,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=f"Download {catalog_key} skymaps",
-                leave=False,
-            )
+            # Determine total size (best effort)
+            total = None
+            cl = r.headers.get("Content-Length")
+            if cl:
+                try:
+                    total = int(cl)
+                except ValueError:
+                    total = None
 
-        # Write to .part then atomically move into place at the end
-        mode = "ab" if existing > 0 else "wb"
-        with open(part_path, mode) as f:
-            for chunk in r.iter_content(chunk_size=1024 * 1024):
-                if not chunk:
-                    continue
-                f.write(chunk)
-                if pbar is not None:
-                    pbar.update(len(chunk))
+            # If resuming and status 206, Content-Length is remaining; convert to full size for tqdm
+            if existing > 0 and r.status_code == 206 and total is not None:
+                total = existing + total
 
-        if pbar is not None:
-            pbar.close()
-        encoded = r.headers.get("Content-Encoding", "identity").lower() not in ("", "identity")
+            pbar = None
+            if progress and tqdm is not None:
+                pbar = tqdm(
+                    total=total,
+                    initial=existing if (total is not None and existing > 0) else 0,
+                    unit="B",
+                    unit_scale=True,
+                    unit_divisor=1024,
+                    desc=f"Download {catalog_key} skymaps",
+                    leave=False,
+                )
 
-    # Finalize, only when complete: a truncated tarball would be taken for a finished one by every later run
-    got = os.path.getsize(part_path)
-    if total is not None and not encoded and got != total:
-        raise OSError(f"{url}: {got} of {total} bytes received; run again to resume")
-    os.replace(part_path, dest_path)
-    if verbose:
-        print(f"[gw_stat] downloaded tarball: {dest_path}")
+            # Write to .part then atomically move into place at the end
+            mode = "ab" if existing > 0 else "wb"
+            with open(part_path, mode) as f:
+                for chunk in r.iter_content(chunk_size=1024 * 1024):
+                    if not chunk:
+                        continue
+                    f.write(chunk)
+                    if pbar is not None:
+                        pbar.update(len(chunk))
 
-    return dest_path
+            if pbar is not None:
+                pbar.close()
+            encoded = r.headers.get("Content-Encoding", "identity").lower() not in ("", "identity")
+
+        # Finalize, only when complete: a truncated tarball would be taken for a finished one by every later run
+        got = os.path.getsize(part_path)
+        if total is not None and not encoded and got != total:
+            raise OSError(f"{url}: {got} of {total} bytes received; run again to resume")
+        os.replace(part_path, dest_path)
+        if verbose:
+            print(f"[gw_stat] downloaded tarball: {dest_path}")
+
+        return dest_path
 
 def build_skymap_index_from_tar(
     tar_path: str,
@@ -1166,8 +1144,7 @@ def add_localization_area_from_s3(
                 resp.close()
                 resp.release_conn()
 
-            prob = _read_sky_map_from_bytes(data)
-            area = _credible_area_from_probmap(prob, cred=cred)
+            area = _credible_area_from_bytes(data, cred=cred)
             areas[out.index.get_loc(idx)] = float(area)
             ok += 1
 
@@ -1275,8 +1252,7 @@ def add_localization_area_from_zenodo(
                 if f is None:
                     raise OSError(f"could not extract {member}")
 
-                prob = _read_sky_map_from_bytes(f.read())
-                area = _credible_area_from_probmap(prob, cred=cred)
+                area = _credible_area_from_bytes(f.read(), cred=cred)
                 areas[out.index.get_loc(idx)] = float(area)
                 ok += 1
 

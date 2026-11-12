@@ -189,6 +189,10 @@ def label_has_psd(pedata, label: str) -> bool:
     psd_container = getattr(pedata, "psd", None)
     if psd_container is None:
         return False
+    if hasattr(psd_container, "has"):          # pe_lean: known from the file, without reading the spectra
+        known = psd_container.has(label)
+        if known is not None:
+            return known
 
     # Fetch entry safely
     try:
@@ -582,7 +586,7 @@ def load_strain(
     strain = GWpyTimeSeries.fetch_open_data(detector, start, end, cache=False)
 
     if cache:
-        tmp = str(cache_file) + ".part.hdf5"
+        tmp = f"{cache_file}.{os.getpid()}.part.hdf5"       # one per process: runs sharing a cache
         strain.write(tmp, format="hdf5", overwrite=True)
         os.replace(tmp, cache_file)                    # complete files only in the cache
         print(f"ℹ️ [INFO] Cached strain saved to {cache_file}")

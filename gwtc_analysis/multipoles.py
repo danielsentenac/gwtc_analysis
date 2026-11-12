@@ -38,7 +38,8 @@ def summarize(samples_dict: Any) -> pd.DataFrame:
     """One row per (label, quantity) with the SNR fields: median, 90% interval, P(ρ > 3), evidence."""
     rows = []
     for label in samples_dict.keys():
-        s = samples_dict[label]
+        # a few columns of each label: read from the file, not the whole table (pe_lean), when it can be
+        s = samples_dict.light(label) if hasattr(samples_dict, "light") else samples_dict[label]
         keys = set(s.keys()) if hasattr(s, "keys") else set()
         for field, name in FIELDS.items():
             if field not in keys:

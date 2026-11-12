@@ -41,7 +41,7 @@ def _format_area(area):
     else:
         return f'{np.round(area).astype(int):,d}'
         
-def plot_skymap_with_ra_dec(skymapFILE, title, ra, dec, color, contour_levels=(50, 90)):
+def plot_skymap_with_ra_dec(skymapFILE, title, ra, dec, color, contour_levels=(50, 90), out_dir=None):
 
     """ Process the given sky map file and extract relevant data. """
     
@@ -124,7 +124,13 @@ def plot_skymap_with_ra_dec(skymapFILE, title, ra, dec, color, contour_levels=(5
     ax_inset.plot(center.ra.deg, center.dec.deg,transform=ax_inset.get_transform('world'), marker='*', markerfacecolor='white', markeredgecolor='white', markersize=10,markeredgewidth=1)
     cb = plot.colorbar(img_inset)
     cb.set_label(r'prob. per deg$^2$')
-    plotname = f'plot_{title}'
+    # written in out_dir when given (the caller's plots folder): two runs started in one working directory would
+    # otherwise write, then move, the same ./plot_<title>.png
+    plotname = f'plot_{title}.png'
+    if out_dir is not None:
+        import os
+        os.makedirs(out_dir, exist_ok=True)
+        plotname = os.path.join(str(out_dir), plotname)
     plt.savefig(plotname)
     plt.close()        # one figure per hit: hundreds in a search over ALL catalogs
 

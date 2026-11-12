@@ -211,7 +211,7 @@ With `--counterparts`: `coincidences.tsv` (one row per coincident burst or neutr
 | `--neutrino-window START END` | — | With --counterparts: neutrino time window around the merger, s (default -500 500). |
 | `--skymap FILE` | — | With --counterparts: GW sky map files (FITS) to search, e.g. a GraceDB alert map. |
 | `--refresh-catalogs` | off | With --counterparts: download the external catalogs again (otherwise weekly). |
-| `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
+| `--prob` | `0.9` | Credible-level threshold (above 0, at most 1). Common values: 0.9, 0.5, 0.95. |
 | `--skymap-label` | `Mixed` | Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed, then IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case, then the other waveforms in a fixed order). 'any': every map of every event; with `--counterparts`, `any` acts as `Mixed`. |
 | `--out-events` | `search_skymaps.tsv` (`coincidences.tsv` with `--counterparts`) | Output TSV file. |
 | `--out-report` | `search_skymaps.html` (`coincidences.html` with `--counterparts`) | Output HTML report path for hits. |

@@ -500,3 +500,32 @@ def test_catalog_with_zmin_and_gaussian_nocom(tmp_path):
     d = json.loads(line[0][4:])
     assert d["z0"] == pytest.approx(0.05)
     assert d["gc"][0] == 0.0 and d["ratio"][0] == pytest.approx(1.0)     # below zmin: no catalog, full correction
+
+
+def test_vizier_mirror_when_the_cds_fails(monkeypatch):
+    """A failing CDS VizieR is replaced by its CfA mirror, which the next queries then start with."""
+    import requests
+
+    from gwtc_analysis import galaxies as g
+
+    asked = []
+
+    class Answer:
+        def __init__(self, ok):
+            self.ok = ok
+
+        def raise_for_status(self):
+            if not self.ok:
+                raise requests.HTTPError("404 Not Found")
+
+    class Session:
+        def get(self, url, params=None, timeout=None):
+            asked.append(url)
+            return Answer("cfa.harvard.edu" in url)
+
+    monkeypatch.setattr(g, "_vizier_ok", [0])
+    monkeypatch.setattr(g.time, "sleep", lambda s: None)
+    assert g.vizier_get(Session(), {}, 10).ok
+    assert g.vizier_get(Session(), {}, 10).ok
+    assert [u.split("/")[2] for u in asked] == ["vizier.cds.unistra.fr", "vizier.cfa.harvard.edu",
+                                                "vizier.cfa.harvard.edu"]

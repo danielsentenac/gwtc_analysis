@@ -20,6 +20,48 @@
   parameter and result key `rho_phi` is now `rhobar_phi` (`rhobar` in the profile points, `rhobar_g_cm3` in the
   report, `rhobar_cgs` in the functions). Work directories and sampling results written before are still read,
   their old keys renamed.
+- **search_skymaps, catalog_statistics `--include-area`, event_selection `--area-max`**: the credible level at a
+  position and the sky areas are computed on the multi-order pixels of the skymaps instead of the maps flattened to
+  their finest resolution (new `skymap_moc.py`). Peak memory over ALL catalogs: 0.8 GB for search_skymaps (was
+  15.8 GB) and 0.3 GB for the two others (was 13 GB), 3 to 6 times faster. The areas are unchanged; the credible
+  level at a position changes by less than 0.01 percentage point (inside a coarse pixel it is now the level of the
+  whole pixel).
+- **parameters_estimation**: the PE file is read one analysis at a time (new `pe_lean.py`). pesummary reads the
+  samples, noise spectra, sky maps and prior samples of every label of a file, at several times their size, and
+  builds the samples of all the labels again at each access; the mode now reads the labels and settings from a
+  copy of the file without them, and the samples (the table of the file, as pesummary returns it), the sky map and
+  the noise spectra of a label when they are first used. The tables over all the labels (remnant, multipoles) read
+  only their columns. Same samples, spectra and maps; a file with another layout is read whole, as before.
+- **parameters_estimation, counterpart**: the credible volumes and the galaxies' probability densities of the 3D
+  sky map are computed by `skymap3d.volume_stats`, on the voxels and with the formulas of ligo.skymap's
+  `crossmatch` (which holds eight arrays of pixels × 999 distance shells, 1.3 GB for 20,000 pixels) but keeping one
+  array and its sort order: the same values to 10⁻¹¹. The 3D plot rasterizes one column of the map at a time, and
+  counterpart reads the searched probability of the position without the distance columns. Peak memory: 4.7 → 1.7
+  GB for GW200115 (ten labels), 3.5 → 1.95 GB for GW190814 with GLADE+, 3.1 → 1.5 GB for a GWTC-4 event,
+  1.9 → 0.7 GB for counterpart on GW190521.
+- **Shared caches**: one writer per file. A run that needs a file another run (or thread) is downloading into the
+  same cache waits for it and uses it (`net.file_lock`, on `.<name>.lock` next to the file while it is written) instead of overwriting
+  its partial file: the PE files, the skymap tarballs and the public files of the mirrors. The reduced sample files
+  (hubble_constant, spin_population, lens_pairs, the nside-limited PE copy, the cached strain) are written to one
+  partial file per process. The plots of the hits of search_skymaps are written in `--plots-dir` directly, not in
+  the working directory first (two runs started in one directory lost each other's plots).
+- **GLADE+**: when the CDS VizieR fails, the queries (galaxy_catalog, the host-galaxy candidates of parameters_estimation) go
+  to its CfA mirror, and stay there for the rest of the run.
+
+### Fixes
+
+- **search_skymaps `--prob`, catalog_statistics and event_selection `--area-cred`**: a value outside (0, 1] is
+  refused (`--prob 1.5` was accepted and reported every event as inside).
+- **scalar_cloud**: the prepare stage read the analysis settings under the names of the GWTC-4 PE files only and
+  ended in a `KeyError: segment_length` for a GWTC-3 event (GW191109_010717); the bilby names (`duration`,
+  `start_time`, `sampling_frequency`) are read too, and a label without settings or noise spectra (`C01:Mixed`) is
+  refused with the labels to choose from.
+- **counterpart**: `-h` no longer lists `--pe-distance-prior`, which the mode refuses.
+- **Docs, bright siren**: the GRB example for GW190425 needs `--sky-radius 10` (it stopped with "only 119 samples
+  within 3.0°").
+- **hubble_constant**: where `squeue` exists, the seed lock of a run started outside Slurm on another host was
+  taken for the lock of a finished job and removed, so the same seed could run twice at once. `test_seed_lock`,
+  which failed inside a Slurm job (the lock then also holds `SLURM_JOB_ID`), covers it.
 
 ## 0.9.0 (2026-10-21)
 

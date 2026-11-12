@@ -309,7 +309,8 @@ def sky_map_searched_probability(path: str | Path, ra_deg: float, dec_deg: float
     from ligo.skymap.io import read_sky_map
     from ligo.skymap.postprocess import crossmatch
 
-    m = read_sky_map(str(path), moc=True)
+    # without the distance columns: crossmatch would else build the volumes of the 3D map (over 1 GB), unused here
+    m = read_sky_map(str(path), moc=True)[["UNIQ", "PROBDENSITY"]]
     return float(crossmatch(m, SkyCoord(ra_deg * u.deg, dec_deg * u.deg)).searched_prob)
 
 

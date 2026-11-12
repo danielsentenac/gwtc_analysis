@@ -173,12 +173,105 @@ def _pixel_prob(m) -> np.ndarray:
     return np.asarray(m["PROBDENSITY"]) * ah.nside_to_pixel_area(ah.level_to_nside(level)).to_value(u.sr)
 
 
+def _map_2d(m):
+    """The map without its distance columns: ligo.skymap's crossmatch then leaves the volumes out."""
+    return m[["UNIQ", "PROBDENSITY"]]
+
+
+def volume_stats(m, ra_deg=None, dec_deg=None, dist_mpc=None, contours=(), chunk: int = 2_000_000) -> dict:
+    """Credible volumes (Mpc^3) of a 3D map and, at positions with a distance, the probability density per unit
+    volume (Mpc^-3) and the searched probability in volume: the quantities of ligo.skymap's crossmatch, on the
+    same voxels (each pixel times 999 distance shells out to 6 times the mean distance) and with the same
+    formulas. crossmatch holds eight arrays of the voxels at once (1.3 GB for 20,000 pixels); here the density is
+    the only one kept, with its sort order, and the cumulative sums are taken by chunks of the sorted voxels."""
+    import astropy_healpix as ah
+    import healpy as hp
+    from ligo.skymap import distance, moc
+
+    o = np.argsort(np.asarray(m["PROBDENSITY"], float))[::-1]          # pixels by decreasing density
+    uniq = np.asarray(m["UNIQ"])[o]
+    dens, mu, sigma, norm = (np.asarray(m[c], float)[o] for c in ("PROBDENSITY", "DISTMU", "DISTSIGMA", "DISTNORM"))
+    d_a = moc.uniq2pixarea(uniq)
+    have = dist_mpc is not None and np.size(dist_mpc) > 0
+    true_dist = np.atleast_1d(np.asarray(dist_mpc, float)) if have else None
+
+    n_r = 1000
+    distmean, _ = distance.parameters_to_marginal_moments(dens * d_a, mu, sigma)
+    max_r = 6 * distmean
+    if have and np.max(true_dist) > max_r:
+        max_r = np.max(true_dist)
+    d_r = max_r / n_r
+    r = d_r * np.arange(1, n_r)
+    shell = (np.square(r) + np.square(d_r) / 12) * d_r                 # voxel volume = shell[k] * d_a[p]
+    n = len(r)
+
+    with np.errstate(all="ignore"):
+        coef = dens * norm / (sigma * np.sqrt(2 * np.pi))
+        dp_dv = np.empty((len(uniq), n))
+        rows = max(1, chunk // n)
+        for a in range(0, len(uniq), rows):
+            b = min(a + rows, len(uniq))
+            x = (r[None, :] - mu[a:b, None]) / sigma[a:b, None]
+            np.square(x, out=x)
+            x *= -0.5
+            np.exp(x, out=x)
+            x *= coef[a:b, None]
+            x[np.isnan(x)] = 0                                         # as crossmatch: invalid voxels hold nothing
+            dp_dv[a:b] = x
+    flat = dp_dv.ravel()
+    order = np.argsort(flat)                                           # ascending; read from its end
+
+    targets = pos_of = None
+    out = dict(contour_vols=[np.inf] * len(contours))
+    if have:
+        level, ipix = moc.uniq2nest(uniq)
+        top = int(np.max(level))
+        max_ipix = ipix << np.int64(2 * (top - level))
+        pix = hp.ang2pix(ah.level_to_nside(top), 0.5 * np.pi - np.radians(np.atleast_1d(dec_deg)),
+                         np.radians(np.atleast_1d(ra_deg)), nest=True)
+        i = np.argsort(max_ipix)
+        p_true = i[np.digitize(pix, max_ipix[i]) - 1]
+        k_true = np.digitize(true_dist, r) - 1
+        k_true[k_true < 0] += n                                        # crossmatch's index -1: the last shell
+        targets = p_true.astype(np.int64) * n + k_true
+        out["probdensity_vol"] = flat[targets]
+        searched = np.full(len(targets), np.nan)
+        t_sorted = np.sort(targets)
+
+    todo = {j: float(c) for j, c in enumerate(contours)}
+    carry_p = carry_v = 0.0
+    total = len(order)
+    for a in range(0, total, chunk):
+        sel = order[max(total - a - chunk, 0):total - a][::-1]         # the next voxels, densest first
+        dv = shell[sel % n] * d_a[sel // n]
+        cum_p = np.cumsum(flat[sel] * dv) + carry_p
+        cum_v = np.cumsum(dv) + carry_v
+        for j, c in list(todo.items()):                                # np.interp of crossmatch, piece by piece
+            q = int(np.searchsorted(cum_p, c, side="left"))
+            if q < len(cum_p):
+                p0, v0 = (cum_p[q - 1], cum_v[q - 1]) if q else (carry_p, carry_v)
+                out["contour_vols"][j] = float(v0 + (c - p0) * (cum_v[q] - v0) / (cum_p[q] - p0)
+                                               if cum_p[q] > p0 else cum_v[q])
+                del todo[j]
+        if have:
+            hit = np.flatnonzero(np.isin(sel, t_sorted))
+            if hit.size:
+                where = dict(zip(sel[hit].tolist(), cum_p[hit].tolist()))
+                searched = np.array([where.get(t, old) for t, old in zip(targets.tolist(), searched.tolist())])
+        carry_p, carry_v = float(cum_p[-1]), float(cum_v[-1])
+        if not todo and not have:
+            break
+    if have:
+        out["searched_prob_vol"] = searched
+    return out
+
+
 def summarize(m) -> dict[str, Any]:
     """Credible areas (deg^2) and volumes (Mpc^3), peak direction, distance there and overall, resolution."""
     import astropy_healpix as ah
     from ligo.skymap.postprocess import crossmatch
 
-    r = crossmatch(m, contours=(0.5, 0.9))
+    r = crossmatch(_map_2d(m), contours=(0.5, 0.9))          # the areas; the volumes below, in less memory
     prob = _pixel_prob(m)
     level, ipix = ah.uniq_to_level_ipix(m["UNIQ"])
     i = int(np.argmax(np.asarray(m["PROBDENSITY"])))
@@ -190,7 +283,7 @@ def summarize(m) -> dict[str, Any]:
     out["distmean"] = float(meta.get("distmean", np.nan))
     out["diststd"] = float(meta.get("diststd", np.nan))
     if out["is_3d"]:
-        out["vol50"], out["vol90"] = (float(v) for v in r.contour_vols)
+        out["vol50"], out["vol90"] = volume_stats(m, contours=(0.5, 0.9))["contour_vols"]
         out["distmu_peak"] = float(m["DISTMU"][i])
         out["distsigma_peak"] = float(m["DISTSIGMA"][i])
     return out
@@ -264,6 +357,8 @@ def query_glade(cones: list[tuple[float, float, float]], dmin: float, dmax: floa
     cache = cache_dir() / "glade" / (hashlib.sha1(key.encode()).hexdigest()[:16] + ".csv")
     if cache.exists():
         return pd.read_csv(cache, dtype={c: str for c in GLADE_NAME_COLS})
+    from .galaxies import vizier_get
+
     frames = []
     queue = list(cones)
     with requests.Session() as s:
@@ -273,15 +368,7 @@ def query_glade(cones: list[tuple[float, float, float]], dmin: float, dmax: floa
             params = {"-source": GLADE_TABLE, "-c": f"{ra:.5f} {dec:+.5f}", "-c.rd": f"{rad:.5f}",
                       "-out": ",".join(GLADE_COLS), "dL": f"{dmin:.2f}..{dmax:.2f}", "-out.max": str(GLADE_MAX_ROWS),
                       "-oc.form": "d"}
-            for attempt in range(4):
-                try:
-                    r = s.get(GLADE_ASU, params=params, timeout=timeout)
-                    r.raise_for_status()
-                    break
-                except requests.RequestException:
-                    if attempt == 3:
-                        raise
-                    time.sleep(5 * (attempt + 1))
+            r = vizier_get(s, params, timeout)          # the CDS, else its CfA mirror
             lines = [ln for ln in r.text.splitlines() if ln and not ln.startswith("#")]
             if len(lines) < 3:                       # header, units, dashes: no row
                 continue
@@ -350,11 +437,11 @@ def rank_galaxies(m, gal: pd.DataFrame) -> pd.DataFrame:
     gal = gal[gal["dist"] > 0].reset_index(drop=True)
     if gal.empty:
         return gal.assign(dp_dv=[], searched_prob=[], searched_prob_vol=[], host_share=[])
-    c = SkyCoord(gal["ra"].to_numpy(float) * u.deg, gal["dec"].to_numpy(float) * u.deg,
-                 distance=gal["dist"].to_numpy(float) * u.Mpc)
-    r = crossmatch(m, c)
-    out = gal.assign(dp_dv=np.asarray(r.probdensity_vol), searched_prob=np.asarray(r.searched_prob),
-                     searched_prob_vol=np.asarray(r.searched_prob_vol))
+    ra, dec, dist = (gal[c].to_numpy(float) for c in ("ra", "dec", "dist"))
+    r = crossmatch(_map_2d(m), SkyCoord(ra * u.deg, dec * u.deg))       # on the sky; in volume below
+    v = volume_stats(m, ra, dec, dist) if is_3d(m) else dict(probdensity_vol=np.nan, searched_prob_vol=np.nan)
+    out = gal.assign(dp_dv=v["probdensity_vol"], searched_prob=np.atleast_1d(r.searched_prob),
+                     searched_prob_vol=v["searched_prob_vol"])
     tot = out["dp_dv"].sum()
     out["host_share"] = out["dp_dv"] / tot if tot > 0 else np.nan
     return out.sort_values("dp_dv", ascending=False).reset_index(drop=True)
@@ -395,10 +482,11 @@ def _plot(m, s, out_png, *, title, galaxies, dist_samples) -> Path:
 
     max_level = int(np.max(ah.uniq_to_level_ipix(m["UNIQ"])[0]))
     order = _raster_order(s["area90"], max_level)
-    r = moc.rasterize(m, order)
+    # one column of the map rasterized at a time (12.6 million pixels each at order 10), kept only while drawn
     nside = ah.level_to_nside(order)
-    prob = np.asarray(r["PROBDENSITY"]) * ah.nside_to_pixel_area(nside).value
-    cls = 100 * find_greedy_credible_levels(prob)
+    prob = np.asarray(moc.rasterize(m[["UNIQ", "PROBDENSITY"]], order)["PROBDENSITY"]) \
+        * ah.nside_to_pixel_area(nside).value
+    cls = (100 * find_greedy_credible_levels(prob)).astype(np.float32)
     radius = _region_radius(m, s["ra_peak"], s["dec_peak"]) * 1.25
     zoom = radius < 40
 
@@ -418,9 +506,10 @@ def _plot(m, s, out_png, *, title, galaxies, dist_samples) -> Path:
     panels = [ax1]
     if s["is_3d"]:
         ax2 = fig.add_subplot(1, 3, 2, **kw)
-        mu = np.where(cls <= 90, np.asarray(r["DISTMU"], float), np.nan)
-        mu[~np.isfinite(np.asarray(r["DISTMU"], float))] = np.nan
+        mu = np.asarray(moc.rasterize(m[["UNIQ", "DISTMU"]], order)["DISTMU"], float)
+        mu[(cls > 90) | ~np.isfinite(mu)] = np.nan
         im = ax2.imshow_hpx((mu, "ICRS"), nested=True, cmap="viridis")
+        del mu
         ax2.contour_hpx((cls, "ICRS"), nested=True, levels=[90], colors="k", linewidths=0.7)
         ax2.grid(alpha=0.4)
         fig.colorbar(im, ax=ax2, shrink=0.75, pad=0.02).set_label("distance along the line of sight [Mpc]",
@@ -431,12 +520,13 @@ def _plot(m, s, out_png, *, title, galaxies, dist_samples) -> Path:
         ax3 = fig.add_subplot(1, 3, 3)
         dmax = s["distmean"] + 5 * s["diststd"] if np.isfinite(s["distmean"]) else 5000.0
         d = np.linspace(dmax / 2000, dmax, 1000)
-        ok = np.isfinite(np.asarray(r["DISTMU"], float))
-        pdf = distance.marginal_pdf(d, prob[ok], np.asarray(r["DISTMU"])[ok], np.asarray(r["DISTSIGMA"])[ok],
-                                    np.asarray(r["DISTNORM"])[ok])
+        # on the multi-order pixels: the same sum over the sky as on the raster, and the same densest pixel
+        ok = np.isfinite(np.asarray(m["DISTMU"], float))
+        pdf = distance.marginal_pdf(d, _pixel_prob(m)[ok], np.asarray(m["DISTMU"])[ok],
+                                    np.asarray(m["DISTSIGMA"])[ok], np.asarray(m["DISTNORM"])[ok])
         ax3.plot(d, pdf, color="k", lw=1.2, label="3D sky map (all directions)")
-        i = int(np.argmax(prob))
-        cond = distance.conditional_pdf(d, r["DISTMU"][i], r["DISTSIGMA"][i], r["DISTNORM"][i])
+        i = int(np.argmax(np.asarray(m["PROBDENSITY"])))
+        cond = distance.conditional_pdf(d, m["DISTMU"][i], m["DISTSIGMA"][i], m["DISTNORM"][i])
         ax3.plot(d, cond, color="tab:red", lw=1, ls="--", label="along the most probable direction")
         if dist_samples is not None and len(dist_samples):
             ax3.hist(dist_samples, bins=60, range=(0, dmax), density=True, histtype="step", color="tab:blue",

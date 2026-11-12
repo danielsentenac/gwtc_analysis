@@ -98,6 +98,17 @@ def _fraction_or_auto(x: str):
     return f
 
 
+def _probability(x: str) -> float:
+    """A credible level: a number above 0 and at most 1."""
+    try:
+        f = float(x)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a number above 0 and at most 1, got {x!r}") from None
+    if not 0 < f <= 1:
+        raise argparse.ArgumentTypeError(f"expected a number above 0 and at most 1 (0.9 for 90%), got {x}")
+    return f
+
+
 def _none_if_empty(x):
     """Argparse with nargs can yield [] instead of None."""
     if x is None:
@@ -137,11 +148,13 @@ def _add_counterpart_options(p: argparse.ArgumentParser, tag: str) -> None:
     p.add_argument("--viewing-angle", nargs=2, type=float, metavar=("MEAN", "SIGMA"), default=None,
                    help=tag + "Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; "
                               "weights the PE samples.")
+    # counterpart does not use it (its distances are the PE posterior as released): parsed there only to say so
     p.add_argument("--pe-distance-prior", choices=("dl2", "comoving", "source-frame"), default=None,
-                   help=tag + "Luminosity-distance prior of the PE samples, divided out of the distance posterior: "
-                              "dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving "
-                              "volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE "
-                              "file, else D_L^2 up to O3 and source-frame from O4.")
+                   help=argparse.SUPPRESS if not tag else
+                   tag + "Luminosity-distance prior of the PE samples, divided out of the distance posterior: "
+                         "dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving "
+                         "volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE "
+                         "file, else D_L^2 up to O3 and source-frame from O4.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -212,7 +225,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_cat.add_argument("--out-report", default="catalogs_statistics.html", help="Output HTML report path.")
     p_cat.add_argument("--include-detectors", action="store_true", help="Include detector network via GWOSC v2 calls.")
     p_cat.add_argument("--include-area", action="store_true", help="Compute sky localization area Axx if skymaps are available.")
-    p_cat.add_argument("--area-cred", type=float, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
+    p_cat.add_argument("--area-cred", type=_probability, default=0.9, help="Credible level for sky area: 0.9→A90, 0.5→A50, 0.95→A95.")
     p_cat.add_argument("--plots-dir", default="cat_plots", help="Directory for plots (default: cat_plots).")
     p_cat.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo", help="Where the skymaps are read from: zenodo (the release tarballs); s3 (the MinIO mirror, faster) or galaxy (staged collections, else the public usegalaxy.org history), when they hold the maps of the selected release version, else Zenodo (a staged collection must hold them).")
     _add_zenodo_version_arg(p_cat)
@@ -858,7 +871,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_sel.add_argument("--area-max", type=float, default=None,
                        help="Maximum sky area (deg²) of the --area-cred credible region, from the skymaps (read only "
                             "for the events passing the other cuts; events without a skymap are dropped).")
-    p_sel.add_argument("--area-cred", type=float, default=0.9,
+    p_sel.add_argument("--area-cred", type=_probability, default=0.9,
                        help="Credible level of --area-max: 0.9→A90, 0.5→A50.")
     p_sel.add_argument("--data-repo", choices=["galaxy", "zenodo", "s3"], default="zenodo",
                        help="Where the skymaps of --area-max are read from (as catalog_statistics).")
@@ -898,7 +911,7 @@ def build_parser() -> argparse.ArgumentParser:
                        help="With --counterparts: GW sky map files (FITS) to search, e.g. a GraceDB alert map.")
     p_sky.add_argument("--refresh-catalogs", action="store_true",
                        help="With --counterparts: download the external catalogs again (otherwise weekly).")
-    p_sky.add_argument("--prob", type=float, default=0.9, help="Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95.")
+    p_sky.add_argument("--prob", type=_probability, default=0.9, help="Credible-level threshold (above 0, at most 1). Common values: 0.9, 0.5, 0.95.")
     p_sky.add_argument("--skymap-label", default="Mixed", help="Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed, then "
                        "IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case, then the other waveforms in a fixed order). "
                        "'any': every map of every event; with --counterparts, one map per event, as Mixed.")

@@ -141,21 +141,26 @@ def fetch_to(url: str, dest: Path, http_download: Callable[[str, Path], None], *
     it, else by `http_download(url, path)`, retried after a transient failure (net.retry); when the source still
     fails, from the copy in the public Galaxy history (BACKUP)."""
     dest = Path(dest)
-    tmp = dest.with_name(dest.name + ".part")
-    if _from_s3(url, tmp, log):
-        _record(url, _label())
-    else:
-        try:
-            net.retry(lambda: http_download(url, tmp), url, log=log)
-        except Exception as e:
-            tmp.unlink(missing_ok=True)
-            if not _from_backup(url, tmp, log, e):
-                raise
-            _record(url, _backup_source(url))
+    before = dest.stat().st_mtime_ns if dest.exists() else None
+    with net.file_lock(dest, log=log):
+        if dest.exists() and dest.stat().st_mtime_ns != before:      # another run fetched it while this one waited
+            cached(url)
+            return dest
+        tmp = dest.with_name(dest.name + ".part")
+        if _from_s3(url, tmp, log):
+            _record(url, _label())
         else:
-            _record(url, _source(url))
-    tmp.replace(dest)
-    return dest
+            try:
+                net.retry(lambda: http_download(url, tmp), url, log=log)
+            except Exception as e:
+                tmp.unlink(missing_ok=True)
+                if not _from_backup(url, tmp, log, e):
+                    raise
+                _record(url, _backup_source(url))
+            else:
+                _record(url, _source(url))
+        tmp.replace(dest)
+        return dest
 
 
 def fetch_bytes(url: str, http_get: Callable[[str], bytes], *, log: Callable[[str], None] = print,

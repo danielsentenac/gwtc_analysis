@@ -131,8 +131,12 @@ afterglow of a coincident gamma-ray burst and the redshift of its host (found wi
 
 ```bash
 gwtc_analysis hubble_constant --method bright --event GW190425_081805 --ra 251.2 --dec -24.2 \
-    --redshift 0.035 0.003 --host "host name" --viewing-angle 10 5      # a GRB: a jet seen nearly on-axis
+    --redshift 0.035 0.003 --host "host name" --viewing-angle 10 5 \
+    --sky-radius 10                                    # a GRB: a jet seen nearly on-axis
 ```
+
+`--sky-radius 10` is needed here: this map covers thousands of deg², so fewer than the 200 samples required fall
+within the default 3° of the position, and the run stops with "only 119 samples within 3.0°".
 
 The event takes its full name (that of its PE release, whose file is read from Zenodo); the observing run comes
 from the name, and the class of the binary (BNS or BBH, the mass model of the selection) from the catalog masses,

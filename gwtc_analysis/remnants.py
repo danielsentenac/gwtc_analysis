@@ -34,7 +34,8 @@ def summarize(samples_dict: Any) -> pd.DataFrame:
     """One row per (label, quantity) with the remnant fields, plus the radiated fraction of the total mass."""
     rows = []
     for label in samples_dict.keys():
-        s = samples_dict[label]
+        # a few columns of each label: read from the file, not the whole table (pe_lean), when it can be
+        s = samples_dict.light(label) if hasattr(samples_dict, "light") else samples_dict[label]
         if not hasattr(s, "keys"):
             continue
         qs = {f: _col(s, f) for f in FIELDS}

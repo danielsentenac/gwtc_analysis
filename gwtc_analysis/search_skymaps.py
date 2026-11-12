@@ -8,9 +8,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-import healpy as hp
 import numpy as np
-from ligo.skymap.io.fits import read_sky_map
 
 from .read_skymap import plot_skymap_with_ra_dec
 from .catalog_registry import products_catalog as _products_catalog
@@ -480,6 +478,7 @@ def _process_one_skymap(
                     dec_deg,
                     "grey",
                     contour_levels=(50, 90, prob * 100.0),
+                    out_dir=plots_path,
                 )
                 plot_png = _normalize_plot_output(produced, plots_path / f"{safe_title}.png")
             except Exception as e:
@@ -706,23 +705,11 @@ def _write_search_skymaps_report(*, out_path: Path, rows: list[dict[str, Any]], 
 
 
 def credible_level_at_radec_percent(skymap_path: Path, ra_deg: float, dec_deg: float) -> float:
-    """Exact greedy credible level at the HEALPix pixel containing (ra,dec). Returns percent in [0,100]."""
-    m = read_sky_map(str(skymap_path), moc=False)
-    if isinstance(m, tuple):
-        m = m[0]
-    m = np.asarray(m, dtype=float)
+    """Greedy credible level at the pixel containing (ra,dec), on the multi-order pixels of the map (a flattened
+    GWTC-5 map takes several GB). Returns percent in [0,100]."""
+    from .skymap_moc import credible_level_at, read_moc
 
-    nside = hp.get_nside(m)
-    theta = np.deg2rad(90.0 - dec_deg)
-    phi = np.deg2rad(ra_deg)
-    ipix = hp.ang2pix(nside, theta, phi, nest=False)
-
-    order = np.argsort(m)[::-1]
-    cdf = np.cumsum(m[order])
-
-    cls = np.empty_like(m)
-    cls[order] = 100.0 * cdf
-    return float(cls[ipix])
+    return 100.0 * credible_level_at(read_moc(skymap_path), ra_deg, dec_deg)
 
 
 def _iter_skymaps(base: Path) -> Iterable[Path]:

@@ -107,3 +107,33 @@ def test_cli_flags():
     assert a.skymap_3d and a.galaxies == "glade" and a.galaxy_max_area == 100
     a = build_parser().parse_args(["parameters_estimation", "--src-name", "X", "--no-skymap-3d", "--galaxies", "none"])
     assert not a.skymap_3d and a.galaxies == "none"
+
+
+def test_volume_stats_as_crossmatch():
+    """The credible volumes and the galaxies' densities and searched volumes of ligo.skymap's crossmatch."""
+    import astropy.units as u
+    from astropy.coordinates import SkyCoord
+    from astropy.table import Table
+    from ligo.skymap import moc
+    from ligo.skymap.postprocess import crossmatch
+
+    from gwtc_analysis import skymap3d as s3
+
+    rng = np.random.default_rng(2)
+    level = np.r_[np.full(40, 2), np.full(4 * (192 - 40), 3)]            # 40 coarse pixels, the rest split
+    ipix = np.r_[np.arange(40), np.arange(4 * 40, 4 * 192)]
+    uniq = moc.nest2uniq(level.astype(np.int8), ipix)
+    dens = rng.gamma(0.3, 1.0, len(uniq))
+    dens /= np.sum(dens * moc.uniq2pixarea(uniq))
+    mu, sigma = rng.uniform(200, 600, len(uniq)), rng.uniform(40, 150, len(uniq))
+    mu[5] = np.inf                                                       # a direction without distance
+    norm = 1 / (sigma ** 2 + mu ** 2)
+    m = Table(dict(UNIQ=uniq, PROBDENSITY=dens, DISTMU=mu, DISTSIGMA=sigma, DISTNORM=norm))
+    ra, dec = rng.uniform(0, 360, 60), np.degrees(np.arcsin(rng.uniform(-1, 1, 60)))
+    dist = rng.uniform(1, 900, 60)
+    dist[0] = 5000.0                                                     # beyond the distance grid
+    ref = crossmatch(m, SkyCoord(ra * u.deg, dec * u.deg, distance=dist * u.Mpc), contours=(0.5, 0.9))
+    got = s3.volume_stats(m, ra, dec, dist, contours=(0.5, 0.9), chunk=20_000)
+    assert got["contour_vols"] == pytest.approx(ref.contour_vols, rel=1e-9)
+    assert got["probdensity_vol"] == pytest.approx(np.asarray(ref.probdensity_vol), rel=1e-12)
+    assert got["searched_prob_vol"] == pytest.approx(np.asarray(ref.searched_prob_vol), rel=1e-9)

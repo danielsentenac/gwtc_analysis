@@ -150,7 +150,7 @@ def lighten_skymaps(path: str | Path, max_nside: int = MAX_SKYMAP_NSIDE,
     if log_cb:
         log_cb(f"ℹ️ [INFO] {len(big)} skymap(s) finer than nside {max_nside} in {path.name}: writing a copy with "
                f"skymaps at nside {max_nside} ({lite.name}), to keep the memory low")
-    part = lite.with_suffix(".part")
+    part = lite.with_suffix(f".{os.getpid()}.part")        # one per process: runs sharing a cache
     with h5py.File(path, "r") as src, h5py.File(part, "w") as dst:
         for k, v in src.attrs.items():
             dst.attrs[k] = v
@@ -254,7 +254,9 @@ def download_zenodo_pe_file(
     if progress_cb:
         progress_cb("Download data", 15, f"Zenodo download: {fname}")
 
-    net.retry(lambda: _download_http_with_progress(url, out_path, desc=f"Zenodo: {fname}"), url)
+    with net.file_lock(out_path):
+        if not (out_path.exists() and out_path.stat().st_size > 0):     # else another run fetched it meanwhile
+            net.retry(lambda: _download_http_with_progress(url, out_path, desc=f"Zenodo: {fname}"), url)
     return out_path
 
 
@@ -477,7 +479,9 @@ def download_galaxy_pe_file(
     if progress_cb:
         progress_cb("Download data", 15, f"Galaxy download: {fname}")
 
-    net.retry(lambda: _download_http_with_progress(url, out_path, desc=f"Galaxy: {fname}"), url)
+    with net.file_lock(out_path):
+        if not (out_path.exists() and out_path.stat().st_size > 0):     # else another run fetched it meanwhile
+            net.retry(lambda: _download_http_with_progress(url, out_path, desc=f"Galaxy: {fname}"), url)
     return out_path
 
 
@@ -519,8 +523,10 @@ def _download_pe_from_s3(
         if log_cb:
             log_cb(f"ℹ️ [DOWNLOAD] Fetching from S3: {obj}")
         outdir.mkdir(parents=True, exist_ok=True)
-        _download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj, out_path=out_path,
-                                   desc=f"S3: {fname}")
+        with net.file_lock(out_path):
+            if not (out_path.exists() and out_path.stat().st_size > 0):     # else another run fetched it meanwhile
+                _download_s3_with_progress(_s3_client_from_env(), bucket=S3_BUCKET, object_name=obj,
+                                           out_path=out_path, desc=f"S3: {fname}")
     except Exception as e:                     # the mirror unreachable or a failed transfer: Zenodo
         if log_cb:
             log_cb(f"⚠️ [WARN] S3 mirror failed for {fname} ({type(e).__name__}: {e}): downloading it from Zenodo")
@@ -1097,7 +1103,7 @@ def run_parameters_estimation(
     import matplotlib.pyplot as plt  # type: ignore
     from matplotlib.colorbar import Colorbar  # type: ignore
 
-    from pesummary.io import read  # type: ignore
+    from .pe_lean import read_lean
 
     from .gwpe_utils import (
         load_strain,
@@ -1341,7 +1347,8 @@ def run_parameters_estimation(
                 pe_file_name = Path(local_pe_path).name
                 record_pe_file(src_name, pe_file_name)
                 local_pe_path = str(lighten_skymaps(local_pe_path, log_cb=lambda m: pe_log(m, event_logs)))
-                data = read(local_pe_path)
+                # one analysis at a time: pesummary's own read holds every label, at several times its size
+                data = read_lean(local_pe_path, log=lambda m: pe_log(m, event_logs))
                 # Some official releases ship without PSDs: take them from a
                 # registered public release of the same event (pe_supplements).
                 fill_missing_psds(data, src_name, log_cb=lambda m: pe_log(m, event_logs))

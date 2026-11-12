@@ -34,6 +34,9 @@ import pandas as pd
 
 GALAXY_COLUMNS = ("ra", "dec", "z", "sigmaz", "m")
 GLADE_ASU = "https://vizier.cds.unistra.fr/viz-bin/asu-tsv"
+# VizieR mirrors serving the same ASU interface, tried in turn when the CDS fails
+VIZIER_ASU = (GLADE_ASU, "https://vizier.cfa.harvard.edu/viz-bin/asu-tsv")
+_vizier_ok = [0]            # index of the service that answered last: the next queries start there
 GLADE_TABLE = "VII/291/gladep"
 GLADE_KBAND_COLS = ("GLADE+", "Type", "RAJ2000", "DEJ2000", "Kmag", "zhelio", "zcmb", "f_zcmb", "e_z", "e_zhelio")
 GLADE_NUMERIC = ("RAJ2000", "DEJ2000", "Kmag", "zhelio", "zcmb", "f_zcmb", "e_z", "e_zhelio")
@@ -176,20 +179,37 @@ def glade_kband_frame(raw: pd.DataFrame, galaxies_only: bool = True, selection: 
     return out[(out["z"] > 0) & np.isfinite(out["m"])]
 
 
+def vizier_get(session, params: dict, timeout: float, tries: int = 4, pause: float = 5.0):
+    """The answer of the VizieR ASU service to `params`: from the CDS, else from its CfA mirror (same tables, same
+    interface). Each round tries the services in turn, starting with the one that answered last; `tries` rounds,
+    `pause` s longer after each, before the last error is raised."""
+    import requests
+
+    for attempt in range(tries):
+        for k in range(len(VIZIER_ASU)):
+            i = (_vizier_ok[0] + k) % len(VIZIER_ASU)
+            try:
+                r = session.get(VIZIER_ASU[i], params=params, timeout=timeout)
+                r.raise_for_status()
+            except requests.RequestException as e:
+                err = e
+                continue
+            if i != _vizier_ok[0]:
+                print(f"[galaxies] {VIZIER_ASU[_vizier_ok[0]].split('/')[2]} failed ({type(err).__name__}: "
+                      f"{str(err)[:80]}): using the VizieR mirror {VIZIER_ASU[i].split('/')[2]}", flush=True)
+                _vizier_ok[0] = i
+            return r
+        if attempt < tries - 1:
+            time.sleep(pause * (attempt + 1))
+    raise err
+
+
 def _vizier_band(dec_lo: float, dec_hi: float, timeout: float, session) -> pd.DataFrame:
     import requests
 
     params = {"-source": GLADE_TABLE, "-out": ",".join(GLADE_KBAND_COLS), "-out.max": str(GLADE_MAX_ROWS),
               "Kmag": "<99", "DEJ2000": f"{dec_lo:.4f}..{dec_hi:.4f}", "-oc.form": "d"}
-    for attempt in range(5):
-        try:
-            r = session.get(GLADE_ASU, params=params, timeout=timeout)
-            r.raise_for_status()
-            break
-        except requests.RequestException:
-            if attempt == 4:
-                raise
-            time.sleep(10 * (attempt + 1))
+    r = vizier_get(session, params, timeout, tries=5, pause=10)
     lines = [ln for ln in r.text.splitlines() if ln and not ln.startswith("#")]
     if len(lines) < 3:                          # header, units, dashes: no row
         return pd.DataFrame(columns=list(GLADE_KBAND_COLS))

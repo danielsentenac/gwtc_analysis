@@ -231,6 +231,7 @@ def test_seed_lock(tmp_path, monkeypatch):
     from gwtc_analysis import h0_icarogw as runner
 
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)      # inside a Slurm job the lock also holds the job id
     runner._lock_seed(1)
     lock = tmp_path / "result" / "plp_seed1.lock"
     assert lock.read_text().split() == [socket.gethostname(), str(os.getpid())]
@@ -240,8 +241,11 @@ def test_seed_lock(tmp_path, monkeypatch):
     runner._lock_seed(2)
     assert (tmp_path / "result" / "plp_seed2.lock").read_text().split()[1] == str(os.getpid())
     (tmp_path / "result" / "plp_seed3.lock").write_text("farmn7 1234\n")                        # other host
+    asked = []
+    monkeypatch.setattr(runner, "_slurm_job_alive", lambda job: asked.append(job) or False)
     with pytest.raises(SystemExit, match="farmn7"):
         runner._lock_seed(3)
+    assert not asked            # a lock without a job id is not a finished Slurm job
 
 
 def test_parallel_runs_report_failures(tmp_path, monkeypatch):

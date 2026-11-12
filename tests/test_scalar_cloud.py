@@ -188,3 +188,30 @@ def test_gwpy_import_keeps_the_matplotlib_axes():
     fig, ax = plt.subplots()
     assert type(ax) is Axes and matplotlib.rcParams["legend.handlelength"] == handlelength
     plt.close(fig)
+
+
+@pytest.mark.parametrize("names", [("segment_length", "segment_start", "sample_rate"),
+                                   ("duration", "start_time", "sampling_frequency")])      # GWTC-3 files: bilby's
+def test_extract_pe_reads_both_namings_of_the_settings(tmp_path, names):
+    import h5py
+
+    from gwtc_analysis import scalar_cloud as sc
+
+    cols = sc.FIT_KEYS + sc.SKY_KEYS + ["log_likelihood"]
+    ps = np.zeros(50, dtype=[(c, float) for c in cols])
+    ps["log_likelihood"] = np.arange(50)
+    f = tmp_path / "pe.h5"
+    with h5py.File(f, "w") as h:
+        g = h.create_group("C01:IMRPhenomXPHM")
+        g["posterior_samples"] = ps
+        md = g.create_group("meta_data/meta_data")
+        for k, v in zip(names + ("f_low", "f_ref"), (4.0, 1257296851.2, 1024.0, 20.0, 20.0)):
+            md[k] = [v]
+        g.create_group("psds")["H1"] = np.ones((10, 2))
+        h.create_group("C01:Mixed")["posterior_samples"] = ps
+        h["C01:Mixed"].create_group("meta_data/meta_data")["f_low"] = [20.0]
+        h["C01:Mixed"].create_group("psds")
+    s = sc.extract_pe(str(f), "C01:IMRPhenomXPHM", tmp_path / "wd")
+    assert (s["duration"], s["segment_start"], s["pe_sample_rate"]) == (4.0, 1257296851.2, 1024.0)
+    with pytest.raises(ValueError, match="does not record its segment_length"):
+        sc.extract_pe(str(f), "C01:Mixed", tmp_path / "wd2")

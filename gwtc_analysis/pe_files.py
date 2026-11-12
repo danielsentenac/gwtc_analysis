@@ -179,27 +179,31 @@ def fetch(entry: dict, cache: Path | str, data_repo: Optional[str] = None, *, de
         note_pe_source(fname, "PE cache of another mode")
         return shared, False
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_suffix(dest.suffix + ".part")
-    if data_repo in ("s3", "galaxy"):
-        from .galaxy_store import repo_label, store_client
+    with net.file_lock(dest, log=log):
+        if dest.exists() and dest.stat().st_size > 0:           # another run fetched it while this one waited
+            note_pe_source(fname, "PE cache")
+            return dest, False
+        tmp = dest.with_suffix(dest.suffix + ".part")
+        if data_repo in ("s3", "galaxy"):
+            from .galaxy_store import repo_label, store_client
 
-        label = repo_label(data_repo)
-        try:
-            obj = (s3_objects(cache) if data_repo == "s3" else s3_objects(cache, "galaxy")).get(fname)
-            if obj is not None:
-                pe._download_s3_with_progress(store_client(data_repo), bucket=S3_BUCKET, object_name=obj,
-                                              out_path=tmp, desc=desc or fname)
-                tmp.replace(dest)
-                note_pe_source(fname, label)
-                return dest, True
-            log(f"{fname} is not on the {label}: downloading it from Zenodo")
-            note_pe_source(fname, f"Zenodo (not on the {label})")
-        except Exception as e:                 # the mirror unreachable or a failed transfer: Zenodo
-            tmp.unlink(missing_ok=True)
-            log(f"{label} failed for {fname} ({type(e).__name__}: {e}): downloading it from Zenodo")
-            note_pe_source(fname, f"Zenodo ({label} failed)")
-    else:
-        note_pe_source(fname, "Zenodo")
-    net.retry(lambda: pe._download_http_with_progress(entry["url"], tmp, desc=desc or fname), entry["url"], log=log)
-    tmp.replace(dest)
-    return dest, True
+            label = repo_label(data_repo)
+            try:
+                obj = (s3_objects(cache) if data_repo == "s3" else s3_objects(cache, "galaxy")).get(fname)
+                if obj is not None:
+                    pe._download_s3_with_progress(store_client(data_repo), bucket=S3_BUCKET, object_name=obj,
+                                                  out_path=tmp, desc=desc or fname)
+                    tmp.replace(dest)
+                    note_pe_source(fname, label)
+                    return dest, True
+                log(f"{fname} is not on the {label}: downloading it from Zenodo")
+                note_pe_source(fname, f"Zenodo (not on the {label})")
+            except Exception as e:                 # the mirror unreachable or a failed transfer: Zenodo
+                tmp.unlink(missing_ok=True)
+                log(f"{label} failed for {fname} ({type(e).__name__}: {e}): downloading it from Zenodo")
+                note_pe_source(fname, f"Zenodo ({label} failed)")
+        else:
+            note_pe_source(fname, "Zenodo")
+        net.retry(lambda: pe._download_http_with_progress(entry["url"], tmp, desc=desc or fname), entry["url"], log=log)
+        tmp.replace(dest)
+        return dest, True
