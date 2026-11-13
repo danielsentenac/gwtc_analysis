@@ -34,25 +34,34 @@ jobs:
         with:
           environment-name: gwtc
           cache-environment: true
+          # the run requirements of conda-recipe/meta.yaml, with the versions the tests pass with on the clusters
           create-args: >-
             python=3.11
-            numpy
+            numpy<2
+            scipy
             pandas
             matplotlib
-            scipy
             astropy
             h5py
             healpy
-            ligo.skymap
-            pesummary
-            bilby
-            gwpy
-            python-lal
-            python-lalsimulation
-            pycbc
             requests
-            minio
             tqdm
+            pyyaml
+            gwpy
+            gwosc
+            ligo.skymap
+            pesummary>=1.8
+            pycbc
+            pyseobnr
+            minio
+            lalsuite
+            astropy-healpix
+            reproject
+            fsspec
+            aiohttp
+            bilby
+            dynesty
+            emcee
             pytest
           condarc: |
             channels:
