@@ -52,7 +52,7 @@ of the energy loss.
 ### Where scalar_cloud comes in
 
 **Only on the boson-cloud plots and paragraph, and without running.** The band drawn there by default,
-0.70–0.89–1.17 × 10⁻¹² eV (5%, 50%, 95%), is the boson mass that [scalar_cloud](scalar-cloud.md#gw190728_064510)
+0.67–0.86–1.17 × 10⁻¹² eV (5%, 50%, 95%), is the boson mass that [scalar_cloud](scalar-cloud.md#gw190728_064510)
 found for GW190728_064510 with the superradiance prior (cloud grown before the merger, delay τ_d = 10⁶ yr), from
 the dephasing of the inspiral. It is written into the mode as a constant: `continuous_waves` neither runs
 scalar_cloud nor reads its outputs, and takes seconds. `--boson-mass LOW MID HIGH` replaces it by any band, for
@@ -100,20 +100,20 @@ f = \frac{2 m c^2}{h} = 483.6\ \text{Hz}\ \frac{m}{10^{-12}\ \text{eV}} .
 \]
 
 The scalar cloud fitted to GW190728 ([scalar_cloud](scalar-cloud.md#gw190728_064510)) has
-\(m_\phi = 0.89\) (0.70–1.17) × 10⁻¹² eV with the superradiance prior (0.73 (0.56–1.14) × 10⁻¹² eV agnostic), so
-the same particle would make clouds around Galactic black holes radiate at **340–570 Hz**, inside the band of the
+\(m_\phi = 0.86\) (0.67–1.17) × 10⁻¹² eV with the superradiance prior (0.78 (0.57–1.26) × 10⁻¹² eV agnostic), so
+the same particle would make clouds around Galactic black holes radiate at **324–566 Hz**, inside the band of the
 O3 boson-cloud search, whose h₀ upper limits there are 1.2–1.9 × 10⁻²⁵.
 
 ![Excluded black-hole and boson masses](../img/modes/cw_boson_exclusion.png)
 
 *O3 exclusions for a black hole of initial spin 0.9 at 1 and 15 kpc, for clouds of different ages, with the
-GW190728 band. At these boson masses only light black holes are concerned, 8–28 M☉ at 1 kpc and 12–28 M☉ at
+GW190728 band. At these boson masses only light black holes are concerned, 8–30 M☉ at 1 kpc and 12–30 M☉ at
 15 kpc for a young cloud: heavier ones are not superradiant for so heavy a boson. That is the mass range of
 GW190728's own components (12 and 8 M☉).*
 
 ![Largest excluded distance](../img/modes/cw_boson_distance.png)
 
-*In the GW190728 band, clouds younger than 10³ yr are excluded out to 16–32 kpc, 10⁴ yr 13–15 kpc,
+*In the GW190728 band, clouds younger than 10³ yr are excluded out to 16–36 kpc, 10⁴ yr 13–15 kpc,
 10⁵ yr 5–8 kpc, 10⁶ yr 2–3 kpc, 10⁷ yr about 1 kpc, for black holes up to 50 or 100 M☉.*
 
 **What it means.** The continuous-wave limits do not exclude the GW190728 boson: they say that no young cloud
@@ -138,7 +138,7 @@ search for their clouds.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--boson-mass LOW MID HIGH` | GW190728, superradiance prior: 0.70e-12 0.89e-12 1.17e-12 | the band drawn on the boson plots, eV |
+| `--boson-mass LOW MID HIGH` | GW190728, superradiance prior: 0.67e-12 0.86e-12 1.17e-12 | the band drawn on the boson plots, eV |
 | `--boson-label` | `GW190728 (scalar_cloud)`, or `given band` with `--boson-mass` | its label |
 | `--refresh` | off | download the data releases again (they are cached in `~/.cache_gwtc_analysis/continuous_waves`, or `$GWTC_CW_CACHE`) |
 | `--out-report`, `--out-summary`, `--plots-dir` | `continuous_waves.html`, `continuous_waves.tsv`, `continuous_waves_plots` | outputs; the summary has three companions, `<name>.pulsars.tsv` (the 45 pulsars), `<name>.narrowband.tsv` and `<name>.boson_reach.tsv` (the largest excluded distance in the band) |

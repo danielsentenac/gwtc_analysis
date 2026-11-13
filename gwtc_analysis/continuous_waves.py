@@ -34,7 +34,7 @@ import pandas as pd
 H_PLANCK_EV_S = 4.135667696e-15
 EV_TO_HZ = 2.0 / H_PLANCK_EV_S          # GW frequency of the annihilation signal per eV of boson mass (2 m c^2 / h)
 # GW190728 with the superradiance prior (tau_d = 1e6 yr): 5%, 50%, 95% of m_phi, per-sample source-frame mass
-GW190728_BOSON_MASS_EV = (0.70e-12, 0.89e-12, 1.17e-12)
+GW190728_BOSON_MASS_EV = (0.67e-12, 0.86e-12, 1.17e-12)
 
 DCC = "https://dcc.ligo.org/public"
 FILES = {

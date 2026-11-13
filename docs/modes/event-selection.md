@@ -13,6 +13,12 @@ gwtc_analysis event_selection --catalogs ALL --m2-max 3
 
 # well-localized events: 90% sky area below 100 deg²
 gwtc_analysis event_selection --catalogs ALL --area-max 100
+
+# loud, significant events of O4a
+gwtc_analysis event_selection --catalogs ALL --runs O4a --snr-min 20 --far-max 1e-3
+
+# events with Hanford, Livingston and Virgo data
+gwtc_analysis event_selection --catalogs ALL --detectors H L V
 ```
 
 | Option | Selects on |
@@ -21,7 +27,12 @@ gwtc_analysis event_selection --catalogs ALL --area-max 100
 | `--m2-min`, `--m2-max` | secondary mass, source frame (M☉) |
 | `--dl-min`, `--dl-max` | luminosity distance (Mpc) |
 | `--chi-eff-min`, `--chi-eff-max` | effective spin χ_eff |
+| `--q-min`, `--q-max` | mass ratio q = m₂/m₁ ≤ 1, from the two median masses (not the median of the q posterior) |
+| `--snr-min` | network matched-filter SNR |
+| `--p-astro-min`, `--far-max` | probability of astrophysical origin, false-alarm rate (per year): GWOSC's values, those of the pipeline that ranks the event best |
+| `--runs` | observing runs (`O1` … `O4b`), from the GPS time of the event |
 | `--area-max` | sky area of the 90% credible region (deg²), from the skymaps; `--area-cred` sets another level (0.5 → A50) |
+| `--detectors` | the detector network: `H`, `L`, `V` (also `K`, `G`); `--detectors-match` sets how (`all`, `exact`, `any`) |
 | `--preset` | a class of sources: `neutron-stars`, `mass-gap`, `hierarchical` |
 
 With `--area-max`, the skymaps of the events passing the other cuts are read (from `--data-repo`:
@@ -29,6 +40,24 @@ With `--area-max`, the skymaps of the events passing the other cuts are read (fr
 release with `--zenodo-version GWTC-3=v2`, as in [catalog_statistics](catalog-statistics.md)), and the
 area is added to the TSV (`A90_deg2`). Events without a skymap are not selected. The first run downloads
 the skymap tarballs; they are cached in `.cache_gwosc`.
+
+Each of these cuts adds its column to the TSV (`mass_ratio`, `network_snr`, `p_astro`, `far_per_yr`,
+`run`); an event without the value a cut needs is not selected.
+
+With `--detectors`, the network of each event passing the other cuts is asked to GWOSC (one query per
+event) and added to the TSV (`detectors`, e.g. `H1,L1,V1`). The names can be written `H L V`, `H1 L1 V1`,
+`HLV` or `H,L,V`. `--detectors-match` says how the list is applied:
+
+| `--detectors-match` | Keeps the events whose network | `--detectors H L` keeps |
+|---|---|---|
+| `all` (default) | holds all the listed detectors, others allowed | H1,L1 and H1,L1,V1 |
+| `exact` | is the listed detectors and no other | H1,L1 only |
+| `any` | holds at least one of them | every network with H1 or L1 |
+
+The network is the one GWOSC lists for the event: the detectors with public strain data around it, which
+is not always the set that contributed to the detection (GW170817 is listed with G1,H1,L1,V1). Events
+without a network at GWOSC are not selected. `--detectors` is applied before `--area-max`, so the skymaps
+are read only for the events of the chosen network.
 
 The selection is written to `--out-selection` (TSV). It uses the GWOSC confident lists; for analyses
 that need the marginal candidates as well, see [Known issues](../known-data-issues.md#gw200105-only-in-the-marginal-list).
@@ -110,9 +139,13 @@ of the preset. Its signature is a primary spin magnitude χ₁ ≈ 0.78 with une
 
 Lowering the edge selects it, `--pisn-gap-min 15`, but the preset is then no longer a gap selection: it
 keeps 228 of the 390 events, most of the binary black holes. To narrow it, add the unequal-mass
-fingerprint on the TSV: with m₂/m₁ ≤ 0.35 as well, 13 events remain, GW241011 among them (with
+fingerprint with `--q-max`: with m₂/m₁ ≤ 0.35 as well, 13 events remain, GW241011 among them (with
 GW190412, GW190814 and GW241127_061008); whether their primaries spin fast is then read from the PE
 samples.
+
+```bash
+gwtc_analysis event_selection --catalogs ALL --preset hierarchical --pisn-gap-min 15 --q-max 0.35
+```
 
 ![Hierarchical preset: m₂ and χ_eff against m₁](../img/modes/selection_preset_hierarchical.png)
 
@@ -227,11 +260,19 @@ are the detector-frame ones divided by 1 + z, so the table shows which redshift 
 | `--dl-max` | — | Maximum luminosity distance (Mpc). |
 | `--chi-eff-min` | — | Minimum effective spin chi_eff. |
 | `--chi-eff-max` | — | Maximum effective spin chi_eff. |
+| `--q-min` | — | Minimum mass ratio q = m2/m1 (GWOSC medians, source frame; q <= 1). |
+| `--q-max` | — | Maximum mass ratio q = m2/m1 (e.g. 0.35 for unequal masses). |
+| `--snr-min` | — | Minimum network matched-filter SNR. |
+| `--p-astro-min` | — | Minimum probability of astrophysical origin p_astro (GWOSC: the pipeline ranking the event best). |
+| `--far-max` | — | Maximum false-alarm rate, per year (GWOSC: the pipeline ranking the event best). |
+| `--runs RUN [RUN ...]` | — | Observing runs of the events, from their GPS time: O1 O2 O3a O3b O4a O4b. |
 | `--preset {neutron-stars,mass-gap,hierarchical}` | — | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%: earlier-generation black holes). |
 | `--ns-max-mass` | `3.0` | Maximum neutron-star mass (M_sun). |
 | `--mass-gap LO HI` | `3.0 5.0` | Lower mass gap between neutron stars and black holes (M_sun). |
 | `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
 | `--out-plot` | — | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
+| `--detectors DET [DET ...]` | — | Detectors of the event's network, among H L V (also K G; H1, HLV and H,L are read too): keeps the events by the network GWOSC lists for them (one query per event passing the other cuts; added to the TSV). |
+| `--detectors-match {all,exact,any}` | `all` | How --detectors is applied: all (the network holds all of them, others allowed), exact (these detectors and no other), any (at least one of them). |
 | `--area-max` | — | Maximum sky area (deg²) of the --area-cred credible region, from the skymaps (read only for the events passing the other cuts; events without a skymap are dropped). |
 | `--area-cred` | `0.9` | Credible level of --area-max: 0.9→A90, 0.5→A50. |
 | `--data-repo {galaxy,zenodo,s3}` | `zenodo` | Where the skymaps of --area-max are read from (as catalog_statistics). |

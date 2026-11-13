@@ -1,0 +1,63 @@
+name: Tests
+
+# The unit tests of the package, without those that need the network (pytest marker "network").
+on:
+  push:
+    branches: [main]
+    paths:
+      - "gwtc_analysis/**"
+      - "tests/**"
+      - "galaxy/**"
+      - "docs/modes/**"
+      - "pyproject.toml"
+      - ".github/workflows/tests.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: gwtc
+          cache-environment: true
+          create-args: >-
+            python=3.11
+            numpy
+            pandas
+            matplotlib
+            scipy
+            astropy
+            h5py
+            healpy
+            ligo.skymap
+            pesummary
+            bilby
+            gwpy
+            python-lal
+            python-lalsimulation
+            pycbc
+            requests
+            minio
+            tqdm
+            pytest
+          condarc: |
+            channels:
+              - conda-forge
+      - name: Install the package
+        run: pip install --no-deps -e .
+      - name: Run the tests
+        run: python -m pytest -q -m "not network" -p no:cacheprovider

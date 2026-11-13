@@ -35,6 +35,7 @@ NS_MAX_MASS = 3.0                # as catalog_statistics --ns-threshold and the 
 MASS_GAP = (3.0, 5.0)            # lower mass gap (M☉)
 PISN_GAP_MIN = 50.0              # lower edge of the pair-instability gap (M☉); uncertain, ~45-65 in the literature
 SOURCE_PRESETS = ("neutron-stars", "mass-gap", "hierarchical")
+EVENT_RUNS = tuple(_reg.observing_runs())      # event_selection --runs
 
 # lens_pairs: the O4a events of the LVK GWTC-4.0 lensing search
 LENS_DEFAULT_CATALOGS = ("GWTC-4",)

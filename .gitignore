@@ -43,3 +43,6 @@ gwtc_analysis-feedstock/
 # pytest
 .pytest_cache/
 site/
+
+# Run outputs left in the repository root
+/coincidences.*

@@ -13,6 +13,17 @@
   `<out-limits>.map.tsv` and `<out-limits>.lognormal.tsv`, plots `f_pbh_map.png` and `f_pbh_lognormal.png`. The
   default run takes about 5 min instead of 2.
 - **primordial_black_holes**: the region f_PBH > 1 of the plot is shaded as "no constraint".
+- **event_selection**: `--area-max` keeps the events whose 90% sky area (deg²) is at most a value, computed from
+  the skymaps of the events passing the other cuts (`--area-cred` for another level, `--data-repo`,
+  `--zenodo-version` as catalog_statistics); the area is added to the TSV.
+- **event_selection**: cuts on the mass ratio (`--q-min`, `--q-max`, q = m₂/m₁ of the GWOSC medians), the network
+  SNR (`--snr-min`), the significance (`--p-astro-min`, `--far-max` per year) and the observing run (`--runs O3a
+  O4a`, from the GPS time); each adds its column to the TSV. GW241011-like hierarchical candidates in one command:
+  `--preset hierarchical --pisn-gap-min 15 --q-max 0.35`.
+- **event_selection**: `--detectors H L V` keeps the events by their detector network (the one GWOSC lists for
+  the event, asked for the events passing the other cuts and added to the TSV as `detectors`);
+  `--detectors-match` applies the list as `all` (default: the network holds all of them), `exact` (these and no
+  other) or `any` (at least one).
 
 ### Changes
 
@@ -21,6 +32,19 @@
   superradiance prior and −1.21 ± 0.25 with the agnostic one (were 1.34 and −0.82); boson mass 0.67–1.17 × 10⁻¹² eV,
   continuous waves at 324–568 Hz. The injections of a cloud best fit are those of the earlier run. The
   matched-filter figure replaces the whitened strain overlay.
+- **continuous_waves**: the default boson band is the one of the new scalar_cloud run of GW190728,
+  0.67–0.86–1.17 × 10⁻¹² eV (was 0.70–0.89–1.17): 324–566 Hz, light black holes of 8–30 M☉ at 1 kpc, young clouds
+  excluded out to 16–36 kpc.
+- **scalar_cloud**: the fits table and the figures of the report use the vacuum fit the deviance is computed
+  against (the one refitted with the cloud fits), so that they give the ln L of the "Best fit" line; with the
+  seeded fits the table showed the first vacuum fit, 0.03 lower for GW190728.
+- **scalar_cloud**: the report draws a matched-filter figure (`plots/matched_filter.png`: the Q-transform of the
+  whitened data with the frequency track of each fit, and the matched-filter SNR of the catalog, vacuum and cloud
+  fits over the full band and over 20–45 Hz) instead of the whitened strain overlay, on which the fits could not be
+  told apart, and the cumulative ln L of the cloud over vacuum against frequency per detector
+  (`plots/lnl_by_frequency.png`, with the table by band in the report).
+- **catalog_statistics**: the dashed lines of the remnants figure are labelled as reference values (E_rad = 4.8% of
+  M and a final spin of 0.686 for equal masses without spin).
 - **scalar_cloud**: the mean density of the cloud keeps the bar of the paper's ρ̄_φ in the code: the sampling
   parameter and result key `rho_phi` is now `rhobar_phi` (`rhobar` in the profile points, `rhobar_g_cm3` in the
   report, `rhobar_cgs` in the functions). Work directories and sampling results written before are still read,
@@ -44,6 +68,10 @@
   counterpart reads the searched probability of the position without the distance columns. Peak memory: 4.7 → 1.7
   GB for GW200115 (ten labels), 3.5 → 1.95 GB for GW190814 with GLADE+, 3.1 → 1.5 GB for a GWTC-4 event,
   1.9 → 0.7 GB for counterpart on GW190521.
+- **Galaxy wrapper**: regenerated for this version: the new event_selection options, `--area-max` (missing so
+  far), credible levels as numbers between 0 and 1, and without the `--pe-distance-prior` that counterpart refuses.
+- **Tests**: a GitHub workflow runs the unit tests (without those that need the network) on each push to `main`
+  and on pull requests.
 - **Shared caches**: one writer per file. A run that needs a file another run (or thread) is downloading into the
   same cache waits for it and uses it (`net.file_lock`, on `.<name>.lock` next to the file while it is written) instead of overwriting
   its partial file: the PE files, the skymap tarballs and the public files of the mirrors. The reduced sample files
@@ -55,6 +83,8 @@
 
 ### Fixes
 
+- **primordial_black_holes**: `--no-sub-solar` no longer crashes at the plot (the empty sub-solar table had no
+  `pipeline` column).
 - **search_skymaps `--prob`, catalog_statistics and event_selection `--area-cred`**: a value outside (0, 1] is
   refused (`--prob 1.5` was accepted and reported every event as inside).
 - **scalar_cloud**: the prepare stage read the analysis settings under the names of the GWTC-4 PE files only and

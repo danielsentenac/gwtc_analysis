@@ -319,8 +319,7 @@ an isolated spinning black hole would annihilate into a continuous wave at \(2 m
 inside the band of the LVK all-sky search for boson clouds in O3 (20–610 Hz). That search excludes, at these masses,
 young clouds around light black holes (8–28 M☉) out to some kpc, but says nothing of a cloud carried by a binary,
 and its limits constrain the boson only together with a model of the Galactic black holes. The
-[continuous_waves](continuous-waves.md#boson-clouds-and-gw190728) mode draws its exclusions with the band of the earlier run by default
-(0.70–1.17 × 10⁻¹² eV, 340–570 Hz), nearly the same; `--boson-mass` sets another.
+[continuous_waves](continuous-waves.md#boson-clouds-and-gw190728) mode draws its exclusions with this band (0.67–0.86–1.17 × 10⁻¹² eV) by default.
 
 ### The same boson and black-hole spins
 

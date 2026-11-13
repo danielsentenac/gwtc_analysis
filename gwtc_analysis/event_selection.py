@@ -22,6 +22,32 @@ def _as_float_or_nan(x) -> float:
         return float("nan")
 
 
+DETECTOR_NAMES = {"H": "H1", "L": "L1", "V": "V1", "K": "K1", "G": "G1"}
+DETECTOR_MATCH = ("all", "exact", "any")
+
+
+def parse_detectors(tokens) -> list[str]:
+    """Detector names from what the user wrote: `H L V`, `H1 L1`, `HLV`, `H,L` -> ["H1", "L1", "V1"] (in the order
+    H1, L1, V1, K1, G1, without repeats)."""
+    found = set()
+    for tok in ([tokens] if isinstance(tokens, str) else tokens):
+        letters = str(tok).upper().replace("1", "").replace(",", "").replace("-", "").replace(" ", "")
+        if not letters or any(c not in DETECTOR_NAMES for c in letters):
+            raise ValueError(f"unknown detector {tok!r}: use H, L, V (also K, G), e.g. H L V or HLV")
+        found.update(DETECTOR_NAMES[c] for c in letters)
+    return [d for d in DETECTOR_NAMES.values() if d in found]
+
+
+def detectors_mask(networks: pd.Series, detectors: list[str], match: str = "all") -> pd.Series:
+    """Which networks (lists of detector names, or None) satisfy the selection: `all` of the detectors are in the
+    network, the network is `exact`ly these detectors, or `any` of them is in it. No network: False."""
+    if match not in DETECTOR_MATCH:
+        raise ValueError(f"detectors_match must be one of {', '.join(DETECTOR_MATCH)}, got {match!r}")
+    want = set(detectors)
+    test = {"all": want.issubset, "exact": want.__eq__, "any": lambda s: bool(want & s)}[match]
+    return networks.apply(lambda x: isinstance(x, (list, tuple)) and len(x) > 0 and bool(test(set(x))))
+
+
 def _plot_selection(df: pd.DataFrame, mask: pd.Series, bounds: dict, catalogs: list[str], out_png: Path,
                     preset: Optional[str] = None, regions: Optional[dict] = None) -> Path:
     """The selected events among all the events of the catalogs: m2 against m1, and D_L (chi_eff for the
@@ -79,7 +105,8 @@ def _plot_selection(df: pd.DataFrame, mask: pd.Series, bounds: dict, catalogs: l
         ax.set_xlim(xl); ax.set_ylim(yl)
     axes[0].legend(frameon=False, fontsize=9, labelcolor=ink2, loc="upper left")
     crit = ", ".join(([f"preset {preset}"] if preset else [])
-                     + [f"{k.replace('_min', ' ≥ ').replace('_max', ' ≤ ')}{v:g}" for k, v in bounds.items() if v is not None])
+                     + [v if isinstance(v, str) else f"{k.replace('_min', ' ≥ ').replace('_max', ' ≤ ')}{v:g}"
+                        for k, v in bounds.items() if v is not None])
     fig.suptitle(f"Event selection in {', '.join(catalogs)}" + (f": {crit}" if crit else ""), color=ink, fontsize=11,
                  x=0.01, ha="left")
     fig.tight_layout()
@@ -110,6 +137,14 @@ def run_event_selection(
     area_cred: float = 0.9,
     data_repo: str = "zenodo",
     zenodo_versions: Optional[dict[str, str]] = None,
+    detectors: Optional[list[str]] = None,
+    detectors_match: str = "all",
+    q_min: Optional[float] = None,
+    q_max: Optional[float] = None,
+    snr_min: Optional[float] = None,
+    p_astro_min: Optional[float] = None,
+    far_max: Optional[float] = None,
+    runs: Optional[list[str]] = None,
 ) -> None:
     """Select GWTC events based on source-frame component masses and luminosity distance.
 
@@ -124,6 +159,17 @@ def run_event_selection(
     `area_max` keeps the events whose sky area at the `area_cred` credible level (deg², column A90_deg2 for 0.9)
     is at most this, computed from the skymaps (`data_repo`, `zenodo_versions` as catalog_statistics) of the events
     passing the other cuts only; events without a skymap are dropped.
+
+    `q_min`, `q_max` bound the mass ratio q = m2 / m1 of the GWOSC medians (after the m1 >= m2 ordering; column
+    mass_ratio); `snr_min` the network matched-filter SNR (column network_snr); `p_astro_min` the probability of
+    astrophysical origin and `far_max` the false-alarm rate (per year) of GWOSC, which lists for each event the
+    values of the pipeline that ranks it best (columns p_astro, far_per_yr); `runs` keeps the events of these
+    observing runs (O1 ... O4b, from the GPS time; column run). An event without the value a cut needs is dropped.
+
+    `detectors` (names as `parse_detectors` gives them) keeps the events by their detector network, the one GWOSC
+    lists for the event (one query per event passing the other cuts): with `detectors_match` "all" the network
+    holds all of them, "exact" it is these detectors and no other, "any" it holds at least one. The network is
+    added to the TSV (column detectors); events without one are dropped.
 
     Writes TSV with selected events (at least event_id), and with `out_plot` a PNG of the selected events
     among all the events of the catalogs. The redshift column is GWOSC's: inferred from the luminosity
@@ -182,7 +228,8 @@ def run_event_selection(
     # Ensure numeric
     if preset is not None and preset not in sc.PRESETS:
         raise ValueError(f"unknown preset {preset!r}; choose from {', '.join(sc.PRESETS)}")
-    num_cols = ["mass_1_source", "mass_2_source", "luminosity_distance", "redshift", "chi_eff"]
+    num_cols = ["mass_1_source", "mass_2_source", "luminosity_distance", "redshift", "chi_eff", "snr", "far", "p_astro",
+                "gps"]
     num_cols += [c for c in df_all.columns if c.endswith(("_lo90", "_hi90"))]
     for col in num_cols:
         if col in df_all.columns:
@@ -219,6 +266,22 @@ def run_event_selection(
     if chi_eff_max is not None:
         mask &= df_all["chi_eff"] <= float(chi_eff_max)
 
+    df_all["mass_ratio"] = df_all["mass_2_source"] / df_all["mass_1_source"]
+    df_all["network_snr"], df_all["far_per_yr"] = df_all["snr"], df_all["far"]
+    for value, col, keep in ((q_min, "mass_ratio", "ge"), (q_max, "mass_ratio", "le"), (snr_min, "network_snr", "ge"),
+                             (p_astro_min, "p_astro", "ge"), (far_max, "far_per_yr", "le")):
+        if value is not None:
+            mask &= (df_all[col] >= float(value)) if keep == "ge" else (df_all[col] <= float(value))
+    if runs:
+        from .catalog_registry import observing_runs, run_of
+
+        known = list(observing_runs())
+        unknown = [r for r in runs if r not in known]
+        if unknown:
+            raise ValueError(f"unknown observing run(s) {', '.join(unknown)}; choose from {', '.join(known)}")
+        df_all["run"] = df_all["gps"].apply(lambda g: run_of(g) if np.isfinite(g) else None)
+        mask &= df_all["run"].isin(list(runs))
+
     extra, regions = pd.DataFrame(index=df_all.index), {}
     if preset:
         pmask, extra, desc = sc.apply_preset(df_all, preset, ns_max_mass=ns_max_mass, mass_gap=mass_gap,
@@ -227,6 +290,21 @@ def run_event_selection(
         regions = {"neutron-stars": {"ns_max": ns_max_mass}, "mass-gap": {"gap": mass_gap},
                    "hierarchical": {"pisn": pisn_gap_min}}[preset]
         print(f"[event_selection] preset {preset}: {desc}")
+
+    if detectors:
+        detectors = parse_detectors(detectors)
+        df_all["detectors"] = None
+        nets = pd.Series([None] * len(df_all), index=df_all.index, dtype=object)
+        if mask.any():
+            print(f"[event_selection] detector networks of {int(mask.sum())} event(s) from GWOSC")
+            sub, _ = gw.add_detectors_and_virgo_flag(df_all.loc[mask], progress=True, plot_network_pie=False)
+            for i, v in zip(sub.index, sub["detectors"]):
+                nets[i] = v
+            missing = int(sum(not isinstance(v, list) for v in nets[mask]))
+            if missing:
+                print(f"[event_selection] {missing} event(s) without a detector network at GWOSC: not selected")
+        df_all["detectors"] = nets.apply(lambda x: ",".join(x) if isinstance(x, list) else "")
+        mask &= detectors_mask(nets, detectors, detectors_match)
 
     area_col = f"A{int(round(100 * area_cred))}_deg2"
     if area_max is not None:
@@ -249,6 +327,11 @@ def run_event_selection(
     cols = ["event_id", "catalog_key", "mass_1_source", "mass_2_source", "luminosity_distance", "redshift"]
     if preset == "hierarchical" or chi_eff_min is not None or chi_eff_max is not None:
         cols.append("chi_eff")
+    cols += [c for c, used in (("mass_ratio", q_min is not None or q_max is not None),
+                               ("network_snr", snr_min is not None), ("p_astro", p_astro_min is not None),
+                               ("far_per_yr", far_max is not None), ("run", bool(runs))) if used]
+    if detectors:
+        cols.append("detectors")
     if area_max is not None:
         cols.append(area_col)
     out = pd.concat([df_all.loc[mask, cols], extra.loc[mask, [c for c in extra.columns if c not in cols]]], axis=1)
@@ -263,5 +346,10 @@ def run_event_selection(
                       chi_eff_min=chi_eff_min, chi_eff_max=chi_eff_max)
         if area_max is not None:
             bounds[area_col.replace("_deg2", "_max")] = area_max   # in the title only: "A90 ≤ 100"
+        bounds.update(q_min=q_min, q_max=q_max, SNR_min=snr_min, p_astro_min=p_astro_min, FAR_max=far_max)
+        if runs:
+            bounds["runs"] = f"runs {' '.join(runs)}"
+        if detectors:                                              # in the title only: "detectors H1 L1 (all)"
+            bounds["detectors"] = f"detectors {' '.join(detectors)} ({detectors_match})"
         png = _plot_selection(df_all, mask, bounds, requested, Path(out_plot), preset=preset, regions=regions)
         print(f"[event_selection] {int(mask.sum())} of {len(df_all)} events selected; plot written to {png}")

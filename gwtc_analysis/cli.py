@@ -8,7 +8,7 @@ from .cli_defaults import (ALLOWED_CATALOGS, COUNTERPART_EVENTS as COUNTERPARTS,
                            H0_DEFAULT_MASS_MODEL, H0_DEFAULT_RELEASE, H0_MASS_MODELS, H0_SENSITIVITY_RELEASES,
                            H0_STAGES, LENS_DEFAULT_CATALOGS, MASS_GAP as SC_MASS_GAP, NS_EOS_EVENTS,
                            NS_MAX_MASS as SC_NS_MAX, PISN_GAP_MIN as SC_PISN_MIN, RATES_DEFAULT_RELEASE,
-                           RATES_SENSITIVITY_RELEASES, SOURCE_PRESETS)
+                           RATES_SENSITIVITY_RELEASES, SOURCE_PRESETS, EVENT_RUNS)
 from .unofficial_pe import build_unofficial_pe_bundle, get_unofficial_pe_spec, list_unofficial_pe_specs
 from .catalog_registry import DEFAULT_H0_RELEASE, catalog_help, catalog_runs_help, release_runs_help, update_help
 
@@ -565,7 +565,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_cw.add_argument("--boson-mass", nargs=3, type=float, metavar=("LOW", "MID", "HIGH"), default=None,
                       help="Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%%: "
-                           "0.70e-12 0.89e-12 1.17e-12).")
+                           "0.67e-12 0.86e-12 1.17e-12).")
     p_cw.add_argument("--boson-label", default=None, help="Label of the band (default: GW190728 (scalar_cloud)).")
     p_cw.add_argument("--refresh", action="store_true", help="Download the data releases again.")
     p_cw.add_argument("--out-report", default="continuous_waves.html", help="Output HTML report path.")
@@ -856,6 +856,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_sel.add_argument("--dl-max", type=float, default=None, help="Maximum luminosity distance (Mpc).")
     p_sel.add_argument("--chi-eff-min", type=float, default=None, help="Minimum effective spin chi_eff.")
     p_sel.add_argument("--chi-eff-max", type=float, default=None, help="Maximum effective spin chi_eff.")
+    p_sel.add_argument("--q-min", type=float, default=None,
+                       help="Minimum mass ratio q = m2/m1 (GWOSC medians, source frame; q <= 1).")
+    p_sel.add_argument("--q-max", type=float, default=None,
+                       help="Maximum mass ratio q = m2/m1 (e.g. 0.35 for unequal masses).")
+    p_sel.add_argument("--snr-min", type=float, default=None, help="Minimum network matched-filter SNR.")
+    p_sel.add_argument("--p-astro-min", type=float, default=None,
+                       help="Minimum probability of astrophysical origin p_astro (GWOSC: the pipeline ranking the "
+                            "event best).")
+    p_sel.add_argument("--far-max", type=float, default=None,
+                       help="Maximum false-alarm rate, per year (GWOSC: the pipeline ranking the event best).")
+    p_sel.add_argument("--runs", nargs="+", choices=list(EVENT_RUNS), default=None, metavar="RUN",
+                       help=f"Observing runs of the events, from their GPS time: {' '.join(EVENT_RUNS)}.")
     p_sel.add_argument("--preset", choices=list(SOURCE_PRESETS), default=None,
                        help="Class of sources (the cuts apply on top): neutron-stars (a component below "
                             "--ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above "
@@ -868,6 +880,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_sel.add_argument("--out-plot", default=None,
                        help="Optional PNG of the selected events among all the events of the catalogs (m2 and D_L "
                             "against m1).")
+    p_sel.add_argument("--detectors", nargs="+", default=None, metavar="DET",
+                       help="Detectors of the event's network, among H L V (also K G; H1, HLV and H,L are read "
+                            "too): keeps the events by the network GWOSC lists for them (one query per event "
+                            "passing the other cuts; added to the TSV).")
+    p_sel.add_argument("--detectors-match", choices=["all", "exact", "any"], default="all",
+                       help="How --detectors is applied: all (the network holds all of them, others allowed), "
+                            "exact (these detectors and no other), any (at least one of them).")
     p_sel.add_argument("--area-max", type=float, default=None,
                        help="Maximum sky area (deg²) of the --area-cred credible region, from the skymaps (read only "
                             "for the events passing the other cuts; events without a skymap are dropped).")
@@ -1447,9 +1466,13 @@ def main(argv=None) -> int:
             return 0
 
         if args.mode == "event_selection":
-            from .event_selection import run_event_selection
+            from .event_selection import parse_detectors, run_event_selection
             catalogs = _parse_catalogs(args.catalogs)
             _validate_catalogs(catalogs)
+            try:
+                detectors = parse_detectors(args.detectors) if args.detectors else None
+            except ValueError as e:
+                p._mode_parsers["event_selection"].error(f"--detectors: {e}")
             run_event_selection(
                 catalogs=catalogs,
                 out_tsv=args.out_selection,
@@ -1470,6 +1493,10 @@ def main(argv=None) -> int:
                 area_cred=args.area_cred,
                 data_repo=args.data_repo,
                 zenodo_versions=_parse_zenodo_versions(args.zenodo_version, args.data_repo),
+                detectors=detectors,
+                detectors_match=args.detectors_match,
+                q_min=args.q_min, q_max=args.q_max, snr_min=args.snr_min, p_astro_min=args.p_astro_min,
+                far_max=args.far_max, runs=args.runs,
             )
             return 0
 

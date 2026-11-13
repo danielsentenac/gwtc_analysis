@@ -12,10 +12,10 @@ from gwtc_analysis import continuous_waves as cw
 
 
 def test_boson_frequency():
-    """f = 2 m c^2 / h: 483.6 Hz for 1e-12 eV; the GW190728 band at 339-566 Hz."""
+    """f = 2 m c^2 / h: 483.6 Hz for 1e-12 eV; the GW190728 band at 324-566 Hz."""
     assert cw.boson_frequency_hz(1e-12) == pytest.approx(483.6, rel=1e-3)
     lo, _, hi = cw.GW190728_BOSON_MASS_EV
-    assert cw.boson_frequency_hz([lo, hi]) == pytest.approx([338.5, 565.8], rel=1e-3)
+    assert cw.boson_frequency_hz([lo, hi]) == pytest.approx([324.0, 565.8], rel=1e-3)
 
 
 def test_latex_numbers_and_names():

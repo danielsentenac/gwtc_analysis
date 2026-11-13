@@ -744,7 +744,12 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
     else:
         prof, bkg_dir = None, wd / "background"
     if vac_f.exists():
-        vac = sc.read_json(vac_f)
+        vac = vac_first = sc.read_json(vac_f)
+        # the vacuum fit the deviance is computed against (refitted with the cloud fits), so that the table and the
+        # figures give the ln L of the "Best fit" line; the profile is drawn against the first vacuum fit, its origin
+        refit = sc.read_json(sc_f).get("vacuum") if sc_f.exists() else None
+        if isinstance(refit, dict) and "params" in refit and "log_likelihood_ratio" in refit:
+            vac = refit
         rows.append(dict(fit="vacuum best fit (IMRPhenomXPHM)", log_likelihood_ratio=vac["log_likelihood_ratio"]))
     if sc_f.exists():
         res = sc.read_json(sc_f)
@@ -766,13 +771,13 @@ def write_report(wd: Path, out_report_html: Optional[str], out_summary_tsv: Opti
                                                ("cloud best fit", p, COLORS["cloud"])],
                                            plots / "matched_filter.png"))
         images.append(plot_lnl_by_frequency(an, p, vac["params"], plots / "lnl_by_frequency.png"))
-        bands = lnl_gain_by_band(an, p, res.get("vacuum", vac)["params"])
+        bands = lnl_gain_by_band(an, p, vac["params"])
         images.append(plot_dephasing(an, p, vac["params"], plots / "dephasing.png"))
         points = res["profile"] if prof is None else prof
         extra = [sc.read_json(f) for f in sorted((wd / "profile_extra").glob("*.json"))] \
             if (wd / "profile_extra").is_dir() else []
         if points:
-            images.append(plot_profile(points + extra, vac["log_likelihood_ratio"], plots / "profile.png"))
+            images.append(plot_profile(points + extra, vac_first["log_likelihood_ratio"], plots / "profile.png"))
         if seeded_f.exists():
             paras.append(f"The cloud fits start from the {len(res['fits'])} best samples (at fixed merger time) of "
                          "the nested sampling of the event with the superradiance prior: fits started from the vacuum "

@@ -32,7 +32,7 @@ or from supported alternative repositories (Zenodo / S3 / Galaxy collections).
 📖 **Documentation:** https://danielsentenac.github.io/gwtc_analysis/ (user guide, methods of the rates and Hubble-constant modes, references).
 
 <!-- CATALOG_COVERAGE_BEGIN -->
-> **Catalogs in version 0.9.0**: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0, and the update GWTC-4.1 (of GWTC-4.0), observing runs O1 to O4b. **Latest catalog: GWTC-5.0 (O4b)**. Registry checked against GWOSC and Zenodo on 2026-10-05; catalogs published later need a newer version of the package (`gwtc_analysis check_catalogs` tells whether GWOSC has published one).
+> **Catalogs in version 0.10.0**: GWTC-1, GWTC-2.1, GWTC-3, GWTC-4.0, GWTC-5.0, and the update GWTC-4.1 (of GWTC-4.0), observing runs O1 to O4b. **Latest catalog: GWTC-5.0 (O4b)**. Registry checked against GWOSC and Zenodo on 2026-10-05; catalogs published later need a newer version of the package (`gwtc_analysis check_catalogs` tells whether GWOSC has published one).
 <!-- CATALOG_COVERAGE_END -->
 
 ---
@@ -358,7 +358,6 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--counterpart-class` | `` | Class of the binary, the mass model of the selection (default: the event's, or for an event outside the list BNS when both catalog masses are below 3 M_sun, else BBH). |
 | `--sky-radius` | `3.0` | For samples not fixed to the counterpart's position: keep those within this angle (deg). |
 | `--viewing-angle` | `` | Independent Gaussian constraint on the viewing angle (deg, 0-90), e.g. from the jet; weights the PE samples. |
-| `--pe-distance-prior` | `` | Luminosity-distance prior of the PE samples, divided out of the distance posterior: dl2 (D_L^2), comoving or source-frame (uniform in comoving volume, or in comoving volume and source-frame time; Planck15_LAL). Default: the prior recorded in the PE file, else D_L^2 up to O3 and source-frame from O4. |
 | `--sky-map` | `` | FITS sky map for the searched probability of the position (default: the event's LVK map when its PE file comes from Zenodo; 'none': a kernel estimate on the PE samples). |
 | `--pe-cache` | `` | PE cache of the events read from Zenodo (default: that of hubble_constant). |
 | `--out-report` | `counterpart.html` | Output HTML report path. |
@@ -371,7 +370,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | Option | Default | Description |
 |---|---:|---|
 | `-h, --help` | `` | show this help message and exit |
-| `--boson-mass` | `` | Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%: 0.70e-12 0.89e-12 1.17e-12). |
+| `--boson-mass` | `` | Boson-mass band to draw, eV (default: GW190728 with the superradiance prior, 90%: 0.67e-12 0.86e-12 1.17e-12). |
 | `--boson-label` | `` | Label of the band (default: GW190728 (scalar_cloud)). |
 | `--refresh` | `False` | Download the data releases again. |
 | `--out-report` | `continuous_waves.html` | Output HTML report path. |
@@ -524,11 +523,19 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--dl-max` | `` | Maximum luminosity distance (Mpc). |
 | `--chi-eff-min` | `` | Minimum effective spin chi_eff. |
 | `--chi-eff-max` | `` | Maximum effective spin chi_eff. |
+| `--q-min` | `` | Minimum mass ratio q = m2/m1 (GWOSC medians, source frame; q <= 1). |
+| `--q-max` | `` | Maximum mass ratio q = m2/m1 (e.g. 0.35 for unequal masses). |
+| `--snr-min` | `` | Minimum network matched-filter SNR. |
+| `--p-astro-min` | `` | Minimum probability of astrophysical origin p_astro (GWOSC: the pipeline ranking the event best). |
+| `--far-max` | `` | Maximum false-alarm rate, per year (GWOSC: the pipeline ranking the event best). |
+| `--runs` | `` | Observing runs of the events, from their GPS time: O1 O2 O3a O3b O4a O4b. |
 | `--preset` | `` | Class of sources (the cuts apply on top): neutron-stars (a component below --ns-max-mass), mass-gap (a component in --mass-gap), hierarchical (primary above --pisn-gap-min, or chi_eff < 0 at 90%: earlier-generation black holes). |
 | `--ns-max-mass` | `3.0` | Maximum neutron-star mass (M_sun). |
 | `--mass-gap` | `[3.0, 5.0]` | Lower mass gap between neutron stars and black holes (M_sun). |
 | `--pisn-gap-min` | `50.0` | Lower edge of the pair-instability mass gap (M_sun; ~45-65 in the literature). |
 | `--out-plot` | `` | Optional PNG of the selected events among all the events of the catalogs (m2 and D_L against m1). |
+| `--detectors` | `` | Detectors of the event's network, among H L V (also K G; H1, HLV and H,L are read too): keeps the events by the network GWOSC lists for them (one query per event passing the other cuts; added to the TSV). |
+| `--detectors-match` | `all` | How --detectors is applied: all (the network holds all of them, others allowed), exact (these detectors and no other), any (at least one of them). |
 | `--area-max` | `` | Maximum sky area (deg²) of the --area-cred credible region, from the skymaps (read only for the events passing the other cuts; events without a skymap are dropped). |
 | `--area-cred` | `0.9` | Credible level of --area-max: 0.9→A90, 0.5→A50. |
 | `--data-repo` | `zenodo` | Where the skymaps of --area-max are read from (as catalog_statistics). |
@@ -548,7 +555,7 @@ python gwtc_analysis/gen_readme_cli_tables.py
 | `--neutrino-window` | `` | With --counterparts: neutrino time window around the merger, s (default -500 500). |
 | `--skymap` | `[]` | With --counterparts: GW sky map files (FITS) to search, e.g. a GraceDB alert map. |
 | `--refresh-catalogs` | `False` | With --counterparts: download the external catalogs again (otherwise weekly). |
-| `--prob` | `0.9` | Credible-level threshold (0–1). Common values: 0.9, 0.5, 0.95. |
+| `--prob` | `0.9` | Credible-level threshold (above 0, at most 1). Common values: 0.9, 0.5, 0.95. |
 | `--skymap-label` | `Mixed` | Analysis whose skymap is used, one per event (default: Mixed; without one, Mixed, then IMRPhenomXPHM_SpinTaylor, the GWTC-5.0 case, then the other waveforms in a fixed order). 'any': every map of every event; with --counterparts, one map per event, as Mixed. |
 | `--out-events` | `search_skymaps.tsv` | Output TSV file (default: search_skymaps.tsv). |
 | `--out-report` | `search_skymaps.html` | Optional output HTML report path for hits. |
@@ -1088,21 +1095,6 @@ directly, but the measurement does:
 
 BNS signals are long, so a run with the strain overlays takes several minutes
 (about 7 min for GW170817).
-
----
-
-## TODO
-
-- **`event_selection`: a `--q-max` option** (and `--q-min`) on the mass ratio q = m₂/m₁, computed from the
-  GWOSC medians of m₁ and m₂ (after the m₁ ≥ m₂ ordering), with a `mass_ratio` column in the TSV. Unequal
-  masses (q ≈ 0.3–0.5) are a fingerprint of hierarchical mergers; today the cut is applied by hand on the
-  TSV. With it, GW241011-like candidates, outside the pair-instability gap, are selected in one command:
-  `--preset hierarchical --pisn-gap-min 15 --q-max 0.35` (13 events, GW241011_233834 among them; see
-  [docs/modes/event-selection.md](docs/modes/event-selection.md#hierarchical-merger-candidates)). To
-  update with it: `cli.py`, `cli_defaults.py`, `event_selection.py`, the Galaxy wrapper
-  (`galaxy/gen_galaxy_wrapper.py`, `galaxy/gwtc_analysis.xml`), the auto-generated CLI options of this
-  README and `docs/cli-reference.md`, the docs page (replace the manual TSV filter), and a test in
-  `tests/test_source_classes.py`.
 
 ---
 

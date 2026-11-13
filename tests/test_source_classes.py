@@ -121,6 +121,84 @@ def test_event_selection_area_max(tmp_path, monkeypatch):
                            area_cred=0.5)
     assert pd.read_csv(tmp_path / "b.tsv", sep="\t")["A50_deg2"].notna().all()
 
+def test_parse_detectors():
+    from gwtc_analysis.event_selection import parse_detectors
+
+    assert parse_detectors(["H", "L", "V"]) == ["H1", "L1", "V1"]
+    assert parse_detectors(["v1", "H1"]) == ["H1", "V1"]
+    assert parse_detectors(["HLV"]) == parse_detectors("H,L,V") == ["H1", "L1", "V1"]
+    for bad in (["X"], ["H2"], [""]):
+        with pytest.raises(ValueError):
+            parse_detectors(bad)
+
+
+def test_event_selection_detectors(tmp_path, monkeypatch):
+    """--detectors asks GWOSC for the network of the events passing the other cuts only, keeps them by
+    --detectors-match, drops the events without a network and adds the detectors column."""
+    from gwtc_analysis import event_selection as es
+
+    monkeypatch.setattr(es.gw, "fetch_gwtc_events", lambda catalog: {"events": {}})
+    monkeypatch.setattr(es.gw, "events_to_dataframe", lambda ev: _table().assign(luminosity_distance=500.0,
+                                                                                 redshift=0.1))
+    nets = {"GW190814": ["H1", "L1", "V1"], "NSBH": ["H1", "L1"], "BNS": None, "HEAVY": ["L1", "V1"]}
+    seen = []
+
+    def fake_networks(df, **kw):
+        seen.extend(df["event_id"])
+        return df.assign(detectors=[nets.get(e) for e in df["event_id"]]), None
+
+    monkeypatch.setattr(es.gw, "add_detectors_and_virgo_flag", fake_networks)
+
+    def run(name, **kw):
+        es.run_event_selection(catalogs=["GWTC-4"], out_tsv=tmp_path / name, **kw)
+        return pd.read_csv(tmp_path / name, sep="\t", keep_default_na=False)
+
+    out = run("a.tsv", m2_max=3.0, detectors=["H", "L"])
+    assert out["event_id"].tolist() == ["GW190814", "NSBH"]
+    assert out["detectors"].tolist() == ["H1,L1,V1", "H1,L1"]
+    assert "HEAVY" not in seen and "BNS" in seen
+    assert run("b.tsv", detectors=["H1", "L1"], detectors_match="exact")["event_id"].tolist() == ["NSBH"]
+    assert run("c.tsv", detectors=["V"], detectors_match="any")["event_id"].tolist() == ["GW190814", "HEAVY"]
+    assert run("d.tsv", detectors=["HLV"])["event_id"].tolist() == ["GW190814"]
+    assert "detectors" not in run("e.tsv", m2_max=3.0).columns
+    with pytest.raises(ValueError):
+        run("f.tsv", detectors=["H"], detectors_match="most")
+
+
+def test_event_selection_ratio_snr_far_runs(tmp_path, monkeypatch):
+    """--q-min/--q-max on m2/m1 of the medians, --snr-min, --p-astro-min, --far-max and --runs (from the GPS time):
+    each adds its column; an event without the value is dropped."""
+    from gwtc_analysis import event_selection as es
+
+    tab = _table().assign(luminosity_distance=500.0, redshift=0.1,
+                          snr=[33.0, 11.0, 9.0, 25.0, 14.0, np.nan, 8.5],
+                          far=[1e-7, 0.2, 1.5, 1e-5, 1e-3, 0.5, 2.0],
+                          p_astro=[1.0, 0.99, 0.6, 1.0, 0.98, 0.9, None],
+                          gps=[1187008882.4, 1262879936.1, 1242442967.4, 1249852257.0, 1384782888.6, 1126259462.4,
+                               1000000000.0])
+    monkeypatch.setattr(es.gw, "fetch_gwtc_events", lambda catalog: {"events": {}})
+    monkeypatch.setattr(es.gw, "events_to_dataframe", lambda ev: tab.copy())
+
+    def run(name, **kw):
+        es.run_event_selection(catalogs=["GWTC-4"], out_tsv=tmp_path / name, **kw)
+        return pd.read_csv(tmp_path / name, sep="\t")
+
+    out = run("q.tsv", q_max=0.35)
+    assert out["event_id"].tolist() == ["GW190814", "NSBH"]
+    assert np.allclose(out["mass_ratio"], [2.6 / 23.0, 1.4 / 8.0])
+    assert run("q2.tsv", q_min=0.8)["event_id"].tolist() == ["BNS", "PLAIN"]
+    assert run("s.tsv", snr_min=14.0)["event_id"].tolist() == ["BNS", "GW190814", "HEAVY"]       # NEG has no SNR
+    assert run("p.tsv", p_astro_min=0.95)["event_id"].tolist() == ["BNS", "GW190814", "HEAVY", "NSBH"]
+    out = run("f.tsv", far_max=1e-3)
+    assert out["event_id"].tolist() == ["BNS", "GW190814", "HEAVY"] and "far_per_yr" in out
+    out = run("r.tsv", runs=["O2", "O3a"])
+    assert out["event_id"].tolist() == ["BNS", "GAP", "GW190814"] and out["run"].tolist() == ["O2", "O3a", "O3a"]
+    assert run("r2.tsv", runs=["O4a"])["event_id"].tolist() == ["HEAVY"]
+    assert not {"mass_ratio", "network_snr", "p_astro", "far_per_yr", "run"} & set(run("n.tsv", m2_max=3.0).columns)
+    with pytest.raises(ValueError):
+        run("x.tsv", runs=["O9"])
+
+
 def test_cli_presets():
     from gwtc_analysis.cli import build_parser
 

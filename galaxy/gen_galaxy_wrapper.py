@@ -79,7 +79,11 @@ DESCRIPTIONS = {"hubble_constant_bright": "Hubble constant from an event with an
                 "hubble_constant_joint": "Joint Hubble-constant posterior of independent results."}
 # Galaxy labels of the options (the flag itself is shown by argument=); an option not listed gets its flag
 PARAM_LABELS = {
-    "area_cred": "Credible level of the sky area", "bbh_kappa": "BBH rate evolution exponent kappa",
+    "area_cred": "Credible level of the sky area", "area_max": "Maximum sky area (deg²)",
+    "detectors": "Detectors of the network (H L V)", "detectors_match": "How the detector list is applied",
+    "q_min": "Minimum mass ratio m2/m1", "q_max": "Maximum mass ratio m2/m1", "snr_min": "Minimum network SNR",
+    "p_astro_min": "Minimum p_astro", "far_max": "Maximum false-alarm rate (per year)",
+    "runs": "Observing runs", "bbh_kappa": "BBH rate evolution exponent kappa",
     "bbh_z_ref": "Redshift of the BBH rate", "boson_label": "Label of the boson-mass band",
     "boson_mass": "Boson-mass band (eV)", "catalogs": "Catalogs", "chi_eff_max": "Maximum effective spin",
     "chi_eff_min": "Minimum effective spin", "counterpart_class": "Class of the binary",
@@ -157,9 +161,14 @@ NUMBERS = re.compile(r"^[-+0-9.eE ]+$")
 SEL, MULTI, OPT = ' selected="true"', ' multiple="true"', ' optional="true"'
 
 
+def _is_number(a) -> bool:
+    """An option whose value is a number: int, float, or the credible-level type of cli.py."""
+    return a.type in (int, float) or getattr(a.type, "__name__", "") == "_probability"
+
+
 def _actions(mode: str, extra: str, sp: argparse.ArgumentParser):
-    acts = [a for a in sp._actions if a.option_strings and a.dest not in SKIP and _pname(a) not in SKIP
-            or (mode, a.dest) in SLOTS]
+    acts = [a for a in sp._actions if a.option_strings and a.help != argparse.SUPPRESS
+            and a.dest not in SKIP and _pname(a) not in SKIP or (mode, a.dest) in SLOTS]
     if mode == "hubble_constant":
         allowed = _h0_method_dests(extra.split()[-1], sp)
         acts = [a for a in acts if a.dest in allowed]
@@ -230,9 +239,11 @@ def param_xml(mode: str, a, ind: str) -> str:
         if not multi and a.default is None and not required:
             extra = OPT
         return f'{ind}<param {attrs} type="select"{extra}>{opts}\n{ind}</param>'
-    if a.type in (int, float) and a.nargs is None:
+    if _is_number(a) and a.nargs is None:
         t = "integer" if a.type is int else "float"
         val = "" if a.default is None else a.default
+        if getattr(a.type, "__name__", "") == "_probability":       # a credible level: above 0, at most 1
+            attrs += ' min="0.0001" max="1"'
         return (f'{ind}<param {attrs} type="{t}" value="{val}"'
                 f'{OPT if a.default is None and not required else ""}/>')
     # text: single values, lists (space-separated) and fixed-length number lists
@@ -275,7 +286,7 @@ def command_xml(mode: str, a, branch: str, prefix: str = "$mode") -> str:
     if a.nargs in ("+", "*"):
         return (f"#if str({v}).strip():\n    {opt}\n    #for $t in str({v}).split():\n        '$t'\n    #end for\n"
                 f"#end if")
-    if a.type in (int, float) or a.choices:
+    if _is_number(a) or a.choices:
         return f"#if str({v}) not in ('', 'None'):\n    {opt} '{v}'\n#end if"
     return f"#if str({v}).strip():\n    {opt} '{v}'\n#end if"
 
