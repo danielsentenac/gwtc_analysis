@@ -242,7 +242,7 @@ def run_event_selection(
     for a, b in (("mass_1_source", "mass_2_source"), ("mass_1_source_lo90", "mass_2_source_lo90"),
                  ("mass_1_source_hi90", "mass_2_source_hi90")):
         if a in df_all and b in df_all and swap.any():
-            df_all.loc[swap, [a, b]] = df_all.loc[swap, [b, a]].to_numpy()
+            df_all.loc[swap, [a, b]] = df_all.loc[swap, [b, a]].to_numpy(copy=True)   # a copy: pandas 3 can give a view
 
     # Build mask
     mask = pd.Series(True, index=df_all.index)

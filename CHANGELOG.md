@@ -83,6 +83,9 @@
 
 ### Fixes
 
+- **catalog_statistics, event_selection** with pandas 3: when GWOSC lists the heavier component second, the 90%
+  bounds of the two masses were not swapped with them (both got the bounds of the heavier one). Found by the new
+  test workflow; pandas 2 was not affected.
 - **primordial_black_holes**: `--no-sub-solar` no longer crashes at the plot (the empty sub-solar table had no
   `pipeline` column).
 - **search_skymaps `--prob`, catalog_statistics and event_selection `--area-cred`**: a value outside (0, 1] is

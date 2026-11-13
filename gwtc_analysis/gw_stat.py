@@ -268,11 +268,11 @@ def prepare_catalog_df(df: pd.DataFrame, ns_threshold: float = 3.0) -> pd.DataFr
     if swap.any():
         out.loc[swap, ["mass_1_source", "mass_2_source"]] = out.loc[
             swap, ["mass_2_source", "mass_1_source"]
-        ].to_numpy()
+        ].to_numpy(copy=True)       # a copy: with pandas 3 the array can be a view of the columns being written
         for s in ("lo90", "hi90"):
             a, b = f"mass_1_source_{s}", f"mass_2_source_{s}"
             if a in out and b in out:
-                out.loc[swap, [a, b]] = out.loc[swap, [b, a]].to_numpy()
+                out.loc[swap, [a, b]] = out.loc[swap, [b, a]].to_numpy(copy=True)
     out["total_mass_source"] = out["mass_1_source"] + out["mass_2_source"]
     out["q"] = out["mass_2_source"] / out["mass_1_source"]
     out["eta"] = (out["mass_1_source"] * out["mass_2_source"]) / (out["total_mass_source"] ** 2)

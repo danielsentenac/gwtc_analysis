@@ -62,6 +62,7 @@ jobs:
             bilby
             dynesty
             emcee
+            setuptools<81
             pytest
           condarc: |
             channels:
