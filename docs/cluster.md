@@ -19,7 +19,7 @@ Measured costs of the heavy stages (on CC-IN2P3):
 | `hubble_constant --method dark`, GLADE+ K band | runs of 8–10 h (Power Law + Peak) and 15–25 h (Multi Peak) on 8 CPUs each | cluster |
 | reweighting of a spectral or dark siren to all the injections and 5000 PE samples | 16–32 chunks of 2–9 min | cluster, in the same chain |
 | `galaxy_catalog`, GLADE+ K band | about 1 h on 4 CPUs on one machine; 45 min as 32 array jobs | either; a cluster for deeper catalogs (DES, Rubin) |
-| `scalar_cloud`, GW190728 | about 2 CPU-hours per fit; 150 background injections of 1–2 CPU-hours; nested sampling of each cloud model about a day on 64 CPUs with 500 live points | cluster |
+| `scalar_cloud`, GW190728 | about 2 CPU-hours per fit; 150 background injections of 1–2 CPU-hours; nested sampling of each cloud model about a day and a half on 64 CPUs with 1000 live points | cluster |
 | `hubble_constant --method bright` and `--method joint`, the other modes | seconds to minutes | one machine |
 
 On one machine, a spectral siren at 8 CPUs, one seed after another, takes about 1.5 days (Power Law + Peak) to

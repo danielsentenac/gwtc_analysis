@@ -16,6 +16,11 @@
 
 ### Changes
 
+- **scalar_cloud** docs: the GW190728 section follows a new full run with the paper's 1000 live points for the
+  three samplings: 𝒟 = 9.78 (was 8.98), p = 0.013 against 150 vacuum injections, ln B = 1.06 ± 0.24 with the
+  superradiance prior and −1.21 ± 0.25 with the agnostic one (were 1.34 and −0.82); boson mass 0.67–1.17 × 10⁻¹² eV,
+  continuous waves at 324–568 Hz. The injections of a cloud best fit are those of the earlier run. The
+  matched-filter figure replaces the whitened strain overlay.
 - **scalar_cloud**: the mean density of the cloud keeps the bar of the paper's ρ̄_φ in the code: the sampling
   parameter and result key `rho_phi` is now `rhobar_phi` (`rhobar` in the profile points, `rhobar_g_cm3` in the
   report, `rhobar_cgs` in the functions). Work directories and sampling results written before are still read,
