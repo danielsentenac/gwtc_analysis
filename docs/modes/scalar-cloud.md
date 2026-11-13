@@ -39,7 +39,7 @@ that analysis and adds a frequentist check around it.
 | best fits of both models and the **deviance** \(\mathcal{D}\) = 2 Δln L, the likelihood-ratio test statistic ([below](#the-test)) | a Bayes factor costs about a day on 64 CPUs per run; a best fit costs about an hour, so \(\mathcal{D}\) can be computed on the event *and* on 150 noise segments |
 | fits started from the samples of the superradiance sampling (`seeded`) | the cloud mode is separate from the vacuum one: fits started from the vacuum best fit miss it (\(\mathcal{D}\) = 0.96 instead of 9.78) |
 | the background: the vacuum best fit injected into 150 off-source segments, p-value | the Bayes factor says which model the data prefer *given the priors*; it does not say how often noise alone produces such a preference. The background measures that, independently of the prior on the cloud |
-| the sensitivity (an injection–recovery test): the cloud best fit injected into the same segments | tells whether the event's \(\mathcal{D}\) is what a real cloud of that kind would give (it is lower: 5.3% of injections at or below it) |
+| the sensitivity (an injection–recovery test): the cloud best fit injected into the same segments | tells whether the event's \(\mathcal{D}\) is what a real cloud of that kind would give (it is lower: 3.3% of injections at or below it) |
 | the gain by detector and frequency band | a cloud dephases the whole low-frequency inspiral; a gain concentrated in a narrow band of one detector points to noise rather than to the effect |
 | the agnostic Bayes factor against the upper end of the density prior | the paper does not give that upper end, and the agnostic Bayes factor depends on it |
 | the boson mass in continuous waves | connects the result to the [continuous_waves](continuous-waves.md) mode |
@@ -215,9 +215,8 @@ pool.
 
 On a Slurm cluster (`--executor slurm`): the three samplings with the paper's 1000 live points (64 CPUs with
 `--npool 64`; the default is 32: 5.5 h for vacuum, 33 h for each cloud model), then 151 jobs of about an hour for
-the event and the background. The injections of a cloud best fit (`scalar_cloud.py seeded --inject cloud`, 150
-jobs) come from an earlier run, whose cloud samplings had 500 live points: see
-[Between two distributions](#gw190728_064510) below.
+the event and the background, and 150 for the injections of the cloud best fit
+(`scalar_cloud.py seeded --inject cloud`).
 
 | | ln L ratio | Note |
 |---|---|---|
@@ -232,7 +231,7 @@ jobs) come from an earlier run, whose cloud samplings had 500 live points: see
 | ln L cloud − ln L vacuum, posterior medians (time-marginalized ln L of the samplings, lower than the fixed-time best fits above) | 4.17 superradiance, 4.12 agnostic | ≈ 3.7 (Supplemental Material, Fig. 8 inset) |
 | chirp mass (detector frame), posterior median and 90% | vacuum 10.14 (10.05–10.23), superradiance 9.89 (9.72–10.16), agnostic 9.89 (9.71–10.15) M☉ | vacuum 10.14 (+0.10/−0.09), cloud 9.69 (+0.27/−0.28) M☉ (Fig. 8) |
 | background | 2 of 151 at \(\mathcal{D}\) ≥ 9.78 (the event and one segment with a loud transient, \(\mathcal{D}\) = 98), p = 0.013; 0.007 without that segment; the 149 others at most 7.0, 140 of them at 0 | none (the paper's statistic is the Bayes factor) |
-| injections of a cloud best fit (sensitivity; the earlier run's fit, see below) | \(\mathcal{D}\) = 25 (5–95%: 9.9–44); 5.3% at or below the event's 9.78 | none |
+| injections of the cloud best fit (sensitivity) | \(\mathcal{D}\) = 25 (5–95%: 11–44); 3.3% at or below the event's 9.78 | none |
 | ln B, superradiance prior (τ_d = 10⁶ yr); ± the statistical uncertainty of the nested-sampling evidences | **1.06 ± 0.24** | 3.5 |
 | ln B, agnostic prior (\(\bar\rho_\phi \le 10^9\) g/cm³) | **−1.21 ± 0.25** | 0.4 (upper end of the prior not given) |
 | \(\bar\rho_\phi\), agnostic (90%) | 2.7 (0.8–5.8) × 10⁷ g/cm³ | broad, peak ≈ 0.35 × 10⁸, up to ~1 × 10⁸ (read off Fig. 3, not stated in the text) |
@@ -289,12 +288,10 @@ much near this mode.
 
 ![Background of 𝒟 and injections of the cloud best fit](../img/modes/scalar_cloud_background_GW190728.png)
 
-**Between two distributions.** The injections of a cloud were not repeated for this run: they are those of an
-earlier run (cloud samplings with 500 live points), whose cloud best fit was \(\bar\rho_\phi\) = 5.8 × 10⁶ g/cm³ and
-α = 0.19 (ln L 96.30, \(\mathcal{D}\) = 8.98), close to the present one. The same procedure on that fit injected into
-the 150 off-source segments gives \(\mathcal{D}\) around 25, the density and α recovered near the injected values
-(median 8.4 × 10⁶ g/cm³ and 0.16): 5.3% of these injections give \(\mathcal{D}\) ≤ 9.78. The event is above what noise gives around vacuum
-(p ≈ 0.01) and below what this cloud would give (≈ 5%): a weaker effect, or a noise fluctuation at 30 Hz on a
+**Between two distributions.** The same procedure on the event's cloud best fit injected into the 150 off-source
+segments gives \(\mathcal{D}\) around 25, the density and α recovered near the injected values (median 1.2 × 10⁷ g/cm³
+and 0.14 for 9.3 × 10⁶ and 0.16 injected): 3.3% of these injections give \(\mathcal{D}\) ≤ 9.78. The event is above what noise gives around vacuum
+(p ≈ 0.01) and below what this cloud would give (≈ 3%): a weaker effect, or a noise fluctuation at 30 Hz on a
 vacuum signal, fits both better than the best-fit cloud.
 
 ![Posteriors of the density and of the scalar mass](../img/modes/scalar_cloud_cloud_posteriors_GW190728.png)

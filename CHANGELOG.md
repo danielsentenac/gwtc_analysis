@@ -30,8 +30,8 @@
 - **scalar_cloud** docs: the GW190728 section follows a new full run with the paper's 1000 live points for the
   three samplings: 𝒟 = 9.78 (was 8.98), p = 0.013 against 150 vacuum injections, ln B = 1.06 ± 0.24 with the
   superradiance prior and −1.21 ± 0.25 with the agnostic one (were 1.34 and −0.82); boson mass 0.67–1.17 × 10⁻¹² eV,
-  continuous waves at 324–568 Hz. The injections of a cloud best fit are those of the earlier run. The
-  matched-filter figure replaces the whitened strain overlay.
+  continuous waves at 324–568 Hz; 3.3% of the 150 injections of the cloud best fit at or below the event's 𝒟
+  (was 4.7%). The matched-filter figure replaces the whitened strain overlay.
 - **continuous_waves**: the default boson band is the one of the new scalar_cloud run of GW190728,
   0.67–0.86–1.17 × 10⁻¹² eV (was 0.70–0.89–1.17): 324–566 Hz, light black holes of 8–30 M☉ at 1 kpc, young clouds
   excluded out to 16–36 kpc.
