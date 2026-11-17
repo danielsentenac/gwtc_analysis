@@ -70,6 +70,10 @@
   1.9 → 0.7 GB for counterpart on GW190521.
 - **Galaxy wrapper**: regenerated for this version: the new event_selection options, `--area-max` (missing so
   far), credible levels as numbers between 0 and 1, and without the `--pe-distance-prior` that counterpart refuses.
+  From the tools-iuc review (#8543): primordial_black_holes added and check_catalogs left out, event names
+  required with a validator or a select, `--galaxies` as a select with a history dataset, at least two inputs for
+  a joint H₀, a nested search conditional for search_skymaps, tests in the tool XML, `${GALAXY_SLOTS:-N}` quoted,
+  and no `export USER` line.
 - **Tests**: a GitHub workflow runs the unit tests (without those that need the network) on each push to `main`
   and on pull requests.
 - **Shared caches**: one writer per file. A run that needs a file another run (or thread) is downloading into the
@@ -80,6 +84,15 @@
   the working directory first (two runs started in one directory lost each other's plots).
 - **GLADE+**: when the CDS VizieR fails, the queries (galaxy_catalog, the host-galaxy candidates of parameters_estimation) go
   to its CfA mirror, and stay there for the rest of the run.
+- Documentation: on the home page, a waveform gallery of eight representative binaries and the detector-frame
+  primary-mass distribution above the source-frame one; ISCO in the glossary. Stochastic background: table and
+  figure from one run (BBH 5.9, BNS 0.30, NSBH 0.95, total 7.5 (5.3–12.0) × 10⁻¹⁰ at 25 Hz; the earlier figure
+  came from another run than the table), with the systematics rechecked against it. event_selection: the
+  hierarchical preset explained (unequal masses, GW231123, GW241011 and GW241110). primordial_black_holes: how to
+  read the limits, and the comparison with Andrés-Carcasona et al. (`--attribute none` on O3 + O4a within 1.0–1.4
+  of their astrophysics-only limits). scalar_cloud: the GW190728 density against the paper's Fig. 3, per prior.
+  hubble_constant: why the upper side of GW170817 is wider than in the paper. Run dates removed from the mode
+  pages; a formula of lens_pairs that did not render.
 
 ### Fixes
 
